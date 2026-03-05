@@ -15,7 +15,7 @@ const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>{title} | Make Me Rich AI</title>
+    <title>{title} | Make Me Rich, AI</title>
     <meta name="description" content={description} />
     <link rel="canonical" href={canonicalUrl} />
 
@@ -30,14 +30,14 @@ const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
     <meta name="twitter:description" content={description} />
 
     <link rel="sitemap" href="/sitemap-index.xml" />
-    <link rel="alternate" type="application/rss+xml" title="Make Me Rich AI" href="/rss.xml" />
+    <link rel="alternate" type="application/rss+xml" title="Make Me Rich, AI" href="/rss.xml" />
 
     <script
       type="application/ld+json"
       set:html={JSON.stringify({
         '@context': 'https://schema.org',
         '@type': 'WebSite',
-        name: 'Make Me Rich AI',
+        name: 'Make Me Rich, AI',
         url: siteUrl,
         author: { '@type': 'Person', name: 'jidonglab' },
       })}
@@ -47,7 +47,7 @@ const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
     <header class="border-b border-border">
       <nav class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
         <a href="/" class="font-display font-bold text-lg text-heading no-underline hover:text-accent-dark transition-colors">
-          Make Me Rich AI
+          Make Me Rich, AI
         </a>
         <div class="flex items-center gap-6 text-sm text-muted">
           <a href="/projects" class="hover:text-heading no-underline transition-colors">Projects</a>

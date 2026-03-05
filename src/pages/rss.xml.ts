@@ -23,7 +23,7 @@ export async function GET(context: any) {
   ].sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
 
   return rss({
-    title: 'Make Me Rich AI',
+    title: 'Make Me Rich, AI',
     description: 'AI로 프로덕트를 만들고 수익화하는 기록',
     site: context.site,
     items,
