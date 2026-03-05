@@ -1,0 +1,40 @@
+---
+import Base from '../../layouts/Base.astro';
+import { fetchArticles, fetchArticleBySlug } from '../../lib/devto';
+
+export async function getStaticPaths() {
+  const articles = await fetchArticles();
+  return articles.map((a) => ({
+    params: { slug: a.slug },
+    props: { articleSlug: a.slug },
+  }));
+}
+
+const { articleSlug } = Astro.props;
+const article = await fetchArticleBySlug(articleSlug);
+if (!article) return Astro.redirect('/posts');
+const dateStr = article.published_at.split('T')[0];
+---
+
+<Base title={article.title} description={article.description}>
+  <link rel="canonical" href={article.url} slot="head" />
+  <article class="fade-in">
+    <header class="mb-10">
+      <div class="flex items-center gap-2 mb-3 text-xs" style="color:#9ca3af">
+        <span class="font-mono" style="color:#3b82f6">DEV.to</span>
+        <time>{dateStr}</time>
+        <span>{article.reading_time_minutes}분</span>
+        <a href={article.url} target="_blank" rel="noopener" class="font-mono ml-auto">원문 →</a>
+      </div>
+      <h1 class="text-2xl font-display font-bold leading-snug" style="color:#111827">{article.title}</h1>
+      {article.tag_list.length > 0 && (
+        <div class="flex gap-1.5 mt-3">
+          {article.tag_list.map((tag) => (
+            <span class="text-xs font-mono px-1.5 py-0.5 rounded" style="background:#f0fdf4;color:#059669;font-size:0.7rem">{tag}</span>
+          ))}
+        </div>
+      )}
+    </header>
+    <div class="prose" set:html={article.body_html} />
+  </article>
+</Base>

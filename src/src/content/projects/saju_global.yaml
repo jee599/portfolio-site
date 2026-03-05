@@ -1,0 +1,7 @@
+title: "사주 분석 앱"
+url: "https://fortunelab.vercel.app"
+github: "https://github.com/jee599/saju"
+status: "운영중"
+stack: ["Next.js", "Supabase", "OpenAI API", "Vercel"]
+one_liner: "만세력 엔진 + LLM 해석을 결합한 사주 분석 서비스"
+order: 1

@@ -1,0 +1,98 @@
+---
+import Base from '../layouts/Base.astro';
+import ProjectCard from '../components/ProjectCard.astro';
+import PostCard from '../components/PostCard.astro';
+import { getCollection } from 'astro:content';
+import { fetchArticles } from '../lib/devto';
+
+const projects = await getCollection('projects');
+const buildLogs = (await getCollection('build-logs'))
+  .filter((p) => p.data.lang === 'ko')
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const tips = (await getCollection('tips'))
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const devtoArticles = await fetchArticles();
+
+type PostItem = {
+  title: string;
+  href: string;
+  date: string;
+  type: 'build-log' | 'tip' | 'blog';
+  project?: string;
+  description?: string;
+};
+
+const allPosts: PostItem[] = [
+  ...buildLogs.map((p) => ({
+    title: p.data.title,
+    href: `/posts/${p.slug}`,
+    date: p.data.date.toISOString().split('T')[0],
+    type: 'build-log' as const,
+    project: p.data.project,
+  })),
+  ...tips.map((p) => ({
+    title: p.data.title,
+    href: `/posts/${p.slug}`,
+    date: p.data.date.toISOString().split('T')[0],
+    type: 'tip' as const,
+  })),
+  ...devtoArticles.map((a) => ({
+    title: a.title,
+    href: `/blog/${a.slug}`,
+    date: a.published_at.split('T')[0],
+    type: 'blog' as const,
+    description: a.description,
+  })),
+].sort((a, b) => b.date.localeCompare(a.date));
+
+const recentPosts = allPosts.slice(0, 10);
+---
+
+<Base title="Home">
+  <section class="mb-14 fade-in">
+    <h1 class="text-2xl font-display font-bold mb-2" style="color:#111827">
+      Make Me Rich, <span class="text-accent">AI</span>
+    </h1>
+    <p class="text-sm" style="color:#9ca3af">
+      AI로 프로덕트를 만들고, 수익화를 실험하고, 그 과정을 기록한다.
+    </p>
+  </section>
+
+  <section class="mb-14 fade-in stagger-1">
+    <h2 class="text-xs font-mono uppercase tracking-widest mb-4" style="color:#d1d5db">Projects</h2>
+    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {projects
+        .sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99))
+        .map((p) => (
+          <ProjectCard
+            slug={p.id.replace('.yaml', '')}
+            title={p.data.title}
+            one_liner={p.data.one_liner}
+            status={p.data.status}
+            stack={p.data.stack}
+            url={p.data.url}
+            github={p.data.github}
+          />
+        ))}
+    </div>
+  </section>
+
+  <section class="fade-in stagger-2">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xs font-mono uppercase tracking-widest" style="color:#d1d5db">Recent</h2>
+      <a href="/posts" class="text-xs font-mono" style="color:#9ca3af">전체 →</a>
+    </div>
+    <div>
+      {recentPosts.map((post) => (
+        <PostCard
+          title={post.title}
+          href={post.href}
+          date={post.date}
+          type={post.type}
+          project={post.project}
+          description={post.description}
+        />
+      ))}
+    </div>
+  </section>
+</Base>

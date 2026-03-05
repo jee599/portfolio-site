@@ -1,0 +1,6 @@
+title: "트레이딩 봇"
+github: "https://github.com/jee599/trading-bot"
+status: "개발중"
+stack: ["Python", "Binance API", "pandas", "backtrader"]
+one_liner: "암호화폐 자동 매매 봇. 백테스트 → 시뮬레이션 → 실거래"
+order: 2
