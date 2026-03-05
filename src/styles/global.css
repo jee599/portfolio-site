@@ -8,6 +8,8 @@
   html {
     @apply bg-bg text-text font-body;
     scroll-behavior: smooth;
+    font-size: 16px;
+    line-height: 1.8;
   }
 
   ::selection {
@@ -28,20 +30,44 @@
 }
 
 @layer components {
+  .prose {
+    @apply text-text leading-relaxed;
+    font-size: 16.5px;
+    line-height: 1.85;
+    max-width: 680px;
+  }
+
   .prose h2 {
-    @apply text-xl font-display font-bold text-heading mt-10 mb-4;
+    @apply text-2xl font-display font-bold text-heading mt-14 mb-6;
+    letter-spacing: -0.01em;
+  }
+
+  .prose h3 {
+    @apply text-lg font-display font-bold text-heading mt-10 mb-4;
   }
 
   .prose p {
-    @apply mb-4 leading-relaxed text-text;
+    @apply mb-6 leading-relaxed;
+  }
+
+  .prose li {
+    @apply mb-2;
+  }
+
+  .prose ul, .prose ol {
+    @apply mb-6 pl-5;
+  }
+
+  .prose strong {
+    @apply text-heading font-semibold;
   }
 
   .prose code {
-    @apply bg-surface px-1.5 py-0.5 rounded text-accent-dark text-sm;
+    @apply bg-accent-light/50 px-1.5 py-0.5 rounded text-accent-dark text-sm;
   }
 
   .prose pre {
-    @apply bg-surface border border-border rounded-lg p-4 my-6 overflow-x-auto;
+    @apply bg-surface border border-border rounded-xl p-5 my-8 overflow-x-auto text-sm leading-relaxed;
   }
 
   .prose pre code {
@@ -49,19 +75,40 @@
   }
 
   .prose blockquote {
-    @apply border-l-2 border-accent pl-4 italic text-muted my-6;
+    @apply border-l-[3px] border-accent pl-5 py-1 italic text-muted my-8;
+    background: linear-gradient(to right, rgba(16, 185, 129, 0.03), transparent);
   }
 
   .prose table {
-    @apply w-full my-6 text-sm;
+    @apply w-full my-8 text-sm;
+  }
+
+  .prose thead {
+    @apply border-b-2 border-border;
   }
 
   .prose th {
-    @apply text-left text-muted font-mono text-xs uppercase tracking-wider pb-2 border-b border-border;
+    @apply text-left text-heading font-semibold text-xs uppercase tracking-wider py-3 px-3;
   }
 
   .prose td {
-    @apply py-2 border-b border-border/50;
+    @apply py-3 px-3 border-b border-border/40;
+  }
+
+  .prose tr:hover td {
+    @apply bg-surface/50;
+  }
+
+  .prose hr {
+    @apply my-12 border-border;
+  }
+
+  .prose img {
+    @apply rounded-lg my-8;
+  }
+
+  .prose a {
+    @apply text-accent-dark font-medium underline underline-offset-4 decoration-accent/30 hover:decoration-accent;
   }
 }
 
