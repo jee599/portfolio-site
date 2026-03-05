@@ -1,0 +1,52 @@
+---
+import Base from './Base.astro';
+
+interface Props {
+  title: string;
+  date: Date;
+  project?: string;
+  tags?: string[];
+  pair?: string;
+  lang?: string;
+}
+
+const { title, date, project, tags = [], pair, lang } = Astro.props;
+const dateStr = date.toISOString().split('T')[0];
+---
+
+<Base title={title}>
+  <article class="fade-in">
+    <header class="mb-10">
+      {project && (
+        <a
+          href={`/projects/${project}`}
+          class="text-xs font-mono text-accent-dark no-underline uppercase tracking-widest"
+        >
+          {project}
+        </a>
+      )}
+      <h1 class="text-3xl font-display font-bold text-heading mt-2 mb-3">{title}</h1>
+      <div class="flex items-center gap-4 text-sm text-muted">
+        <time datetime={dateStr}>{dateStr}</time>
+        {lang && pair && (
+          <a href={`/posts/${pair}`} class="text-xs font-mono">
+            {lang === 'ko' ? 'EN →' : 'KO →'}
+          </a>
+        )}
+      </div>
+      {tags.length > 0 && (
+        <div class="flex gap-2 mt-3">
+          {tags.map((tag) => (
+            <span class="text-xs font-mono px-2 py-0.5 rounded bg-accent-light text-accent-dark">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
+    </header>
+
+    <div class="prose">
+      <slot />
+    </div>
+  </article>
+</Base>

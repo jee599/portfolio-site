@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    @apply bg-bg text-text font-body;
+    scroll-behavior: smooth;
+  }
+
+  ::selection {
+    @apply bg-accent-light text-accent-dark;
+  }
+
+  h1, h2, h3 {
+    @apply font-display text-heading;
+  }
+
+  code {
+    @apply font-mono text-sm;
+  }
+
+  a {
+    @apply text-accent-dark hover:text-accent hover:underline underline-offset-4 transition-colors;
+  }
+}
+
+@layer components {
+  .prose h2 {
+    @apply text-xl font-display font-bold text-heading mt-10 mb-4;
+  }
+
+  .prose p {
+    @apply mb-4 leading-relaxed text-text;
+  }
+
+  .prose code {
+    @apply bg-surface px-1.5 py-0.5 rounded text-accent-dark text-sm;
+  }
+
+  .prose pre {
+    @apply bg-surface border border-border rounded-lg p-4 my-6 overflow-x-auto;
+  }
+
+  .prose pre code {
+    @apply bg-transparent p-0 text-text;
+  }
+
+  .prose blockquote {
+    @apply border-l-2 border-accent pl-4 italic text-muted my-6;
+  }
+
+  .prose table {
+    @apply w-full my-6 text-sm;
+  }
+
+  .prose th {
+    @apply text-left text-muted font-mono text-xs uppercase tracking-wider pb-2 border-b border-border;
+  }
+
+  .prose td {
+    @apply py-2 border-b border-border/50;
+  }
+}
+
+.fade-in {
+  animation: fadeIn 0.5s ease-out forwards;
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  to { opacity: 1; }
+}
+
+.stagger-1 { animation-delay: 0.1s; }
+.stagger-2 { animation-delay: 0.2s; }
+.stagger-3 { animation-delay: 0.3s; }

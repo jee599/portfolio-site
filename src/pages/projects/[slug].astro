@@ -1,0 +1,84 @@
+---
+import Base from '../../layouts/Base.astro';
+import PostCard from '../../components/PostCard.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const projects = await getCollection('projects');
+  return projects.map((p) => ({
+    params: { slug: p.id.replace('.yaml', '') },
+    props: { project: p },
+  }));
+}
+
+const { project } = Astro.props;
+const slug = Astro.params.slug;
+const d = project.data;
+
+const buildLogs = (await getCollection('build-logs'))
+  .filter((p) => p.data.project === slug && p.data.lang === 'ko')
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+const statusColor: Record<string, string> = {
+  '운영중': 'text-accent',
+  '개발중': 'text-blue-500',
+  '실험중': 'text-warning',
+  '중단': 'text-danger',
+};
+---
+
+<Base title={d.title} description={d.one_liner}>
+  <article class="fade-in">
+    <header class="mb-10">
+      <div class="flex items-center gap-3 mb-3">
+        <span class={`text-xs font-mono ${statusColor[d.status] || 'text-muted'}`}>
+          {d.status}
+        </span>
+      </div>
+      <h1 class="text-3xl font-display font-bold text-heading mb-3">{d.title}</h1>
+      <p class="text-lg text-muted mb-4">{d.one_liner}</p>
+
+      <div class="flex gap-3 text-sm">
+        {d.url && (
+          <a href={d.url} target="_blank" rel="noopener" class="font-mono">
+            사이트 →
+          </a>
+        )}
+        <a href={d.github} target="_blank" rel="noopener" class="font-mono">
+          GitHub →
+        </a>
+      </div>
+
+      <div class="flex flex-wrap gap-2 mt-4">
+        {d.stack.map((tech: string) => (
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-accent-light text-accent-dark">
+            {tech}
+          </span>
+        ))}
+      </div>
+    </header>
+
+    {buildLogs.length > 0 && (
+      <section>
+        <h2 class="text-sm font-mono text-muted uppercase tracking-widest mb-6">
+          Build Logs
+        </h2>
+        <div>
+          {buildLogs.map((log) => (
+            <PostCard
+              title={log.data.title}
+              href={`/posts/${log.slug}`}
+              date={log.data.date.toISOString().split('T')[0]}
+              type="build-log"
+              project={log.data.project}
+            />
+          ))}
+        </div>
+      </section>
+    )}
+
+    {buildLogs.length === 0 && (
+      <p class="text-muted text-sm">아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다.</p>
+    )}
+  </article>
+</Base>

@@ -1,0 +1,6 @@
+title: "커피챗"
+github: "https://github.com/jee599/coffee-chat"
+status: "실험중"
+stack: ["Next.js", "Supabase"]
+one_liner: "AI 매칭 기반 커피챗 플랫폼"
+order: 3

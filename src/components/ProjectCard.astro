@@ -1,0 +1,42 @@
+---
+interface Props {
+  slug: string;
+  title: string;
+  one_liner: string;
+  status: string;
+  stack: string[];
+  url?: string;
+  github: string;
+}
+
+const { slug, title, one_liner, status, stack, url, github } = Astro.props;
+
+const statusColor: Record<string, string> = {
+  '운영중': 'text-accent',
+  '개발중': 'text-blue-500',
+  '실험중': 'text-warning',
+  '중단': 'text-danger',
+};
+---
+
+<a
+  href={`/projects/${slug}`}
+  class="block group p-5 rounded-lg bg-surface border border-border hover:border-accent/50 hover:shadow-sm transition-all duration-300 no-underline"
+>
+  <div class="flex items-start justify-between mb-3">
+    <h3 class="font-display font-bold text-heading group-hover:text-accent-dark transition-colors">
+      {title}
+    </h3>
+    <span class={`text-xs font-mono ${statusColor[status] || 'text-muted'}`}>
+      {status}
+    </span>
+  </div>
+  <p class="text-sm text-muted mb-4 leading-relaxed">{one_liner}</p>
+  <div class="flex flex-wrap gap-1.5">
+    {stack.map((tech) => (
+      <span class="text-xs font-mono px-1.5 py-0.5 rounded bg-accent-light text-accent-dark">
+        {tech}
+      </span>
+    ))}
+  </div>
+</a>

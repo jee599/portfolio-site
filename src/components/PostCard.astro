@@ -1,0 +1,36 @@
+---
+interface Props {
+  title: string;
+  href: string;
+  date: string;
+  type: 'build-log' | 'tip' | 'blog';
+  project?: string;
+  tags?: string[];
+  description?: string;
+}
+
+const { title, href, date, type, project, tags = [], description } = Astro.props;
+
+const typeLabel: Record<string, { text: string; color: string }> = {
+  'build-log': { text: 'Build Log', color: 'text-accent-dark' },
+  tip: { text: 'AI Tip', color: 'text-warning' },
+  blog: { text: 'Blog', color: 'text-blue-500' },
+};
+
+const { text: labelText, color: labelColor } = typeLabel[type];
+---
+
+<a
+  href={href}
+  class="block group py-4 border-b border-border/50 hover:border-accent/30 transition-colors no-underline"
+>
+  <div class="flex items-center gap-3 mb-1.5">
+    <span class={`text-xs font-mono ${labelColor}`}>{labelText}</span>
+    {project && <span class="text-xs font-mono text-muted">{project}</span>}
+    <time class="text-xs text-muted ml-auto">{date}</time>
+  </div>
+  <h3 class="font-display font-medium text-heading group-hover:text-accent-dark transition-colors">
+    {title}
+  </h3>
+  {description && <p class="text-sm text-muted mt-1 line-clamp-1">{description}</p>}
+</a>
