@@ -1,0 +1,38 @@
+name: Receive Build Log
+
+on:
+  repository_dispatch:
+    types: [sync-build-log]
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Write build log files
+        run: |
+          echo "Received build log from ${{ github.event.client_payload.project }}"
+
+          # Write each file from the payload
+          for file in $(echo '${{ toJson(github.event.client_payload.files) }}' | jq -r 'keys[]'); do
+            content=$(echo '${{ toJson(github.event.client_payload.files) }}' | jq -r --arg f "$file" '.[$f]')
+            filepath="src/content/build-logs/${file}"
+            echo "$content" > "$filepath"
+            echo "Wrote $filepath"
+          done
+
+      - name: Commit and push
+        run: |
+          git config user.name "Build Log Bot"
+          git config user.email "bot@jidonglab.com"
+          git add src/content/build-logs/
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "auto: sync from ${{ github.event.client_payload.project }}"
+            git push
+          fi

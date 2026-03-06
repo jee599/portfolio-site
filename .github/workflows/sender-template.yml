@@ -1,0 +1,107 @@
+# =============================================================
+# TEMPLATE: Copy this to your SOURCE repos (e.g., saju, trading-bot)
+# Place at: .github/workflows/sync-build-log.yml
+#
+# Requirements:
+#   1. Repository secret PORTFOLIO_PAT with repo scope
+#      (Settings > Secrets > Actions > New repository secret)
+#   2. Claude CLI installed in the runner (or use npx @anthropic-ai/claude-code)
+#   3. ANTHROPIC_API_KEY secret for Claude CLI
+# =============================================================
+
+name: Generate & Sync Build Log
+
+on:
+  push:
+    branches: [main, master]
+
+jobs:
+  build-log:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 20
+
+      - name: Get recent commits
+        id: commits
+        run: |
+          COMMITS=$(git log --oneline -10)
+          echo "log<<EOF" >> $GITHUB_OUTPUT
+          echo "$COMMITS" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Generate build log with Claude
+        id: generate
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          # Install Claude CLI
+          npm install -g @anthropic-ai/claude-code
+
+          DATE=$(date +%Y-%m-%d)
+          REPO_NAME="${{ github.event.repository.name }}"
+          SLUG=$(echo "${{ github.event.head_commit.message }}" | head -1 | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9]/-/g' | sed 's/--*/-/g' | head -c 50)
+
+          # Generate EN build log
+          claude -p "You are a build log writer for a developer portfolio. Based on these recent commits, write a concise build log in markdown (WITHOUT frontmatter). Focus on what was built, how, and results. Commits: ${{ steps.commits.outputs.log }}" > /tmp/build-log-en.md || echo "Claude generation failed" > /tmp/build-log-en.md
+
+          # Generate KO build log
+          claude -p "You are a build log writer for a developer portfolio. Based on these recent commits, write the same build log in Korean markdown (WITHOUT frontmatter). Focus on what was built, how, and results. Commits: ${{ steps.commits.outputs.log }}" > /tmp/build-log-ko.md || echo "Claude 생성 실패" > /tmp/build-log-ko.md
+
+          # Add frontmatter
+          EN_FILE="${DATE}-${SLUG}-en.md"
+          KO_FILE="${DATE}-${SLUG}-ko.md"
+
+          {
+            echo "---"
+            echo "title: \"$(head -1 /tmp/build-log-en.md | sed 's/^#\s*//')\""
+            echo "project: \"${REPO_NAME}\""
+            echo "date: ${DATE}"
+            echo "lang: en"
+            echo "pair: \"${DATE}-${SLUG}-ko\""
+            echo "tags: [auto-generated]"
+            echo "---"
+            echo ""
+            cat /tmp/build-log-en.md
+          } > /tmp/${EN_FILE}
+
+          {
+            echo "---"
+            echo "title: \"$(head -1 /tmp/build-log-ko.md | sed 's/^#\s*//')\""
+            echo "project: \"${REPO_NAME}\""
+            echo "date: ${DATE}"
+            echo "lang: ko"
+            echo "pair: \"${DATE}-${SLUG}-en\""
+            echo "tags: [auto-generated]"
+            echo "---"
+            echo ""
+            cat /tmp/build-log-ko.md
+          } > /tmp/${KO_FILE}
+
+          echo "en_file=${EN_FILE}" >> $GITHUB_OUTPUT
+          echo "ko_file=${KO_FILE}" >> $GITHUB_OUTPUT
+
+      - name: Dispatch to portfolio-site
+        env:
+          PORTFOLIO_PAT: ${{ secrets.PORTFOLIO_PAT }}
+        run: |
+          EN_CONTENT=$(cat /tmp/${{ steps.generate.outputs.en_file }} | jq -Rs .)
+          KO_CONTENT=$(cat /tmp/${{ steps.generate.outputs.ko_file }} | jq -Rs .)
+
+          curl -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "Authorization: Bearer ${PORTFOLIO_PAT}" \
+            https://api.github.com/repos/jee599/portfolio-site/dispatches \
+            -d "{
+              \"event_type\": \"sync-build-log\",
+              \"client_payload\": {
+                \"project\": \"${{ github.event.repository.name }}\",
+                \"files\": {
+                  \"${{ steps.generate.outputs.en_file }}\": ${EN_CONTENT},
+                  \"${{ steps.generate.outputs.ko_file }}\": ${KO_CONTENT}
+                }
+              }
+            }"
+          echo "Dispatched build log to portfolio-site"
