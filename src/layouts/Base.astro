@@ -43,21 +43,21 @@ const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
       })}
     />
   </head>
-  <body class="min-h-screen" style="background: #f5f5f5;">
-    <header class="border-b border-border">
-      <nav class="max-w-4xl mx-auto px-6 py-4 flex items-center justify-between">
-        <a href="/" class="font-display font-bold text-lg text-heading no-underline hover:text-accent-dark transition-colors">
+  <body class="min-h-screen" style="background: #fff;">
+    <header style="border-bottom: 1px solid #f2f4f6;">
+      <nav style="max-width: 960px; margin: 0 auto; padding: 1rem 1.5rem; display: flex; align-items: center; justify-content: space-between;">
+        <a href="/" style="font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 700; font-size: 1.1rem; color: #191f28; text-decoration: none;">
           JiDong Lab
         </a>
-        <div class="flex items-center gap-6 text-sm text-muted">
-          <a href="/projects" class="hover:text-heading no-underline transition-colors">Projects</a>
-          <a href="/posts" class="hover:text-heading no-underline transition-colors">Posts</a>
-          <a href="/about" class="hover:text-heading no-underline transition-colors">About</a>
+        <div style="display: flex; align-items: center; gap: 1.75rem; font-size: 0.9rem;">
+          <a href="/projects" style="color: #4e5968; text-decoration: none;">Projects</a>
+          <a href="/posts" style="color: #4e5968; text-decoration: none;">Posts</a>
+          <a href="/about" style="color: #4e5968; text-decoration: none;">About</a>
           <a
             href="https://github.com/jee599"
             target="_blank"
             rel="noopener"
-            class="hover:text-heading no-underline transition-colors"
+            style="color: #4e5968; text-decoration: none;"
           >
             GitHub
           </a>
@@ -65,14 +65,14 @@ const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
       </nav>
     </header>
 
-    <main class="max-w-4xl mx-auto px-6 py-12">
+    <main style="max-width: 960px; margin: 0 auto; padding: 3rem 1.5rem;">
       <slot />
     </main>
 
-    <footer class="border-t border-border mt-20">
-      <div class="max-w-4xl mx-auto px-6 py-8 text-center text-sm text-muted">
+    <footer style="border-top: 1px solid #f2f4f6; margin-top: 4rem;">
+      <div style="max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; text-align: center; font-size: 0.8rem; color: #8b95a1;">
         <p>Built with Astro + Claude Code. All build logs auto-generated.</p>
-        <p class="mt-1">© {new Date().getFullYear()} jidonglab</p>
+        <p style="margin-top: 0.25rem;">© {new Date().getFullYear()} jidonglab</p>
       </div>
     </footer>
   </body>

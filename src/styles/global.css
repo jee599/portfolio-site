@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,19 +6,23 @@
 
 @layer base {
   html {
-    @apply bg-bg text-text font-body;
+    @apply text-text font-body;
     scroll-behavior: smooth;
     font-size: 16px;
     line-height: 1.8;
+    background: #fff;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    background: #dbeafe;
-    color: #1e40af;
+    background: #e8f3ff;
+    color: #1b64da;
   }
 
   h1, h2, h3 {
-    @apply font-display text-heading;
+    @apply text-heading;
+    font-family: 'IBM Plex Sans KR', sans-serif;
   }
 
   code {
@@ -26,64 +30,65 @@
   }
 
   a {
-    @apply text-accent-dark hover:text-accent hover:underline underline-offset-4 transition-colors;
+    color: inherit;
+    text-decoration: none;
+    transition: color 0.15s;
   }
 }
 
 @layer components {
   /* ═══════════════════════════════════════
-     PROSE — dev.to style
-     Clean, readable, minimal decoration
+     PROSE — Toss Tech style
+     Pure typography. No decoration.
      ═══════════════════════════════════════ */
 
   .prose {
-    font-size: 1.125rem;
-    line-height: 2;
-    color: #1f2937;
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-size: 1.0625rem;
+    line-height: 1.9;
+    color: #333d4b;
     word-break: keep-all;
     overflow-wrap: break-word;
   }
 
-  /* ─── Headings: just big and bold, no borders ─── */
+  /* ─── Headings ─── */
   .prose h2 {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 1.65rem;
+    font-size: 1.5rem;
     font-weight: 700;
-    color: #0f172a;
-    margin-top: 3.5rem;
-    margin-bottom: 1rem;
-    letter-spacing: -0.025em;
-    line-height: 1.3;
+    color: #191f28;
+    margin-top: 4rem;
+    margin-bottom: 1.25rem;
+    letter-spacing: -0.02em;
+    line-height: 1.4;
   }
 
   .prose h3 {
-    font-family: 'DM Sans', sans-serif;
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #0f172a;
-    margin-top: 2.5rem;
-    margin-bottom: 0.75rem;
+    font-size: 1.2rem;
+    font-weight: 600;
+    color: #191f28;
+    margin-top: 3rem;
+    margin-bottom: 1rem;
     letter-spacing: -0.01em;
-    line-height: 1.4;
+    line-height: 1.45;
   }
 
   /* ─── Paragraphs ─── */
   .prose p {
-    margin-bottom: 1.75rem;
-    color: #1f2937;
-    line-height: 2;
+    margin-bottom: 1.8rem;
+    color: #333d4b;
+    line-height: 1.9;
   }
 
-  /* ─── Bold: just bold, black ─── */
+  /* ─── Bold ─── */
   .prose strong {
-    font-weight: 700;
-    color: #0f172a;
+    font-weight: 600;
+    color: #191f28;
   }
 
   /* ─── Lists ─── */
   .prose ul, .prose ol {
-    margin-bottom: 1.75rem;
-    padding-left: 1.5rem;
+    margin-bottom: 1.8rem;
+    padding-left: 1.25rem;
   }
 
   .prose ol {
@@ -95,33 +100,32 @@
   }
 
   .prose li {
-    margin-bottom: 0.6rem;
-    color: #1f2937;
-    line-height: 1.9;
+    margin-bottom: 0.5rem;
+    color: #333d4b;
+    line-height: 1.85;
   }
 
-  /* ─── Inline code: gray pill, no border ─── */
+  /* ─── Inline code ─── */
   .prose code {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.875em;
-    background: #f1f5f9;
-    color: #334155;
-    padding: 0.15rem 0.4rem;
+    font-size: 0.85em;
+    background: #f2f4f6;
+    color: #333d4b;
+    padding: 0.2rem 0.45rem;
     border-radius: 4px;
     font-weight: 400;
   }
 
-  /* ─── Code blocks: dark, clean ─── */
+  /* ─── Code blocks ─── */
   .prose pre {
-    background: #0d1117;
-    color: #e6edf3;
-    padding: 1.25rem 1.5rem;
-    border-radius: 8px;
+    background: #191f28;
+    color: #e4e9f0;
+    padding: 1.5rem 1.75rem;
+    border-radius: 10px;
     margin: 2rem 0;
     overflow-x: auto;
     font-size: 0.875rem;
-    line-height: 1.6;
-    border: 1px solid #30363d;
+    line-height: 1.7;
   }
 
   .prose pre code {
@@ -132,16 +136,17 @@
     border-radius: 0;
   }
 
-  /* ─── Blockquote: simple left border ─── */
+  /* ─── Blockquote ─── */
   .prose blockquote {
-    border-left: 3px solid #d1d5db;
-    padding: 0.1rem 0 0.1rem 1.25rem;
+    border-left: 3px solid #d1d6db;
+    padding: 0.25rem 0 0.25rem 1.25rem;
     margin: 2rem 0;
-    color: #4b5563;
+    color: #6b7684;
   }
 
   .prose blockquote p {
     margin-bottom: 0;
+    color: #6b7684;
   }
 
   /* ─── Tables ─── */
@@ -153,21 +158,21 @@
   }
 
   .prose thead {
-    border-bottom: 2px solid #e5e7eb;
+    border-bottom: 2px solid #e5e8eb;
   }
 
   .prose th {
     text-align: left;
     font-weight: 600;
-    color: #0f172a;
-    padding: 0.6rem 0.75rem;
+    color: #191f28;
+    padding: 0.75rem 1rem;
     font-size: 0.85rem;
   }
 
   .prose td {
-    padding: 0.6rem 0.75rem;
-    border-bottom: 1px solid #f3f4f6;
-    color: #374151;
+    padding: 0.75rem 1rem;
+    border-bottom: 1px solid #f2f4f6;
+    color: #333d4b;
   }
 
   .prose tr:hover td {
@@ -177,34 +182,33 @@
   /* ─── HR ─── */
   .prose hr {
     border: none;
-    border-top: 1px solid #e5e7eb;
-    margin: 2.5rem 0;
+    border-top: 1px solid #e5e8eb;
+    margin: 3.5rem 0;
   }
 
   /* ─── Images ─── */
   .prose img {
-    border-radius: 8px;
-    margin: 2rem 0;
+    border-radius: 10px;
+    margin: 2.5rem 0;
+    width: 100%;
   }
 
-  /* ─── Links: blue like dev.to ─── */
+  /* ─── Links ─── */
   .prose a {
-    color: #3b82f6;
+    color: #3182f6;
     text-decoration: none;
   }
 
   .prose a:hover {
-    color: #2563eb;
     text-decoration: underline;
   }
 
   /* ─── Stats callout box ─── */
   .prose .callout-stats {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    padding: 1.25rem 1.5rem;
-    margin: 2rem 0;
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 1.5rem 1.75rem;
+    margin: 2.5rem 0;
   }
 
   .prose .callout-stats .stat-grid {
@@ -226,48 +230,43 @@
 
   .prose .callout-stats .stat-value {
     display: block;
-    font-family: 'DM Sans', sans-serif;
     font-size: 1.5rem;
     font-weight: 700;
-    color: #0f172a;
+    color: #191f28;
   }
 
   .prose .callout-stats .stat-label {
     display: block;
     font-size: 0.7rem;
-    color: #6b7280;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    margin-top: 0.15rem;
+    color: #8b95a1;
+    letter-spacing: 0.04em;
+    margin-top: 0.2rem;
   }
 
   /* ─── Inline highlight ─── */
   .prose .highlight {
-    font-weight: 700;
-    color: #0f172a;
-    background: #fef9c3;
-    padding: 0.1rem 0.35rem;
-    border-radius: 3px;
+    font-weight: 600;
+    color: #191f28;
   }
 
   /* ─── Commit log ─── */
   .prose .commit-log {
-    background: #0d1117;
-    color: #8b949e;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 1rem 1.25rem;
-    margin: 2rem 0;
+    background: #191f28;
+    color: #8b95a1;
+    border-radius: 10px;
+    padding: 1.25rem 1.5rem;
+    margin: 2.5rem 0;
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.8rem;
+    line-height: 1.8;
   }
 
   .prose .commit-log > div {
-    padding: 0.25rem 0;
+    padding: 0.2rem 0;
   }
 
   .prose .commit-log .hash {
-    color: #79c0ff;
+    color: #3182f6;
   }
 }
 
