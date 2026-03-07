@@ -7,27 +7,63 @@ pair: "2026-03-05-loading-analysis-ui-ko"
 tags: [ui, three.js, loading, ux]
 ---
 
-## What I built
+Two commits to clean up the loading-analysis page.
 
-Two commits to clean up the loading-analysis page. First: removed opaque background CSS so the Three.js CosmicBackground finally shows through. Second: fixed a layout bug where education slides were colliding with the status bar, added manual prev/next arrow buttons for desktop, and wired up localStorage-averaged LLM response times to show a dynamic "~N seconds" estimate.
+First: removed opaque background CSS so the Three.js CosmicBackground finally shows through.
 
-## How it went
+Second: fixed a layout bug, added manual slide arrows for desktop, and wired up smart ETA.
 
-The Three.js background issue was embarrassingly simple. `.loadingAnalysis`, `.loadingAurora`, and `.loadingParticles` all had hardcoded dark background colors in globals.css — they were sitting on top of the canvas at z-index -2. Switching them to `transparent` fixed it immediately. The entire change was 3 lines kept vs 18 lines removed.
 
-The second commit was proper UX work. The `.eduSlide.in` class had a `translateY(-6vh)` that was visually overlapping the status bar at the top of the page. Resetting it to `translateY(0)` fixed the overlap and forced a rethink of the slide container layout. I added `.eduSlideWrap` as a relative-positioned wrapper for the arrows, with the arrows hidden on touch devices via `@media (hover: hover)`.
+## The background was blocking everything
 
-The smart ETA stores the last 3 LLM round-trip times in localStorage under a `fortuneTimings` key, averages them, and shows it below the "analyzing" label. First-time users see a static fallback. It's a small touch but makes the wait feel less ambiguous.
+`.loadingAnalysis`, `.loadingAurora`, and `.loadingParticles` all had hardcoded dark background colors in globals.css.
 
-I split this into two separate Claude prompts deliberately. The first was scoped to just transparency. The second covered the overlap fix, arrows, and ETA logic. Bundling them would have invited too much refactoring outside the actual problem.
+They were sitting on top of the canvas at z-index -2.
 
-Key prompt: `"eduSlide is overlapping the status bar due to translateY(-6vh). Fix that. Also add prev/next arrows for desktop manual slide control. Track average LLM response time in localStorage and show it as estimated time below the stage label."`
+Switching them to `transparent` fixed it immediately.
 
-## Commit log
+The entire change was 3 lines kept vs 18 lines removed.
 
-- `5d100bc` fix(ui): make loading page backgrounds transparent for 3D cosmic background
-- `88ef23f` feat(loading): fix UI overlap, add slide arrows, smart estimated time
 
-## Numbers
+## Education slides were colliding with the status bar
 
-globals.css: -18 lines (opaque backgrounds removed), +54 lines (arrows + timer layout) = +36 net. page.tsx: +49 lines for slide state management and localStorage averaging logic.
+The `.eduSlide.in` class had a `translateY(-6vh)` that was visually overlapping the status bar at the top.
+
+Resetting it to `translateY(0)` fixed the overlap and forced a rethink of the slide container layout.
+
+I added `.eduSlideWrap` as a relative-positioned wrapper for the arrows.
+
+Arrows are hidden on touch devices via `@media (hover: hover)`.
+
+
+## Smart ETA
+
+The smart ETA stores the last 3 LLM round-trip times in localStorage under a `fortuneTimings` key.
+
+It averages them and shows the result below the "analyzing" label.
+
+First-time users see a static fallback.
+
+It's a small touch but makes the wait feel less ambiguous.
+
+
+## Prompt strategy
+
+I split this into two separate Claude prompts deliberately.
+
+The first was scoped to just transparency. The second covered the overlap fix, arrows, and ETA logic.
+
+Bundling them would have invited too much refactoring outside the actual problem.
+
+> "eduSlide is overlapping the status bar due to translateY(-6vh). Fix that. Also add prev/next arrows for desktop manual slide control. Track average LLM response time in localStorage and show it as estimated time."
+
+---
+
+<div class="commit-log">
+<div><span class="hash">5d100bc</span> fix(ui): make loading page backgrounds transparent</div>
+<div><span class="hash">88ef23f</span> feat(loading): fix UI overlap, add slide arrows, smart estimated time</div>
+</div>
+
+globals.css: -18 lines removed, +54 lines added = +36 net.
+
+page.tsx: +49 lines for slide state management and localStorage averaging logic.
