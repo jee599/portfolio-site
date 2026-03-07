@@ -20,11 +20,11 @@ const buildLogs = (await getCollection('build-logs'))
   .filter((p) => p.data.project === slug && p.data.lang === 'ko')
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
-const statusColors: Record<string, string> = {
-  '운영중': '#10b981',
-  '개발중': '#6c63ff',
-  '실험중': '#f59e0b',
-  '중단': '#ef4444',
+const statusColor: Record<string, string> = {
+  '운영중': 'text-accent',
+  '개발중': 'text-blue-500',
+  '실험중': 'text-warning',
+  '중단': 'text-danger',
 };
 ---
 
@@ -32,27 +32,27 @@ const statusColors: Record<string, string> = {
   <article class="fade-in">
     <header class="mb-10">
       <div class="flex items-center gap-3 mb-3">
-        <span class="text-xs font-mono" style={`color: ${statusColors[d.status] || '#7a7a9a'}`}>
+        <span class={`text-xs font-mono ${statusColor[d.status] || 'text-muted'}`}>
           {d.status}
         </span>
       </div>
-      <h1 class="text-3xl font-display font-bold mb-3" style="color: #e8e8f0;">{d.title}</h1>
-      <p class="text-lg mb-4" style="color: #7a7a9a;">{d.one_liner}</p>
+      <h1 class="text-3xl font-display font-bold text-heading mb-3">{d.title}</h1>
+      <p class="text-lg text-muted mb-4">{d.one_liner}</p>
 
       <div class="flex gap-3 text-sm">
         {d.url && (
-          <a href={d.url} target="_blank" rel="noopener" class="font-mono" style="color: #8b83ff;">
+          <a href={d.url} target="_blank" rel="noopener" class="font-mono text-accent">
             사이트 &rarr;
           </a>
         )}
-        <a href={d.github} target="_blank" rel="noopener" class="font-mono" style="color: #8b83ff;">
+        <a href={d.github} target="_blank" rel="noopener" class="font-mono text-accent">
           GitHub &rarr;
         </a>
       </div>
 
       <div class="flex flex-wrap gap-2 mt-4">
         {d.stack.map((tech: string) => (
-          <span class="text-xs font-mono px-2 py-0.5 rounded" style="background: rgba(108,99,255,0.1); color: #8b83ff;">
+          <span class="text-xs font-mono px-2 py-0.5 rounded bg-accent-light text-accent-dark">
             {tech}
           </span>
         ))}
@@ -61,7 +61,7 @@ const statusColors: Record<string, string> = {
 
     {buildLogs.length > 0 && (
       <section>
-        <h2 class="text-sm font-mono uppercase tracking-widest mb-6" style="color: #7a7a9a;">
+        <h2 class="text-sm font-mono text-muted uppercase tracking-widest mb-6">
           Build Logs
         </h2>
         <div>
@@ -79,7 +79,7 @@ const statusColors: Record<string, string> = {
     )}
 
     {buildLogs.length === 0 && (
-      <p class="text-sm" style="color: #7a7a9a;">아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다.</p>
+      <p class="text-muted text-sm">아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다.</p>
     )}
   </article>
 </Base>
