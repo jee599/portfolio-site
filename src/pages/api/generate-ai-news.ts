@@ -225,7 +225,7 @@ function generateMarkdown(
   // News section
   body += `## ${modelName} 오늘의 소식\n\n`;
   if (news.length === 0) {
-    body += `오늘은 ${modelName} 관련 주요 소식이 없었습니다.\n\n`;
+    body += `오늘은 ${modelName} 관련 주요 소식이 없었다.\n\n`;
   } else {
     news.forEach((item, i) => {
       body += `### ${i + 1}. ${item.title}\n\n`;
@@ -237,7 +237,7 @@ function generateMarkdown(
   // GitHub trending section (only for etc model to avoid duplication)
   if (model === 'etc' && trendingRepos.length > 0) {
     body += `## GitHub 트렌딩 AI 프로젝트\n\n`;
-    body += `전날 별(star)을 많이 받은 AI/LLM 관련 프로젝트입니다.\n\n`;
+    body += `전날 별(star)을 많이 받은 AI/LLM 관련 프로젝트다.\n\n`;
     trendingRepos.forEach((repo, i) => {
       body += `### ${i + 1}. ${repo.fullName}\n\n`;
       body += `${repo.description}\n\n`;
@@ -249,7 +249,7 @@ function generateMarkdown(
   }
 
   body += `---\n\n`;
-  body += `*이 포스트는 매일 아침 9시에 자동으로 생성됩니다.*\n`;
+  body += `*이 포스트는 매일 아침 9시에 자동으로 생성된다.*\n`;
   body += `*소스: Google Search, Hacker News, Reddit, GitHub Trending*\n`;
 
   return `${frontmatter}\n\n${body}`;

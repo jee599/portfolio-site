@@ -1,0 +1,7 @@
+title: "jidonglab.com"
+url: "https://jidonglab.com"
+github: "https://github.com/jee599/portfolio-site"
+status: "운영중"
+stack: ["Astro", "Tailwind", "Vercel", "Claude Code"]
+one_liner: "AI 연구 포트폴리오 + 자동 블로깅 사이트"
+order: 1

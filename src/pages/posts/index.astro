@@ -44,8 +44,8 @@ const allPosts: PostItem[] = [
 ].sort((a, b) => b.date.localeCompare(a.date));
 ---
 
-<Base title="Posts">
-  <h1 class="text-3xl font-display font-bold mb-8 fade-in" style="color: #e8e8f0;">Posts</h1>
+<Base title="AI Posts">
+  <h1 class="text-3xl font-display font-bold text-heading mb-8 fade-in">AI Posts</h1>
   <div class="fade-in stagger-1">
     {allPosts.map((post) => (
       <PostCard
