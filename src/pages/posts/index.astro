@@ -5,7 +5,6 @@ import { getCollection } from 'astro:content';
 import { fetchArticles } from '../../lib/devto';
 
 const buildLogs = (await getCollection('build-logs'))
-  .filter((p) => p.data.lang === 'ko')
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 const tips = (await getCollection('tips'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
@@ -21,6 +20,7 @@ type PostItem = {
   project?: string;
   description?: string;
   model?: string;
+  lang?: string;
 };
 
 const allPosts: PostItem[] = [
@@ -30,6 +30,7 @@ const allPosts: PostItem[] = [
     date: p.data.date.toISOString().split('T')[0],
     type: 'build-log' as const,
     project: p.data.project,
+    lang: p.data.lang,
   })),
   ...tips.map((p) => ({
     title: p.data.title,
@@ -88,7 +89,7 @@ const categories = [
 
   <div class="post-list fade-in stagger-2" id="post-list">
     {allPosts.map((post) => (
-      <div class="post-item" data-type={post.type}>
+      <div class={`post-item${post.lang ? ' lang-item' : ''}`} data-type={post.type} data-lang={post.lang || 'all'}>
         <PostCard
           title={post.title}
           href={post.href}
@@ -112,21 +113,41 @@ const categories = [
     const buttons = document.querySelectorAll('.cat-btn');
     const items = document.querySelectorAll('.post-item');
 
+    function filterPosts() {
+      const activeBtn = document.querySelector('.cat-btn.active');
+      const cat = activeBtn ? activeBtn.dataset.category : 'all';
+      const lang = localStorage.getItem('lang') || 'ko';
+
+      items.forEach(item => {
+        const matchesCat = cat === 'all' || item.dataset.type === cat;
+        const itemLang = item.dataset.lang;
+        const matchesLang = !itemLang || itemLang === 'all' || itemLang === lang;
+        item.style.display = matchesCat && matchesLang ? '' : 'none';
+      });
+    }
+
     buttons.forEach(btn => {
       btn.addEventListener('click', () => {
-        const cat = btn.dataset.category;
         buttons.forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-
-        items.forEach(item => {
-          if (cat === 'all' || item.dataset.type === cat) {
-            item.style.display = '';
-          } else {
-            item.style.display = 'none';
-          }
-        });
+        filterPosts();
       });
     });
+
+    // Re-filter when language changes
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'lang') filterPosts();
+    });
+
+    // Listen for lang toggle within same page
+    const langBtn = document.getElementById('lang-toggle');
+    if (langBtn) {
+      langBtn.addEventListener('click', () => {
+        setTimeout(filterPosts, 0);
+      });
+    }
+
+    filterPosts();
   });
 </script>
 
