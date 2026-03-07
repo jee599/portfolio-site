@@ -10,14 +10,15 @@
     scroll-behavior: smooth;
     font-size: 16px;
     line-height: 1.8;
-    background: #fff;
+    background: #0a0a0f;
+    color: #c8c8e0;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    background: #e8f3ff;
-    color: #1b64da;
+    background: rgba(108,99,255,0.3);
+    color: #e8e8f0;
   }
 
   h1, h2, h3 {
@@ -38,15 +39,21 @@
 
 @layer components {
   /* ═══════════════════════════════════════
-     PROSE — Toss Tech style
-     Pure typography. No decoration.
+     PROSE — AI Research Lab style
+     Dark, technical, precise.
+
+     [Code Display Rule]
+     All inline code (variable names, CSS values, file paths, class names)
+     uses JetBrains Mono + accent-tinted bg + subtle border.
+     e.g. `--bg-card`, `globals.css`, `.glassCard`, `rgba(13,11,20,0.72)`
+     are all rendered with this distinctive treatment.
      ═══════════════════════════════════════ */
 
   .prose {
     font-family: 'IBM Plex Sans KR', sans-serif;
     font-size: 1.0625rem;
     line-height: 1.9;
-    color: #333d4b;
+    color: #c8c8e0;
     word-break: keep-all;
     overflow-wrap: break-word;
   }
@@ -55,7 +62,7 @@
   .prose h2 {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #191f28;
+    color: #e8e8f0;
     margin-top: 4rem;
     margin-bottom: 1.25rem;
     letter-spacing: -0.02em;
@@ -65,7 +72,7 @@
   .prose h3 {
     font-size: 1.2rem;
     font-weight: 600;
-    color: #191f28;
+    color: #e8e8f0;
     margin-top: 3rem;
     margin-bottom: 1rem;
     letter-spacing: -0.01em;
@@ -75,14 +82,14 @@
   /* ─── Paragraphs ─── */
   .prose p {
     margin-bottom: 1.8rem;
-    color: #333d4b;
+    color: #c8c8e0;
     line-height: 1.9;
   }
 
   /* ─── Bold ─── */
   .prose strong {
     font-weight: 600;
-    color: #191f28;
+    color: #e8e8f0;
   }
 
   /* ─── Lists ─── */
@@ -101,31 +108,42 @@
 
   .prose li {
     margin-bottom: 0.5rem;
-    color: #333d4b;
+    color: #c8c8e0;
     line-height: 1.85;
   }
 
-  /* ─── Inline code ─── */
+  .prose li::marker {
+    color: #6c63ff;
+  }
+
+  /* ─── Inline code ───
+     Rule: code references like variable names (`--bg-card`),
+     file paths (`globals.css`), CSS values (`opacity: 0.12`),
+     class names (`.glassCard`) get accent-tinted mono treatment.
+     ─── */
   .prose code {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85em;
-    background: #f2f4f6;
-    color: #333d4b;
-    padding: 0.2rem 0.45rem;
-    border-radius: 4px;
+    font-size: 0.82em;
+    background: rgba(108,99,255,0.1);
+    color: #b8b3ff;
+    padding: 0.2rem 0.5rem;
+    border-radius: 5px;
+    border: 1px solid rgba(108,99,255,0.2);
     font-weight: 400;
+    white-space: nowrap;
   }
 
   /* ─── Code blocks ─── */
   .prose pre {
-    background: #191f28;
+    background: #0f0f1a;
     color: #e4e9f0;
     padding: 1.5rem 1.75rem;
-    border-radius: 10px;
+    border-radius: 12px;
     margin: 2rem 0;
     overflow-x: auto;
     font-size: 0.875rem;
     line-height: 1.7;
+    border: 1px solid #2a2a3e;
   }
 
   .prose pre code {
@@ -134,19 +152,21 @@
     padding: 0;
     font-weight: 400;
     border-radius: 0;
+    border: none;
+    white-space: pre;
   }
 
   /* ─── Blockquote ─── */
   .prose blockquote {
-    border-left: 3px solid #d1d6db;
+    border-left: 3px solid #6c63ff;
     padding: 0.25rem 0 0.25rem 1.25rem;
     margin: 2rem 0;
-    color: #6b7684;
+    color: #7a7a9a;
   }
 
   .prose blockquote p {
     margin-bottom: 0;
-    color: #6b7684;
+    color: #7a7a9a;
   }
 
   /* ─── Tables ─── */
@@ -158,51 +178,139 @@
   }
 
   .prose thead {
-    border-bottom: 2px solid #e5e8eb;
+    border-bottom: 2px solid #2a2a3e;
   }
 
   .prose th {
     text-align: left;
     font-weight: 600;
-    color: #191f28;
+    color: #e8e8f0;
     padding: 0.75rem 1rem;
     font-size: 0.85rem;
   }
 
   .prose td {
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid #f2f4f6;
-    color: #333d4b;
+    border-bottom: 1px solid #1a1a2e;
+    color: #c8c8e0;
   }
 
   .prose tr:hover td {
-    background: #f9fafb;
+    background: rgba(108,99,255,0.05);
   }
 
   /* ─── HR ─── */
   .prose hr {
     border: none;
-    border-top: 1px solid #e5e8eb;
+    border-top: 1px solid #2a2a3e;
     margin: 3.5rem 0;
   }
 
   /* ─── Images ─── */
   .prose img {
-    border-radius: 10px;
+    border-radius: 12px;
     margin: 2.5rem 0;
     width: 100%;
+    border: 1px solid #2a2a3e;
   }
 
   /* ─── Links ─── */
   .prose a {
-    color: #3182f6;
+    color: #8b83ff;
     text-decoration: none;
   }
 
   .prose a:hover {
     text-decoration: underline;
+    color: #a49dff;
   }
 
+  /* ═══════════════════════════════════════
+     SIDEBAR
+     ═══════════════════════════════════════ */
+  .site-layout {
+    display: flex;
+    max-width: 1200px;
+    margin: 0 auto;
+    gap: 0;
+  }
+
+  .site-sidebar {
+    width: 240px;
+    flex-shrink: 0;
+    padding: 2rem 1.5rem;
+    border-right: 1px solid #1a1a2e;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+  }
+
+  .site-main {
+    flex: 1;
+    min-width: 0;
+    padding: 3rem 2rem;
+  }
+
+  @media (max-width: 768px) {
+    .site-layout {
+      flex-direction: column;
+    }
+    .site-sidebar {
+      width: 100%;
+      height: auto;
+      position: relative;
+      border-right: none;
+      border-bottom: 1px solid #1a1a2e;
+      padding: 1rem 1.5rem;
+    }
+    .site-main {
+      padding: 2rem 1.5rem;
+    }
+  }
+
+  .sidebar-section {
+    margin-bottom: 2rem;
+  }
+
+  .sidebar-title {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #7a7a9a;
+    margin-bottom: 0.75rem;
+    padding-left: 0.5rem;
+  }
+
+  .sidebar-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    border-radius: 8px;
+    font-size: 0.875rem;
+    color: #c8c8e0;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .sidebar-link:hover {
+    background: rgba(108,99,255,0.08);
+    color: #e8e8f0;
+  }
+
+  .sidebar-link.active {
+    background: rgba(108,99,255,0.12);
+    color: #8b83ff;
+  }
+
+  .sidebar-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
 }
 
 /* ─── Animations ─── */
@@ -218,3 +326,12 @@
 .stagger-1 { animation-delay: 0.1s; }
 .stagger-2 { animation-delay: 0.2s; }
 .stagger-3 { animation-delay: 0.3s; }
+
+/* ─── Glow effects ─── */
+.glow-text {
+  text-shadow: 0 0 20px rgba(108,99,255,0.3);
+}
+
+.glow-border {
+  box-shadow: 0 0 15px rgba(108,99,255,0.1);
+}

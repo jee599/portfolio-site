@@ -3,34 +3,44 @@ interface Props {
   title: string;
   href: string;
   date: string;
-  type: 'build-log' | 'tip' | 'blog';
+  type: 'build-log' | 'tip' | 'blog' | 'ai-news';
   project?: string;
   tags?: string[];
   description?: string;
+  model?: string;
 }
 
-const { title, href, date, type, project, tags = [], description } = Astro.props;
+const { title, href, date, type, project, tags = [], description, model } = Astro.props;
 
 const typeLabel: Record<string, { text: string; color: string }> = {
-  'build-log': { text: 'Build Log', color: 'text-accent-dark' },
-  tip: { text: 'AI Tip', color: 'text-warning' },
-  blog: { text: 'Blog', color: 'text-blue-500' },
+  'build-log': { text: 'Build Log', color: '#6c63ff' },
+  tip: { text: 'AI Tip', color: '#f59e0b' },
+  blog: { text: 'Blog', color: '#4285f4' },
+  'ai-news': { text: 'AI News', color: '#10b981' },
 };
 
-const { text: labelText, color: labelColor } = typeLabel[type];
+const modelColors: Record<string, string> = {
+  claude: '#d97757',
+  gemini: '#4285f4',
+  gpt: '#10a37f',
+};
+
+const { text: labelText, color: labelColor } = typeLabel[type] || typeLabel.blog;
 ---
 
 <a
   href={href}
-  class="block group py-4 border-b border-border/50 hover:border-accent/30 transition-colors no-underline"
+  class="block group py-4 transition-colors no-underline"
+  style="border-bottom: 1px solid #1a1a2e;"
 >
   <div class="flex items-center gap-3 mb-1.5">
-    <span class={`text-xs font-mono ${labelColor}`}>{labelText}</span>
-    {project && <span class="text-xs font-mono text-muted">{project}</span>}
-    <time class="text-xs text-muted ml-auto">{date}</time>
+    <span class="text-xs font-mono" style={`color: ${labelColor}`}>{labelText}</span>
+    {model && <span class="text-xs font-mono" style={`color: ${modelColors[model] || '#7a7a9a'}`}>{model}</span>}
+    {project && <span class="text-xs font-mono" style="color: #7a7a9a;">{project}</span>}
+    <time class="text-xs ml-auto" style="color: #7a7a9a;">{date}</time>
   </div>
-  <h3 class="font-display font-medium text-heading group-hover:text-accent-dark transition-colors">
+  <h3 class="font-display font-medium transition-colors" style="color: #e8e8f0;">
     {title}
   </h3>
-  {description && <p class="text-sm text-muted mt-1 line-clamp-1">{description}</p>}
+  {description && <p class="text-sm mt-1 line-clamp-1" style="color: #7a7a9a;">{description}</p>}
 </a>

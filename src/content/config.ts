@@ -34,4 +34,17 @@ const tips = defineCollection({
   }),
 });
 
-export const collections = { projects, 'build-logs': buildLogs, tips };
+const aiNews = defineCollection({
+  type: 'content',
+  schema: z.object({
+    title: z.string(),
+    date: z.coerce.date(),
+    model: z.enum(['claude', 'gemini', 'gpt', 'etc']),
+    tags: z.array(z.string()),
+    summary: z.string().optional(),
+    sources: z.array(z.string()).optional(),
+    auto_generated: z.boolean().default(true),
+  }),
+});
+
+export const collections = { projects, 'build-logs': buildLogs, tips, 'ai-news': aiNews };
