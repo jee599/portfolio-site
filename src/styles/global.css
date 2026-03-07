@@ -33,33 +33,39 @@
   .prose {
     @apply text-text leading-relaxed;
     font-size: 17px;
-    line-height: 1.9;
-    max-width: 700px;
+    line-height: 2;
+    max-width: 680px;
     letter-spacing: -0.01em;
+    word-break: keep-all;
+    overflow-wrap: break-word;
   }
 
   .prose h2 {
-    @apply text-2xl font-display font-bold text-heading mt-16 mb-6 pb-2 border-b border-border/60;
+    @apply text-2xl font-display font-bold text-heading mt-20 mb-8 pb-3 border-b border-border/60;
     letter-spacing: -0.02em;
   }
 
   .prose h3 {
-    @apply text-xl font-display font-bold text-heading mt-12 mb-4;
+    @apply text-lg font-display font-bold text-heading mt-14 mb-5;
     letter-spacing: -0.01em;
   }
 
   .prose p {
-    @apply mb-7;
-    line-height: 1.9;
+    @apply mb-8 text-text/90;
+    line-height: 2;
   }
 
   .prose li {
-    @apply mb-2.5;
-    line-height: 1.8;
+    @apply mb-3 text-text/90;
+    line-height: 1.9;
   }
 
   .prose ul, .prose ol {
-    @apply mb-7 pl-6;
+    @apply mb-8 pl-6;
+  }
+
+  .prose ol {
+    list-style-type: decimal;
   }
 
   .prose ul li {
@@ -72,52 +78,64 @@
   }
 
   .prose code {
-    @apply bg-gray-100 px-1.5 py-0.5 rounded text-heading text-[0.875em] font-medium;
+    @apply bg-surface px-2 py-1 rounded-md text-accent-dark text-[0.85em] font-medium border border-border/50;
   }
 
   .prose pre {
-    @apply bg-gray-900 text-gray-100 rounded-xl p-5 my-8 overflow-x-auto text-sm leading-relaxed;
+    @apply bg-gray-900 text-gray-100 rounded-xl p-6 my-10 overflow-x-auto text-sm leading-relaxed shadow-sm;
+    border: 1px solid rgba(255,255,255,0.08);
   }
 
   .prose pre code {
-    @apply bg-transparent p-0 text-gray-100 font-normal;
+    @apply bg-transparent p-0 text-gray-100 font-normal border-0;
   }
 
   .prose blockquote {
-    @apply border-l-4 border-accent pl-5 py-2 text-text/80 my-8;
-    background: linear-gradient(to right, rgba(16, 185, 129, 0.05), transparent);
+    @apply border-l-4 border-accent pl-6 py-3 text-text/75 my-10 italic;
+    background: linear-gradient(to right, rgba(16, 185, 129, 0.06), transparent);
+    border-radius: 0 8px 8px 0;
+  }
+
+  .prose blockquote p {
+    @apply mb-0;
   }
 
   .prose table {
-    @apply w-full my-8 text-sm;
+    @apply w-full my-10 text-sm rounded-lg overflow-hidden;
+    border: 1px solid theme('colors.border');
   }
 
   .prose thead {
-    @apply border-b-2 border-border;
+    @apply bg-surface;
   }
 
   .prose th {
-    @apply text-left text-heading font-semibold text-xs uppercase tracking-wider py-3 px-3;
+    @apply text-left text-heading font-semibold text-xs uppercase tracking-wider py-3.5 px-4;
+    border-bottom: 2px solid theme('colors.border');
   }
 
   .prose td {
-    @apply py-3 px-3 border-b border-border/40;
+    @apply py-3.5 px-4 border-b border-border/30;
   }
 
   .prose tr:hover td {
-    @apply bg-surface/50;
+    @apply bg-surface/60;
   }
 
   .prose hr {
-    @apply my-12 border-border;
+    @apply my-16 border-border/50;
   }
 
   .prose img {
-    @apply rounded-lg my-8;
+    @apply rounded-lg my-10 shadow-sm;
   }
 
   .prose a {
     @apply text-accent-dark font-medium underline underline-offset-4 decoration-accent/30 hover:decoration-accent;
+  }
+
+  .prose > * + * {
+    margin-top: 0;
   }
 }
 
