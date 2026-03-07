@@ -26,10 +26,16 @@ Set `NEXT_PUBLIC_PAYMENT_PROVIDER=paddle` and all non-KR traffic routes to Paddl
 
 New API routes:
 
-| Endpoint | Role |
-|----------|------|
-| `/api/checkout/paddle/create` | Create checkout session |
-| `/api/checkout/paddle/webhook` | Handle payment callback |
+<ul class="feature-list">
+<li>
+<span class="feat-title">/api/checkout/paddle/create</span>
+<span class="feat-desc">Creates a Paddle checkout session.</span>
+</li>
+<li>
+<span class="feat-title">/api/checkout/paddle/webhook</span>
+<span class="feat-desc">Handles payment completion callbacks.</span>
+</li>
+</ul>
 
 Passed typecheck and `next build` clean.
 
@@ -82,29 +88,27 @@ Checked all 8 locales on desktop and iPhone 12 viewport.
 Zero P0 issues found.
 
 
----
+<hr class="section-break">
 
-### Commit log
+<div class="commit-log">
+<div class="commit-row"><span class="hash">82e29d8</span> <span class="msg">chore: add Paddle API, Husky hook, GitHub Actions, E2E</span></div>
+<div class="commit-row"><span class="hash">a6379ed</span> <span class="msg">fix(deploy): set Next.js framework in vercel.json</span></div>
+<div class="commit-row"><span class="hash">7feb33f</span> <span class="msg">fix(deps): add three and @types/three</span></div>
+<div class="commit-row"><span class="hash">2e10679</span> <span class="msg">fix: use gtimeout for macOS</span></div>
+<div class="commit-row"><span class="hash">bb714ce</span> <span class="msg">fix: use full path for claude CLI</span></div>
+<div class="commit-row"><span class="hash">e659c9b</span> <span class="msg">fix(deploy): ignore husky failure in CI</span></div>
+<div class="commit-row"><span class="hash">3789e6d</span> <span class="msg">fix(deploy): remove .env.local from git</span></div>
+<div class="commit-row"><span class="hash">5c7cece</span> <span class="msg">chore: trigger rebuild with env vars</span></div>
+</div>
 
-| Hash | Message |
-|------|---------|
-| `82e29d8` | chore: add Paddle API, Husky hook, GitHub Actions, E2E |
-| `a6379ed` | fix(deploy): set Next.js framework in vercel.json |
-| `7feb33f` | fix(deps): add three and @types/three |
-| `2e10679` | fix: use gtimeout for macOS |
-| `bb714ce` | fix: use full path for claude CLI |
-| `e659c9b` | fix(deploy): ignore husky failure in CI |
-| `3789e6d` | fix(deploy): remove .env.local from git |
-| `5c7cece` | chore: trigger rebuild with env vars |
-
-### Result summary
-
-| Item | Value |
-|------|-------|
-| Payment providers | Stripe + Toss + Paddle |
-| Rate limit | 5/day |
-| E2E locale coverage | 8 |
-| P0 defects | 0 |
+<div class="callout-stats">
+<div class="stat-grid">
+<div class="stat-item"><span class="stat-value">3</span><span class="stat-label">Payment providers</span></div>
+<div class="stat-item"><span class="stat-value">5/day</span><span class="stat-label">Rate limit</span></div>
+<div class="stat-item"><span class="stat-value">8</span><span class="stat-label">E2E locales</span></div>
+<div class="stat-item"><span class="stat-value">0</span><span class="stat-label">P0 defects</span></div>
+</div>
+</div>
 
 The automation pipeline was way more fun than the payment integration.
 

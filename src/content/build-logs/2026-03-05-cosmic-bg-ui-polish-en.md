@@ -20,7 +20,7 @@ Fixed everything in 4 commits.
 
 They were invisible on most screens and just added render overhead.
 
-Prompt was literally: *"these constellation lines are visual noise at 12% opacity, delete them."*
+> "These constellation lines are visual noise at 12% opacity. Delete them."
 
 One turn. **36 lines → 0 lines.**
 
@@ -31,15 +31,11 @@ Sometimes you just have to cut aggressively.
 
 All the card CSS variables — `--bg-card`, `--bg-card-glass`, `.glassCard` — were designed with near-zero opacity.
 
-Fine when the background was a flat dark gradient. Catastrophic against a moving 3D starfield.
+Fine when the background was a flat dark gradient.
 
-Bumped card backgrounds to `rgba(13,11,20,0.72)`.
+Catastrophic against a moving 3D starfield.
 
-Dark enough to read against stars, still translucent enough to feel layered.
-
-| Item | Before | After |
-|------|--------|-------|
-| Card background opacity | ~10% | ~72% |
+Bumped card backgrounds to `rgba(13,11,20,0.72)`. Dark enough to read against stars, still translucent enough to feel layered.
 
 
 ## BaZi table needed more work
@@ -73,24 +69,25 @@ Dropped in 10 lines of SVG — a ☆ character with a purple→cyan gradient ins
 Just said "Next.js App Router way" and Claude went straight to the right file path.
 
 
----
+<hr class="section-break">
 
-### Commit log
+<div class="commit-log">
+<div class="commit-row"><span class="hash">cc721f1</span> <span class="msg">fix(ui): remove constellation lines</span></div>
+<div class="commit-row"><span class="hash">4aec609</span> <span class="msg">fix(ui): increase card background opacity</span></div>
+<div class="commit-row"><span class="hash">b5a348d</span> <span class="msg">fix(ui): enhance Four Pillars table readability</span></div>
+<div class="commit-row"><span class="hash">ae7f7eb</span> <span class="msg">feat(ui): add favicon (SVG star icon)</span></div>
+</div>
 
-| Hash | Message |
-|------|---------|
-| `cc721f1` | fix(ui): remove constellation lines |
-| `4aec609` | fix(ui): increase card background opacity |
-| `b5a348d` | fix(ui): enhance Four Pillars table readability |
-| `ae7f7eb` | feat(ui): add favicon (SVG star icon) |
-
-### Change summary
-
-| Item | Before | After |
-|------|--------|-------|
-| Constellation code | 36 lines | 0 lines |
-| Card opacity | ~10% | ~72% |
-| Favicon | none | SVG 10 lines |
+<div class="change-summary">
+<table>
+<thead><tr><th>Item</th><th>Before</th><th>After</th></tr></thead>
+<tbody>
+<tr><td class="label">Constellation code</td><td class="before">36 lines</td><td class="after">0 lines</td></tr>
+<tr><td class="label">Card opacity</td><td class="before">~10%</td><td class="after">~72%</td></tr>
+<tr><td class="label">Favicon</td><td class="before">none</td><td class="after">SVG 10 lines</td></tr>
+</tbody>
+</table>
+</div>
 
 Visual bugs are where Claude Code shines.
 
