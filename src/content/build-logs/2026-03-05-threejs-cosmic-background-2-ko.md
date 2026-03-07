@@ -7,38 +7,63 @@ pair: "2026-03-05-threejs-cosmic-background-2-en"
 tags: [three.js, css, z-index, ui, debugging]
 ---
 
-## 뭘 했나
+CSS `body::before/::after`로 만들었던 오로라·별자리 배경을 걷어내고 Three.js `CosmicBackground`로 교체했다. 간단할 줄 알았는데 z-index 버그를 4번 고쳤다.
 
-CSS `body::before/::after` 오로라·별자리 배경을 걷어내고 Three.js `CosmicBackground` 컴포넌트로 교체했다. globals.css에서 51줄을 삭제하고, z-index 충돌을 잡는 데만 커밋 4개가 나왔다.
+## 캔버스는 있는데 왜 안 보이냐
 
-## 어떻게 구현했나
+Three.js 캔버스가 `position: fixed`로 붙어 있는데 화면에 아무것도 안 보였다.
 
-Three.js 캔버스가 `position: fixed`로 붙어 있는데 화면에 아무것도 보이지 않는 상태였다. 가장 먼저 프롬프트는 "캔버스는 있는데 왜 안 보이냐"였고, Claude는 CSS reset의 `* { max-width: 100% }` 룰이 canvas를 죽이고 있다는 걸 찾아냈다. 첫 커밋(fcff7ec)에서 canvas를 reset에서 제외했다.
+Claude한테 "캔버스는 있는데 왜 안 보이냐"고 물었더니, CSS reset의 `* { max-width: 100% }` 룰이 canvas를 죽이고 있다는 걸 찾아냈다. canvas를 reset에서 제외하는 것으로 첫 번째 픽스.
 
-그다음 문제는 body 배경색이 불투명 navy(`#0a0b2a`)로 덮고 있어서 캔버스가 뒤에 숨어버리는 것이었다. `html` 엔티티에 기본 배경을 넘기고 `body`를 투명으로 바꿨다(96a5555). CSS aurora/star 코드 51줄도 이 시점에 일괄 삭제했다(1ec4fcb).
+## body 배경색이 덮고 있었다
 
-가장 오래 걸린 건 z-index 스택이었다. `CosmicBackground`의 캔버스가 `z-index: -2/-1`로 설정돼 있었는데, 이 값은 `html` 요소 스택 컨텍스트 밑으로 들어가 결국 숨어버렸다. 프롬프트로 "z-index -2는 html 뒤로 간다, 0/1로 올리고 main/footer에 z-index: 2를 줘라"를 지시했고 052de6e에서 해결됐다. 자기소개 페이지 CTA 버튼의 마그네틱 마우스 팔로우 효과도 이 커밋에서 같이 제거했다(복잡도 대비 효과가 없다고 판단).
+캔버스가 보이기 시작했는데, 이번엔 body 배경색이 불투명 navy(`#0a0b2a`)로 전부 덮고 있었다. `html`에 배경을 넘기고 `body`를 투명으로 바꿨다.
 
-마지막으로 husky pre-push 타임아웃을 60s → 180/240s으로 늘렸다(2d71d3a). Claude CLI 빌드 로그 생성에 시간이 더 필요했기 때문이다.
+이 시점에 CSS aurora/star 코드 <span class="highlight">51줄을 일괄 삭제</span>했다. Three.js가 대체하니까 필요 없어졌다.
 
-핵심 프롬프트 흐름:
-> "canvas가 있는데 Three.js 배경이 안 보인다. globals.css와 CosmicBackground.tsx를 같이 봐줘."
-> → "z-index -2는 html 루트 스택 컨텍스트 아래로 떨어진다. 캔버스를 0/1로 올리고 콘텐츠에 2를 줘."
+## z-index가 가장 오래 걸렸다
 
-삽질은 단순했다. CSS reset → body 불투명도 → z-index 음수 이 세 가지가 독립적인 원인이었는데 한 번에 하나씩 고쳐야 해서 커밋이 4개로 쪼개졌다.
+`CosmicBackground` 캔버스가 `z-index: -2`였는데, 이 값은 `html` 요소 스택 컨텍스트 밑으로 들어가서 결국 숨어버린다.
 
-## 커밋 로그
+> "z-index -2는 html 루트 스택 컨텍스트 아래로 떨어진다. 캔버스를 0/1로 올리고 콘텐츠에 z-index: 2를 줘."
 
-- `fcff7ec` fix(ui): exclude canvas from max-width reset to fix Three.js background
-- `1ec4fcb` fix(ui): remove CSS aurora/star backgrounds and make header transparent
-- `96a5555` fix(ui): make body transparent so Three.js canvas at z-index -2 is visible
-- `052de6e` fix(ui): fix Three.js z-index stacking, add content z-index, remove magnetic CTA
-- `2d71d3a` fix: increase hook timeout to 180/240s
+이 프롬프트 한 줄로 해결. 자기소개 페이지의 마그네틱 마우스 팔로우 CTA도 이 커밋에서 같이 제거했다. 복잡도 대비 효과가 없었다.
 
-## 결과
+## 삽질 패턴
 
-| | Before | After |
-|---|---|---|
-| globals.css 배경 코드 | 51줄 (CSS aurora + star) | 0줄 (Three.js로 이관) |
-| 커밋 수 | — | 5개 (디버깅 4 + 설정 1) |
-| husky timeout | 60s | 180s (pre-push) / 240s (fallback) |
+세 가지 원인이 독립적이었다:
+
+1. CSS reset이 canvas를 죽임
+2. body 배경이 불투명
+3. z-index 음수가 html 아래로 감
+
+한 번에 하나씩 고쳐야 해서 커밋이 4개로 쪼개졌다. 결과적으로는 각 커밋의 목적이 명확해져서 오히려 좋았다.
+
+<div class="callout-stats">
+<div class="stat-grid">
+<div class="stat-item">
+<span class="stat-value">51줄</span>
+<span class="stat-label">삭제된 CSS</span>
+</div>
+<div class="stat-item">
+<span class="stat-value">5</span>
+<span class="stat-label">커밋</span>
+</div>
+<div class="stat-item">
+<span class="stat-value">180s</span>
+<span class="stat-label">husky timeout (60s→180s)</span>
+</div>
+</div>
+</div>
+
+---
+
+<div class="commit-log">
+<div><span class="hash">fcff7ec</span> fix(ui): exclude canvas from max-width reset</div>
+<div><span class="hash">1ec4fcb</span> fix(ui): remove CSS aurora/star backgrounds</div>
+<div><span class="hash">96a5555</span> fix(ui): make body transparent for canvas</div>
+<div><span class="hash">052de6e</span> fix(ui): fix z-index stacking, remove magnetic CTA</div>
+<div><span class="hash">2d71d3a</span> fix: increase hook timeout to 180/240s</div>
+</div>
+
+z-index 디버깅은 항상 예상보다 오래 걸린다.

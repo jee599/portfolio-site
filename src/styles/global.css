@@ -137,6 +137,41 @@
   .prose > * + * {
     margin-top: 0;
   }
+
+  /* Stats callout box — use with custom HTML in markdown */
+  .prose .callout-stats {
+    @apply bg-surface rounded-xl p-6 my-10 border border-border/50;
+  }
+
+  .prose .callout-stats .stat-grid {
+    @apply grid grid-cols-2 gap-4;
+  }
+
+  .prose .callout-stats .stat-item {
+    @apply text-center;
+  }
+
+  .prose .callout-stats .stat-value {
+    @apply text-2xl font-display font-bold text-accent-dark block;
+  }
+
+  .prose .callout-stats .stat-label {
+    @apply text-xs text-muted uppercase tracking-wider mt-1 block;
+  }
+
+  /* Inline highlight for key numbers */
+  .prose .highlight {
+    @apply bg-accent-light text-accent-dark px-2 py-0.5 rounded-md font-semibold text-[0.9em];
+  }
+
+  /* Commit log list */
+  .prose .commit-log {
+    @apply bg-gray-900 rounded-xl p-5 my-10 font-mono text-sm text-gray-300 space-y-2;
+  }
+
+  .prose .commit-log .hash {
+    @apply text-accent;
+  }
 }
 
 .fade-in {
