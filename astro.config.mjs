@@ -7,5 +7,7 @@ export default defineConfig({
   site: 'https://jidonglab.com',
   integrations: [react(), tailwind()],
   output: 'hybrid',
-  adapter: vercel(),
+  adapter: vercel({
+    runtime: 'nodejs20.x',
+  }),
 });
