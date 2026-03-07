@@ -7,6 +7,9 @@ on:
     paths-ignore:
       - 'src/content/build-logs/**'
       - '.github/workflows/**'
+  schedule:
+    # Run daily at 21:00 UTC (6:00 AM KST next day) to batch accumulated commits
+    - cron: '0 21 * * *'
 
 permissions:
   contents: write
@@ -18,141 +21,165 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 50
 
-      - name: Generate build log from commits
+      - name: Generate build log from accumulated commits
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
-            const path = require('path');
+            const owner = context.repo.owner;
+            const repo = context.repo.repo;
 
-            // Get commits from this push
-            const commits = context.payload.commits || [];
-            if (commits.length === 0) {
-              console.log('No commits found');
-              return;
-            }
+            // Get commits from last 24 hours
+            const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+            const { data: recentCommits } = await github.rest.repos.listCommits({
+              owner, repo,
+              sha: 'main',
+              since,
+              per_page: 100,
+            });
 
-            // Skip if commit message contains [skip-log] or is auto-generated
-            const skipPatterns = ['[skip-log]', 'Auto-merge:', 'auto-generate AI news', 'Generate build log'];
-            const relevantCommits = commits.filter(c =>
-              !skipPatterns.some(p => c.message.includes(p))
+            // Skip patterns for auto-generated commits
+            const skipPatterns = ['[skip-log]', 'Auto-merge:', 'auto-generate AI news', 'auto: sync from', 'Merge remote-tracking', 'Merge pull request'];
+            const relevantCommits = recentCommits.filter(c =>
+              !skipPatterns.some(p => c.commit.message.includes(p))
             );
 
             if (relevantCommits.length === 0) {
-              console.log('All commits are auto-generated, skipping');
+              console.log('No relevant commits in last 24h');
               return;
             }
 
-            // Detect project from changed files
-            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              basehead: `${context.payload.before}...${context.payload.after}`,
-            });
-
-            const changedFiles = (comparison.files || []).map(f => f.filename);
-
-            // Map changed files to projects
-            function detectProject(files) {
-              // Check if files reference a specific project content
-              for (const file of files) {
-                // Changes to portfolio-site itself
-                if (file.startsWith('src/') || file.startsWith('public/') || file === 'astro.config.mjs' || file === 'tailwind.config.mjs') {
-                  return 'portfolio-site';
-                }
-              }
-              return 'portfolio-site'; // default for this repo
-            }
-
-            const project = detectProject(changedFiles);
             const today = new Date().toISOString().split('T')[0];
 
-            // Build commit summary
-            const commitSummary = relevantCommits
-              .map(c => `- ${c.message.split('\n')[0]}`)
-              .join('\n');
-
-            // Generate slug from first commit message
-            const firstMsg = relevantCommits[0].message.split('\n')[0];
-            const slugBase = firstMsg
-              .replace(/^(feat|fix|refactor|chore|docs|style|test|ci):\s*/i, '')
-              .toLowerCase()
-              .replace(/[^a-z0-9가-힣\s-]/g, '')
-              .trim()
-              .replace(/\s+/g, '-')
-              .slice(0, 50);
-
-            const slug = `${today}-${slugBase}`;
-            const filePath = `src/content/build-logs/${slug}-ko.md`;
-
-            // Check if file already exists
+            // Check if today's build log already exists
+            const existingPath = `src/content/build-logs/${today}-daily-log-ko.md`;
             try {
-              await github.rest.repos.getContent({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                path: filePath,
-              });
-              console.log(`Build log already exists: ${filePath}`);
+              await github.rest.repos.getContent({ owner, repo, path: existingPath });
+              console.log('Today\'s build log already exists');
               return;
             } catch (e) {
-              // File doesn't exist, continue
+              // doesn't exist, continue
             }
 
-            // Determine tags from commit messages
+            // Analyze changed files across all relevant commits
+            const allFiles = new Set();
+            const projectSet = new Set();
+            let totalAdditions = 0;
+            let totalDeletions = 0;
+
+            for (const commit of relevantCommits.slice(0, 20)) {
+              try {
+                const { data: detail } = await github.rest.repos.getCommit({
+                  owner, repo, ref: commit.sha,
+                });
+                for (const file of detail.files || []) {
+                  allFiles.add(file.filename);
+                  totalAdditions += file.additions || 0;
+                  totalDeletions += file.deletions || 0;
+                }
+              } catch (e) {
+                // skip
+              }
+            }
+
+            // Detect projects from changed files
+            for (const file of allFiles) {
+              if (file.startsWith('src/') || file.startsWith('public/') || file.startsWith('astro.config') || file.startsWith('tailwind')) {
+                projectSet.add('portfolio-site');
+              }
+            }
+            if (projectSet.size === 0) projectSet.add('portfolio-site');
+
+            // Group commits by type
+            const commitsByType = { feat: [], fix: [], refactor: [], chore: [], other: [] };
+            for (const c of relevantCommits) {
+              const msg = c.commit.message.split('\n')[0];
+              const match = msg.match(/^(feat|fix|refactor|chore|docs|style|test|ci):/i);
+              const type = match ? match[1].toLowerCase() : 'other';
+              const bucket = commitsByType[type] || commitsByType.other;
+              bucket.push(msg);
+            }
+
+            // Build tags
             const tagSet = new Set();
             for (const c of relevantCommits) {
-              const prefix = c.message.match(/^(feat|fix|refactor|chore|docs|style|test|ci):/i);
-              if (prefix) tagSet.add(prefix[1].toLowerCase());
+              const match = c.commit.message.match(/^(feat|fix|refactor|chore):/i);
+              if (match) tagSet.add(match[1].toLowerCase());
             }
-            // Add tags from file types
-            for (const f of changedFiles) {
+            for (const f of allFiles) {
               if (f.endsWith('.astro')) tagSet.add('astro');
               if (f.endsWith('.ts') || f.endsWith('.tsx')) tagSet.add('typescript');
               if (f.endsWith('.css')) tagSet.add('css');
-              if (f.includes('tailwind')) tagSet.add('tailwind');
             }
 
+            // Generate title from dominant commit type
+            const dominantType = Object.entries(commitsByType)
+              .sort((a, b) => b[1].length - a[1].length)
+              .find(([_, v]) => v.length > 0);
+            const typeLabels = {
+              feat: '새 기능 추가',
+              fix: '버그 수정',
+              refactor: '코드 리팩토링',
+              chore: '유지보수 작업',
+              other: '작업 정리',
+            };
+            const title = `${today} 작업 로그 — ${typeLabels[dominantType?.[0]] || '작업 정리'} 외 ${relevantCommits.length}건`;
+
+            const project = Array.from(projectSet)[0];
             const tags = Array.from(tagSet).slice(0, 5);
 
-            // Generate markdown content
-            const fileCount = changedFiles.length;
-            const additions = comparison.files?.reduce((sum, f) => sum + (f.additions || 0), 0) || 0;
-            const deletions = comparison.files?.reduce((sum, f) => sum + (f.deletions || 0), 0) || 0;
+            // Generate markdown in 반말 tone
+            let body = '';
 
-            const markdown = `---
-            title: "${firstMsg.split('\n')[0]}"
-            project: "${project}"
-            date: ${today}
-            lang: ko
-            tags: [${tags.join(', ')}]
-            ---
+            // Commit summary by type
+            const typeHeaders = { feat: '새로 추가한 것', fix: '고친 것', refactor: '리팩토링', chore: '기타 작업', other: '기타' };
+            for (const [type, commits] of Object.entries(commitsByType)) {
+              if (commits.length === 0) continue;
+              body += `## ${typeHeaders[type]}\n\n`;
+              for (const msg of commits) {
+                body += `- ${msg.replace(/^(feat|fix|refactor|chore|docs|style|test|ci):\s*/i, '')}\n`;
+              }
+              body += '\n';
+            }
 
-            ${commitSummary.length > 2 ? '## 변경 사항\n\n' + commitSummary : ''}
+            body += `## 숫자로 보는 오늘\n\n`;
+            body += `- 커밋: ${relevantCommits.length}건\n`;
+            body += `- 변경 파일: ${allFiles.size}개\n`;
+            body += `- 추가: +${totalAdditions.toLocaleString()}줄 / 삭제: -${totalDeletions.toLocaleString()}줄\n\n`;
 
-            ## 요약
+            // Key files
+            const keyFiles = Array.from(allFiles).slice(0, 8);
+            if (keyFiles.length > 0) {
+              body += `## 주요 변경 파일\n\n`;
+              for (const f of keyFiles) {
+                body += `- \`${f}\`\n`;
+              }
+              if (allFiles.size > 8) {
+                body += `\n외 ${allFiles.size - 8}개 파일\n`;
+              }
+              body += '\n';
+            }
 
-            - 변경 파일: ${fileCount}개
-            - 추가: +${additions}줄 / 삭제: -${deletions}줄
+            body += `---\n\n*이 작업 로그는 변경 내용이 5,000자 이상 쌓이면 자동으로 생성된다.*\n`;
 
-            ${changedFiles.slice(0, 10).map(f => '- `' + f + '`').join('\n')}
-            ${changedFiles.length > 10 ? `\n외 ${changedFiles.length - 10}개 파일` : ''}
+            const markdown = `---\ntitle: "${title}"\nproject: "${project}"\ndate: ${today}\nlang: ko\ntags: [${tags.join(', ')}]\n---\n\n${body}`;
 
-            ---
+            // Only publish if content exceeds 5,000 characters
+            if (markdown.length < 5000) {
+              console.log(`Content only ${markdown.length} chars, waiting until 5,000+ chars accumulate`);
+              return;
+            }
+            console.log(`Content is ${markdown.length} chars (>= 5,000), publishing build log`);
 
-            *이 빌드 로그는 커밋 시 자동으로 생성된다.*
-            `.replace(/^            /gm, '');
-
-            // Create file via GitHub API
+            // Create file
             const content = Buffer.from(markdown).toString('base64');
             await github.rest.repos.createOrUpdateFileContents({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              path: filePath,
-              message: `docs: auto-generate build log for ${today} [skip-log]`,
+              owner, repo,
+              path: existingPath,
+              message: `docs: auto-generate daily build log for ${today} [skip-log]`,
               content,
               branch: 'main',
             });
 
-            console.log(`Created build log: ${filePath}`);
+            console.log(`Created build log: ${existingPath} (${relevantCommits.length} commits)`);
