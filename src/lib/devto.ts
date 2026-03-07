@@ -1,5 +1,5 @@
 const DEV_API = 'https://dev.to/api';
-const USERNAME = import.meta.env.DEVTO_USERNAME || 'jee599';
+const USERNAME = import.meta.env.DEVTO_USERNAME || 'ji_ai';
 
 export interface DevToArticle {
   id: number;

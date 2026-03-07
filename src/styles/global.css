@@ -32,30 +32,39 @@
 @layer components {
   .prose {
     @apply text-text leading-relaxed;
-    font-size: 16.5px;
-    line-height: 1.85;
-    max-width: 680px;
-  }
-
-  .prose h2 {
-    @apply text-2xl font-display font-bold text-heading mt-14 mb-6;
+    font-size: 17px;
+    line-height: 1.9;
+    max-width: 700px;
     letter-spacing: -0.01em;
   }
 
+  .prose h2 {
+    @apply text-2xl font-display font-bold text-heading mt-16 mb-6 pb-2 border-b border-border/60;
+    letter-spacing: -0.02em;
+  }
+
   .prose h3 {
-    @apply text-lg font-display font-bold text-heading mt-10 mb-4;
+    @apply text-xl font-display font-bold text-heading mt-12 mb-4;
+    letter-spacing: -0.01em;
   }
 
   .prose p {
-    @apply mb-6 leading-relaxed;
+    @apply mb-7;
+    line-height: 1.9;
   }
 
   .prose li {
-    @apply mb-2;
+    @apply mb-2.5;
+    line-height: 1.8;
   }
 
   .prose ul, .prose ol {
-    @apply mb-6 pl-5;
+    @apply mb-7 pl-6;
+  }
+
+  .prose ul li {
+    @apply relative;
+    list-style-type: disc;
   }
 
   .prose strong {
@@ -63,20 +72,20 @@
   }
 
   .prose code {
-    @apply bg-accent-light/50 px-1.5 py-0.5 rounded text-accent-dark text-sm;
+    @apply bg-gray-100 px-1.5 py-0.5 rounded text-heading text-[0.875em] font-medium;
   }
 
   .prose pre {
-    @apply bg-surface border border-border rounded-xl p-5 my-8 overflow-x-auto text-sm leading-relaxed;
+    @apply bg-gray-900 text-gray-100 rounded-xl p-5 my-8 overflow-x-auto text-sm leading-relaxed;
   }
 
   .prose pre code {
-    @apply bg-transparent p-0 text-text;
+    @apply bg-transparent p-0 text-gray-100 font-normal;
   }
 
   .prose blockquote {
-    @apply border-l-[3px] border-accent pl-5 py-1 italic text-muted my-8;
-    background: linear-gradient(to right, rgba(16, 185, 129, 0.03), transparent);
+    @apply border-l-4 border-accent pl-5 py-2 text-text/80 my-8;
+    background: linear-gradient(to right, rgba(16, 185, 129, 0.05), transparent);
   }
 
   .prose table {

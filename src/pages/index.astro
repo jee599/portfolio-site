@@ -4,8 +4,9 @@ import ProjectCard from '../components/ProjectCard.astro';
 import PostCard from '../components/PostCard.astro';
 import { getCollection } from 'astro:content';
 import { fetchArticles } from '../lib/devto';
+import { getAllProjects } from '../lib/projects';
 
-const projects = await getCollection('projects');
+const projects = await getAllProjects();
 const buildLogs = (await getCollection('build-logs'))
   .filter((p) => p.data.lang === 'ko')
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
@@ -64,17 +65,15 @@ const recentPosts = allPosts.slice(0, 10);
       Projects
     </h2>
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-      {projects
-        .sort((a, b) => (a.data.order ?? 99) - (b.data.order ?? 99))
-        .map((p) => (
+      {projects.map((p) => (
           <ProjectCard
-            slug={p.id.replace('.yaml', '')}
-            title={p.data.title}
-            one_liner={p.data.one_liner}
-            status={p.data.status}
-            stack={p.data.stack}
-            url={p.data.url}
-            github={p.data.github}
+            slug={p.slug}
+            title={p.title}
+            one_liner={p.one_liner}
+            status={p.status}
+            stack={p.stack}
+            url={p.url}
+            github={p.github}
           />
         ))}
     </div>

@@ -1,0 +1,9 @@
+# 이 파일을 각 프로젝트 레포의 루트에 .portfolio.yaml 으로 넣으면
+# 포트폴리오 사이트에 자동으로 프로젝트가 표시됩니다.
+
+title: "프로젝트 이름"
+url: "https://example.com"        # 선택: 배포된 사이트 URL
+status: "개발중"                   # 운영중 | 개발중 | 실험중 | 중단
+stack: ["Next.js", "Supabase"]
+one_liner: "한 줄 소개"
+order: 5                          # 선택: 낮을수록 먼저 표시 (기본값 99)
