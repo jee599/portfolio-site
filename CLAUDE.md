@@ -1,4 +1,4 @@
-# JiDong Lab 포트폴리오 사이트
+# Jidong Lab 포트폴리오 사이트
 
 ## 프로젝트 구조
 - **프레임워크**: Astro 4 + React + Tailwind
