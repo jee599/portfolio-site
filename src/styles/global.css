@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;700;800&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -30,38 +30,53 @@
 }
 
 @layer components {
+  /* ─── Article body (dev.to–inspired) ─── */
   .prose {
     @apply text-text leading-relaxed;
-    font-size: 17px;
-    line-height: 2;
-    max-width: 680px;
-    letter-spacing: -0.01em;
+    font-size: 1.065rem;
+    line-height: 1.85;
+    max-width: none;
+    letter-spacing: -0.008em;
     word-break: keep-all;
     overflow-wrap: break-word;
   }
 
+  /* — Lead paragraph: first <p> gets bigger treatment — */
+  .prose > p:first-child {
+    @apply text-lg text-text font-medium;
+    line-height: 1.8;
+    margin-bottom: 2rem;
+  }
+
+  /* ─── Headings ─── */
   .prose h2 {
-    @apply text-2xl font-display font-bold text-heading mt-20 mb-8 pb-3 border-b border-border/60;
-    letter-spacing: -0.02em;
+    @apply text-[1.55rem] font-display font-bold text-heading mt-16 mb-6 pb-3;
+    letter-spacing: -0.025em;
+    border-bottom: 2px solid #10b981;
+    position: relative;
   }
 
   .prose h3 {
-    @apply text-lg font-display font-bold text-heading mt-14 mb-5;
+    @apply text-lg font-display font-bold text-heading mt-12 mb-4;
     letter-spacing: -0.01em;
+    padding-left: 0.85rem;
+    border-left: 3px solid #10b981;
   }
 
+  /* ─── Paragraphs ─── */
   .prose p {
-    @apply mb-8 text-text/90;
-    line-height: 2;
+    @apply mb-7 text-text/90;
+    line-height: 1.85;
   }
 
+  /* ─── Lists ─── */
   .prose li {
-    @apply mb-3 text-text/90;
-    line-height: 1.9;
+    @apply mb-2.5 text-text/90;
+    line-height: 1.8;
   }
 
   .prose ul, .prose ol {
-    @apply mb-8 pl-6;
+    @apply mb-7 pl-6;
   }
 
   .prose ol {
@@ -73,63 +88,102 @@
     list-style-type: disc;
   }
 
+  .prose ul li::marker {
+    color: #10b981;
+  }
+
+  .prose ol li::marker {
+    color: #10b981;
+    font-weight: 600;
+  }
+
+  /* ─── Emphasis ─── */
   .prose strong {
     @apply text-heading font-semibold;
+    background: linear-gradient(to top, #ecfdf5 40%, transparent 40%);
+    padding: 0 2px;
   }
 
+  /* ─── Inline code ─── */
   .prose code {
-    @apply bg-surface px-2 py-1 rounded-md text-accent-dark text-[0.85em] font-medium border border-border/50;
+    @apply px-2 py-0.5 rounded-md text-[0.85em] font-medium;
+    background: #f1f5f9;
+    color: #0f172a;
+    border: 1px solid #e2e8f0;
   }
 
+  /* ─── Code blocks ─── */
   .prose pre {
-    @apply bg-gray-900 text-gray-100 rounded-xl p-6 my-10 overflow-x-auto text-sm leading-relaxed shadow-sm;
-    border: 1px solid rgba(255,255,255,0.08);
+    @apply rounded-xl p-6 my-8 overflow-x-auto text-sm leading-relaxed;
+    background: #0f172a;
+    color: #e2e8f0;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
 
   .prose pre code {
-    @apply bg-transparent p-0 text-gray-100 font-normal border-0;
+    @apply bg-transparent p-0 font-normal border-0;
+    color: inherit;
   }
 
+  /* ─── Blockquote (dev.to callout style) ─── */
   .prose blockquote {
-    @apply border-l-4 border-accent pl-6 py-3 text-text/75 my-10 italic;
-    background: linear-gradient(to right, rgba(16, 185, 129, 0.06), transparent);
-    border-radius: 0 8px 8px 0;
+    @apply my-8 rounded-lg text-text/85;
+    border-left: 4px solid #10b981;
+    background: #f0fdf4;
+    padding: 1.25rem 1.5rem;
   }
 
   .prose blockquote p {
     @apply mb-0;
+    font-style: normal;
   }
 
+  .prose blockquote code {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.2);
+  }
+
+  /* ─── Tables ─── */
   .prose table {
-    @apply w-full my-10 text-sm rounded-lg overflow-hidden;
-    border: 1px solid theme('colors.border');
+    @apply w-full my-8 text-sm overflow-hidden;
+    border-radius: 8px;
+    border: 1px solid #e5e7eb;
   }
 
   .prose thead {
-    @apply bg-surface;
+    background: #f8fafc;
   }
 
   .prose th {
-    @apply text-left text-heading font-semibold text-xs uppercase tracking-wider py-3.5 px-4;
-    border-bottom: 2px solid theme('colors.border');
+    @apply text-left text-heading font-semibold text-xs uppercase tracking-wider py-3 px-4;
+    border-bottom: 2px solid #e5e7eb;
   }
 
   .prose td {
-    @apply py-3.5 px-4 border-b border-border/30;
+    @apply py-3 px-4;
+    border-bottom: 1px solid #f3f4f6;
   }
 
   .prose tr:hover td {
-    @apply bg-surface/60;
+    background: #f9fafb;
   }
 
+  /* ─── HR / Section divider ─── */
   .prose hr {
-    @apply my-16 border-border/50;
+    @apply my-12;
+    border: none;
+    height: 3px;
+    background: linear-gradient(to right, transparent, #e5e7eb 20%, #e5e7eb 80%, transparent);
   }
 
+  /* ─── Images ─── */
   .prose img {
-    @apply rounded-lg my-10 shadow-sm;
+    @apply rounded-lg my-8;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   }
 
+  /* ─── Links ─── */
   .prose a {
     @apply text-accent-dark font-medium underline underline-offset-4 decoration-accent/30 hover:decoration-accent;
   }
@@ -138,39 +192,64 @@
     margin-top: 0;
   }
 
-  /* Stats callout box — use with custom HTML in markdown */
+  /* ─── Stats callout box ─── */
   .prose .callout-stats {
-    @apply bg-surface rounded-xl p-6 my-10 border border-border/50;
+    @apply rounded-xl p-6 my-8;
+    background: linear-gradient(135deg, #f0fdf4, #ecfdf5);
+    border: 1px solid rgba(16, 185, 129, 0.2);
   }
 
   .prose .callout-stats .stat-grid {
     @apply grid grid-cols-2 gap-4;
   }
 
+  @media (min-width: 480px) {
+    .prose .callout-stats .stat-grid {
+      grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+    }
+  }
+
   .prose .callout-stats .stat-item {
-    @apply text-center;
+    @apply text-center py-2;
   }
 
   .prose .callout-stats .stat-value {
-    @apply text-2xl font-display font-bold text-accent-dark block;
+    @apply text-2xl font-display font-bold block;
+    color: #059669;
   }
 
   .prose .callout-stats .stat-label {
     @apply text-xs text-muted uppercase tracking-wider mt-1 block;
   }
 
-  /* Inline highlight for key numbers */
+  /* ─── Inline highlight ─── */
   .prose .highlight {
-    @apply bg-accent-light text-accent-dark px-2 py-0.5 rounded-md font-semibold text-[0.9em];
+    @apply px-2 py-0.5 rounded-md font-semibold text-[0.9em];
+    background: #ecfdf5;
+    color: #059669;
+    border: 1px solid rgba(16, 185, 129, 0.2);
   }
 
-  /* Commit log list */
+  /* ─── Commit log ─── */
   .prose .commit-log {
-    @apply bg-gray-900 rounded-xl p-5 my-10 font-mono text-sm text-gray-300 space-y-2;
+    @apply rounded-xl p-5 my-8 font-mono text-sm space-y-2;
+    background: #0f172a;
+    color: #94a3b8;
+    border: 1px solid rgba(255,255,255,0.06);
+  }
+
+  .prose .commit-log > div {
+    @apply py-1 px-2 rounded;
+    transition: background 0.15s;
+  }
+
+  .prose .commit-log > div:hover {
+    background: rgba(255,255,255,0.04);
   }
 
   .prose .commit-log .hash {
-    @apply text-accent;
+    color: #34d399;
+    font-weight: 500;
   }
 }
 

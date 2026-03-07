@@ -12,41 +12,259 @@ interface Props {
 
 const { title, date, project, tags = [], pair, lang } = Astro.props;
 const dateStr = date.toISOString().split('T')[0];
+
+// Simple reading time estimate from slot content
+const formattedDate = date.toLocaleDateString('ko-KR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
 ---
 
 <Base title={title}>
-  <article class="fade-in max-w-2xl">
-    <header class="mb-14 pb-8 border-b border-border/40">
+  {/* Hero banner — gradient like dev.to cover images */}
+  <div class="post-hero">
+    <div class="post-hero-inner">
       {project && (
         <a
           href={`/projects/${project}`}
-          class="inline-block text-xs font-mono text-accent-dark no-underline uppercase tracking-widest mb-3 px-2.5 py-1 bg-accent-light rounded-md"
+          class="post-project-badge"
         >
           {project}
         </a>
       )}
-      <h1 class="text-3xl font-display font-bold text-heading mt-1 mb-5 leading-snug">{title}</h1>
-      <div class="flex items-center gap-4 text-sm text-muted">
-        <time datetime={dateStr}>{dateStr}</time>
+      <h1 class="post-title">{title}</h1>
+      <div class="post-meta-row">
+        <div class="post-author">
+          <div class="post-avatar">JL</div>
+          <div>
+            <span class="post-author-name">jidonglab</span>
+            <span class="post-date">
+              <time datetime={dateStr}>{formattedDate}</time>
+            </span>
+          </div>
+        </div>
         {lang && pair && (
-          <a href={`/posts/${pair}`} class="text-xs font-mono px-2 py-0.5 bg-surface rounded border border-border/50 no-underline hover:bg-border/20">
-            {lang === 'ko' ? 'EN →' : 'KO →'}
+          <a href={`/posts/${pair}`} class="post-lang-switch">
+            {lang === 'ko' ? '🌐 Read in English' : '🌐 한국어로 읽기'}
           </a>
         )}
       </div>
-      {tags.length > 0 && (
-        <div class="flex flex-wrap gap-2 mt-4">
-          {tags.map((tag) => (
-            <span class="text-xs font-mono px-2.5 py-1 rounded-md bg-surface text-muted border border-border/40">
-              #{tag}
-            </span>
-          ))}
-        </div>
-      )}
-    </header>
+    </div>
+  </div>
 
+  {/* Article card — raised white card like dev.to */}
+  <article class="post-card fade-in">
+    {/* Tag bar */}
+    {tags.length > 0 && (
+      <div class="post-tags">
+        {tags.map((tag) => (
+          <span class="post-tag">#{tag}</span>
+        ))}
+      </div>
+    )}
+
+    {/* Article body */}
     <div class="prose">
       <slot />
     </div>
+
+    {/* Footer */}
+    <footer class="post-footer">
+      <div class="post-footer-tags">
+        {tags.map((tag) => (
+          <span class="post-footer-tag">#{tag}</span>
+        ))}
+      </div>
+      <a href="/posts" class="post-back-link">← 모든 글 보기</a>
+    </footer>
   </article>
 </Base>
+
+<style>
+  /* Hero gradient banner */
+  .post-hero {
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #064e3b 100%);
+    margin: -3rem -1.5rem 0;
+    padding: 3rem 1.5rem 4rem;
+  }
+
+  .post-hero-inner {
+    max-width: 720px;
+    margin: 0 auto;
+  }
+
+  .post-project-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    margin-bottom: 1rem;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .post-project-badge:hover {
+    background: rgba(16, 185, 129, 0.25);
+    text-decoration: none;
+  }
+
+  .post-title {
+    font-family: 'DM Sans', sans-serif;
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 800;
+    color: #f8fafc;
+    line-height: 1.25;
+    margin: 0.5rem 0 1.5rem;
+    letter-spacing: -0.03em;
+  }
+
+  .post-meta-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .post-author {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .post-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #10b981, #059669);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: 'DM Sans', sans-serif;
+    font-weight: 700;
+    font-size: 0.8rem;
+    color: white;
+    flex-shrink: 0;
+  }
+
+  .post-author-name {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #e2e8f0;
+  }
+
+  .post-date {
+    display: block;
+    font-size: 0.8rem;
+    color: #94a3b8;
+  }
+
+  .post-lang-switch {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    text-decoration: none;
+    padding: 0.35rem 0.85rem;
+    border: 1px solid rgba(148, 163, 184, 0.3);
+    border-radius: 6px;
+    transition: all 0.2s;
+  }
+
+  .post-lang-switch:hover {
+    color: #e2e8f0;
+    border-color: rgba(148, 163, 184, 0.6);
+    text-decoration: none;
+  }
+
+  /* Article card */
+  .post-card {
+    max-width: 720px;
+    margin: -2rem auto 4rem;
+    background: white;
+    border-radius: 12px;
+    border: 1px solid #e5e7eb;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06), 0 8px 24px rgba(0, 0, 0, 0.04);
+    padding: 2.5rem;
+    position: relative;
+    z-index: 1;
+  }
+
+  @media (max-width: 640px) {
+    .post-card {
+      margin-left: 0.5rem;
+      margin-right: 0.5rem;
+      padding: 1.5rem;
+    }
+  }
+
+  /* Tags */
+  .post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f3f4f6;
+  }
+
+  .post-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    color: #6b7280;
+    padding: 0.25rem 0.5rem;
+    border-radius: 6px;
+    transition: all 0.15s;
+    cursor: default;
+  }
+
+  .post-tag:hover {
+    background: #f3f4f6;
+    color: #374151;
+  }
+
+  /* Footer */
+  .post-footer {
+    margin-top: 3rem;
+    padding-top: 2rem;
+    border-top: 2px solid #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 1rem;
+  }
+
+  .post-footer-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .post-footer-tag {
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #059669;
+    background: #ecfdf5;
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
+  }
+
+  .post-back-link {
+    font-size: 0.85rem;
+    color: #6b7280;
+    text-decoration: none;
+    transition: color 0.2s;
+  }
+
+  .post-back-link:hover {
+    color: #059669;
+    text-decoration: none;
+  }
+</style>
