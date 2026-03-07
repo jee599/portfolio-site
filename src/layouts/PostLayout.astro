@@ -25,8 +25,8 @@ const dateStr = date.toISOString().split('T')[0];
           {project}
         </a>
       )}
-      <h1 class="text-3xl font-display font-bold text-heading mt-2 mb-3">{title}</h1>
-      <div class="flex items-center gap-4 text-sm text-muted">
+      <h1 class="text-3xl font-display font-bold text-heading mt-2 mb-4 leading-tight">{title}</h1>
+      <div class="flex items-center gap-4 text-sm text-text/60">
         <time datetime={dateStr}>{dateStr}</time>
         {lang && pair && (
           <a href={`/posts/${pair}`} class="text-xs font-mono">

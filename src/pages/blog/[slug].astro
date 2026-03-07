@@ -24,10 +24,10 @@ const dateStr = article.published_at.split('T')[0];
   <article class="fade-in">
     <header class="mb-10">
       <span class="text-xs font-mono text-blue-500">DEV.to</span>
-      <h1 class="text-3xl font-display font-bold text-heading mt-2 mb-3">
+      <h1 class="text-3xl font-display font-bold text-heading mt-2 mb-4 leading-tight">
         {article.title}
       </h1>
-      <div class="flex items-center gap-4 text-sm text-muted">
+      <div class="flex items-center gap-4 text-sm text-text/60">
         <time datetime={dateStr}>{dateStr}</time>
         <span>{article.reading_time_minutes}분</span>
         <a href={article.url} target="_blank" rel="noopener" class="font-mono text-xs">
