@@ -11,10 +11,10 @@ const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
 const currentPath = Astro.url.pathname;
 
 const navItems = [
-  { href: '/projects', label: 'Projects' },
-  { href: '/posts', label: 'AI Posts' },
-  { href: '/ai-news', label: 'AI News' },
-  { href: '/about', label: 'About' },
+  { href: '/projects', label: 'Projects', labelEn: 'Projects' },
+  { href: '/posts', label: 'AI Posts', labelEn: 'AI Posts' },
+  { href: '/ai-news', label: 'AI News', labelEn: 'AI News' },
+  { href: '/about', label: 'About', labelEn: 'About' },
 ];
 ---
 
@@ -81,45 +81,280 @@ const navItems = [
     </style>
   </head>
   <body class="min-h-screen" style="background: #fff;">
-    <header style="border-bottom: 1px solid #f2f4f6;">
-      <nav style="max-width: 960px; margin: 0 auto; padding: 0 1.5rem; display: flex; align-items: center; justify-content: space-between; height: 64px;">
-        <a href="/" style="font-family: 'IBM Plex Sans KR', sans-serif; font-weight: 700; font-size: 1.2rem; color: #191f28; text-decoration: none;">
+    <!-- Header -->
+    <header class="site-header">
+      <nav class="site-nav">
+        <a href="/" class="site-logo">
           JiDong Lab
         </a>
-        <div style="display: flex; align-items: center; gap: 0; height: 100%;">
-          {navItems.map(item => (
-            <a
-              href={item.href}
-              style={`display: flex; align-items: center; height: 100%; padding: 0 1rem; font-size: 0.95rem; text-decoration: none; border-bottom: 2px solid transparent; transition: all 0.15s; ${
-                currentPath.startsWith(item.href)
-                  ? 'color: #00c471; border-bottom-color: #00c471; font-weight: 600;'
-                  : 'color: #4e5968;'
-              }`}
-            >
-              {item.label}
+        <div class="nav-right">
+          <div class="nav-tabs">
+            {navItems.map(item => (
+              <a
+                href={item.href}
+                class:list={['nav-tab', { active: currentPath.startsWith(item.href) }]}
+              >
+                {item.label}
+              </a>
+            ))}
+          </div>
+          <div class="nav-utils">
+            <a href="https://github.com/jee599" target="_blank" rel="noopener" class="nav-icon" title="GitHub">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
             </a>
-          ))}
-          <a
-            href="https://github.com/jee599"
-            target="_blank"
-            rel="noopener"
-            style="display: flex; align-items: center; height: 100%; padding: 0 1rem; font-size: 0.95rem; color: #4e5968; text-decoration: none;"
-          >
-            GitHub
-          </a>
+            <button id="lang-toggle" class="lang-btn" title="Switch language">
+              EN
+            </button>
+          </div>
         </div>
       </nav>
     </header>
 
-    <main style="max-width: 960px; margin: 0 auto; padding: 3rem 1.5rem;">
+    <main class="site-main">
       <slot />
     </main>
 
-    <footer style="border-top: 1px solid #f2f4f6; margin-top: 4rem;">
-      <div style="max-width: 960px; margin: 0 auto; padding: 2rem 1.5rem; text-align: center; font-size: 0.8rem; color: #8b95a1;">
-        <p>AI를 사용하고, 연구합니다. Built with Astro + Claude Code.</p>
-        <p style="margin-top: 0.25rem;">&copy; {new Date().getFullYear()} jidonglab</p>
+    <!-- Footer -->
+    <footer class="site-footer">
+      <div class="footer-inner">
+        <div class="footer-grid">
+          <div class="footer-col">
+            <div class="footer-logo">JiDong Lab</div>
+            <p class="footer-desc">AI를 사용하고, 연구한다.</p>
+          </div>
+          <div class="footer-col">
+            <div class="footer-heading">Links</div>
+            <a href="/projects" class="footer-link">Projects</a>
+            <a href="/posts" class="footer-link">AI Posts</a>
+            <a href="/ai-news" class="footer-link">AI News</a>
+            <a href="/about" class="footer-link">About</a>
+          </div>
+          <div class="footer-col">
+            <div class="footer-heading">Connect</div>
+            <a href="https://github.com/jee599" target="_blank" rel="noopener" class="footer-link">GitHub</a>
+            <a href="/rss.xml" class="footer-link">RSS Feed</a>
+          </div>
+        </div>
+        <div class="footer-bottom">
+          <p>&copy; {new Date().getFullYear()} jidonglab. Built with Astro + Claude Code.</p>
+        </div>
       </div>
     </footer>
+
+    <script is:inline>
+      // Language toggle
+      const langBtn = document.getElementById('lang-toggle');
+      let lang = localStorage.getItem('lang') || 'ko';
+      if (langBtn) {
+        langBtn.textContent = lang === 'ko' ? 'EN' : 'KO';
+        langBtn.addEventListener('click', () => {
+          lang = lang === 'ko' ? 'en' : 'ko';
+          localStorage.setItem('lang', lang);
+          langBtn.textContent = lang === 'ko' ? 'EN' : 'KO';
+          document.documentElement.lang = lang;
+          document.querySelectorAll('[data-ko]').forEach(el => {
+            el.textContent = lang === 'ko' ? el.dataset.ko : el.dataset.en;
+          });
+        });
+      }
+    </script>
   </body>
 </html>
+
+<style>
+  /* ═══ Header ═══ */
+  .site-header {
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid #f2f4f6;
+  }
+
+  .site-nav {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 64px;
+  }
+
+  .site-logo {
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #191f28;
+    text-decoration: none;
+    letter-spacing: -0.02em;
+  }
+
+  .nav-right {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 100%;
+  }
+
+  .nav-tabs {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    gap: 0;
+  }
+
+  .nav-tab {
+    display: flex;
+    align-items: center;
+    height: 100%;
+    padding: 0 1rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: #6b7684;
+    text-decoration: none;
+    border-bottom: 2px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .nav-tab:hover {
+    color: #333d4b;
+  }
+
+  .nav-tab.active {
+    color: #00c471;
+    border-bottom-color: #00c471;
+    font-weight: 600;
+  }
+
+  .nav-utils {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: 0.5rem;
+    padding-left: 1rem;
+    border-left: 1px solid #f2f4f6;
+  }
+
+  .nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    color: #8b95a1;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .nav-icon:hover {
+    background: #f2f4f6;
+    color: #333d4b;
+  }
+
+  .lang-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 8px;
+    border: 1px solid #e5e8eb;
+    background: #fff;
+    color: #6b7684;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .lang-btn:hover {
+    border-color: #00c471;
+    color: #00c471;
+    background: #e6f9f0;
+  }
+
+  /* ═══ Main ═══ */
+  .site-main {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+  }
+
+  /* ═══ Footer ═══ */
+  .site-footer {
+    margin-top: 6rem;
+    background: #f9fafb;
+    border-top: 1px solid #f2f4f6;
+  }
+
+  .footer-inner {
+    max-width: 1080px;
+    margin: 0 auto;
+    padding: 3.5rem 1.5rem 2rem;
+  }
+
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr 1fr;
+    gap: 3rem;
+    margin-bottom: 2.5rem;
+  }
+
+  .footer-logo {
+    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #191f28;
+    margin-bottom: 0.5rem;
+  }
+
+  .footer-desc {
+    font-size: 0.875rem;
+    color: #8b95a1;
+    line-height: 1.6;
+  }
+
+  .footer-heading {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8b95a1;
+    margin-bottom: 0.75rem;
+  }
+
+  .footer-link {
+    display: block;
+    font-size: 0.875rem;
+    color: #6b7684;
+    text-decoration: none;
+    padding: 0.25rem 0;
+    transition: color 0.15s;
+  }
+
+  .footer-link:hover {
+    color: #00c471;
+  }
+
+  .footer-bottom {
+    padding-top: 1.5rem;
+    border-top: 1px solid #e5e8eb;
+    font-size: 0.8rem;
+    color: #8b95a1;
+  }
+
+  @media (max-width: 768px) {
+    .footer-grid {
+      grid-template-columns: 1fr;
+      gap: 2rem;
+    }
+    .nav-tabs {
+      display: none;
+    }
+  }
+</style>

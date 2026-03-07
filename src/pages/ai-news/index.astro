@@ -12,6 +12,14 @@ if (modelFilter && ['claude', 'gemini', 'gpt', 'etc'].includes(modelFilter)) {
   aiNews = aiNews.filter(n => n.data.model === modelFilter);
 }
 
+const models = [
+  { key: null, label: 'All', color: '#191f28' },
+  { key: 'claude', label: 'Claude', color: '#d97757' },
+  { key: 'gemini', label: 'Gemini', color: '#4285f4' },
+  { key: 'gpt', label: 'GPT', color: '#10a37f' },
+  { key: 'etc', label: 'Others', color: '#8b95a1' },
+];
+
 const modelLabels: Record<string, string> = {
   claude: 'Claude',
   gemini: 'Gemini',
@@ -21,33 +29,25 @@ const modelLabels: Record<string, string> = {
 ---
 
 <Base title="AI News">
-  <div class="fade-in">
-    <h1 class="text-3xl font-display font-bold text-heading mb-4">
-      AI News
-    </h1>
-    <p class="text-muted mb-8" style="font-size: 0.95rem;">
-      매일 아침 9시, 주요 LLM 모델 소식을 자동으로 수집하고 포스팅합니다.
-    </p>
-
-    <div class="flex gap-2 mb-8 flex-wrap">
-      <a
-        href="/ai-news"
-        class={`text-xs font-mono px-3 py-1.5 rounded-full transition-all ${!modelFilter ? 'bg-accent-light text-accent-dark border border-accent/30' : 'bg-surface text-muted border border-border'}`}
-      >
-        All
-      </a>
-      {Object.entries(modelLabels).map(([key, name]) => (
-        <a
-          href={`/ai-news?model=${key}`}
-          class={`text-xs font-mono px-3 py-1.5 rounded-full transition-all ${modelFilter === key ? 'bg-accent-light text-accent-dark border border-accent/30' : 'bg-surface text-muted border border-border'}`}
-        >
-          {name}
-        </a>
-      ))}
-    </div>
+  <div class="page-header fade-in">
+    <h1 class="page-title">AI News</h1>
+    <p class="page-desc" data-ko="매일 아침 9시, 주요 LLM 모델 소식을 자동으로 수집하고 포스팅한다." data-en="AI news is auto-collected and posted every morning at 9 AM KST.">매일 아침 9시, 주요 LLM 모델 소식을 자동으로 수집하고 포스팅한다.</p>
   </div>
 
-  <div class="fade-in stagger-1">
+  <div class="model-filters fade-in stagger-1">
+    {models.map(m => (
+      <a
+        href={m.key ? `/ai-news?model=${m.key}` : '/ai-news'}
+        class:list={['model-btn', { active: modelFilter === m.key || (!modelFilter && !m.key) }]}
+        style={`--m-color: ${m.color}`}
+      >
+        <span class="m-dot" style={`background: ${m.color}`}></span>
+        {m.label}
+      </a>
+    ))}
+  </div>
+
+  <div class="fade-in stagger-2">
     {aiNews.map((news) => (
       <PostCard
         title={news.data.title}
@@ -61,8 +61,70 @@ const modelLabels: Record<string, string> = {
   </div>
 
   {aiNews.length === 0 && (
-    <p class="text-muted fade-in stagger-1">
-      {modelFilter ? `${modelLabels[modelFilter] || modelFilter} 관련 소식이 아직 없습니다.` : '아직 AI 뉴스가 없습니다. 매일 아침 9시에 자동으로 생성됩니다.'}
+    <p class="text-muted fade-in stagger-1" data-ko={modelFilter ? `${modelLabels[modelFilter] || modelFilter} 관련 소식이 아직 없다.` : '아직 AI 뉴스가 없다. 매일 아침 9시에 자동으로 생성된다.'} data-en={modelFilter ? `No ${modelLabels[modelFilter] || modelFilter} news yet.` : 'No AI news yet. Auto-generated daily at 9 AM KST.'}>
+      {modelFilter ? `${modelLabels[modelFilter] || modelFilter} 관련 소식이 아직 없다.` : '아직 AI 뉴스가 없다. 매일 아침 9시에 자동으로 생성된다.'}
     </p>
   )}
 </Base>
+
+<style>
+  .page-header {
+    padding: 3rem 0 1.5rem;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #191f28;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+
+  .page-desc {
+    font-size: 0.95rem;
+    color: #8b95a1;
+  }
+
+  .model-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f2f4f6;
+  }
+
+  .model-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid #e5e8eb;
+    border-radius: 100px;
+    background: #fff;
+    color: #6b7684;
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .model-btn:hover {
+    border-color: var(--m-color);
+    color: var(--m-color);
+  }
+
+  .model-btn.active {
+    border-color: var(--m-color);
+    color: var(--m-color);
+    background: #f9fafb;
+    font-weight: 600;
+  }
+
+  .m-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+</style>

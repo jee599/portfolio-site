@@ -17,6 +17,7 @@ const formattedDate = date.toLocaleDateString('ko-KR', {
   month: 'long',
   day: 'numeric',
 });
+const slug = Astro.url.pathname;
 ---
 
 <Base title={title}>
@@ -39,6 +40,11 @@ const formattedDate = date.toLocaleDateString('ko-KR', {
             </a>
           </>
         )}
+        <span class="post-sep">&middot;</span>
+        <span class="post-views" id="view-count">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+          <span id="view-num">0</span>
+        </span>
       </div>
       {tags.length > 0 && (
         <div class="post-tags">
@@ -53,11 +59,73 @@ const formattedDate = date.toLocaleDateString('ko-KR', {
       <slot />
     </div>
 
+    <!-- Reactions -->
+    <div class="reactions" id="reactions">
+      <button class="reaction-btn" data-reaction="like" id="btn-like">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+        <span id="like-count">0</span>
+      </button>
+      <button class="reaction-btn" data-reaction="fire" id="btn-fire">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
+        <span id="fire-count">0</span>
+      </button>
+      <button class="reaction-btn" data-reaction="clap" id="btn-clap">
+        <span style="font-size: 1.1rem;">👏</span>
+        <span id="clap-count">0</span>
+      </button>
+    </div>
+
     <footer class="post-footer">
       <a href="/posts" class="post-back">&larr; 모든 글 보기</a>
     </footer>
   </article>
 </Base>
+
+<script is:inline define:vars={{ slug }}>
+  // View counter (localStorage-based)
+  const viewKey = `views:${slug}`;
+  const viewedKey = `viewed:${slug}`;
+  let views = parseInt(localStorage.getItem(viewKey) || '0');
+
+  if (!sessionStorage.getItem(viewedKey)) {
+    views++;
+    localStorage.setItem(viewKey, String(views));
+    sessionStorage.setItem(viewedKey, '1');
+  }
+
+  const viewEl = document.getElementById('view-num');
+  if (viewEl) viewEl.textContent = String(views);
+
+  // Reactions (localStorage-based)
+  const reactKey = `reactions:${slug}`;
+  const myReactKey = `my-reactions:${slug}`;
+  const reactions = JSON.parse(localStorage.getItem(reactKey) || '{"like":0,"fire":0,"clap":0}');
+  const myReactions = JSON.parse(localStorage.getItem(myReactKey) || '{}');
+
+  ['like', 'fire', 'clap'].forEach(type => {
+    const countEl = document.getElementById(`${type}-count`);
+    const btnEl = document.getElementById(`btn-${type}`);
+    if (countEl) countEl.textContent = String(reactions[type] || 0);
+    if (btnEl && myReactions[type]) btnEl.classList.add('active');
+
+    if (btnEl) {
+      btnEl.addEventListener('click', () => {
+        if (myReactions[type]) {
+          reactions[type] = Math.max(0, (reactions[type] || 0) - 1);
+          delete myReactions[type];
+          btnEl.classList.remove('active');
+        } else {
+          reactions[type] = (reactions[type] || 0) + 1;
+          myReactions[type] = true;
+          btnEl.classList.add('active');
+        }
+        localStorage.setItem(reactKey, JSON.stringify(reactions));
+        localStorage.setItem(myReactKey, JSON.stringify(myReactions));
+        if (countEl) countEl.textContent = String(reactions[type] || 0);
+      });
+    }
+  });
+</script>
 
 <style>
   .post {
@@ -86,11 +154,19 @@ const formattedDate = date.toLocaleDateString('ko-KR', {
     display: flex;
     align-items: center;
     gap: 0;
+    flex-wrap: wrap;
   }
 
   .post-sep {
     margin: 0 0.4rem;
     color: #d1d6db;
+  }
+
+  .post-views {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    color: #8b95a1;
   }
 
   .post-project,
@@ -119,6 +195,48 @@ const formattedDate = date.toLocaleDateString('ko-KR', {
     padding: 0.2rem 0.6rem;
     background: #f2f4f6;
     border-radius: 4px;
+  }
+
+  /* ═══ Reactions ═══ */
+  .reactions {
+    display: flex;
+    gap: 0.75rem;
+    margin-top: 3rem;
+    padding: 1.5rem;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #f2f4f6;
+    justify-content: center;
+  }
+
+  .reaction-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid #e5e8eb;
+    border-radius: 100px;
+    background: #fff;
+    color: #8b95a1;
+    font-size: 0.85rem;
+    font-family: 'JetBrains Mono', monospace;
+    cursor: pointer;
+    transition: all 0.2s;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  .reaction-btn:hover {
+    border-color: #00c471;
+    color: #00c471;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(0, 196, 113, 0.1);
+  }
+
+  .reaction-btn.active {
+    background: #e6f9f0;
+    border-color: #00c471;
+    color: #00a85e;
   }
 
   .post-footer {

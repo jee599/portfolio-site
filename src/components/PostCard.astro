@@ -12,28 +12,125 @@ interface Props {
 
 const { title, href, date, type, project, tags = [], description, model } = Astro.props;
 
-const typeLabel: Record<string, { text: string; color: string }> = {
-  'build-log': { text: 'Build Log', color: '#00a85e' },
-  tip: { text: 'AI Tip', color: '#f59e0b' },
-  blog: { text: 'Blog', color: '#3b82f6' },
-  'ai-news': { text: 'AI News', color: '#00c471' },
+const typeConfig: Record<string, { text: string; color: string; bg: string }> = {
+  'build-log': { text: 'Build Log', color: '#00a85e', bg: '#e6f9f0' },
+  tip: { text: 'AI Tip', color: '#d97706', bg: '#fef3c7' },
+  blog: { text: 'Blog', color: '#3b82f6', bg: '#eff6ff' },
+  'ai-news': { text: 'AI News', color: '#00c471', bg: '#e6f9f0' },
 };
 
-const { text: labelText, color: labelColor } = typeLabel[type] || typeLabel.blog;
+const { text: labelText, color: labelColor, bg: labelBg } = typeConfig[type] || typeConfig.blog;
 ---
 
-<a
-  href={href}
-  class="block group py-4 border-b border-border/50 hover:border-accent/30 transition-colors no-underline"
->
-  <div class="flex items-center gap-3 mb-1.5">
-    <span class="text-xs font-mono" style={`color: ${labelColor}`}>{labelText}</span>
-    {model && <span class="text-xs font-mono text-muted">{model}</span>}
-    {project && <span class="text-xs font-mono text-muted">{project}</span>}
-    <time class="text-xs text-muted ml-auto">{date}</time>
+<a href={href} class="post-card">
+  <div class="card-inner">
+    <div class="card-top">
+      <span class="card-badge" style={`color: ${labelColor}; background: ${labelBg}`}>
+        {labelText}
+      </span>
+      {model && (
+        <span class="card-model">{model}</span>
+      )}
+      <time class="card-date">{date}</time>
+    </div>
+    <h3 class="card-title">{title}</h3>
+    {description && (
+      <p class="card-desc">{description}</p>
+    )}
+    {project && (
+      <div class="card-bottom">
+        <span class="card-project">{project}</span>
+      </div>
+    )}
   </div>
-  <h3 class="font-display font-medium text-heading group-hover:text-accent-dark transition-colors">
-    {title}
-  </h3>
-  {description && <p class="text-sm text-muted mt-1 line-clamp-1">{description}</p>}
 </a>
+
+<style>
+  .post-card {
+    display: block;
+    text-decoration: none;
+    padding: 1.25rem 0;
+    border-bottom: 1px solid #f2f4f6;
+    transition: all 0.15s;
+  }
+
+  .post-card:hover {
+    padding-left: 0.5rem;
+  }
+
+  .post-card:hover .card-title {
+    color: #00c471;
+  }
+
+  .card-inner {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+  }
+
+  .card-top {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
+
+  .card-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+  }
+
+  .card-model {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #8b95a1;
+    text-transform: capitalize;
+  }
+
+  .card-date {
+    font-size: 0.75rem;
+    color: #8b95a1;
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .card-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #191f28;
+    line-height: 1.5;
+    letter-spacing: -0.01em;
+    transition: color 0.15s;
+  }
+
+  .card-desc {
+    font-size: 0.85rem;
+    color: #8b95a1;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .card-bottom {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.15rem;
+  }
+
+  .card-project {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #8b95a1;
+    padding: 0.1rem 0.4rem;
+    background: #f2f4f6;
+    border-radius: 3px;
+  }
+</style>

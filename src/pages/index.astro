@@ -3,7 +3,9 @@ import Base from '../layouts/Base.astro';
 import PostCard from '../components/PostCard.astro';
 import { getCollection } from 'astro:content';
 import { fetchArticles } from '../lib/devto';
+import { getAllProjects } from '../lib/projects';
 
+const projects = await getAllProjects();
 const buildLogs = (await getCollection('build-logs'))
   .filter((p) => p.data.lang === 'ko')
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
@@ -54,8 +56,8 @@ const allPosts: PostItem[] = [
   })),
 ].sort((a, b) => b.date.localeCompare(a.date));
 
-const recentPosts = allPosts.slice(0, 10);
-// For "popular" section - just pick tips and build logs as they're original content
+const featuredPost = allPosts[0];
+const recentPosts = allPosts.slice(1, 9);
 const popularPosts = [...buildLogs.slice(0, 2).map(p => ({
   title: p.data.title,
   href: `/posts/${p.slug}`,
@@ -63,64 +65,494 @@ const popularPosts = [...buildLogs.slice(0, 2).map(p => ({
   title: p.data.title,
   href: `/posts/${p.slug}`,
 }))];
+
+const statusColors: Record<string, string> = {
+  '운영중': '#00c471',
+  '개발중': '#3b82f6',
+  '실험중': '#f59e0b',
+  '중단': '#ef4444',
+};
 ---
 
 <Base title="Home">
-  <div class="fade-in" style="display: flex; gap: 3rem; align-items: flex-start;">
-    <!-- Main: 전체 아티클 (올린 순서대로) -->
-    <div style="flex: 1; min-width: 0;">
-      <h2 class="text-sm font-mono text-muted uppercase tracking-widest mb-6">
-        전체 아티클
-      </h2>
-      <div>
-        {recentPosts.map((post) => (
-          <PostCard
-            title={post.title}
-            href={post.href}
-            date={post.date}
-            type={post.type}
-            project={post.project}
-            description={post.description}
-            model={post.model}
-          />
-        ))}
-      </div>
-      {allPosts.length > 10 && (
-        <div style="text-align: center; margin-top: 2rem;">
-          <a href="/posts" style="font-size: 0.9rem; color: #00c471;">모든 글 보기 &rarr;</a>
-        </div>
-      )}
+  <!-- Hero Section -->
+  <section class="hero fade-in">
+    <div class="hero-badge">
+      <span class="hero-dot"></span>
+      <span data-ko="AI 연구 & 개발" data-en="AI Research & Development">AI 연구 & 개발</span>
     </div>
+    <h1 class="hero-title">
+      <span data-ko="AI를 사용하고," data-en="Using AI,">AI를 사용하고,</span><br/>
+      <span class="hero-accent" data-ko="연구한다." data-en="Researching.">연구한다.</span>
+    </h1>
+    <p class="hero-desc" data-ko="LLM 모델을 활용한 프로덕트 개발과 AI 연구 과정을 기록한다. Claude, Gemini, GPT 등 최신 AI 소식도 매일 업데이트한다." data-en="Documenting product development with LLM models and AI research. Daily updates on Claude, Gemini, GPT and more.">
+      LLM 모델을 활용한 프로덕트 개발과 AI 연구 과정을 기록한다. Claude, Gemini, GPT 등 최신 AI 소식도 매일 업데이트한다.
+    </p>
+  </section>
 
-    <!-- Sidebar: 인기 있는 글 -->
-    <aside style="width: 280px; flex-shrink: 0; position: sticky; top: 2rem;" class="hidden lg:block">
-      <h2 class="text-sm font-mono text-muted uppercase tracking-widest mb-4">
-        인기 있는 글
-      </h2>
-      <div style="display: flex; flex-direction: column; gap: 0;">
-        {popularPosts.map((post, i) => (
-          <a href={post.href} style="display: flex; gap: 0.75rem; padding: 0.75rem 0; border-bottom: 1px solid #f2f4f6; text-decoration: none; align-items: flex-start;">
-            <span style="font-size: 1.25rem; font-weight: 700; color: #00c471; flex-shrink: 0; width: 1.5rem;">
-              {i + 1}
-            </span>
-            <span style="font-size: 0.9rem; color: #333d4b; line-height: 1.5; font-weight: 500;">
-              {post.title}
-            </span>
-          </a>
-        ))}
-      </div>
+  <!-- Featured Article -->
+  {featuredPost && (
+    <section class="featured fade-in stagger-1">
+      <a href={featuredPost.href} class="featured-card">
+        <div class="featured-badge">{featuredPost.type === 'ai-news' ? 'AI News' : featuredPost.type === 'build-log' ? 'Build Log' : featuredPost.type === 'tip' ? 'AI Tip' : 'Blog'}</div>
+        <h2 class="featured-title">{featuredPost.title}</h2>
+        {featuredPost.description && <p class="featured-desc">{featuredPost.description}</p>}
+        <div class="featured-meta">
+          <time>{featuredPost.date}</time>
+          {featuredPost.project && <span>&middot; {featuredPost.project}</span>}
+        </div>
+      </a>
+    </section>
+  )}
 
-      <div style="margin-top: 2.5rem;">
-        <h2 class="text-sm font-mono text-muted uppercase tracking-widest mb-4">
-          LLM News
-        </h2>
-        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-          <a href="/ai-news?model=claude" style="font-size: 0.875rem; color: #333d4b; text-decoration: none; padding: 0.4rem 0;">Claude</a>
-          <a href="/ai-news?model=gemini" style="font-size: 0.875rem; color: #333d4b; text-decoration: none; padding: 0.4rem 0;">Gemini</a>
-          <a href="/ai-news?model=gpt" style="font-size: 0.875rem; color: #333d4b; text-decoration: none; padding: 0.4rem 0;">GPT</a>
-          <a href="/ai-news?model=etc" style="font-size: 0.875rem; color: #333d4b; text-decoration: none; padding: 0.4rem 0;">Others</a>
+  <!-- Projects -->
+  <section class="section fade-in stagger-1">
+    <div class="section-header">
+      <h2 class="section-title" data-ko="프로젝트" data-en="Projects">프로젝트</h2>
+      <a href="/projects" class="section-link" data-ko="전체 보기 →" data-en="View all →">전체 보기 →</a>
+    </div>
+    <div class="project-grid">
+      {projects.slice(0, 4).map(p => (
+        <a href={`/projects/${p.slug}`} class="project-card">
+          <div class="project-header">
+            <span class="project-name">{p.title}</span>
+            <span class="project-status" style={`color: ${statusColors[p.status] || '#8b95a1'}`}>
+              {p.status}
+            </span>
+          </div>
+          <p class="project-desc">{p.one_liner}</p>
+          <div class="project-stack">
+            {p.stack.slice(0, 4).map(tech => (
+              <span class="stack-tag">{tech}</span>
+            ))}
+          </div>
+        </a>
+      ))}
+    </div>
+  </section>
+
+  <!-- Articles + Sidebar -->
+  <section class="section fade-in stagger-2">
+    <div class="content-layout">
+      <!-- Main: Articles -->
+      <div class="content-main">
+        <div class="section-header">
+          <h2 class="section-title" data-ko="전체 아티클" data-en="All Articles">전체 아티클</h2>
+          <a href="/posts" class="section-link" data-ko="모든 글 →" data-en="All posts →">모든 글 →</a>
+        </div>
+        <div class="article-list">
+          {recentPosts.map((post) => (
+            <PostCard
+              title={post.title}
+              href={post.href}
+              date={post.date}
+              type={post.type}
+              project={post.project}
+              description={post.description}
+              model={post.model}
+            />
+          ))}
         </div>
       </div>
-    </aside>
-  </div>
+
+      <!-- Sidebar -->
+      <aside class="content-sidebar">
+        <!-- Popular -->
+        <div class="sidebar-section">
+          <h3 class="sidebar-title" data-ko="인기 있는 글" data-en="Popular">인기 있는 글</h3>
+          <div class="popular-list">
+            {popularPosts.map((post, i) => (
+              <a href={post.href} class="popular-item">
+                <span class="popular-rank">{i + 1}</span>
+                <span class="popular-title">{post.title}</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        <!-- LLM News Links -->
+        <div class="sidebar-section">
+          <h3 class="sidebar-title">LLM News</h3>
+          <div class="news-links">
+            <a href="/ai-news?model=claude" class="news-link">
+              <span class="news-dot" style="background: #d97757;"></span>
+              Claude
+            </a>
+            <a href="/ai-news?model=gemini" class="news-link">
+              <span class="news-dot" style="background: #4285f4;"></span>
+              Gemini
+            </a>
+            <a href="/ai-news?model=gpt" class="news-link">
+              <span class="news-dot" style="background: #10a37f;"></span>
+              GPT
+            </a>
+            <a href="/ai-news?model=etc" class="news-link">
+              <span class="news-dot" style="background: #8b95a1;"></span>
+              Others
+            </a>
+          </div>
+        </div>
+
+        <!-- Subscribe hint -->
+        <div class="sidebar-cta">
+          <p class="cta-text" data-ko="매일 아침 9시, AI 소식이 자동으로 올라온다." data-en="Every morning at 9 AM, AI news is auto-published.">매일 아침 9시, AI 소식이 자동으로 올라온다.</p>
+          <a href="/ai-news" class="cta-btn" data-ko="AI News 보기" data-en="View AI News">AI News 보기</a>
+        </div>
+      </aside>
+    </div>
+  </section>
 </Base>
+
+<style>
+  /* ═══ Hero ═══ */
+  .hero {
+    padding: 4rem 0 3rem;
+  }
+
+  .hero-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.35rem 0.85rem;
+    background: #e6f9f0;
+    border-radius: 100px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #00a85e;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #00c471;
+    animation: pulse 2s infinite;
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  .hero-title {
+    font-size: clamp(2rem, 5vw, 3rem);
+    font-weight: 700;
+    color: #191f28;
+    line-height: 1.3;
+    letter-spacing: -0.03em;
+    margin-bottom: 1.25rem;
+  }
+
+  .hero-accent {
+    color: #00c471;
+  }
+
+  .hero-desc {
+    font-size: 1.05rem;
+    color: #6b7684;
+    line-height: 1.8;
+    max-width: 560px;
+  }
+
+  /* ═══ Featured ═══ */
+  .featured {
+    margin-bottom: 3.5rem;
+  }
+
+  .featured-card {
+    display: block;
+    padding: 2rem 2.25rem;
+    background: linear-gradient(135deg, #f9fafb 0%, #e6f9f0 100%);
+    border: 1px solid #e5e8eb;
+    border-radius: 16px;
+    text-decoration: none;
+    transition: all 0.25s;
+  }
+
+  .featured-card:hover {
+    border-color: #00c471;
+    box-shadow: 0 4px 24px rgba(0, 196, 113, 0.08);
+    transform: translateY(-2px);
+  }
+
+  .featured-badge {
+    display: inline-block;
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #00c471;
+    background: rgba(0, 196, 113, 0.1);
+    padding: 0.25rem 0.6rem;
+    border-radius: 4px;
+    margin-bottom: 1rem;
+  }
+
+  .featured-title {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: #191f28;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.02em;
+  }
+
+  .featured-desc {
+    font-size: 0.95rem;
+    color: #6b7684;
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+
+  .featured-meta {
+    font-size: 0.8rem;
+    color: #8b95a1;
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  /* ═══ Section ═══ */
+  .section {
+    margin-bottom: 3.5rem;
+  }
+
+  .section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #191f28;
+  }
+
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #191f28;
+    letter-spacing: -0.01em;
+  }
+
+  .section-link {
+    font-size: 0.8rem;
+    font-weight: 500;
+    color: #00c471;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+
+  .section-link:hover {
+    opacity: 0.7;
+  }
+
+  /* ═══ Projects ═══ */
+  .project-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+
+  .project-card {
+    display: block;
+    padding: 1.5rem;
+    background: #fff;
+    border: 1px solid #e5e8eb;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .project-card:hover {
+    border-color: #00c471;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.04);
+  }
+
+  .project-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+  }
+
+  .project-name {
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: #191f28;
+  }
+
+  .project-status {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+  }
+
+  .project-desc {
+    font-size: 0.85rem;
+    color: #6b7684;
+    line-height: 1.5;
+    margin-bottom: 0.75rem;
+  }
+
+  .project-stack {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .stack-tag {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    padding: 0.15rem 0.5rem;
+    background: #f2f4f6;
+    color: #6b7684;
+    border-radius: 4px;
+  }
+
+  /* ═══ Content Layout ═══ */
+  .content-layout {
+    display: flex;
+    gap: 3rem;
+    align-items: flex-start;
+  }
+
+  .content-main {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .content-sidebar {
+    width: 280px;
+    flex-shrink: 0;
+    position: sticky;
+    top: 80px;
+  }
+
+  /* ═══ Sidebar ═══ */
+  .sidebar-section {
+    margin-bottom: 2rem;
+  }
+
+  .sidebar-title {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: #8b95a1;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 1px solid #f2f4f6;
+  }
+
+  .popular-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .popular-item {
+    display: flex;
+    gap: 0.75rem;
+    align-items: flex-start;
+    padding: 0.65rem 0;
+    border-bottom: 1px solid #f9fafb;
+    text-decoration: none;
+    transition: all 0.15s;
+  }
+
+  .popular-item:hover .popular-title {
+    color: #00c471;
+  }
+
+  .popular-rank {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #00c471;
+    flex-shrink: 0;
+    width: 1.5rem;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .popular-title {
+    font-size: 0.875rem;
+    color: #333d4b;
+    line-height: 1.5;
+    font-weight: 500;
+    transition: color 0.15s;
+  }
+
+  .news-links {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+
+  .news-link {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.6rem;
+    font-size: 0.85rem;
+    color: #333d4b;
+    text-decoration: none;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .news-link:hover {
+    background: #f2f4f6;
+    color: #191f28;
+  }
+
+  .news-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .sidebar-cta {
+    margin-top: 1.5rem;
+    padding: 1.25rem;
+    background: #f9fafb;
+    border-radius: 12px;
+    border: 1px solid #f2f4f6;
+  }
+
+  .cta-text {
+    font-size: 0.825rem;
+    color: #6b7684;
+    line-height: 1.6;
+    margin-bottom: 0.75rem;
+  }
+
+  .cta-btn {
+    display: inline-block;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: #00c471;
+    text-decoration: none;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid #00c471;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .cta-btn:hover {
+    background: #00c471;
+    color: #fff;
+  }
+
+  /* ═══ Responsive ═══ */
+  @media (max-width: 768px) {
+    .project-grid {
+      grid-template-columns: 1fr;
+    }
+    .content-layout {
+      flex-direction: column;
+    }
+    .content-sidebar {
+      width: 100%;
+      position: static;
+    }
+  }
+</style>
