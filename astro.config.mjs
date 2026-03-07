@@ -8,4 +8,9 @@ export default defineConfig({
   integrations: [react(), tailwind()],
   output: 'hybrid',
   adapter: vercel(),
+  markdown: {
+    shikiConfig: {
+      theme: 'github-dark',
+    },
+  },
 });
