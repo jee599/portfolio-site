@@ -9,15 +9,18 @@ const buildLogs = (await getCollection('build-logs'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 const tips = (await getCollection('tips'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const aiNews = (await getCollection('ai-news'))
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 const devtoArticles = await fetchArticles();
 
 type PostItem = {
   title: string;
   href: string;
   date: string;
-  type: 'build-log' | 'tip' | 'blog';
+  type: 'build-log' | 'tip' | 'blog' | 'ai-news';
   project?: string;
   description?: string;
+  model?: string;
 };
 
 const allPosts: PostItem[] = [
@@ -34,6 +37,14 @@ const allPosts: PostItem[] = [
     date: p.data.date.toISOString().split('T')[0],
     type: 'tip' as const,
   })),
+  ...aiNews.map((p) => ({
+    title: p.data.title,
+    href: `/ai-news/${p.slug}`,
+    date: p.data.date.toISOString().split('T')[0],
+    type: 'ai-news' as const,
+    description: p.data.summary,
+    model: p.data.model,
+  })),
   ...devtoArticles.map((a) => ({
     title: a.title,
     href: `/blog/${a.slug}`,
@@ -42,23 +53,156 @@ const allPosts: PostItem[] = [
     description: a.description,
   })),
 ].sort((a, b) => b.date.localeCompare(a.date));
+
+const categories = [
+  { key: 'all', label: '전체', color: '#191f28' },
+  { key: 'build-log', label: 'Build Log', color: '#00a85e' },
+  { key: 'tip', label: 'AI Tip', color: '#d97706' },
+  { key: 'ai-news', label: 'AI News', color: '#00c471' },
+  { key: 'blog', label: 'Blog', color: '#3b82f6' },
+];
 ---
 
 <Base title="AI Posts">
-  <h1 class="text-3xl font-display font-bold text-heading mb-8 fade-in">AI Posts</h1>
-  <div class="fade-in stagger-1">
-    {allPosts.map((post) => (
-      <PostCard
-        title={post.title}
-        href={post.href}
-        date={post.date}
-        type={post.type}
-        project={post.project}
-        description={post.description}
-      />
+  <div class="page-header fade-in">
+    <h1 class="page-title" data-ko="AI Posts" data-en="AI Posts">AI Posts</h1>
+    <p class="page-desc" data-ko="빌드 로그, AI 팁, 뉴스, 블로그 글을 모아 놓은 곳이다." data-en="Build logs, AI tips, news, and blog posts all in one place.">빌드 로그, AI 팁, 뉴스, 블로그 글을 모아 놓은 곳이다.</p>
+  </div>
+
+  <!-- Category Filter Buttons -->
+  <div class="category-filters fade-in stagger-1" id="category-filters">
+    {categories.map(cat => (
+      <button
+        class:list={['cat-btn', { active: cat.key === 'all' }]}
+        data-category={cat.key}
+        style={`--cat-color: ${cat.color}`}
+      >
+        <span class="cat-dot" style={`background: ${cat.color}`}></span>
+        {cat.label}
+        <span class="cat-count">
+          {cat.key === 'all' ? allPosts.length : allPosts.filter(p => p.type === cat.key).length}
+        </span>
+      </button>
     ))}
   </div>
+
+  <div class="post-list fade-in stagger-2" id="post-list">
+    {allPosts.map((post) => (
+      <div class="post-item" data-type={post.type}>
+        <PostCard
+          title={post.title}
+          href={post.href}
+          date={post.date}
+          type={post.type}
+          project={post.project}
+          description={post.description}
+          model={post.model}
+        />
+      </div>
+    ))}
+  </div>
+
   {allPosts.length === 0 && (
-    <p class="text-muted">아직 글이 없다. 작업하고 push하면 빌드 로그가 자동으로 생긴다.</p>
+    <p class="text-muted" data-ko="아직 글이 없다. 작업하고 push하면 빌드 로그가 자동으로 생긴다." data-en="No posts yet. Push code and build logs will appear automatically.">아직 글이 없다. 작업하고 push하면 빌드 로그가 자동으로 생긴다.</p>
   )}
 </Base>
+
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', () => {
+    const buttons = document.querySelectorAll('.cat-btn');
+    const items = document.querySelectorAll('.post-item');
+
+    buttons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const cat = btn.dataset.category;
+        buttons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        items.forEach(item => {
+          if (cat === 'all' || item.dataset.type === cat) {
+            item.style.display = '';
+          } else {
+            item.style.display = 'none';
+          }
+        });
+      });
+    });
+  });
+</script>
+
+<style>
+  .page-header {
+    padding: 3rem 0 1.5rem;
+  }
+
+  .page-title {
+    font-size: 2rem;
+    font-weight: 700;
+    color: #191f28;
+    letter-spacing: -0.03em;
+    margin-bottom: 0.5rem;
+  }
+
+  .page-desc {
+    font-size: 0.95rem;
+    color: #8b95a1;
+  }
+
+  .category-filters {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-bottom: 2rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 1px solid #f2f4f6;
+  }
+
+  .cat-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1rem;
+    border: 1px solid #e5e8eb;
+    border-radius: 100px;
+    background: #fff;
+    color: #6b7684;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-family: 'IBM Plex Sans KR', sans-serif;
+  }
+
+  .cat-btn:hover {
+    border-color: var(--cat-color);
+    color: var(--cat-color);
+    background: #f9fafb;
+  }
+
+  .cat-btn.active {
+    border-color: var(--cat-color);
+    color: var(--cat-color);
+    background: #f9fafb;
+    font-weight: 600;
+  }
+
+  .cat-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .cat-count {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #8b95a1;
+    background: #f2f4f6;
+    padding: 0.1rem 0.4rem;
+    border-radius: 100px;
+  }
+
+  .cat-btn.active .cat-count {
+    background: rgba(0, 196, 113, 0.1);
+  }
+</style>

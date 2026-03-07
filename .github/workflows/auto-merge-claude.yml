@@ -21,6 +21,21 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
 
+            // Check if branch has changes vs main
+            try {
+              const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo,
+                basehead: `main...${branch}`,
+              });
+              if (comparison.total_commits === 0) {
+                console.log('No new commits vs main, skipping');
+                return;
+              }
+              console.log(`${comparison.total_commits} commits ahead of main`);
+            } catch (e) {
+              console.log(`Could not compare: ${e.message}`);
+            }
+
             let prNumber;
 
             // Check for existing open PR from this branch
@@ -33,7 +48,7 @@ jobs:
 
             if (existingPRs.length > 0) {
               prNumber = existingPRs[0].number;
-              console.log(`Found existing PR #${prNumber}`);
+              console.log(`Found existing open PR #${prNumber}`);
             } else {
               // Create new PR
               try {
@@ -46,7 +61,10 @@ jobs:
                 prNumber = pr.number;
                 console.log(`Created PR #${prNumber}`);
               } catch (e) {
+                // If PR already exists (closed/merged), the error message contains the PR URL
                 console.log(`Could not create PR: ${e.message}`);
+                // Try to find any closed PR and reopen isn't possible, so just log
+                console.log('Branch may need manual merge or rename');
                 return;
               }
             }
