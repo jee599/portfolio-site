@@ -19,32 +19,122 @@ const dateStr = article.published_at.split('T')[0];
 ---
 
 <Base title={article.title} description={article.description}>
-  <link rel="canonical" href={article.url} slot="head" />
-
-  <article class="fade-in">
-    <header class="mb-10">
-      <span class="text-xs font-mono text-blue-500">DEV.to</span>
-      <h1 class="text-3xl font-display font-bold text-heading mt-2 mb-4 leading-tight">
-        {article.title}
-      </h1>
-      <div class="flex items-center gap-4 text-sm text-text/60">
+  <article class="blog-post fade-in">
+    <header class="blog-header">
+      <span class="blog-source">DEV.to</span>
+      <h1 class="blog-title">{article.title}</h1>
+      <div class="blog-meta">
         <time datetime={dateStr}>{dateStr}</time>
+        <span class="blog-sep">&middot;</span>
         <span>{article.reading_time_minutes}분</span>
-        <a href={article.url} target="_blank" rel="noopener" class="font-mono text-xs">
+        <span class="blog-sep">&middot;</span>
+        <a href={article.url} target="_blank" rel="noopener" class="blog-external">
           DEV.to에서 보기 →
         </a>
       </div>
       {article.tag_list.length > 0 && (
-        <div class="flex gap-2 mt-3">
+        <div class="blog-tags">
           {article.tag_list.map((tag) => (
-            <span class="text-xs font-mono px-2 py-0.5 rounded bg-accent-light text-accent-dark">
-              {tag}
-            </span>
+            <span class="blog-tag">#{tag}</span>
           ))}
         </div>
       )}
     </header>
 
     <div class="prose" set:html={article.body_html} />
+
+    <footer class="blog-footer">
+      <a href="/posts" class="blog-back">&larr; 모든 글 보기</a>
+    </footer>
   </article>
 </Base>
+
+<style>
+  .blog-post {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 2rem 0 6rem;
+  }
+
+  .blog-header {
+    margin-bottom: 3.5rem;
+  }
+
+  .blog-source {
+    font-size: 0.7rem;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    text-transform: uppercase;
+    color: #3b82f6;
+    background: #eff6ff;
+    padding: 0.15rem 0.45rem;
+    border-radius: 3px;
+  }
+
+  .blog-title {
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    font-weight: 700;
+    color: #191f28;
+    line-height: 1.35;
+    letter-spacing: -0.03em;
+    margin: 0.75rem 0 1rem;
+    word-break: keep-all;
+  }
+
+  .blog-meta {
+    font-size: 0.9rem;
+    color: #8b95a1;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+
+  .blog-sep {
+    margin: 0 0.4rem;
+    color: #d1d6db;
+  }
+
+  .blog-external {
+    font-size: 0.8rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #8b95a1;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .blog-external:hover {
+    color: #00c471;
+  }
+
+  .blog-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+
+  .blog-tag {
+    font-size: 0.8rem;
+    color: #8b95a1;
+    padding: 0.2rem 0.6rem;
+    background: #f2f4f6;
+    border-radius: 4px;
+  }
+
+  .blog-footer {
+    margin-top: 5rem;
+    padding-top: 2rem;
+    border-top: 1px solid #f2f4f6;
+  }
+
+  .blog-back {
+    font-size: 0.9rem;
+    color: #8b95a1;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .blog-back:hover {
+    color: #00c471;
+  }
+</style>
