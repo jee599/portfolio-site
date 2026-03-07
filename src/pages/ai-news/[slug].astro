@@ -1,0 +1,39 @@
+---
+import PostLayout from '../../layouts/PostLayout.astro';
+import { getCollection } from 'astro:content';
+
+export async function getStaticPaths() {
+  const news = await getCollection('ai-news');
+  return news.map((entry) => ({
+    params: { slug: entry.slug },
+    props: { entry },
+  }));
+}
+
+const { entry } = Astro.props;
+const { Content } = await entry.render();
+
+const modelLabels: Record<string, string> = {
+  claude: 'Claude',
+  gemini: 'Gemini',
+  gpt: 'GPT',
+  etc: 'Others',
+};
+---
+
+<PostLayout
+  title={entry.data.title}
+  date={entry.data.date}
+  tags={[modelLabels[entry.data.model] || entry.data.model, ...entry.data.tags]}
+>
+  <Content />
+  {entry.data.sources && entry.data.sources.length > 0 && (
+    <hr />
+    <h3>Sources</h3>
+    <ul>
+      {entry.data.sources.map((src: string) => (
+        <li><a href={src} target="_blank" rel="noopener">{src}</a></li>
+      ))}
+    </ul>
+  )}
+</PostLayout>
