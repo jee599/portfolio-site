@@ -12,34 +12,38 @@ interface Props {
 
 const { title, date, project, tags = [], pair, lang } = Astro.props;
 const dateStr = date.toISOString().split('T')[0];
+const formattedDate = date.toLocaleDateString('ko-KR', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
 ---
 
 <Base title={title}>
-  <article class="fade-in max-w-2xl">
-    <header class="mb-14 pb-8 border-b border-border/40">
-      {project && (
-        <a
-          href={`/projects/${project}`}
-          class="inline-block text-xs font-mono text-accent-dark no-underline uppercase tracking-widest mb-3 px-2.5 py-1 bg-accent-light rounded-md"
-        >
-          {project}
-        </a>
-      )}
-      <h1 class="text-3xl font-display font-bold text-heading mt-1 mb-5 leading-snug">{title}</h1>
-      <div class="flex items-center gap-4 text-sm text-muted">
-        <time datetime={dateStr}>{dateStr}</time>
+  <article class="post fade-in">
+    <header class="post-header">
+      <h1 class="post-title">{title}</h1>
+      <div class="post-meta">
+        <time datetime={dateStr}>{formattedDate}</time>
+        {project && (
+          <>
+            <span class="post-sep">·</span>
+            <a href={`/projects/${project}`} class="post-project">{project}</a>
+          </>
+        )}
         {lang && pair && (
-          <a href={`/posts/${pair}`} class="text-xs font-mono px-2 py-0.5 bg-surface rounded border border-border/50 no-underline hover:bg-border/20">
-            {lang === 'ko' ? 'EN →' : 'KO →'}
-          </a>
+          <>
+            <span class="post-sep">·</span>
+            <a href={`/posts/${pair}`} class="post-lang">
+              {lang === 'ko' ? 'English' : '한국어'}
+            </a>
+          </>
         )}
       </div>
       {tags.length > 0 && (
-        <div class="flex flex-wrap gap-2 mt-4">
+        <div class="post-tags">
           {tags.map((tag) => (
-            <span class="text-xs font-mono px-2.5 py-1 rounded-md bg-surface text-muted border border-border/40">
-              #{tag}
-            </span>
+            <span class="post-tag">#{tag}</span>
           ))}
         </div>
       )}
@@ -48,5 +52,90 @@ const dateStr = date.toISOString().split('T')[0];
     <div class="prose">
       <slot />
     </div>
+
+    <footer class="post-footer">
+      <a href="/posts" class="post-back">← 모든 글 보기</a>
+    </footer>
   </article>
 </Base>
+
+<style>
+  .post {
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 2rem 0 6rem;
+  }
+
+  .post-header {
+    margin-bottom: 3.5rem;
+  }
+
+  .post-title {
+    font-size: clamp(1.75rem, 4vw, 2.25rem);
+    font-weight: 700;
+    color: #191f28;
+    line-height: 1.35;
+    letter-spacing: -0.03em;
+    margin: 0 0 1rem;
+    word-break: keep-all;
+  }
+
+  .post-meta {
+    font-size: 0.9rem;
+    color: #8b95a1;
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+
+  .post-sep {
+    margin: 0 0.4rem;
+    color: #d1d6db;
+  }
+
+  .post-project,
+  .post-lang {
+    color: #8b95a1;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .post-project:hover,
+  .post-lang:hover {
+    color: #4e5968;
+    text-decoration: none;
+  }
+
+  .post-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 1rem;
+  }
+
+  .post-tag {
+    font-size: 0.8rem;
+    color: #8b95a1;
+    padding: 0.2rem 0.6rem;
+    background: #f2f4f6;
+    border-radius: 4px;
+  }
+
+  .post-footer {
+    margin-top: 5rem;
+    padding-top: 2rem;
+    border-top: 1px solid #f2f4f6;
+  }
+
+  .post-back {
+    font-size: 0.9rem;
+    color: #8b95a1;
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+
+  .post-back:hover {
+    color: #4e5968;
+    text-decoration: none;
+  }
+</style>
