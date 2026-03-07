@@ -1,0 +1,158 @@
+name: Generate Build Log
+
+on:
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - 'src/content/build-logs/**'
+      - '.github/workflows/**'
+
+permissions:
+  contents: write
+
+jobs:
+  generate-build-log:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Generate build log from commits
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Get commits from this push
+            const commits = context.payload.commits || [];
+            if (commits.length === 0) {
+              console.log('No commits found');
+              return;
+            }
+
+            // Skip if commit message contains [skip-log] or is auto-generated
+            const skipPatterns = ['[skip-log]', 'Auto-merge:', 'auto-generate AI news', 'Generate build log'];
+            const relevantCommits = commits.filter(c =>
+              !skipPatterns.some(p => c.message.includes(p))
+            );
+
+            if (relevantCommits.length === 0) {
+              console.log('All commits are auto-generated, skipping');
+              return;
+            }
+
+            // Detect project from changed files
+            const { data: comparison } = await github.rest.repos.compareCommitsWithBasehead({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              basehead: `${context.payload.before}...${context.payload.after}`,
+            });
+
+            const changedFiles = (comparison.files || []).map(f => f.filename);
+
+            // Map changed files to projects
+            function detectProject(files) {
+              // Check if files reference a specific project content
+              for (const file of files) {
+                // Changes to portfolio-site itself
+                if (file.startsWith('src/') || file.startsWith('public/') || file === 'astro.config.mjs' || file === 'tailwind.config.mjs') {
+                  return 'portfolio-site';
+                }
+              }
+              return 'portfolio-site'; // default for this repo
+            }
+
+            const project = detectProject(changedFiles);
+            const today = new Date().toISOString().split('T')[0];
+
+            // Build commit summary
+            const commitSummary = relevantCommits
+              .map(c => `- ${c.message.split('\n')[0]}`)
+              .join('\n');
+
+            // Generate slug from first commit message
+            const firstMsg = relevantCommits[0].message.split('\n')[0];
+            const slugBase = firstMsg
+              .replace(/^(feat|fix|refactor|chore|docs|style|test|ci):\s*/i, '')
+              .toLowerCase()
+              .replace(/[^a-z0-9가-힣\s-]/g, '')
+              .trim()
+              .replace(/\s+/g, '-')
+              .slice(0, 50);
+
+            const slug = `${today}-${slugBase}`;
+            const filePath = `src/content/build-logs/${slug}-ko.md`;
+
+            // Check if file already exists
+            try {
+              await github.rest.repos.getContent({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                path: filePath,
+              });
+              console.log(`Build log already exists: ${filePath}`);
+              return;
+            } catch (e) {
+              // File doesn't exist, continue
+            }
+
+            // Determine tags from commit messages
+            const tagSet = new Set();
+            for (const c of relevantCommits) {
+              const prefix = c.message.match(/^(feat|fix|refactor|chore|docs|style|test|ci):/i);
+              if (prefix) tagSet.add(prefix[1].toLowerCase());
+            }
+            // Add tags from file types
+            for (const f of changedFiles) {
+              if (f.endsWith('.astro')) tagSet.add('astro');
+              if (f.endsWith('.ts') || f.endsWith('.tsx')) tagSet.add('typescript');
+              if (f.endsWith('.css')) tagSet.add('css');
+              if (f.includes('tailwind')) tagSet.add('tailwind');
+            }
+
+            const tags = Array.from(tagSet).slice(0, 5);
+
+            // Generate markdown content
+            const fileCount = changedFiles.length;
+            const additions = comparison.files?.reduce((sum, f) => sum + (f.additions || 0), 0) || 0;
+            const deletions = comparison.files?.reduce((sum, f) => sum + (f.deletions || 0), 0) || 0;
+
+            const markdown = `---
+            title: "${firstMsg.split('\n')[0]}"
+            project: "${project}"
+            date: ${today}
+            lang: ko
+            tags: [${tags.join(', ')}]
+            ---
+
+            ${commitSummary.length > 2 ? '## 변경 사항\n\n' + commitSummary : ''}
+
+            ## 요약
+
+            - 변경 파일: ${fileCount}개
+            - 추가: +${additions}줄 / 삭제: -${deletions}줄
+
+            ${changedFiles.slice(0, 10).map(f => '- `' + f + '`').join('\n')}
+            ${changedFiles.length > 10 ? `\n외 ${changedFiles.length - 10}개 파일` : ''}
+
+            ---
+
+            *이 빌드 로그는 커밋 시 자동으로 생성된다.*
+            `.replace(/^            /gm, '');
+
+            // Create file via GitHub API
+            const content = Buffer.from(markdown).toString('base64');
+            await github.rest.repos.createOrUpdateFileContents({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              path: filePath,
+              message: `docs: auto-generate build log for ${today} [skip-log]`,
+              content,
+              branch: 'main',
+            });
+
+            console.log(`Created build log: ${filePath}`);
