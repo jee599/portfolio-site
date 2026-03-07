@@ -8,7 +8,7 @@ const modelFilter = Astro.url.searchParams.get('model');
 let aiNews = (await getCollection('ai-news'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
-if (modelFilter && ['claude', 'gemini', 'gpt', 'etc'].includes(modelFilter)) {
+if (modelFilter && ['claude', 'gemini', 'gpt', 'etc', 'daily'].includes(modelFilter)) {
   aiNews = aiNews.filter(n => n.data.model === modelFilter);
 }
 

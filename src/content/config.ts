@@ -39,7 +39,7 @@ const aiNews = defineCollection({
   schema: z.object({
     title: z.string(),
     date: z.coerce.date(),
-    model: z.enum(['claude', 'gemini', 'gpt', 'etc']),
+    model: z.enum(['claude', 'gemini', 'gpt', 'etc', 'daily']),
     tags: z.array(z.string()),
     summary: z.string().optional(),
     sources: z.array(z.string()).optional(),
