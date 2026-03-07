@@ -13,7 +13,7 @@ jobs:
   auto-merge:
     runs-on: ubuntu-latest
     steps:
-      - name: Create or update PR and merge
+      - name: Merge to main
         uses: actions/github-script@v7
         with:
           script: |
@@ -33,56 +33,51 @@ jobs:
               }
               console.log(`${comparison.total_commits} commits ahead of main`);
             } catch (e) {
-              console.log(`Could not compare: ${e.message}`);
+              console.log(`Compare failed: ${e.message}`);
             }
 
+            // Try creating a PR first
             let prNumber;
-
-            // Check for existing open PR from this branch
-            const { data: existingPRs } = await github.rest.pulls.list({
-              owner, repo,
-              head: `${owner}:${branch}`,
-              base: 'main',
-              state: 'open',
-            });
-
-            if (existingPRs.length > 0) {
-              prNumber = existingPRs[0].number;
-              console.log(`Found existing open PR #${prNumber}`);
-            } else {
-              // Create new PR
+            try {
+              const { data: pr } = await github.rest.pulls.create({
+                owner, repo,
+                title: `Auto-merge: ${branch}`,
+                head: branch,
+                base: 'main',
+              });
+              prNumber = pr.number;
+              console.log(`Created PR #${prNumber}`);
+            } catch (e) {
+              console.log(`PR creation failed: ${e.message}`);
+              // PR already exists (closed) - use direct merge API
               try {
-                const { data: pr } = await github.rest.pulls.create({
+                const result = await github.rest.repos.merge({
                   owner, repo,
-                  title: `Auto-merge: ${branch}`,
-                  head: branch,
                   base: 'main',
+                  head: branch,
+                  commit_message: `Auto-merge: ${branch}`,
                 });
-                prNumber = pr.number;
-                console.log(`Created PR #${prNumber}`);
-              } catch (e) {
-                // If PR already exists (closed/merged), the error message contains the PR URL
-                console.log(`Could not create PR: ${e.message}`);
-                // Try to find any closed PR and reopen isn't possible, so just log
-                console.log('Branch may need manual merge or rename');
-                return;
+                console.log(`Direct merge successful: ${result.data.sha.slice(0, 7)}`);
+              } catch (mergeErr) {
+                console.log(`Direct merge also failed: ${mergeErr.message}`);
               }
+              return;
             }
 
-            // Merge PR
+            // Merge the PR via squash
             try {
               await github.rest.pulls.merge({
                 owner, repo,
                 pull_number: prNumber,
                 merge_method: 'squash',
               });
-              console.log(`Merged PR #${prNumber}`);
+              console.log(`Squash-merged PR #${prNumber}`);
             } catch (e) {
-              console.log(`Could not merge PR #${prNumber}: ${e.message}`);
+              console.log(`PR merge failed: ${e.message}`);
               return;
             }
 
-            // Delete branch
+            // Clean up branch
             try {
               await github.rest.git.deleteRef({
                 owner, repo,
@@ -90,5 +85,5 @@ jobs:
               });
               console.log(`Deleted branch ${branch}`);
             } catch (e) {
-              console.log(`Could not delete branch: ${e.message}`);
+              console.log(`Branch deletion failed: ${e.message}`);
             }
