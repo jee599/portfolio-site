@@ -1,0 +1,47 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx astro *)",
+      "Bash(git status*)",
+      "Bash(git log*)",
+      "Bash(git diff*)",
+      "Bash(git add*)",
+      "Bash(git commit*)",
+      "Bash(git branch*)",
+      "Bash(git checkout*)",
+      "Bash(git push*)",
+      "Bash(git fetch*)",
+      "Bash(git pull*)",
+      "Bash(curl *)",
+      "Bash(ls *)",
+      "Bash(which *)",
+      "Read",
+      "Write(src/**)",
+      "Edit(src/**)",
+      "Write(.claude/**)",
+      "Edit(.claude/**)",
+      "Edit(CLAUDE.md)",
+      "Edit(vercel.json)",
+      "Edit(package.json)"
+    ],
+    "deny": [
+      "Bash(rm -rf *)",
+      "Bash(git push --force *)",
+      "Bash(git push -f *)",
+      "Bash(git reset --hard*)",
+      "Read(.env)",
+      "Read(.env.local)",
+      "Write(.env*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "echo '📍 Branch:' $(git branch --show-current) && echo '📝 Recent:' && git log --oneline -3 && echo '🔧 Node:' $(node -v)"
+      }
+    ]
+  }
+}
