@@ -2,18 +2,19 @@
 import Base from '../../layouts/Base.astro';
 import PostCard from '../../components/PostCard.astro';
 import { getCollection } from 'astro:content';
+import { getAllProjects } from '../../lib/projects';
 
 export async function getStaticPaths() {
-  const projects = await getCollection('projects');
+  const projects = await getAllProjects();
   return projects.map((p) => ({
-    params: { slug: p.id.replace('.yaml', '') },
+    params: { slug: p.slug },
     props: { project: p },
   }));
 }
 
 const { project } = Astro.props;
 const slug = Astro.params.slug;
-const d = project.data;
+const d = project;
 
 const buildLogs = (await getCollection('build-logs'))
   .filter((p) => p.data.project === slug && p.data.lang === 'ko')
