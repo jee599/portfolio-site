@@ -90,21 +90,6 @@ const statusColors: Record<string, string> = {
     </p>
   </section>
 
-  <!-- Featured Article -->
-  {featuredPost && (
-    <section class="featured fade-in stagger-1">
-      <a href={featuredPost.href} class="featured-card">
-        <div class="featured-badge">{featuredPost.type === 'ai-news' ? 'AI News' : featuredPost.type === 'build-log' ? 'Build Log' : featuredPost.type === 'tip' ? 'AI Tip' : 'Blog'}</div>
-        <h2 class="featured-title">{featuredPost.title}</h2>
-        {featuredPost.description && <p class="featured-desc">{featuredPost.description}</p>}
-        <div class="featured-meta">
-          <time>{featuredPost.date}</time>
-          {featuredPost.project && <span>&middot; {featuredPost.project}</span>}
-        </div>
-      </a>
-    </section>
-  )}
-
   <!-- Articles + Sidebar -->
   <section class="section fade-in stagger-1">
     <div class="content-layout">
@@ -175,6 +160,21 @@ const statusColors: Record<string, string> = {
       </aside>
     </div>
   </section>
+
+  <!-- Featured Article -->
+  {featuredPost && (
+    <section class="featured fade-in stagger-1">
+      <a href={featuredPost.href} class="featured-card">
+        <div class="featured-badge">{featuredPost.type === 'ai-news' ? 'AI News' : featuredPost.type === 'build-log' ? 'Build Log' : featuredPost.type === 'tip' ? 'AI Tip' : 'Blog'}</div>
+        <h2 class="featured-title">{featuredPost.title}</h2>
+        {featuredPost.description && <p class="featured-desc">{featuredPost.description}</p>}
+        <div class="featured-meta">
+          <time>{featuredPost.date}</time>
+          {featuredPost.project && <span>&middot; {featuredPost.project}</span>}
+        </div>
+      </a>
+    </section>
+  )}
 
   <!-- Projects -->
   <section class="section fade-in stagger-2">
