@@ -3,6 +3,16 @@ import type { APIRoute } from 'astro';
 export const prerender = false;
 
 export const GET: APIRoute = async ({ request }) => {
+  const authHeader = request.headers.get('authorization');
+  const cronSecret = import.meta.env.CRON_SECRET;
+
+  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+      status: 401,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const hookUrl = import.meta.env.VERCEL_DEPLOY_HOOK;
 
   if (!hookUrl) {
