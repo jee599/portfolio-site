@@ -337,6 +337,26 @@ export const POST: APIRoute = async ({ request }) => {
           const filePath = `src/content/ai-news/${filename}.md`;
           const content = Buffer.from(markdown).toString('base64');
 
+          // Check if file already exists to get its sha (required for updates)
+          let existingSha: string | undefined;
+          try {
+            const existing = await fetch(
+              `https://api.github.com/repos/${githubRepo}/contents/${filePath}?ref=main`,
+              {
+                headers: {
+                  Authorization: `Bearer ${githubToken}`,
+                  Accept: 'application/vnd.github.v3+json',
+                },
+              }
+            );
+            if (existing.ok) {
+              const data = await existing.json();
+              existingSha = data.sha;
+            }
+          } catch {
+            // File doesn't exist, that's fine
+          }
+
           const res = await fetch(
             `https://api.github.com/repos/${githubRepo}/contents/${filePath}`,
             {
@@ -347,9 +367,10 @@ export const POST: APIRoute = async ({ request }) => {
                 Accept: 'application/vnd.github.v3+json',
               },
               body: JSON.stringify({
-                message: `feat: auto-generate AI news for ${model} on ${dateStr}`,
+                message: `feat: auto-generate AI news for ${model} on ${dateStr} [skip-log]`,
                 content,
                 branch: 'main',
+                ...(existingSha ? { sha: existingSha } : {}),
               }),
             }
           );

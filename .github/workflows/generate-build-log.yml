@@ -161,16 +161,16 @@ jobs:
               body += '\n';
             }
 
-            body += `---\n\n*이 작업 로그는 변경 내용이 5,000자 이상 쌓이면 자동으로 생성된다.*\n`;
+            body += `---\n\n*이 작업 로그는 변경 내용이 1,500자 이상 쌓이면 자동으로 생성된다.*\n`;
 
             const markdown = `---\ntitle: "${title}"\nproject: "${project}"\ndate: ${today}\nlang: ko\ntags: [${tags.join(', ')}]\n---\n\n${body}`;
 
-            // Only publish if content exceeds 5,000 characters
-            if (markdown.length < 5000) {
-              console.log(`Content only ${markdown.length} chars, waiting until 5,000+ chars accumulate`);
+            // Only publish if content exceeds 1,500 characters (roughly 5+ meaningful commits)
+            if (markdown.length < 1500) {
+              console.log(`Content only ${markdown.length} chars, waiting until 1,500+ chars accumulate`);
               return;
             }
-            console.log(`Content is ${markdown.length} chars (>= 5,000), publishing build log`);
+            console.log(`Content is ${markdown.length} chars (>= 1,500), publishing build log`);
 
             // Create file
             const content = Buffer.from(markdown).toString('base64');
