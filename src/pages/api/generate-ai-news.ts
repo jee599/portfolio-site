@@ -281,6 +281,8 @@ export const POST: APIRoute = async ({ request }) => {
   const results: Record<string, { news: NewsItem[]; filename: string }> = {};
 
   try {
+    const errors: string[] = [];
+
     // Fetch GitHub trending AI repos (shared across all models)
     const trendingRepos = await fetchGitHubTrending();
 
@@ -318,68 +320,76 @@ export const POST: APIRoute = async ({ request }) => {
         (item, index, self) => index === self.findIndex(n => n.url === item.url)
       ).slice(0, 8);
 
-      if (uniqueNews.length > 0 || (model === 'etc' && trendingRepos.length > 0)) {
-        const filename = `${dateStr}-${model}`;
-        const markdown = generateMarkdown(
-          model,
-          uniqueNews,
-          model === 'etc' ? trendingRepos : [],
-          dateStr,
+      // Skip models with no news at all (don't create empty files)
+      if (uniqueNews.length === 0 && !(model === 'etc' && trendingRepos.length > 0)) {
+        console.log(`[${model}] No news found, skipping file creation`);
+        continue;
+      }
+
+      const filename = `${dateStr}-${model}`;
+      const markdown = generateMarkdown(
+        model,
+        uniqueNews,
+        model === 'etc' ? trendingRepos : [],
+        dateStr,
+      );
+
+      results[model] = { news: uniqueNews, filename };
+
+      // Commit to GitHub
+      const githubToken = import.meta.env.GITHUB_TOKEN;
+      const githubRepo = import.meta.env.GITHUB_REPO || 'jee599/portfolio-site';
+
+      if (!githubToken) {
+        errors.push(`[${model}] GITHUB_TOKEN not set, cannot commit`);
+        continue;
+      }
+
+      const filePath = `src/content/ai-news/${filename}.md`;
+      const content = Buffer.from(markdown).toString('base64');
+
+      // Check if file already exists to get its sha (required for updates)
+      let existingSha: string | undefined;
+      try {
+        const existing = await fetch(
+          `https://api.github.com/repos/${githubRepo}/contents/${filePath}?ref=main`,
+          {
+            headers: {
+              Authorization: `Bearer ${githubToken}`,
+              Accept: 'application/vnd.github.v3+json',
+            },
+          }
         );
-
-        results[model] = { news: uniqueNews, filename };
-
-        // Commit to GitHub
-        const githubToken = import.meta.env.GITHUB_TOKEN;
-        const githubRepo = import.meta.env.GITHUB_REPO || 'jee599/portfolio-site';
-
-        if (githubToken) {
-          const filePath = `src/content/ai-news/${filename}.md`;
-          const content = Buffer.from(markdown).toString('base64');
-
-          // Check if file already exists to get its sha (required for updates)
-          let existingSha: string | undefined;
-          try {
-            const existing = await fetch(
-              `https://api.github.com/repos/${githubRepo}/contents/${filePath}?ref=main`,
-              {
-                headers: {
-                  Authorization: `Bearer ${githubToken}`,
-                  Accept: 'application/vnd.github.v3+json',
-                },
-              }
-            );
-            if (existing.ok) {
-              const data = await existing.json();
-              existingSha = data.sha;
-            }
-          } catch {
-            // File doesn't exist, that's fine
-          }
-
-          const res = await fetch(
-            `https://api.github.com/repos/${githubRepo}/contents/${filePath}`,
-            {
-              method: 'PUT',
-              headers: {
-                Authorization: `Bearer ${githubToken}`,
-                'Content-Type': 'application/json',
-                Accept: 'application/vnd.github.v3+json',
-              },
-              body: JSON.stringify({
-                message: `feat: auto-generate AI news for ${model} on ${dateStr} [skip-log]`,
-                content,
-                branch: 'main',
-                ...(existingSha ? { sha: existingSha } : {}),
-              }),
-            }
-          );
-
-          if (!res.ok) {
-            const error = await res.text();
-            console.error(`Failed to create ${filePath}: ${error}`);
-          }
+        if (existing.ok) {
+          const data = await existing.json();
+          existingSha = data.sha;
         }
+      } catch {
+        // File doesn't exist, that's fine
+      }
+
+      const commitRes = await fetch(
+        `https://api.github.com/repos/${githubRepo}/contents/${filePath}`,
+        {
+          method: 'PUT',
+          headers: {
+            Authorization: `Bearer ${githubToken}`,
+            'Content-Type': 'application/json',
+            Accept: 'application/vnd.github.v3+json',
+          },
+          body: JSON.stringify({
+            message: `feat: auto-generate AI news for ${model} on ${dateStr} [skip-log]`,
+            content,
+            branch: 'main',
+            ...(existingSha ? { sha: existingSha } : {}),
+          }),
+        }
+      );
+
+      if (!commitRes.ok) {
+        const error = await commitRes.text();
+        errors.push(`[${model}] GitHub commit failed: ${error}`);
+        console.error(`Failed to create ${filePath}: ${error}`);
       }
     }
 
@@ -392,18 +402,20 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
+    const hasErrors = errors.length > 0;
     return new Response(
       JSON.stringify({
-        ok: true,
+        ok: !hasErrors,
         date: dateStr,
         generated: createdModels,
         trendingRepos: trendingRepos.length,
         counts: Object.fromEntries(
           Object.entries(results).map(([model, data]) => [model, data.news.length])
         ),
+        ...(hasErrors ? { errors } : {}),
       }),
       {
-        status: 200,
+        status: hasErrors && createdModels.length === 0 ? 500 : 200,
         headers: { 'Content-Type': 'application/json' },
       }
     );
