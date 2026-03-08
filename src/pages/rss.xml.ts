@@ -9,6 +9,12 @@ export async function GET(context: any) {
   const tips = (await getCollection('tips'))
     .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
+  const aiNews = (await getCollection('ai-news'))
+    .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
+  const blog = (await getCollection('blog'))
+    .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+
   const items = [
     ...buildLogs.map((p) => ({
       title: p.data.title,
@@ -19,6 +25,18 @@ export async function GET(context: any) {
       title: p.data.title,
       pubDate: p.data.date,
       link: `/posts/${p.slug}`,
+    })),
+    ...aiNews.map((p) => ({
+      title: p.data.title,
+      pubDate: p.data.date,
+      description: p.data.summary || '',
+      link: `/ai-news/${p.slug}`,
+    })),
+    ...blog.map((p) => ({
+      title: p.data.title,
+      pubDate: p.data.date,
+      description: p.data.description || '',
+      link: `/blog/${p.slug}`,
     })),
   ].sort((a, b) => b.pubDate.getTime() - a.pubDate.getTime());
 
