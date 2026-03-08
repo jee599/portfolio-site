@@ -12,6 +12,10 @@
     {
       "path": "/api/generate-ai-news",
       "schedule": "0 0 * * *"
+    },
+    {
+      "path": "/api/sync-devto",
+      "schedule": "0 1 * * *"
     }
   ]
 }
