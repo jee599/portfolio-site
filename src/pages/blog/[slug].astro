@@ -1,47 +1,102 @@
 ---
 import Base from '../../layouts/Base.astro';
+import { getCollection } from 'astro:content';
 import { fetchArticles, fetchArticleBySlug } from '../../lib/devto';
 
 export async function getStaticPaths() {
-  const articles = await fetchArticles();
-  return articles.map((a) => ({
-    params: { slug: a.slug },
-    props: { articleSlug: a.slug },
+  // Local blog collection posts
+  const blogPosts = await getCollection('blog');
+  const syncedDevtoIds = new Set(
+    blogPosts.filter(p => p.data.devto_id).map(p => p.data.devto_id)
+  );
+
+  const localPaths = blogPosts.map((p) => ({
+    params: { slug: p.slug },
+    props: { entry: p, source: 'local' },
   }));
+
+  // Dev.to articles not yet synced locally
+  const devtoArticles = await fetchArticles();
+  const devtoPaths = devtoArticles
+    .filter(a => !syncedDevtoIds.has(a.id))
+    .map((a) => ({
+      params: { slug: a.slug },
+      props: { entry: null, source: 'devto', articleSlug: a.slug },
+    }));
+
+  return [...localPaths, ...devtoPaths];
 }
 
-const { articleSlug } = Astro.props;
-const article = await fetchArticleBySlug(articleSlug);
+const { entry, source, articleSlug } = Astro.props;
 
-if (!article) return Astro.redirect('/posts');
+// Normalize data from either source
+let title = '';
+let description = '';
+let dateStr = '';
+let tags: string[] = [];
+let sourceLabel = 'Blog';
+let sourceUrl = '';
+let bodyHtml = '';
+let ContentComponent: any = null;
+let readingTime = 0;
 
-const dateStr = article.published_at.split('T')[0];
+if (source === 'local' && entry) {
+  title = entry.data.title;
+  description = entry.data.description || '';
+  dateStr = entry.data.date.toISOString().split('T')[0];
+  tags = entry.data.tags || [];
+  sourceLabel = entry.data.source === 'devto' ? 'DEV.to' : 'Blog';
+  sourceUrl = entry.data.source_url || '';
+  const rendered = await entry.render();
+  ContentComponent = rendered.Content;
+} else if (source === 'devto') {
+  const article = await fetchArticleBySlug(articleSlug);
+  if (!article) return Astro.redirect('/posts');
+  title = article.title;
+  description = article.description;
+  dateStr = article.published_at.split('T')[0];
+  tags = article.tag_list || [];
+  sourceLabel = 'DEV.to';
+  sourceUrl = article.url;
+  bodyHtml = article.body_html;
+  readingTime = article.reading_time_minutes;
+}
 ---
 
-<Base title={article.title} description={article.description}>
+<Base title={title} description={description}>
   <article class="blog-post fade-in">
     <header class="blog-header">
-      <span class="blog-source">DEV.to</span>
-      <h1 class="blog-title">{article.title}</h1>
+      <span class="blog-source">{sourceLabel}</span>
+      <h1 class="blog-title">{title}</h1>
       <div class="blog-meta">
         <time datetime={dateStr}>{dateStr}</time>
-        <span class="blog-sep">&middot;</span>
-        <span>{article.reading_time_minutes}분</span>
-        <span class="blog-sep">&middot;</span>
-        <a href={article.url} target="_blank" rel="noopener" class="blog-external">
-          DEV.to에서 보기 →
-        </a>
+        {readingTime > 0 && (
+          <>
+            <span class="blog-sep">&middot;</span>
+            <span>{readingTime}분</span>
+          </>
+        )}
+        {sourceUrl && (
+          <>
+            <span class="blog-sep">&middot;</span>
+            <a href={sourceUrl} target="_blank" rel="noopener" class="blog-external">
+              원문 보기 →
+            </a>
+          </>
+        )}
       </div>
-      {article.tag_list.length > 0 && (
+      {tags.length > 0 && (
         <div class="blog-tags">
-          {article.tag_list.map((tag) => (
+          {tags.map((tag: string) => (
             <span class="blog-tag">#{tag}</span>
           ))}
         </div>
       )}
     </header>
 
-    <div class="prose" set:html={article.body_html} />
+    <div class="prose">
+      {ContentComponent ? <ContentComponent /> : <Fragment set:html={bodyHtml} />}
+    </div>
 
     <footer class="blog-footer">
       <a href="/posts" class="blog-back">&larr; 모든 글 보기</a>

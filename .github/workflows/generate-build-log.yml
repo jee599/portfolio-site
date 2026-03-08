@@ -25,11 +25,13 @@ jobs:
 
       - name: Generate build logs from all registered projects
         uses: actions/github-script@v7
+        env:
+          CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
         with:
+          github-token: ${{ secrets.CROSS_REPO_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
             const path = require('path');
-            const yaml = require('js-yaml');
 
             const owner = context.repo.owner;
             const thisRepo = context.repo.repo;
@@ -38,20 +40,20 @@ jobs:
             // Skip patterns for auto-generated commits
             const skipPatterns = ['[skip-log]', 'Auto-merge:', 'auto-generate AI news', 'auto: sync from', 'Merge remote-tracking', 'Merge pull request'];
 
-            // ─── Read registered projects from YAML files ───
+            // ─── Read registered projects from YAML files (simple regex, no js-yaml) ───
             const projectsDir = 'src/content/projects';
             const projectFiles = fs.readdirSync(projectsDir).filter(f => f.endsWith('.yaml') || f.endsWith('.yml'));
 
             const projects = projectFiles.map(f => {
               const content = fs.readFileSync(path.join(projectsDir, f), 'utf8');
-              const data = yaml.load(content);
               const slug = f.replace(/\.(yaml|yml)$/, '');
-              // Extract owner/repo from github URL
-              const match = data.github?.match(/github\.com\/([^/]+)\/([^/]+)/);
+              // Parse title and github fields with regex (simple YAML)
+              const titleMatch = content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
+              const githubMatch = content.match(/^github:\s*["']?https:\/\/github\.com\/([^/\s"']+)\/([^/\s"']+)["']?\s*$/m);
               return {
                 slug,
-                title: data.title,
-                github: match ? { owner: match[1], repo: match[2] } : null,
+                title: titleMatch ? titleMatch[1] : slug,
+                github: githubMatch ? { owner: githubMatch[1], repo: githubMatch[2] } : null,
               };
             }).filter(p => p.github);
 
