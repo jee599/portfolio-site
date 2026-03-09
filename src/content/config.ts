@@ -51,13 +51,18 @@ const blog = defineCollection({
   type: 'content',
   schema: z.object({
     title: z.string(),
-    date: z.coerce.date(),
+    date: z.coerce.date().optional(),
+    pubDate: z.coerce.date().optional(),
     description: z.string().optional(),
-    tags: z.array(z.string()).default([]),
+    tags: z.union([z.array(z.string()), z.string().transform(s => s.split(',').map(t => t.trim()))]).default([]),
+    lang: z.string().optional(),
     source_url: z.string().url().optional(),
-    source: z.enum(['devto', 'original']).default('original'),
+    source: z.enum(['devto', 'original', 'devto-migration']).default('original'),
     devto_id: z.number().optional(),
-  }),
+  }).transform(data => ({
+    ...data,
+    date: data.date || data.pubDate || new Date(),
+  })),
 });
 
 export const collections = { projects, 'build-logs': buildLogs, tips, 'ai-news': aiNews, blog };
