@@ -10,15 +10,16 @@ function getTodayKey(): string {
   return `visitors:${kst.toISOString().split('T')[0]}`;
 }
 
-function getRedis(): Redis | null {
-  const url = import.meta.env.UPSTASH_REDIS_REST_URL;
-  const token = import.meta.env.UPSTASH_REDIS_REST_TOKEN;
+function getRedis(runtimeEnv?: Record<string, string>): Redis | null {
+  const url = runtimeEnv?.UPSTASH_REDIS_REST_URL || import.meta.env.UPSTASH_REDIS_REST_URL;
+  const token = runtimeEnv?.UPSTASH_REDIS_REST_TOKEN || import.meta.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
   return new Redis({ url, token });
 }
 
-export const GET: APIRoute = async () => {
-  const redis = getRedis();
+export const GET: APIRoute = async ({ locals }) => {
+  const runtimeEnv = (locals as any).runtime?.env;
+  const redis = getRedis(runtimeEnv);
 
   if (!redis) {
     return new Response(JSON.stringify({ today: 0, total: 0 }), {
@@ -46,8 +47,9 @@ export const GET: APIRoute = async () => {
   }
 };
 
-export const POST: APIRoute = async () => {
-  const redis = getRedis();
+export const POST: APIRoute = async ({ locals }) => {
+  const runtimeEnv = (locals as any).runtime?.env;
+  const redis = getRedis(runtimeEnv);
 
   if (!redis) {
     return new Response(JSON.stringify({ today: 0, total: 0 }), {
