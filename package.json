@@ -14,6 +14,7 @@
     "@astrojs/sitemap": "^3.2.0",
     "@astrojs/tailwind": "^5.1.0",
     "@astrojs/vercel": "^7.8.2",
+    "@upstash/redis": "^1.36.3",
     "astro": "^4.16.0",
     "js-yaml": "^4.1.1",
     "marked": "^14.0.0",

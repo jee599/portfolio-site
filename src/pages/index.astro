@@ -178,6 +178,22 @@ const statusColors: Record<string, string> = {
           </div>
         </div>
 
+        <!-- Visitor Counter -->
+        <div class="sidebar-section visitor-counter">
+          <h3 class="sidebar-title" data-ko="방문자" data-en="Visitors">방문자</h3>
+          <div class="visitor-stats">
+            <div class="visitor-stat">
+              <span class="visitor-label" data-ko="오늘" data-en="Today">오늘</span>
+              <span class="visitor-value" id="visitor-today">-</span>
+            </div>
+            <div class="visitor-divider"></div>
+            <div class="visitor-stat">
+              <span class="visitor-label" data-ko="전체" data-en="Total">전체</span>
+              <span class="visitor-value" id="visitor-total">-</span>
+            </div>
+          </div>
+        </div>
+
         <!-- Subscribe hint -->
         <div class="sidebar-cta">
           <p class="cta-text" data-ko="매일 아침 9시, AI 소식이 자동으로 올라온다." data-en="Every morning at 9 AM, AI news is auto-published.">매일 아침 9시, AI 소식이 자동으로 올라온다.</p>
@@ -568,6 +584,48 @@ const statusColors: Record<string, string> = {
     color: #fff;
   }
 
+  /* ═══ Visitor Counter ═══ */
+  .visitor-stats {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    background: #f9fafb;
+    border: 1px solid #f2f4f6;
+    border-radius: 10px;
+    overflow: hidden;
+  }
+
+  .visitor-stat {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 0.75rem 0.5rem;
+    gap: 0.25rem;
+  }
+
+  .visitor-label {
+    font-size: 0.7rem;
+    color: #8b95a1;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  .visitor-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #191f28;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .visitor-divider {
+    width: 1px;
+    height: 2rem;
+    background: #e5e8eb;
+    flex-shrink: 0;
+  }
+
   /* ═══ Responsive ═══ */
   @media (max-width: 768px) {
     .project-grid {
@@ -582,3 +640,26 @@ const statusColors: Record<string, string> = {
     }
   }
 </style>
+
+<script>
+  (async () => {
+    const visited = sessionStorage.getItem('visited');
+    try {
+      let data;
+      if (!visited) {
+        const res = await fetch('/api/visitors', { method: 'POST' });
+        data = await res.json();
+        sessionStorage.setItem('visited', '1');
+      } else {
+        const res = await fetch('/api/visitors');
+        data = await res.json();
+      }
+      const todayEl = document.getElementById('visitor-today');
+      const totalEl = document.getElementById('visitor-total');
+      if (todayEl) todayEl.textContent = data.today.toLocaleString();
+      if (totalEl) totalEl.textContent = data.total.toLocaleString();
+    } catch {
+      // 실패해도 UI는 '-'로 유지
+    }
+  })();
+</script>
