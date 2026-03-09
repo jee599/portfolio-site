@@ -1,6 +1,6 @@
 ---
 title: "HuggingFace AI 트레이딩 아레나에서 1위 전략을 훔쳐왔다"
-description: "HuggingFace에 "Prompt &amp; Dump"라는 AI 트레이딩 아레나가 있다.  참가자들이 LLM 프롬프트로 트레이딩 전략을 짜고, 실시간 시장에서 경쟁한다...."
+description: "HuggingFace에 'Prompt & Dump'라는 AI 트레이딩 아레나가 있다. 참가자들이 LLM 프롬프트로 트레이딩 전략을 짜고, 실시간 시장에서 경쟁한다...."
 pubDate: "2026-02-27"
 tags: "ai, trading, python, machinelearning"
 lang: "ko"
