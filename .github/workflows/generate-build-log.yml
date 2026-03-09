@@ -28,6 +28,7 @@ jobs:
         env:
           CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
         with:
           github-token: ${{ secrets.CROSS_REPO_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -67,9 +68,11 @@ jobs:
                 return null;
               }
 
-              const prompt = `당신은 AI 도구를 활용한 개발 과정을 공유하는 기술 블로거입니다. 아래 커밋 데이터를 분석해서 **읽을 가치가 있는 블로그 포스트**를 작성하세요.
+              const prompt = `당신은 AI 에이전트와 LLM을 활용한 개발 방법론을 연구하고 공유하는 기술 블로거다.
 
-단순 커밋 나열이 아니라, **작업 과정에서 배운 것, 사용한 방법론, AI 활용 팁**을 중심으로 쓴다.
+아래 커밋 데이터는 **맥락**일 뿐이다. 커밋을 나열하는 글이 아니라, 이 작업을 하면서 **어떻게 AI를 활용했는지, 어떤 프롬프팅 기법을 썼는지, 어떤 도구와 패턴이 효과적인지**를 깊이 있게 다루는 교육적 블로그 포스트를 작성한다.
+
+독자가 이 글을 읽고 "나도 이렇게 해봐야지"라고 느끼게 해야 한다.
 
 ## 문체 규칙 (매우 중요)
 
@@ -79,61 +82,75 @@ jobs:
 - 감탄사, 이모지 사용 금지
 - 변수명, 파일명, CSS값, CLI 명령어는 반드시 backtick으로 감싼다
 
-## 문체 예시
+## 포스트 구조
 
-좋은 예:
-- "Three.js 배경을 넣었더니 텍스트가 다 뭉개졌다."
-- "CSS 변수 4개를 \`rgba(13,11,20,0.72)\` 계열로 올렸다."
-- "과감하게 잘라야 할 때가 있다."
-- "한 줄이면 끝. **36줄 → 0줄.**"
-- "\`globals.css\` 한 파일에서 다 처리했다."
+### 1. 도입부 (h2 없이 바로 시작, 2~3줄)
+이번에 어떤 작업을 했고, 이 글에서 뭘 배울 수 있는지 한눈에 보여준다.
 
-나쁜 예:
-- "오늘은 정말 유용한 작업을 진행했습니다." (존댓말 금지)
-- "대박! 이거 완전 꿀팁!" (감탄사 금지)
-- "다양한 개선 사항을 적용하였습니다." (존댓말+수식어 금지)
+### 2. 배경: 무엇을 만들고 있는가 (h2)
+- 프로젝트가 뭔지, 현재 어떤 단계인지 간단히 설명
+- 이번 작업의 목표가 뭐였는지
 
-## 포스트 구조 (이 순서대로)
+### 3. 핵심 섹션 2~3개 (h2) — 각 섹션이 하나의 "레슨"
+커밋 데이터에서 주요 작업 영역을 파악하고, 각 영역에 대해:
 
-### 1. 도입부 (h2 없이 바로 시작)
-- 오늘 뭘 했고, 왜 했는지 1~2줄로 요약
-
-### 2. 작업 과정 섹션들 (h2)
-- 커밋 데이터에서 **주요 작업 흐름**을 파악해서 2~4개 섹션으로 나눈다
-- 각 섹션에서: 무엇이 문제였는지 → 어떻게 해결했는지 → 코드 예시
-- 제목은 "~했다", "~잘랐다", "~바꿨다" 식 (행위 중심)
-
-### 3. Claude 활용 팁 (h2: "Claude로 이렇게 작업했다" 또는 유사)
-커밋 메시지와 변경 파일을 분석해서, 이런 작업에서 Claude Code / Claude를 어떻게 활용하면 좋은지 **구체적인 팁**을 제공한다:
-- **프롬프트 예시**: 이 작업을 Claude에게 시킬 때 효과적인 프롬프트를 추정해서 코드블록으로 보여준다
-- **Claude Code 사용법**: 관련된 Claude Code 기능 (slash commands, CLAUDE.md, hooks, MCP 등)
-- **주의할 점**: AI에게 맡기면 안 되는 부분, 사람이 검증해야 하는 부분
-- **작업 분할 전략**: 큰 작업을 어떻게 쪼개서 AI에게 시켰는지
+**a) 프롬프팅 전략**
+- 이 작업을 AI에게 시킬 때 효과적인 프롬프트를 **구체적으로** 보여준다
+- 좋은 프롬프트 vs 나쁜 프롬프트를 비교한다
+- blockquote로 실제 프롬프트 예시를 넣는다
 
 예시:
-\`\`\`
-## Claude로 i18n 작업을 시키는 법
+> "8개 locale JSON 파일에서 key가 누락된 항목을 찾아서, \`en.json\` 기준으로 번역해줘. 고유명사와 브랜드명은 번역하지 마. 기존 번역 톤을 유지해."
 
-이런 프롬프트가 효과적이었다:
+이렇게 쓰면 안 된다:
+> "번역해줘"
 
-> "8개 locale 파일에서 key가 누락된 항목을 찾아서 영어 기준으로 번역해줘.
-> 단, 고유명사는 번역하지 마."
+**b) Claude Code / AI 도구 활용법**
+- \`CLAUDE.md\` 설정법, custom instructions 활용
+- slash commands (\`/commit\`, \`/review\` 등)
+- hooks (pre-commit, post-push 등)
+- MCP (Model Context Protocol) 서버 연동
+- skills 커스터마이징
+- agent 모드 vs interactive 모드 사용 시점
+- 멀티 파일 작업 시 컨텍스트 관리법
 
-핵심은 **제약 조건을 명시**하는 것이다. "번역해줘"만 쓰면 고유명사까지 번역해버린다.
-\`\`\`
+**c) 구조화 전략**
+- 큰 작업을 어떻게 쪼개서 AI에게 시키는지
+- 어떤 부분은 AI에게 맡기고, 어떤 부분은 사람이 해야 하는지
+- 반복 작업 자동화 패턴
+- 에이전트에게 명확한 제약 조건을 주는 법
 
-### 4. 커밋 로그 (HTML 형식)
+**d) 관련 기술 개념 설명**
+- 이 작업에서 쓰인 기술 스택이나 패턴을 설명
+- 왜 이 방식을 선택했는지 근거
 
-<hr class="section-break">
+### 4. 더 나은 방법은 없을까 (h2)
+이 글에서 다룬 프롬프팅이나 구조화 방식보다 **더 좋은 대안**이 있다면 제시한다:
+- 공식 문서에서 권장하는 best practice (Anthropic docs, OpenAI cookbook 등)
+- 최신 릴리스에서 추가된 기능으로 대체할 수 있는 부분
+- 커뮤니티에서 검증된 더 효율적인 패턴
+- 다른 도구나 MCP 서버로 같은 작업을 더 잘 할 수 있는 방법
+- 성능/비용/품질 트레이드오프 분석
 
-<div class="commit-log">
-<div class="commit-row"><span class="hash">커밋해시7자</span> <span class="msg">커밋 메시지</span></div>
-</div>
+> 핵심: 글을 쓰는 시점의 지식으로 "이렇게 하면 더 낫다"를 팩트 기반으로 제안한다.
 
-### 5. 마무리 한 줄
-- 작업에서 얻은 인사이트나 교훈 (반말)
+### 5. 정리 (h2)
+- 이 글에서 다룬 핵심 포인트를 3~4개로 정리
+- 각 포인트는 한 줄로
 
-## 커밋 데이터
+### 5. 참고한 커밋들 (접기)
+<details>
+<summary>이번 작업의 커밋 로그</summary>
+
+커밋해시 — 커밋 메시지
+
+</details>
+
+## 분량
+
+**최소 3,000자 이상** (공백 포함). 깊이 있는 내용이어야 한다. 피상적으로 훑지 말고 하나의 주제라도 제대로 파고든다.
+
+## 커밋 데이터 (맥락용)
 
 ${JSON.stringify(commitData, null, 2)}
 
@@ -145,20 +162,23 @@ frontmatter 없이 마크다운 본문만 작성하세요. 제목(title)과 slug
 
 ## 제목 규칙
 
-제목은 **작업 내용 + 방법/인사이트**가 드러나야 한다.
+제목은 **독자가 배울 수 있는 것**이 드러나야 한다. 작업 내용이 아니라 **방법론/인사이트**가 제목이다.
 
 좋은 예:
-- "i18n 8개 언어 일괄 수정 — Claude에게 번역 시키는 프롬프트 패턴"
-- "결제 페이지 paywall 구현기 — AI로 conversion 퍼널 설계하는 법"
-- "SEO 랜딩 페이지 자동 생성 — Claude Code로 10개 페이지 30분 만에"
-- "온보딩 UX 전면 개편 — 프롬프트 하나로 컴포넌트 6개 리팩토링"
+- "Claude Code로 i18n 8개 언어를 한번에 처리하는 프롬프트 패턴"
+- "AI 에이전트에게 리팩토링 시키는 법 — 제약 조건이 핵심이다"
+- "CLAUDE.md 하나로 코드 품질 올리는 구조화 전략"
+- "LLM에게 UI 컴포넌트 만들게 할 때 반드시 지켜야 할 3가지"
+- "AI로 결제 퍼널 설계하기 — conversion 최적화 프롬프팅"
+- "멀티 locale 앱에서 Claude를 번역기로 쓸 때 빠지는 함정"
 
 나쁜 예:
-- "작업 정리" (너무 일반적)
-- "2026-03-09 사주앱 업데이트" (날짜+앱명만)
-- "[사주 분석 앱] 새 기능 추가 외 8건" (커밋 카운트만)
+- "작업 정리" (배울 게 없다)
+- "2026-03-09 사주앱 업데이트" (일지가 아니다)
+- "[사주 분석 앱] 새 기능 추가 외 8건" (커밋 카운트)
+- "온보딩 UX 전면 개편" (작업 내용만, 방법론 없음)
 
-제목에 날짜, [프로젝트명] 접두사, "외 N건" 같은 패턴은 쓰지 않는다.`;
+제목에 날짜, [프로젝트명] 접두사, "외 N건" 같은 패턴은 절대 쓰지 않는다.`;
 
               const response = await fetch('https://api.anthropic.com/v1/messages', {
                 method: 'POST',
@@ -404,6 +424,40 @@ frontmatter 없이 마크다운 본문만 작성하세요. 제목(title)과 slug
                   branch: 'main',
                 });
                 console.log(`[${slug}] Created build log: ${finalLogPath} (${relevantCommits.length} commits)`);
+
+                // Cross-post to Dev.to
+                const devtoKey = process.env.DEVTO_API_KEY;
+                if (devtoKey && body) {
+                  try {
+                    const canonicalUrl = `https://jidonglab.com/posts/${today}-${logSlug}`;
+                    const devtoTags = tags.slice(0, 4).map(t => t.replace(/[^a-zA-Z0-9]/g, ''));
+                    const devtoRes = await fetch('https://dev.to/api/articles', {
+                      method: 'POST',
+                      headers: {
+                        'Content-Type': 'application/json',
+                        'api-key': devtoKey,
+                      },
+                      body: JSON.stringify({
+                        article: {
+                          title: logTitle,
+                          body_markdown: body,
+                          published: true,
+                          tags: devtoTags,
+                          canonical_url: canonicalUrl,
+                          series: 'AI Development Log',
+                        },
+                      }),
+                    });
+                    if (devtoRes.ok) {
+                      const devtoData = await devtoRes.json();
+                      console.log(`[${slug}] Published to Dev.to: ${devtoData.url}`);
+                    } else {
+                      console.log(`[${slug}] Dev.to publish failed: ${devtoRes.status} ${await devtoRes.text()}`);
+                    }
+                  } catch (e) {
+                    console.log(`[${slug}] Dev.to publish error: ${e.message}`);
+                  }
+                }
               } catch (e) {
                 console.log(`[${slug}] Failed to create build log: ${e.message}`);
               }
