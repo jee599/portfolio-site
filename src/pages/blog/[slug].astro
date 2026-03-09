@@ -16,9 +16,10 @@ export async function getStaticPaths() {
   }));
 
   // Dev.to articles not yet synced locally
+  const localSlugs = new Set(blogPosts.map(p => p.slug));
   const devtoArticles = await fetchArticles();
   const devtoPaths = devtoArticles
-    .filter(a => !syncedDevtoIds.has(a.id))
+    .filter(a => !syncedDevtoIds.has(a.id) && !localSlugs.has(a.slug))
     .map((a) => ({
       params: { slug: a.slug },
       props: { entry: null, source: 'devto', articleSlug: a.slug },
