@@ -641,25 +641,22 @@ const statusColors: Record<string, string> = {
   }
 </style>
 
-<script>
-  (async () => {
+<script is:inline>
+  document.addEventListener('DOMContentLoaded', async () => {
     const visited = sessionStorage.getItem('visited');
     try {
-      let data;
-      if (!visited) {
-        const res = await fetch('/api/visitors', { method: 'POST' });
-        data = await res.json();
-        sessionStorage.setItem('visited', '1');
-      } else {
-        const res = await fetch('/api/visitors');
-        data = await res.json();
-      }
+      const res = visited
+        ? await fetch('/api/visitors')
+        : await fetch('/api/visitors', { method: 'POST' });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (!visited) sessionStorage.setItem('visited', '1');
       const todayEl = document.getElementById('visitor-today');
       const totalEl = document.getElementById('visitor-total');
-      if (todayEl) todayEl.textContent = data.today.toLocaleString();
-      if (totalEl) totalEl.textContent = data.total.toLocaleString();
-    } catch {
-      // 실패해도 UI는 '-'로 유지
+      if (todayEl) todayEl.textContent = (data.today || 0).toLocaleString();
+      if (totalEl) totalEl.textContent = (data.total || 0).toLocaleString();
+    } catch (e) {
+      console.error('Visitor counter error:', e);
     }
-  })();
+  });
 </script>
