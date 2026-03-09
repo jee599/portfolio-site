@@ -55,7 +55,7 @@ if (source === 'local' && entry) {
   title = article.title;
   description = article.description;
   dateStr = article.published_at.split('T')[0];
-  tags = article.tag_list || [];
+  tags = Array.isArray(article.tag_list) ? article.tag_list : (typeof article.tag_list === "string" ? article.tag_list.split(", ") : []);
   sourceLabel = 'DEV.to';
   sourceUrl = article.url;
   bodyHtml = article.body_html;
