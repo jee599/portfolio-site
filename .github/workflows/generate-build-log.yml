@@ -162,19 +162,33 @@ frontmatter 없이 마크다운 본문만 작성하세요. 제목(title)과 slug
             // ─── Process each project ───
             for (const project of projects) {
               const { slug, title, github: gh } = project;
-              const logPath = `src/content/build-logs/${today}-${slug}-ko.md`;
 
-              // Check if today's build log already exists
+              // Find the most recent build log for this project to get the "since" date
+              let lastLogDate = null;
               try {
-                await github.rest.repos.getContent({ owner, repo: thisRepo, path: logPath });
-                console.log(`[${slug}] Today's build log already exists, skipping`);
-                continue;
+                const { data: logFiles } = await github.rest.repos.getContent({
+                  owner, repo: thisRepo, path: 'src/content/build-logs',
+                });
+                const projectLogs = logFiles
+                  .filter(f => f.name.includes(slug) && f.name.endsWith('-ko.md'))
+                  .map(f => f.name)
+                  .sort()
+                  .reverse();
+                if (projectLogs.length > 0) {
+                  const dateMatch = projectLogs[0].match(/^(\d{4}-\d{2}-\d{2})/);
+                  if (dateMatch) lastLogDate = dateMatch[1];
+                }
               } catch {
-                // doesn't exist, continue
+                // directory doesn't exist yet
               }
 
-              // Fetch commits from last 24 hours
-              const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+              // Fetch commits since last build log (or last 7 days if no log exists)
+              const since = lastLogDate
+                ? new Date(lastLogDate + 'T23:59:59Z').toISOString()
+                : new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString();
+
+              console.log(`[${slug}] Fetching commits since ${since} (last log: ${lastLogDate || 'none'})`);
+
               let recentCommits;
               try {
                 const { data } = await github.rest.repos.listCommits({
@@ -195,14 +209,24 @@ frontmatter 없이 마크다운 본문만 작성하세요. 제목(title)과 slug
               );
 
               if (relevantCommits.length === 0) {
-                console.log(`[${slug}] No relevant commits in last 24h`);
+                console.log(`[${slug}] No new commits since last build log`);
                 continue;
               }
 
-              // Publish threshold: 3+ commits
+              // Publish threshold: 3+ commits accumulated since last build log
               if (relevantCommits.length < 3) {
-                console.log(`[${slug}] Only ${relevantCommits.length} commits, waiting for 3+`);
+                console.log(`[${slug}] Only ${relevantCommits.length} commits accumulated, waiting for 3+`);
                 continue;
+              }
+
+              // Use today's date for the new log file, with a sequence number if needed
+              let logPath = `src/content/build-logs/${today}-${slug}-ko.md`;
+              try {
+                await github.rest.repos.getContent({ owner, repo: thisRepo, path: logPath });
+                // Today's log exists, add sequence number
+                logPath = `src/content/build-logs/${today}-${slug}-2-ko.md`;
+              } catch {
+                // doesn't exist, use default path
               }
 
               console.log(`[${slug}] Found ${relevantCommits.length} commits`);
