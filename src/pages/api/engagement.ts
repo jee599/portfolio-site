@@ -1,5 +1,5 @@
 import type { APIRoute } from 'astro';
-import { Redis } from '@upstash/redis';
+import { Redis } from '@upstash/redis/cloudflare';
 
 export const prerender = false;
 
