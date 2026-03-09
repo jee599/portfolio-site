@@ -4,7 +4,7 @@
 - **프레임워크**: Astro 4 + React + Tailwind
 - **배포**: Vercel (hybrid SSR/SSG)
 - **콘텐츠**: Astro Content Collections (build-logs, tips, ai-news)
-- **외부 연동**: Dev.to API, GitHub API, Google Custom Search
+- **외부 연동**: Dev.to API, GitHub API, Google Custom Search, Anthropic Claude API
 
 ## 글쓰기 톤 & 스타일
 
@@ -30,11 +30,17 @@
 - 본문: h2로 섹션 구분, 코드 예시 포함, 핵심 원칙은 blockquote
 - 인라인 코드: 변수명, 파일명, CSS값 등은 반드시 backtick으로 감싼다
 
-### AI News 자동 포스트
-- 같은 반말 톤 유지
-- "~가 발표됐다", "~가 업데이트됐다" 식으로
-- 소스 링크 반드시 포함
-- 불필요한 감탄사 없이 팩트 위주
+### AI News 자동 포스트 (매일 9AM KST)
+- **존댓말** 사용: "~했습니다", "~입니다" (블로그/팁 포스트의 반말 톤과 다름)
+- **주제별 개별 포스트**: 모델별 단순 목록이 아니라, 각 주제별로 별도 글 생성
+- **제목**: 구체적이고 명확하게 (예: "미 국방부, Anthropic을 'Supply Chain Risk'로 공식 지정")
+- **5,000자 이상**: 각 포스트는 최소 5,000자(공백 포함)
+- **필수 섹션**: `## 무슨 일이 있었나` → `## 관련 소식` → `## 개념 정리` 또는 `## 수치로 보기` → `## 정리`
+- **관련 소식/개념 정리**: 해당 주제와 연관된 다른 뉴스, 기술 개념 설명 포함
+- **코멘트**: 정리 섹션에서 시사점, 전망 등 분석적 의견 제시
+- 소스 링크: `<small>[출처명](URL)</small>` 형태로 각 섹션에 포함
+- 불필요한 감탄사 없이 팩트 + 분석 위주
+- Claude API (claude-sonnet-4-20250514)로 자동 생성, `ANTHROPIC_API_KEY` 환경변수 필요
 
 ## 디자인 컨벤션
 - 기본 테마: toss.tech 스타일 (라이트, 클린)

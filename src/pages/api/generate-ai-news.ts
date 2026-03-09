@@ -1,4 +1,5 @@
 import type { APIRoute } from 'astro';
+import Anthropic from '@anthropic-ai/sdk';
 
 export const prerender = false;
 
@@ -17,6 +18,12 @@ interface TrendingRepo {
   stars: number;
   todayStars: number;
   language: string;
+}
+
+interface TopicPost {
+  slug: string;
+  model: string;
+  markdown: string;
 }
 
 const MODEL_SEARCH_QUERIES: Record<string, string[]> = {
@@ -128,7 +135,6 @@ async function fetchGitHubTrending(): Promise<TrendingRepo[]> {
     yesterday.setDate(yesterday.getDate() - 1);
     const dateStr = yesterday.toISOString().split('T')[0];
 
-    // GitHub Search API: AI/LLM 관련 레포 중 전날 생성되거나 업데이트된 인기 레포
     const queries = [
       `topic:llm stars:>50 pushed:>${dateStr}`,
       `topic:ai stars:>100 pushed:>${dateStr}`,
@@ -166,13 +172,12 @@ async function fetchGitHubTrending(): Promise<TrendingRepo[]> {
           url: repo.html_url,
           description: repo.description || '',
           stars: repo.stargazers_count,
-          todayStars: 0, // GitHub API doesn't provide daily stars directly
+          todayStars: 0,
           language: repo.language || 'Unknown',
         });
       }
     }
 
-    // Deduplicate by full name, sort by stars desc
     const seen = new Set<string>();
     return allRepos
       .filter(r => {
@@ -187,74 +192,6 @@ async function fetchGitHubTrending(): Promise<TrendingRepo[]> {
   }
 }
 
-// ─── Markdown Generation ───
-function generateMarkdown(
-  model: string,
-  news: NewsItem[],
-  trendingRepos: TrendingRepo[],
-  date: string,
-): string {
-  const modelNames: Record<string, string> = {
-    claude: 'Claude (Anthropic)',
-    gemini: 'Gemini (Google)',
-    gpt: 'GPT (OpenAI)',
-    etc: 'AI / LLM',
-  };
-
-  const modelName = modelNames[model] || model;
-  const title = `${modelName} 소식 - ${date}`;
-  const allUrls = [
-    ...news.map(n => `"${n.url}"`),
-    ...trendingRepos.map(r => `"${r.url}"`),
-  ];
-
-  const frontmatter = [
-    '---',
-    `title: "${title}"`,
-    `date: ${date}`,
-    `model: ${model}`,
-    `tags: [ai-news, ${model}, daily]`,
-    `summary: "${date} ${modelName} 관련 주요 소식 및 GitHub 트렌딩 정리"`,
-    `sources: [${allUrls.join(', ')}]`,
-    `auto_generated: true`,
-    '---',
-  ].join('\n');
-
-  let body = '';
-
-  // News section
-  body += `## ${modelName} 오늘의 소식\n\n`;
-  if (news.length === 0) {
-    body += `오늘은 ${modelName} 관련 주요 소식이 없었다.\n\n`;
-  } else {
-    news.forEach((item, i) => {
-      body += `### ${i + 1}. ${item.title}\n\n`;
-      body += `${item.snippet}\n\n`;
-      body += `> 출처: [${item.source}](${item.url})\n\n`;
-    });
-  }
-
-  // GitHub trending section (only for etc model to avoid duplication)
-  if (model === 'etc' && trendingRepos.length > 0) {
-    body += `## GitHub 트렌딩 AI 프로젝트\n\n`;
-    body += `전날 별(star)을 많이 받은 AI/LLM 관련 프로젝트다.\n\n`;
-    trendingRepos.forEach((repo, i) => {
-      body += `### ${i + 1}. ${repo.fullName}\n\n`;
-      body += `${repo.description}\n\n`;
-      body += `- ⭐ **${repo.stars.toLocaleString()}** stars`;
-      if (repo.language) body += ` · \`${repo.language}\``;
-      body += `\n`;
-      body += `- [GitHub](${repo.url})\n\n`;
-    });
-  }
-
-  body += `---\n\n`;
-  body += `*이 포스트는 매일 아침 9시에 자동으로 생성된다.*\n`;
-  body += `*소스: Google Search, Hacker News, Reddit, GitHub Trending*\n`;
-
-  return `${frontmatter}\n\n${body}`;
-}
-
 // ─── Model-specific keywords for HN/Reddit filtering ───
 const MODEL_KEYWORDS: Record<string, string[]> = {
   claude: ['claude', 'anthropic'],
@@ -264,6 +201,195 @@ const MODEL_KEYWORDS: Record<string, string[]> = {
 };
 
 const REDDIT_SUBREDDITS = ['LocalLLaMA', 'MachineLearning', 'artificial'];
+
+// ─── Claude API로 주제별 풍부한 포스트 생성 ───
+async function generateTopicPosts(
+  model: string,
+  news: NewsItem[],
+  trendingRepos: TrendingRepo[],
+  date: string,
+  anthropicApiKey: string,
+): Promise<TopicPost[]> {
+  if (news.length === 0 && trendingRepos.length === 0) return [];
+
+  const modelNames: Record<string, string> = {
+    claude: 'Claude (Anthropic)',
+    gemini: 'Gemini (Google)',
+    gpt: 'GPT (OpenAI)',
+    etc: 'AI / LLM (오픈소스 및 기타)',
+  };
+  const modelName = modelNames[model] || model;
+
+  // 뉴스 원본 데이터를 JSON으로 전달
+  const newsData = news.map(n => ({
+    title: n.title,
+    url: n.url,
+    source: n.source,
+    snippet: n.snippet,
+  }));
+
+  const trendingData = trendingRepos.map(r => ({
+    name: r.fullName,
+    url: r.url,
+    description: r.description,
+    stars: r.stars,
+    language: r.language,
+  }));
+
+  const prompt = `당신은 AI 기술 전문 블로거입니다. 아래 뉴스 데이터를 분석해서 **주제별로 개별 블로그 포스트**를 작성해 주세요.
+
+## 규칙
+
+1. **주제별 분리**: 관련된 뉴스끼리 묶어서 하나의 주제로 만드세요. 서로 다른 주제는 별도 포스트로 나눕니다.
+2. **제목**: 구체적이고 명확하게. "~소식" 같은 일반적 제목 금지. 예: "미 국방부, Anthropic을 'Supply Chain Risk'로 공식 지정 — AI 안전과 국가 안보의 첫 정면충돌"
+3. **존댓말**: 본문은 존댓말(~합니다, ~입니다)로 작성합니다.
+4. **5,000자 이상**: 각 포스트는 최소 5,000자(공백 포함) 이상이어야 합니다.
+5. **구조**: 각 포스트에 반드시 아래 섹션을 포함하세요:
+   - \`## 무슨 일이 있었나\` — 핵심 사건 설명
+   - \`## 관련 소식\` — 관련 뉴스, 배경 정보, 다른 기업/기술 동향
+   - \`## 개념 정리\` 또는 \`## 수치로 보기\` — 기술 개념 설명 또는 핵심 수치 테이블
+   - \`## 정리\` — 분석적 코멘트, 시사점, 전망
+6. **소스 링크**: 각 섹션에서 관련 출처를 \`<small>[출처명](URL)</small>\` 형태로 포함하세요.
+7. **slug**: 각 포스트의 slug를 영문 kebab-case로 제안하세요 (예: pentagon-anthropic, gpt-5-4-release)
+
+## 뉴스 데이터
+
+**카테고리**: ${modelName}
+**날짜**: ${date}
+
+**뉴스 항목**:
+${JSON.stringify(newsData, null, 2)}
+
+${trendingData.length > 0 ? `**GitHub 트렌딩 AI 프로젝트**:\n${JSON.stringify(trendingData, null, 2)}` : ''}
+
+## 출력 형식
+
+반드시 아래 JSON 형식으로만 응답하세요. 다른 텍스트는 포함하지 마세요.
+
+\`\`\`json
+[
+  {
+    "slug": "topic-slug-here",
+    "title": "구체적이고 명확한 제목",
+    "tags": ["ai-news", "${model}", "추가태그1", "추가태그2"],
+    "summary": "2~3문장 요약 (존댓말)",
+    "sources": ["url1", "url2"],
+    "body": "마크다운 본문 (## 섹션 포함, 5000자 이상, 존댓말)"
+  }
+]
+\`\`\`
+
+뉴스가 1~2개뿐이면 하나의 포스트로 통합해도 됩니다. 하지만 서로 무관한 뉴스 3개 이상이면 반드시 주제별로 분리하세요.`;
+
+  const client = new Anthropic({ apiKey: anthropicApiKey });
+
+  const response = await client.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 16000,
+    messages: [{ role: 'user', content: prompt }],
+  });
+
+  // 응답에서 JSON 파싱
+  const textContent = response.content.find(c => c.type === 'text');
+  if (!textContent || textContent.type !== 'text') return [];
+
+  let jsonStr = textContent.text;
+  // JSON 블록 추출
+  const jsonMatch = jsonStr.match(/```json\s*([\s\S]*?)```/);
+  if (jsonMatch) {
+    jsonStr = jsonMatch[1].trim();
+  } else {
+    // JSON 배열만 있는 경우
+    const arrayMatch = jsonStr.match(/\[[\s\S]*\]/);
+    if (arrayMatch) {
+      jsonStr = arrayMatch[0];
+    }
+  }
+
+  const posts: Array<{
+    slug: string;
+    title: string;
+    tags: string[];
+    summary: string;
+    sources: string[];
+    body: string;
+  }> = JSON.parse(jsonStr);
+
+  return posts.map(post => {
+    const frontmatter = [
+      '---',
+      `title: "${post.title.replace(/"/g, '\\"')}"`,
+      `date: ${date}`,
+      `model: ${model}`,
+      `tags: [${post.tags.join(', ')}]`,
+      `summary: "${post.summary.replace(/"/g, '\\"')}"`,
+      `sources: [${post.sources.map(s => `"${s}"`).join(', ')}]`,
+      `auto_generated: true`,
+      '---',
+    ].join('\n');
+
+    return {
+      slug: post.slug,
+      model,
+      markdown: `${frontmatter}\n\n${post.body}`,
+    };
+  });
+}
+
+// ─── GitHub에 파일 커밋 ───
+async function commitToGitHub(
+  filePath: string,
+  content: string,
+  commitMessage: string,
+  githubToken: string,
+  githubRepo: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const base64Content = Buffer.from(content).toString('base64');
+
+  // 기존 파일 sha 확인
+  let existingSha: string | undefined;
+  try {
+    const existing = await fetch(
+      `https://api.github.com/repos/${githubRepo}/contents/${filePath}?ref=main`,
+      {
+        headers: {
+          Authorization: `Bearer ${githubToken}`,
+          Accept: 'application/vnd.github.v3+json',
+        },
+      }
+    );
+    if (existing.ok) {
+      const data = await existing.json();
+      existingSha = data.sha;
+    }
+  } catch {
+    // 파일이 없으면 새로 생성
+  }
+
+  const commitRes = await fetch(
+    `https://api.github.com/repos/${githubRepo}/contents/${filePath}`,
+    {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${githubToken}`,
+        'Content-Type': 'application/json',
+        Accept: 'application/vnd.github.v3+json',
+      },
+      body: JSON.stringify({
+        message: commitMessage,
+        content: base64Content,
+        branch: 'main',
+        ...(existingSha ? { sha: existingSha } : {}),
+      }),
+    }
+  );
+
+  if (!commitRes.ok) {
+    const error = await commitRes.text();
+    return { ok: false, error };
+  }
+  return { ok: true };
+}
 
 export const POST: APIRoute = async ({ request }) => {
   const authHeader = request.headers.get('authorization');
@@ -276,126 +402,111 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
+  const anthropicApiKey = import.meta.env.ANTHROPIC_API_KEY;
+  if (!anthropicApiKey) {
+    return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), {
+      status: 500,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
   const today = new Date();
   const dateStr = today.toISOString().split('T')[0];
-  const results: Record<string, { news: NewsItem[]; filename: string }> = {};
+  const allPosts: TopicPost[] = [];
+  const errors: string[] = [];
 
   try {
-    const errors: string[] = [];
-
-    // Fetch GitHub trending AI repos (shared across all models)
+    // 전체 뉴스 소스에서 수집
     const trendingRepos = await fetchGitHubTrending();
-
-    // Fetch HN and Reddit once, then filter per model
     const allHnNews = await searchHackerNews(['AI', 'LLM', 'Claude', 'GPT', 'Gemini', 'Anthropic', 'OpenAI']);
     const allRedditNews = await searchReddit(
       REDDIT_SUBREDDITS,
       ['claude', 'anthropic', 'gemini', 'gpt', 'openai', 'llm', 'llama', 'mistral', 'ai model'],
     );
 
+    // 모델별 뉴스 수집 후 Claude API로 주제별 포스트 생성
     for (const [model, queries] of Object.entries(MODEL_SEARCH_QUERIES)) {
       const allNews: NewsItem[] = [];
 
-      // 1. Google Custom Search
+      // Google Custom Search
       for (const query of queries) {
         const news = await searchGoogle(query);
         allNews.push(...news);
       }
 
-      // 2. Hacker News (filter by model keywords)
+      // Hacker News (모델별 필터링)
       const keywords = MODEL_KEYWORDS[model] || [];
       const hnFiltered = allHnNews.filter(item =>
         keywords.some(k => item.title.toLowerCase().includes(k))
       );
       allNews.push(...hnFiltered);
 
-      // 3. Reddit (filter by model keywords)
+      // Reddit (모델별 필터링)
       const redditFiltered = allRedditNews.filter(item =>
         keywords.some(k => item.title.toLowerCase().includes(k))
       );
       allNews.push(...redditFiltered);
 
-      // Deduplicate by URL
+      // URL 기준 중복 제거
       const uniqueNews = allNews.filter(
         (item, index, self) => index === self.findIndex(n => n.url === item.url)
-      ).slice(0, 8);
+      ).slice(0, 10);
 
-      // Skip models with no news at all (don't create empty files)
+      // 뉴스가 없으면 건너뛰기
       if (uniqueNews.length === 0 && !(model === 'etc' && trendingRepos.length > 0)) {
-        console.log(`[${model}] No news found, skipping file creation`);
+        console.log(`[${model}] No news found, skipping`);
         continue;
       }
 
-      const filename = `${dateStr}-${model}`;
-      const markdown = generateMarkdown(
-        model,
-        uniqueNews,
-        model === 'etc' ? trendingRepos : [],
-        dateStr,
-      );
-
-      results[model] = { news: uniqueNews, filename };
-
-      // Commit to GitHub
-      const githubToken = import.meta.env.GITHUB_TOKEN;
-      const githubRepo = import.meta.env.GITHUB_REPO || 'jee599/portfolio-site';
-
-      if (!githubToken) {
-        errors.push(`[${model}] GITHUB_TOKEN not set, cannot commit`);
-        continue;
-      }
-
-      const filePath = `src/content/ai-news/${filename}.md`;
-      const content = Buffer.from(markdown).toString('base64');
-
-      // Check if file already exists to get its sha (required for updates)
-      let existingSha: string | undefined;
       try {
-        const existing = await fetch(
-          `https://api.github.com/repos/${githubRepo}/contents/${filePath}?ref=main`,
-          {
-            headers: {
-              Authorization: `Bearer ${githubToken}`,
-              Accept: 'application/vnd.github.v3+json',
-            },
-          }
+        const posts = await generateTopicPosts(
+          model,
+          uniqueNews,
+          model === 'etc' ? trendingRepos : [],
+          dateStr,
+          anthropicApiKey,
         );
-        if (existing.ok) {
-          const data = await existing.json();
-          existingSha = data.sha;
-        }
-      } catch {
-        // File doesn't exist, that's fine
-      }
-
-      const commitRes = await fetch(
-        `https://api.github.com/repos/${githubRepo}/contents/${filePath}`,
-        {
-          method: 'PUT',
-          headers: {
-            Authorization: `Bearer ${githubToken}`,
-            'Content-Type': 'application/json',
-            Accept: 'application/vnd.github.v3+json',
-          },
-          body: JSON.stringify({
-            message: `feat: auto-generate AI news for ${model} on ${dateStr} [skip-log]`,
-            content,
-            branch: 'main',
-            ...(existingSha ? { sha: existingSha } : {}),
-          }),
-        }
-      );
-
-      if (!commitRes.ok) {
-        const error = await commitRes.text();
-        errors.push(`[${model}] GitHub commit failed: ${error}`);
-        console.error(`Failed to create ${filePath}: ${error}`);
+        allPosts.push(...posts);
+      } catch (err) {
+        errors.push(`[${model}] Claude API error: ${String(err)}`);
+        console.error(`[${model}] Failed to generate posts:`, err);
       }
     }
 
-    // Trigger rebuild
-    const createdModels = Object.keys(results);
-    if (createdModels.length > 0) {
+    // GitHub에 커밋
+    const githubToken = import.meta.env.GITHUB_TOKEN;
+    const githubRepo = import.meta.env.GITHUB_REPO || 'jee599/portfolio-site';
+
+    if (!githubToken) {
+      return new Response(JSON.stringify({
+        error: 'GITHUB_TOKEN not set',
+        generated: allPosts.length,
+      }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    const committed: string[] = [];
+    for (const post of allPosts) {
+      const filePath = `src/content/ai-news/${dateStr}-${post.slug}.md`;
+      const result = await commitToGitHub(
+        filePath,
+        post.markdown,
+        `feat: auto-generate AI news — ${post.slug} (${dateStr}) [skip-log]`,
+        githubToken,
+        githubRepo,
+      );
+
+      if (result.ok) {
+        committed.push(filePath);
+      } else {
+        errors.push(`[${post.slug}] GitHub commit failed: ${result.error}`);
+      }
+    }
+
+    // Vercel 리빌드 트리거
+    if (committed.length > 0) {
       const hookUrl = import.meta.env.VERCEL_DEPLOY_HOOK;
       if (hookUrl) {
         await fetch(hookUrl, { method: 'POST' });
@@ -405,17 +516,16 @@ export const POST: APIRoute = async ({ request }) => {
     const hasErrors = errors.length > 0;
     return new Response(
       JSON.stringify({
-        ok: !hasErrors,
+        ok: !hasErrors || committed.length > 0,
         date: dateStr,
-        generated: createdModels,
+        totalPosts: allPosts.length,
+        committed: committed.length,
+        files: committed,
         trendingRepos: trendingRepos.length,
-        counts: Object.fromEntries(
-          Object.entries(results).map(([model, data]) => [model, data.news.length])
-        ),
         ...(hasErrors ? { errors } : {}),
       }),
       {
-        status: hasErrors && createdModels.length === 0 ? 500 : 200,
+        status: hasErrors && committed.length === 0 ? 500 : 200,
         headers: { 'Content-Type': 'application/json' },
       }
     );
@@ -430,7 +540,7 @@ export const POST: APIRoute = async ({ request }) => {
   }
 };
 
-// Also support GET for Vercel Cron (cron jobs use GET)
+// Vercel Cron은 GET을 사용
 export const GET: APIRoute = async (context) => {
   return POST(context);
 };
