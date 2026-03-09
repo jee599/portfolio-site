@@ -18,11 +18,21 @@ function getRedis(runtimeEnv?: Record<string, string>): Redis | null {
 }
 
 export const GET: APIRoute = async ({ locals }) => {
-  const runtimeEnv = (locals as any).runtime?.env;
+  const runtime = (locals as any).runtime;
+  const runtimeEnv = runtime?.env;
   const redis = getRedis(runtimeEnv);
 
   if (!redis) {
-    return new Response(JSON.stringify({ today: 0, total: 0 }), {
+    return new Response(JSON.stringify({
+      today: 0, total: 0,
+      debug: {
+        hasRuntime: !!runtime,
+        hasEnv: !!runtimeEnv,
+        runtimeKeys: runtime ? Object.keys(runtime) : [],
+        envKeys: runtimeEnv ? Object.keys(runtimeEnv).filter((k: string) => k.startsWith('UPSTASH')) : [],
+        hasImportMetaUrl: !!import.meta.env.UPSTASH_REDIS_REST_URL,
+      }
+    }), {
       headers: { 'Content-Type': 'application/json' },
     });
   }
@@ -40,8 +50,8 @@ export const GET: APIRoute = async ({ locals }) => {
     }), {
       headers: { 'Content-Type': 'application/json' },
     });
-  } catch {
-    return new Response(JSON.stringify({ today: 0, total: 0 }), {
+  } catch (e) {
+    return new Response(JSON.stringify({ today: 0, total: 0, error: String(e) }), {
       headers: { 'Content-Type': 'application/json' },
     });
   }
