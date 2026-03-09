@@ -27,6 +27,7 @@ jobs:
         uses: actions/github-script@v7
         env:
           CROSS_REPO_TOKEN: ${{ secrets.CROSS_REPO_TOKEN }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
         with:
           github-token: ${{ secrets.CROSS_REPO_TOKEN || secrets.GITHUB_TOKEN }}
           script: |
@@ -36,6 +37,7 @@ jobs:
             const owner = context.repo.owner;
             const thisRepo = context.repo.repo;
             const today = new Date().toISOString().split('T')[0];
+            const anthropicApiKey = process.env.ANTHROPIC_API_KEY;
 
             // Skip patterns for auto-generated commits
             const skipPatterns = ['[skip-log]', 'Auto-merge:', 'auto-generate AI news', 'auto: sync from', 'Merge remote-tracking', 'Merge pull request'];
@@ -47,7 +49,6 @@ jobs:
             const projects = projectFiles.map(f => {
               const content = fs.readFileSync(path.join(projectsDir, f), 'utf8');
               const slug = f.replace(/\.(yaml|yml)$/, '');
-              // Parse title and github fields with regex (simple YAML)
               const titleMatch = content.match(/^title:\s*["']?(.+?)["']?\s*$/m);
               const githubMatch = content.match(/^github:\s*["']?https:\/\/github\.com\/([^/\s"']+)\/([^/\s"']+)["']?\s*$/m);
               return {
@@ -59,12 +60,111 @@ jobs:
 
             console.log(`Found ${projects.length} projects: ${projects.map(p => p.slug).join(', ')}`);
 
+            // ─── Claude API 호출 함수 ───
+            async function generateWithClaude(commitData) {
+              if (!anthropicApiKey) {
+                console.log('ANTHROPIC_API_KEY not set, falling back to basic format');
+                return null;
+              }
+
+              const prompt = `당신은 toss tech 스타일의 기술 블로거입니다. 아래 커밋 데이터를 분석해서 작업 로그 블로그 포스트를 작성하세요.
+
+## 문체 규칙 (매우 중요)
+
+- **건조한 반말** 사용: "~한다", "~했다", "~이다" (존댓말 절대 금지)
+- 짧고 직관적인 문장. 불필요한 수식어 없이 핵심만
+- 기술 용어는 번역하지 않는다 (e.g., commit, deploy, refactor 그대로)
+- 감탄사, 이모지 사용 금지
+- 변수명, 파일명, CSS값, CLI 명령어는 반드시 backtick으로 감싼다
+
+## 문체 예시
+
+좋은 예:
+- "Three.js 배경을 넣었더니 텍스트가 다 뭉개졌다."
+- "CSS 변수 4개를 \`rgba(13,11,20,0.72)\` 계열로 올렸다."
+- "과감하게 잘라야 할 때가 있다."
+- "한 줄이면 끝. **36줄 → 0줄.**"
+- "\`globals.css\` 한 파일에서 다 처리했다."
+
+나쁜 예:
+- "오늘은 정말 유용한 작업을 진행했습니다." (존댓말 금지)
+- "대박! 이거 완전 꿀팁!" (감탄사 금지)
+- "다양한 개선 사항을 적용하였습니다." (존댓말+수식어 금지)
+
+## 구조 규칙
+
+1. **도입부** (1~2줄): 오늘 작업의 핵심을 한 마디로. h2 없이 바로 시작
+2. **섹션들** (h2): 각 주요 변경사항별로 섹션 분리. 제목은 "~했다", "~잘랐다", "~바꿨다" 식으로
+3. **코드 예시**: 변경 전/후 비교, 핵심 코드 스니펫 포함
+4. **커밋 로그**: 아래 HTML 형식으로 마지막에 추가
+5. **변경 요약 테이블**: Before/After 비교 테이블
+6. **마무리 한 줄**: 인사이트나 교훈 (반말)
+
+## 커밋 로그 HTML 형식 (반드시 포함)
+
+<hr class="section-break">
+
+<div class="commit-log">
+<div class="commit-row"><span class="hash">커밋해시7자</span> <span class="msg">커밋 메시지</span></div>
+</div>
+
+<div class="change-summary">
+<table>
+<thead><tr><th>항목</th><th>Before</th><th>After</th></tr></thead>
+<tbody>
+<tr><td class="label">항목명</td><td class="before">이전값</td><td class="after">이후값</td></tr>
+</tbody>
+</table>
+</div>
+
+## 커밋 데이터
+
+${JSON.stringify(commitData, null, 2)}
+
+## 출력
+
+frontmatter 없이 마크다운 본문만 작성하세요. 제목(title)과 slug도 별도로 JSON 형태로 첫 줄에 제공하세요.
+
+첫 줄 형식: <!-- META: {"title": "제목", "slug": "영문-kebab-case-slug"} -->
+
+제목 예시:
+- "Three.js 우주 배경 위 가독성 4연타 픽스 + 파비콘 추가"
+- "Paddle 결제 연동 + CI 자동화 파이프라인 구축"
+- "로딩 분석 UI 개선 + 모바일 반응형 수정"
+
+제목은 구체적이고 작업 내용이 드러나야 한다. "작업 정리" 같은 일반적 제목 금지.`;
+
+              const response = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-api-key': anthropicApiKey,
+                  'anthropic-version': '2023-06-01',
+                },
+                body: JSON.stringify({
+                  model: 'claude-sonnet-4-20250514',
+                  max_tokens: 8000,
+                  messages: [{ role: 'user', content: prompt }],
+                }),
+              });
+
+              if (!response.ok) {
+                const error = await response.text();
+                console.error(`Claude API error: ${error}`);
+                return null;
+              }
+
+              const data = await response.json();
+              const text = data.content?.[0]?.text;
+              return text || null;
+            }
+
             // ─── Process each project ───
             for (const project of projects) {
               const { slug, title, github: gh } = project;
               const logPath = `src/content/build-logs/${today}-${slug}-ko.md`;
 
-              // Check if today's build log already exists for this project
+              // Check if today's build log already exists
               try {
                 await github.rest.repos.getContent({ owner, repo: thisRepo, path: logPath });
                 console.log(`[${slug}] Today's build log already exists, skipping`);
@@ -73,7 +173,7 @@ jobs:
                 // doesn't exist, continue
               }
 
-              // Fetch commits from last 24 hours for this project's repo
+              // Fetch commits from last 24 hours
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
               let recentCommits;
               try {
@@ -99,12 +199,19 @@ jobs:
                 continue;
               }
 
+              // Publish threshold: 3+ commits
+              if (relevantCommits.length < 3) {
+                console.log(`[${slug}] Only ${relevantCommits.length} commits, waiting for 3+`);
+                continue;
+              }
+
               console.log(`[${slug}] Found ${relevantCommits.length} commits`);
 
               // Analyze changed files
               const allFiles = new Set();
               let totalAdditions = 0;
               let totalDeletions = 0;
+              const fileDiffs = [];
 
               for (const commit of relevantCommits.slice(0, 20)) {
                 try {
@@ -117,21 +224,37 @@ jobs:
                     allFiles.add(file.filename);
                     totalAdditions += file.additions || 0;
                     totalDeletions += file.deletions || 0;
+                    fileDiffs.push({
+                      filename: file.filename,
+                      status: file.status,
+                      additions: file.additions,
+                      deletions: file.deletions,
+                    });
                   }
                 } catch {
                   // skip
                 }
               }
 
-              // Group commits by type
-              const commitsByType = { feat: [], fix: [], refactor: [], chore: [], other: [] };
-              for (const c of relevantCommits) {
-                const msg = c.commit.message.split('\n')[0];
-                const match = msg.match(/^(feat|fix|refactor|chore|docs|style|test|ci):/i);
-                const type = match ? match[1].toLowerCase() : 'other';
-                const bucket = commitsByType[type] || commitsByType.other;
-                bucket.push(msg);
-              }
+              // Build commit data for Claude API
+              const commitData = {
+                project: title,
+                slug,
+                date: today,
+                commits: relevantCommits.map(c => ({
+                  sha: c.sha.substring(0, 7),
+                  message: c.commit.message.split('\n')[0],
+                  author: c.commit.author?.name || 'unknown',
+                })),
+                stats: {
+                  totalCommits: relevantCommits.length,
+                  filesChanged: allFiles.size,
+                  additions: totalAdditions,
+                  deletions: totalDeletions,
+                },
+                changedFiles: Array.from(allFiles).slice(0, 20),
+                fileDiffs: fileDiffs.slice(0, 30),
+              };
 
               // Build tags
               const tagSet = new Set();
@@ -145,60 +268,79 @@ jobs:
                 if (f.endsWith('.py')) tagSet.add('python');
                 if (f.endsWith('.css')) tagSet.add('css');
               }
-
-              // Generate title
-              const dominantType = Object.entries(commitsByType)
-                .sort((a, b) => b[1].length - a[1].length)
-                .find(([_, v]) => v.length > 0);
-              const typeLabels = {
-                feat: '새 기능 추가',
-                fix: '버그 수정',
-                refactor: '코드 리팩토링',
-                chore: '유지보수 작업',
-                other: '작업 정리',
-              };
-              const logTitle = `[${title}] ${today} — ${typeLabels[dominantType?.[0]] || '작업 정리'} 외 ${relevantCommits.length}건`;
               const tags = Array.from(tagSet).slice(0, 5);
 
-              // Generate markdown in 반말 tone
-              const typeHeaders = { feat: '새로 추가한 것', fix: '고친 것', refactor: '리팩토링', chore: '기타 작업', other: '기타' };
+              // Claude API로 풍부한 빌드 로그 생성
               let body = '';
+              let logTitle = '';
+              let logSlug = `${slug}`;
 
-              for (const [type, commits] of Object.entries(commitsByType)) {
-                if (commits.length === 0) continue;
-                body += `## ${typeHeaders[type]}\n\n`;
-                for (const msg of commits) {
-                  body += `- ${msg.replace(/^(feat|fix|refactor|chore|docs|style|test|ci):\s*/i, '')}\n`;
+              const claudeResult = await generateWithClaude(commitData);
+
+              if (claudeResult) {
+                // META 태그에서 제목과 slug 추출
+                const metaMatch = claudeResult.match(/<!--\s*META:\s*(\{.*?\})\s*-->/);
+                if (metaMatch) {
+                  try {
+                    const meta = JSON.parse(metaMatch[1]);
+                    logTitle = meta.title || '';
+                    if (meta.slug) logSlug = meta.slug;
+                  } catch {
+                    // ignore parse error
+                  }
                 }
-                body += '\n';
+                // META 태그 제거한 본문
+                body = claudeResult.replace(/<!--\s*META:.*?-->\n?/, '').trim();
               }
 
-              body += `## 숫자로 보는 오늘\n\n`;
-              body += `- 커밋: ${relevantCommits.length}건\n`;
-              body += `- 변경 파일: ${allFiles.size}개\n`;
-              body += `- 추가: +${totalAdditions.toLocaleString()}줄 / 삭제: -${totalDeletions.toLocaleString()}줄\n\n`;
+              // Claude API 실패 시 기본 포맷 fallback
+              if (!body) {
+                const commitsByType = { feat: [], fix: [], refactor: [], chore: [], other: [] };
+                for (const c of relevantCommits) {
+                  const msg = c.commit.message.split('\n')[0];
+                  const match = msg.match(/^(feat|fix|refactor|chore|docs|style|test|ci):/i);
+                  const type = match ? match[1].toLowerCase() : 'other';
+                  const bucket = commitsByType[type] || commitsByType.other;
+                  bucket.push(msg);
+                }
 
-              const keyFiles = Array.from(allFiles).slice(0, 8);
-              if (keyFiles.length > 0) {
-                body += `## 주요 변경 파일\n\n`;
-                for (const f of keyFiles) {
-                  body += `- \`${f}\`\n`;
+                const dominantType = Object.entries(commitsByType)
+                  .sort((a, b) => b[1].length - a[1].length)
+                  .find(([_, v]) => v.length > 0);
+                const typeLabels = {
+                  feat: '새 기능 추가',
+                  fix: '버그 수정',
+                  refactor: '코드 리팩토링',
+                  chore: '유지보수 작업',
+                  other: '작업 정리',
+                };
+                logTitle = `[${title}] ${today} — ${typeLabels[dominantType?.[0]] || '작업 정리'} 외 ${relevantCommits.length}건`;
+
+                const typeHeaders = { feat: '새로 추가한 것', fix: '고친 것', refactor: '리팩토링', chore: '기타 작업', other: '기타' };
+
+                for (const [type, commits] of Object.entries(commitsByType)) {
+                  if (commits.length === 0) continue;
+                  body += `## ${typeHeaders[type]}\n\n`;
+                  for (const msg of commits) {
+                    body += `- ${msg.replace(/^(feat|fix|refactor|chore|docs|style|test|ci):\s*/i, '')}\n`;
+                  }
+                  body += '\n';
                 }
-                if (allFiles.size > 8) {
-                  body += `\n외 ${allFiles.size - 8}개 파일\n`;
-                }
-                body += '\n';
+
+                body += `## 숫자로 보는 오늘\n\n`;
+                body += `- 커밋: ${relevantCommits.length}건\n`;
+                body += `- 변경 파일: ${allFiles.size}개\n`;
+                body += `- 추가: +${totalAdditions.toLocaleString()}줄 / 삭제: -${totalDeletions.toLocaleString()}줄\n\n`;
+
+                body += `---\n\n*이 작업 로그는 커밋이 3건 이상 쌓이면 자동으로 생성된다.*\n`;
               }
 
-              body += `---\n\n*이 작업 로그는 커밋이 3건 이상 쌓이면 자동으로 생성된다.*\n`;
+              // Claude가 slug를 제공했으면 파일명에 반영
+              const finalLogPath = claudeResult
+                ? `src/content/build-logs/${today}-${logSlug}-ko.md`
+                : logPath;
 
-              const markdown = `---\ntitle: "${logTitle}"\nproject: "${slug}"\ndate: ${today}\nlang: ko\ntags: [${tags.join(', ')}]\n---\n\n${body}`;
-
-              // Publish if at least 3 commits (meaningful work threshold)
-              if (relevantCommits.length < 3) {
-                console.log(`[${slug}] Only ${relevantCommits.length} commits, waiting for 3+`);
-                continue;
-              }
+              const markdown = `---\ntitle: "${logTitle.replace(/"/g, '\\"')}"\nproject: "${slug}"\ndate: ${today}\nlang: ko\ntags: [${tags.join(', ')}]\n---\n\n${body}`;
 
               // Create file in portfolio-site repo
               const content = Buffer.from(markdown).toString('base64');
@@ -206,12 +348,12 @@ jobs:
                 await github.rest.repos.createOrUpdateFileContents({
                   owner,
                   repo: thisRepo,
-                  path: logPath,
+                  path: finalLogPath,
                   message: `docs: auto-generate build log for ${slug} on ${today} [skip-log]`,
                   content,
                   branch: 'main',
                 });
-                console.log(`[${slug}] Created build log: ${logPath} (${relevantCommits.length} commits)`);
+                console.log(`[${slug}] Created build log: ${finalLogPath} (${relevantCommits.length} commits)`);
               } catch (e) {
                 console.log(`[${slug}] Failed to create build log: ${e.message}`);
               }
