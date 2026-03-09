@@ -59,20 +59,58 @@ const slug = Astro.url.pathname;
       <slot />
     </div>
 
-    <!-- Reactions -->
-    <div class="reactions" id="reactions">
-      <button class="reaction-btn" data-reaction="like" id="btn-like">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-        <span id="like-count">0</span>
+    <!-- Engagement: 추천 -->
+    <div class="engagement" id="engagement">
+      <button class="like-btn" id="btn-like">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+        <span data-ko="추천" data-en="Like">추천</span>
+        <span class="like-count" id="like-count">0</span>
       </button>
-      <button class="reaction-btn" data-reaction="fire" id="btn-fire">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 12c2-2.96 0-7-1-8 0 3.038-1.773 4.741-3 6-1.226 1.26-2 3.24-2 5a6 6 0 1 0 12 0c0-1.532-1.056-3.94-2-5-1.786 3-2.791 3-4 2z"/></svg>
-        <span id="fire-count">0</span>
-      </button>
-      <button class="reaction-btn" data-reaction="clap" id="btn-clap">
-        <span style="font-size: 1.1rem;">👏</span>
-        <span id="clap-count">0</span>
-      </button>
+    </div>
+
+    <!-- Comments: 댓글 -->
+    <div class="comments-section" id="comments-section">
+      <h3 class="comments-title">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        <span data-ko="댓글" data-en="Comments">댓글</span>
+        <span class="comment-count" id="comment-count">0</span>
+      </h3>
+
+      <!-- Comment Form -->
+      <form class="comment-form" id="comment-form">
+        <div class="comment-form-row">
+          <input
+            type="text"
+            id="comment-name"
+            class="comment-input comment-name-input"
+            placeholder="이름"
+            maxlength="50"
+            required
+          />
+        </div>
+        <textarea
+          id="comment-text"
+          class="comment-input comment-textarea"
+          placeholder="댓글을 남겨주세요..."
+          maxlength="1000"
+          rows="3"
+          required
+        ></textarea>
+        <div class="comment-form-actions">
+          <span class="comment-char-count" id="char-count">0 / 1000</span>
+          <button type="submit" class="comment-submit" id="comment-submit">
+            <span data-ko="등록" data-en="Submit">등록</span>
+          </button>
+        </div>
+      </form>
+
+      <!-- Comment List -->
+      <div class="comment-list" id="comment-list">
+        <!-- populated by JS -->
+      </div>
+      <p class="comments-empty" id="comments-empty" style="display:none;" data-ko="아직 댓글이 없다. 첫 댓글을 남겨보자." data-en="No comments yet. Be the first!">
+        아직 댓글이 없다. 첫 댓글을 남겨보자.
+      </p>
     </div>
 
     <footer class="post-footer">
@@ -82,49 +120,169 @@ const slug = Astro.url.pathname;
 </Base>
 
 <script is:inline define:vars={{ slug }}>
-  // View counter (localStorage-based)
-  const viewKey = `views:${slug}`;
+  const API = '/api/engagement';
+  const likedKey = `liked:${slug}`;
   const viewedKey = `viewed:${slug}`;
-  let views = parseInt(localStorage.getItem(viewKey) || '0');
+  const savedName = localStorage.getItem('comment-name') || '';
 
-  if (!sessionStorage.getItem(viewedKey)) {
-    views++;
-    localStorage.setItem(viewKey, String(views));
-    sessionStorage.setItem(viewedKey, '1');
+  // Elements
+  const viewEl = document.getElementById('view-num');
+  const likeCountEl = document.getElementById('like-count');
+  const likeBtnEl = document.getElementById('btn-like');
+  const commentCountEl = document.getElementById('comment-count');
+  const commentListEl = document.getElementById('comment-list');
+  const commentFormEl = document.getElementById('comment-form');
+  const commentNameEl = document.getElementById('comment-name');
+  const commentTextEl = document.getElementById('comment-text');
+  const commentSubmitEl = document.getElementById('comment-submit');
+  const charCountEl = document.getElementById('char-count');
+  const emptyEl = document.getElementById('comments-empty');
+
+  // Restore saved name
+  if (commentNameEl && savedName) commentNameEl.value = savedName;
+
+  // Character count
+  if (commentTextEl && charCountEl) {
+    commentTextEl.addEventListener('input', () => {
+      charCountEl.textContent = `${commentTextEl.value.length} / 1000`;
+    });
   }
 
-  const viewEl = document.getElementById('view-num');
-  if (viewEl) viewEl.textContent = String(views);
-
-  // Reactions (localStorage-based)
-  const reactKey = `reactions:${slug}`;
-  const myReactKey = `my-reactions:${slug}`;
-  const reactions = JSON.parse(localStorage.getItem(reactKey) || '{"like":0,"fire":0,"clap":0}');
-  const myReactions = JSON.parse(localStorage.getItem(myReactKey) || '{}');
-
-  ['like', 'fire', 'clap'].forEach(type => {
-    const countEl = document.getElementById(`${type}-count`);
-    const btnEl = document.getElementById(`btn-${type}`);
-    if (countEl) countEl.textContent = String(reactions[type] || 0);
-    if (btnEl && myReactions[type]) btnEl.classList.add('active');
-
-    if (btnEl) {
-      btnEl.addEventListener('click', () => {
-        if (myReactions[type]) {
-          reactions[type] = Math.max(0, (reactions[type] || 0) - 1);
-          delete myReactions[type];
-          btnEl.classList.remove('active');
-        } else {
-          reactions[type] = (reactions[type] || 0) + 1;
-          myReactions[type] = true;
-          btnEl.classList.add('active');
-        }
-        localStorage.setItem(reactKey, JSON.stringify(reactions));
-        localStorage.setItem(myReactKey, JSON.stringify(myReactions));
-        if (countEl) countEl.textContent = String(reactions[type] || 0);
-      });
+  // Track view (once per session)
+  async function trackView() {
+    if (!sessionStorage.getItem(viewedKey)) {
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, action: 'view' }),
+        });
+        const data = await res.json();
+        if (viewEl && data.views) viewEl.textContent = String(data.views);
+        sessionStorage.setItem(viewedKey, '1');
+      } catch { /* silent */ }
     }
-  });
+  }
+
+  // Load engagement data
+  async function loadEngagement() {
+    try {
+      const res = await fetch(`${API}?slug=${encodeURIComponent(slug)}`);
+      const data = await res.json();
+
+      if (viewEl) viewEl.textContent = String(data.views || 0);
+      if (likeCountEl) likeCountEl.textContent = String(data.likes || 0);
+
+      // Like state
+      if (likeBtnEl && localStorage.getItem(likedKey)) {
+        likeBtnEl.classList.add('active');
+      }
+
+      // Comments
+      renderComments(data.comments || []);
+    } catch { /* silent */ }
+  }
+
+  // Render comments
+  function renderComments(comments) {
+    if (!commentListEl || !commentCountEl || !emptyEl) return;
+    commentCountEl.textContent = String(comments.length);
+
+    if (comments.length === 0) {
+      commentListEl.innerHTML = '';
+      emptyEl.style.display = 'block';
+      return;
+    }
+
+    emptyEl.style.display = 'none';
+    commentListEl.innerHTML = comments.map(c => {
+      const d = new Date(c.date);
+      const dateStr = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
+      const safeName = escapeHtml(c.name);
+      const safeText = escapeHtml(c.text).replace(/\n/g, '<br/>');
+      return `<div class="comment">
+        <div class="comment-header">
+          <span class="comment-author">${safeName}</span>
+          <span class="comment-date">${dateStr}</span>
+        </div>
+        <div class="comment-body">${safeText}</div>
+      </div>`;
+    }).join('');
+  }
+
+  function escapeHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
+  }
+
+  // Like toggle
+  if (likeBtnEl) {
+    likeBtnEl.addEventListener('click', async () => {
+      const isLiked = localStorage.getItem(likedKey);
+      const action = isLiked ? 'unlike' : 'like';
+
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, action }),
+        });
+        const data = await res.json();
+        if (likeCountEl && data.likes !== undefined) {
+          likeCountEl.textContent = String(data.likes);
+        }
+
+        if (isLiked) {
+          localStorage.removeItem(likedKey);
+          likeBtnEl.classList.remove('active');
+        } else {
+          localStorage.setItem(likedKey, '1');
+          likeBtnEl.classList.add('active');
+        }
+      } catch { /* silent */ }
+    });
+  }
+
+  // Submit comment
+  if (commentFormEl) {
+    commentFormEl.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = commentNameEl?.value.trim();
+      const text = commentTextEl?.value.trim();
+      if (!name || !text) return;
+
+      if (commentSubmitEl) {
+        commentSubmitEl.disabled = true;
+        commentSubmitEl.textContent = '...';
+      }
+
+      try {
+        const res = await fetch(API, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ slug, action: 'comment', name, text }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          localStorage.setItem('comment-name', name);
+          if (commentTextEl) commentTextEl.value = '';
+          if (charCountEl) charCountEl.textContent = '0 / 1000';
+          // Reload comments
+          await loadEngagement();
+        }
+      } catch { /* silent */ }
+
+      if (commentSubmitEl) {
+        commentSubmitEl.disabled = false;
+        commentSubmitEl.textContent = '등록';
+      }
+    });
+  }
+
+  // Init
+  trackView();
+  loadEngagement();
 </script>
 
 <style>
@@ -197,47 +355,173 @@ const slug = Astro.url.pathname;
     border-radius: 4px;
   }
 
-  /* ═══ Reactions ═══ */
-  .reactions {
+  /* ═══ Engagement (추천) ═══ */
+  .engagement {
     display: flex;
-    gap: 0.75rem;
+    justify-content: center;
     margin-top: 3rem;
     padding: 1.5rem;
     background: #f9fafb;
     border-radius: 12px;
     border: 1px solid #f2f4f6;
-    justify-content: center;
   }
 
-  .reaction-btn {
+  .like-btn {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    padding: 0.5rem 1rem;
+    gap: 0.5rem;
+    padding: 0.65rem 1.5rem;
     border: 1px solid #e5e8eb;
     border-radius: 100px;
     background: #fff;
     color: #8b95a1;
-    font-size: 0.85rem;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
     -webkit-user-select: none;
     user-select: none;
   }
 
-  .reaction-btn:hover {
+  .like-btn:hover {
     border-color: #00c471;
     color: #00c471;
     transform: translateY(-1px);
     box-shadow: 0 2px 8px rgba(0, 196, 113, 0.1);
   }
 
-  .reaction-btn.active {
+  .like-btn.active {
     background: #e6f9f0;
     border-color: #00c471;
     color: #00a85e;
   }
+
+  .like-btn.active svg {
+    fill: #00c471;
+  }
+
+  .like-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    min-width: 1.5ch;
+    text-align: center;
+  }
+
+  /* ═══ Comments (댓글) ═══ */
+  .comments-section {
+    margin-top: 3rem;
+  }
+
+  .comments-title {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #191f28;
+    margin-bottom: 1.5rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 2px solid #191f28;
+  }
+
+  .comment-count {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: #00c471;
+    font-weight: 600;
+  }
+
+  /* Comment Form */
+  .comment-form {
+    margin-bottom: 2rem;
+  }
+
+  .comment-form-row {
+    margin-bottom: 0.5rem;
+  }
+
+  .comment-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e5e8eb;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    font-family: inherit;
+    color: #333d4b;
+    background: #fff;
+    transition: border-color 0.15s;
+    box-sizing: border-box;
+  }
+
+  .comment-input:focus {
+    outline: none;
+    border-color: #00c471;
+    box-shadow: 0 0 0 3px rgba(0, 196, 113, 0.1);
+  }
+
+  .comment-input::placeholder {
+    color: #b0b8c1;
+  }
+
+  .comment-name-input {
+    max-width: 240px;
+  }
+
+  .comment-textarea {
+    resize: vertical;
+    min-height: 80px;
+    max-height: 300px;
+    line-height: 1.6;
+  }
+
+  .comment-form-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+  }
+
+  .comment-char-count {
+    font-size: 0.75rem;
+    color: #b0b8c1;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .comment-submit {
+    padding: 0.5rem 1.25rem;
+    background: #00c471;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .comment-submit:hover {
+    background: #00a85e;
+  }
+
+  .comment-submit:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Comment List */
+  .comment-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .comments-empty {
+    text-align: center;
+    color: #b0b8c1;
+    font-size: 0.9rem;
+    padding: 2rem 0;
+  }
+
+  /* Individual comments styled via JS innerHTML + global styles below */
 
   .post-footer {
     margin-top: 5rem;
@@ -457,5 +741,43 @@ const slug = Astro.url.pathname;
     font-size: 1.1rem;
     color: #333d4b;
     line-height: 1.85;
+  }
+</style>
+
+<!-- Global styles for JS-rendered comment items -->
+<style is:global>
+  .comment {
+    padding: 1.25rem 0;
+    border-bottom: 1px solid #f2f4f6;
+  }
+
+  .comment:last-child {
+    border-bottom: none;
+  }
+
+  .comment-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  .comment-author {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #191f28;
+  }
+
+  .comment-date {
+    font-size: 0.75rem;
+    color: #b0b8c1;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .comment-body {
+    font-size: 0.9rem;
+    color: #333d4b;
+    line-height: 1.7;
+    word-break: keep-all;
   }
 </style>
