@@ -3,9 +3,9 @@ import { Redis } from '@upstash/redis';
 
 export const prerender = false;
 
-function getRedis(): Redis | null {
-  const url = import.meta.env.UPSTASH_REDIS_REST_URL;
-  const token = import.meta.env.UPSTASH_REDIS_REST_TOKEN;
+function getRedis(runtimeEnv?: Record<string, string>): Redis | null {
+  const url = runtimeEnv?.UPSTASH_REDIS_REST_URL || import.meta.env.UPSTASH_REDIS_REST_URL;
+  const token = runtimeEnv?.UPSTASH_REDIS_REST_TOKEN || import.meta.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
   return new Redis({ url, token });
 }
@@ -18,11 +18,12 @@ function json(data: unknown, status = 200) {
 }
 
 // GET /api/engagement?slug=/posts/xxx
-export const GET: APIRoute = async ({ url }) => {
+export const GET: APIRoute = async ({ url, locals }) => {
   const slug = url.searchParams.get('slug');
   if (!slug) return json({ error: 'slug required' }, 400);
 
-  const redis = getRedis();
+  const runtimeEnv = (locals as any).runtime?.env;
+  const redis = getRedis(runtimeEnv);
   if (!redis) return json({ views: 0, likes: 0, comments: [] });
 
   try {
@@ -51,7 +52,7 @@ export const GET: APIRoute = async ({ url }) => {
 
 // POST /api/engagement
 // body: { slug, action: 'view' | 'like' | 'unlike' | 'comment', name?, text? }
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
   let body: { slug?: string; action?: string; name?: string; text?: string };
   try {
     body = await request.json();
@@ -62,7 +63,8 @@ export const POST: APIRoute = async ({ request }) => {
   const { slug, action } = body;
   if (!slug || !action) return json({ error: 'slug and action required' }, 400);
 
-  const redis = getRedis();
+  const runtimeEnv = (locals as any).runtime?.env;
+  const redis = getRedis(runtimeEnv);
   if (!redis) return json({ success: false });
 
   try {
