@@ -32,10 +32,15 @@ const MODEL_SEARCH_QUERIES: Record<string, string[]> = {
   etc: ['LLM AI model news', 'open source AI model release'],
 };
 
+// ─── 환경변수 헬퍼: Cloudflare runtime env 우선, import.meta.env 폴백 ───
+function getEnv(key: string, runtimeEnv?: Record<string, string>): string | undefined {
+  return runtimeEnv?.[key] || (import.meta.env as any)[key] || undefined;
+}
+
 // ─── Google Custom Search ───
-async function searchGoogle(query: string): Promise<NewsItem[]> {
-  const apiKey = import.meta.env.SERPAPI_KEY || import.meta.env.GOOGLE_SEARCH_API_KEY;
-  const searchEngineId = import.meta.env.GOOGLE_SEARCH_ENGINE_ID;
+async function searchGoogle(query: string, runtimeEnv?: Record<string, string>): Promise<NewsItem[]> {
+  const apiKey = getEnv('SERPAPI_KEY', runtimeEnv) || getEnv('GOOGLE_SEARCH_API_KEY', runtimeEnv);
+  const searchEngineId = getEnv('GOOGLE_SEARCH_ENGINE_ID', runtimeEnv);
   if (!apiKey || !searchEngineId) return [];
 
   try {
@@ -143,9 +148,9 @@ async function searchReddit(subreddits: string[], keywords: string[]): Promise<N
 }
 
 // ─── X(Twitter) 인기 포스트 — Google 검색으로 수집 ───
-async function searchXPosts(keywords: string[]): Promise<NewsItem[]> {
-  const apiKey = import.meta.env.SERPAPI_KEY || import.meta.env.GOOGLE_SEARCH_API_KEY;
-  const searchEngineId = import.meta.env.GOOGLE_SEARCH_ENGINE_ID;
+async function searchXPosts(keywords: string[], runtimeEnv?: Record<string, string>): Promise<NewsItem[]> {
+  const apiKey = getEnv('SERPAPI_KEY', runtimeEnv) || getEnv('GOOGLE_SEARCH_API_KEY', runtimeEnv);
+  const searchEngineId = getEnv('GOOGLE_SEARCH_ENGINE_ID', runtimeEnv);
   if (!apiKey || !searchEngineId) return [];
 
   try {
@@ -186,7 +191,7 @@ async function searchXPosts(keywords: string[]): Promise<NewsItem[]> {
 }
 
 // ─── GitHub Trending AI Repos (전날 별 급상승, 무료) ───
-async function fetchGitHubTrending(): Promise<TrendingRepo[]> {
+async function fetchGitHubTrending(runtimeEnv?: Record<string, string>): Promise<TrendingRepo[]> {
   try {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
@@ -213,7 +218,7 @@ async function fetchGitHubTrending(): Promise<TrendingRepo[]> {
         Accept: 'application/vnd.github.v3+json',
         'User-Agent': 'jidonglab-ai-news/1.0',
       };
-      const githubToken = import.meta.env.GITHUB_TOKEN;
+      const githubToken = getEnv('GITHUB_TOKEN', runtimeEnv);
       if (githubToken) {
         headers.Authorization = `Bearer ${githubToken}`;
       }
@@ -461,9 +466,11 @@ async function commitToGitHub(
   return { ok: true };
 }
 
-export const POST: APIRoute = async ({ request }) => {
+export const POST: APIRoute = async ({ request, locals }) => {
+  const runtimeEnv = (locals as any).runtime?.env as Record<string, string> | undefined;
+
   const authHeader = request.headers.get('authorization');
-  const cronSecret = import.meta.env.CRON_SECRET;
+  const cronSecret = getEnv('CRON_SECRET', runtimeEnv);
 
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -472,7 +479,7 @@ export const POST: APIRoute = async ({ request }) => {
     });
   }
 
-  const anthropicApiKey = import.meta.env.ANTHROPIC_API_KEY;
+  const anthropicApiKey = getEnv('ANTHROPIC_API_KEY', runtimeEnv);
   if (!anthropicApiKey) {
     return new Response(JSON.stringify({ error: 'ANTHROPIC_API_KEY not set' }), {
       status: 500,
@@ -488,13 +495,13 @@ export const POST: APIRoute = async ({ request }) => {
   try {
     // 전체 뉴스 소스에서 수집 (Google, HN, Reddit, X 병렬)
     const [trendingRepos, allHnNews, allRedditNews, allXNews] = await Promise.all([
-      fetchGitHubTrending(),
+      fetchGitHubTrending(runtimeEnv),
       searchHackerNews(['AI', 'LLM', 'Claude', 'GPT', 'Gemini', 'Anthropic', 'OpenAI']),
       searchReddit(
         REDDIT_SUBREDDITS,
         ['claude', 'anthropic', 'gemini', 'gpt', 'openai', 'llm', 'llama', 'mistral', 'ai model'],
       ),
-      searchXPosts(X_SEARCH_KEYWORDS),
+      searchXPosts(X_SEARCH_KEYWORDS, runtimeEnv),
     ]);
 
     // 모델별 뉴스 수집 후 Claude API로 주제별 포스트 생성
@@ -503,7 +510,7 @@ export const POST: APIRoute = async ({ request }) => {
 
       // Google Custom Search
       for (const query of queries) {
-        const news = await searchGoogle(query);
+        const news = await searchGoogle(query, runtimeEnv);
         allNews.push(...news);
       }
 
@@ -553,8 +560,8 @@ export const POST: APIRoute = async ({ request }) => {
     }
 
     // GitHub에 커밋
-    const githubToken = import.meta.env.GITHUB_TOKEN;
-    const githubRepo = import.meta.env.GITHUB_REPO || 'jee599/portfolio-site';
+    const githubToken = getEnv('GITHUB_TOKEN', runtimeEnv);
+    const githubRepo = getEnv('GITHUB_REPO', runtimeEnv) || 'jee599/portfolio-site';
 
     if (!githubToken) {
       return new Response(JSON.stringify({
@@ -586,7 +593,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Cloudflare Pages 리빌드 트리거
     if (committed.length > 0) {
-      const hookUrl = import.meta.env.CF_DEPLOY_HOOK;
+      const hookUrl = getEnv('CF_DEPLOY_HOOK', runtimeEnv);
       if (hookUrl) {
         await fetch(hookUrl, { method: 'POST' });
       }
@@ -619,7 +626,6 @@ export const POST: APIRoute = async ({ request }) => {
   }
 };
 
-// Vercel Cron은 GET을 사용
 export const GET: APIRoute = async (context) => {
   return POST(context);
 };

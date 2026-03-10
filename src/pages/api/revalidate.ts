@@ -2,9 +2,12 @@ import type { APIRoute } from 'astro';
 
 export const prerender = false;
 
-const handler: APIRoute = async ({ request }) => {
+const handler: APIRoute = async ({ request, locals }) => {
+  const runtimeEnv = (locals as any).runtime?.env as Record<string, string> | undefined;
+  const getEnv = (key: string) => runtimeEnv?.[key] || (import.meta.env as any)[key] || undefined;
+
   const authHeader = request.headers.get('authorization');
-  const cronSecret = import.meta.env.CRON_SECRET;
+  const cronSecret = getEnv('CRON_SECRET');
 
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
     return new Response(JSON.stringify({ error: 'Unauthorized' }), {
@@ -13,7 +16,7 @@ const handler: APIRoute = async ({ request }) => {
     });
   }
 
-  const hookUrl = import.meta.env.CF_DEPLOY_HOOK;
+  const hookUrl = getEnv('CF_DEPLOY_HOOK');
 
   if (!hookUrl) {
     return new Response(JSON.stringify({ error: 'CF_DEPLOY_HOOK not configured' }), {
