@@ -33,12 +33,56 @@ export const prerender = false;
         font-weight: 600;
         letter-spacing: -0.02em;
       }
+      .admin-header-right {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+      }
       .admin-header a {
         color: #8b95a1;
         text-decoration: none;
         font-size: 0.85rem;
       }
       .admin-header a:hover { color: #00c471; }
+      .logout-btn {
+        background: none;
+        border: 1px solid #4e5968;
+        color: #8b95a1;
+        padding: 0.3rem 0.75rem;
+        border-radius: 6px;
+        font-size: 0.75rem;
+        cursor: pointer;
+        font-family: inherit;
+        display: none;
+      }
+      .logout-btn:hover { border-color: #e45649; color: #e45649; }
+
+      /* Tab Navigation */
+      .tab-nav {
+        background: #fff;
+        border-bottom: 1px solid #f2f4f6;
+        padding: 0 2rem;
+        display: none;
+      }
+      .tab-nav.active { display: flex; }
+      .tab-btn {
+        padding: 0.85rem 1.25rem;
+        border: none;
+        background: none;
+        color: #8b95a1;
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        font-family: inherit;
+        transition: 0.15s ease;
+      }
+      .tab-btn:hover { color: #333d4b; }
+      .tab-btn.active {
+        color: #00c471;
+        border-bottom-color: #00c471;
+        font-weight: 600;
+      }
 
       /* Auth */
       .auth-wall {
@@ -72,6 +116,7 @@ export const prerender = false;
         font-size: 0.9rem;
         font-weight: 600;
         cursor: pointer;
+        font-family: inherit;
       }
       .auth-btn:hover { background: #00a85e; }
       .auth-error {
@@ -85,10 +130,14 @@ export const prerender = false;
       .dashboard { display: none; max-width: 1200px; margin: 0 auto; padding: 2rem; }
       .dashboard.active { display: block; }
 
+      /* Tab panels */
+      .tab-panel { display: none; }
+      .tab-panel.active { display: block; }
+
       /* Stats cards */
       .stats-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
         gap: 1rem;
         margin-bottom: 2rem;
       }
@@ -96,23 +145,23 @@ export const prerender = false;
         background: #fff;
         border: 1px solid #f2f4f6;
         border-radius: 12px;
-        padding: 1.5rem;
+        padding: 1.25rem;
       }
       .stat-card .label {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: #8b95a1;
         text-transform: uppercase;
         letter-spacing: 0.06em;
         margin-bottom: 0.5rem;
       }
       .stat-card .value {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
         font-weight: 700;
         color: #191f28;
         font-family: 'JetBrains Mono', monospace;
       }
       .stat-card .sub {
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         color: #8b95a1;
         margin-top: 0.25rem;
       }
@@ -261,7 +310,7 @@ export const prerender = false;
       .filter-btn:hover { border-color: #00c471; color: #00c471; }
       .filter-btn.active { border-color: #00c471; color: #00c471; background: #e6f9f0; font-weight: 600; }
 
-      /* Engagement Log */
+      /* Activity Log */
       .log-list { max-height: 400px; overflow-y: auto; }
       .log-item {
         display: flex;
@@ -278,6 +327,145 @@ export const prerender = false;
       .log-action.like { color: #e45649; }
       .log-action.comment { color: #00c471; }
 
+      /* Quick Actions */
+      .actions-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+        gap: 1rem;
+      }
+      .action-card {
+        background: #fff;
+        border: 1px solid #f2f4f6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+      }
+      .action-card h3 {
+        font-size: 0.95rem;
+        font-weight: 600;
+        color: #191f28;
+      }
+      .action-card p {
+        font-size: 0.8rem;
+        color: #8b95a1;
+        line-height: 1.5;
+      }
+      .action-btn {
+        padding: 0.6rem 1rem;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        font-family: inherit;
+        transition: 0.15s ease;
+        width: fit-content;
+      }
+      .action-btn.primary {
+        background: #00c471;
+        color: #fff;
+      }
+      .action-btn.primary:hover { background: #00a85e; }
+      .action-btn.secondary {
+        background: #f2f4f6;
+        color: #333d4b;
+      }
+      .action-btn.secondary:hover { background: #e5e8eb; }
+      .action-btn.danger {
+        background: #fef2f2;
+        color: #e45649;
+      }
+      .action-btn.danger:hover { background: #fee2e2; }
+      .action-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      .action-status {
+        font-size: 0.75rem;
+        padding: 0.4rem 0.75rem;
+        border-radius: 6px;
+        display: none;
+      }
+      .action-status.success {
+        display: block;
+        background: #e6f9f0;
+        color: #00a85e;
+      }
+      .action-status.error {
+        display: block;
+        background: #fef2f2;
+        color: #e45649;
+      }
+      .action-status.loading {
+        display: block;
+        background: #f0f9ff;
+        color: #3b82f6;
+      }
+
+      /* Comments */
+      .comment-card {
+        border: 1px solid #f2f4f6;
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 0.75rem;
+      }
+      .comment-card:last-child { margin-bottom: 0; }
+      .comment-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.5rem;
+      }
+      .comment-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        font-size: 0.8rem;
+      }
+      .comment-name {
+        font-weight: 600;
+        color: #191f28;
+      }
+      .comment-date {
+        color: #8b95a1;
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.7rem;
+      }
+      .comment-slug {
+        color: #8b95a1;
+        font-size: 0.7rem;
+        font-family: 'JetBrains Mono', monospace;
+        background: #f2f4f6;
+        padding: 0.1rem 0.4rem;
+        border-radius: 4px;
+      }
+      .comment-text {
+        font-size: 0.85rem;
+        color: #333d4b;
+        line-height: 1.6;
+      }
+      .delete-btn {
+        background: none;
+        border: 1px solid #e5e8eb;
+        color: #8b95a1;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.7rem;
+        cursor: pointer;
+        font-family: inherit;
+      }
+      .delete-btn:hover { border-color: #e45649; color: #e45649; }
+
+      .empty-state {
+        text-align: center;
+        padding: 3rem;
+        color: #8b95a1;
+        font-size: 0.85rem;
+      }
+
       .loading {
         text-align: center;
         padding: 4rem;
@@ -292,14 +480,29 @@ export const prerender = false;
         .chart-bar-label { display: none; }
         .content-table { font-size: 0.78rem; }
         .hide-mobile { display: none; }
+        .tab-nav { padding: 0 1rem; overflow-x: auto; }
+        .tab-btn { white-space: nowrap; padding: 0.75rem 0.75rem; font-size: 0.8rem; }
+        .actions-grid { grid-template-columns: 1fr; }
+        .admin-header { padding: 1rem; }
       }
     </style>
   </head>
   <body>
     <header class="admin-header">
       <h1>Admin Dashboard</h1>
-      <a href="/">← Back to Site</a>
+      <div class="admin-header-right">
+        <a href="/">← Back to Site</a>
+        <button class="logout-btn" id="logout-btn">Logout</button>
+      </div>
     </header>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav" id="tab-nav">
+      <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="actions">Quick Actions</button>
+      <button class="tab-btn" data-tab="content">Content</button>
+      <button class="tab-btn" data-tab="comments">Comments</button>
+    </nav>
 
     <!-- Auth Wall -->
     <div class="auth-wall" id="auth-wall">
@@ -313,72 +516,109 @@ export const prerender = false;
     <div class="dashboard" id="dashboard">
       <div class="loading" id="loading">Loading dashboard...</div>
 
-      <!-- Stats Cards -->
-      <div class="stats-grid" id="stats-grid" style="display:none;">
-        <div class="stat-card">
-          <div class="label">Today Visitors</div>
-          <div class="value" id="stat-today">-</div>
+      <!-- Tab: Overview -->
+      <div class="tab-panel active" id="panel-overview">
+        <div class="stats-grid" id="stats-grid" style="display:none;">
+          <div class="stat-card">
+            <div class="label">Today Visitors</div>
+            <div class="value" id="stat-today">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Visitors</div>
+            <div class="value" id="stat-total">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Views</div>
+            <div class="value" id="stat-views">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Likes</div>
+            <div class="value" id="stat-likes">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Comments</div>
+            <div class="value" id="stat-comments">-</div>
+          </div>
+          <div class="stat-card">
+            <div class="label">Total Posts</div>
+            <div class="value" id="stat-posts">-</div>
+            <div class="sub" id="stat-posts-sub"></div>
+          </div>
         </div>
-        <div class="stat-card">
-          <div class="label">Total Visitors</div>
-          <div class="value" id="stat-total">-</div>
+
+        <div class="section" id="chart-section" style="display:none;">
+          <div class="section-title">Visitor Trend (30 days)</div>
+          <div class="chart-container" id="visitor-chart"></div>
         </div>
-        <div class="stat-card">
-          <div class="label">Total Views</div>
-          <div class="value" id="stat-views">-</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Total Likes</div>
-          <div class="value" id="stat-likes">-</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Total Comments</div>
-          <div class="value" id="stat-comments">-</div>
-        </div>
-        <div class="stat-card">
-          <div class="label">Total Posts</div>
-          <div class="value" id="stat-posts">-</div>
-          <div class="sub" id="stat-posts-sub"></div>
+
+        <div class="section" id="log-section" style="display:none;">
+          <div class="section-title">Top Engagement</div>
+          <div class="log-list" id="activity-log"></div>
         </div>
       </div>
 
-      <!-- Visitor Trend Chart -->
-      <div class="section" id="chart-section" style="display:none;">
-        <div class="section-title">Visitor Trend (30 days)</div>
-        <div class="chart-container" id="visitor-chart"></div>
-      </div>
+      <!-- Tab: Quick Actions -->
+      <div class="tab-panel" id="panel-actions">
+        <div class="actions-grid">
+          <div class="action-card">
+            <h3>AI News 생성</h3>
+            <p>Google, HN, Reddit, X, GitHub에서 AI 뉴스를 수집하고 Claude로 포스트를 자동 생성한다. 완료까지 1~2분 소요.</p>
+            <button class="action-btn primary" id="btn-generate-news">Generate AI News</button>
+            <div class="action-status" id="status-generate-news"></div>
+          </div>
 
-      <!-- Content Engagement Table -->
-      <div class="section" id="content-section" style="display:none;">
-        <div class="section-title">Content Engagement</div>
-        <div class="filter-bar" id="content-filter">
-          <button class="filter-btn active" data-filter="all">All</button>
-          <button class="filter-btn" data-filter="build-log">Build Log</button>
-          <button class="filter-btn" data-filter="tip">Tip</button>
-          <button class="filter-btn" data-filter="ai-news">AI News</button>
-          <button class="filter-btn" data-filter="blog">Blog</button>
-        </div>
-        <div style="overflow-x:auto;">
-          <table class="content-table">
-            <thead>
-              <tr>
-                <th>Title</th>
-                <th>Type</th>
-                <th class="text-right">Views</th>
-                <th class="text-right">Likes</th>
-                <th class="text-right">Comments</th>
-                <th class="text-right hide-mobile">Date</th>
-              </tr>
-            </thead>
-            <tbody id="content-tbody"></tbody>
-          </table>
+          <div class="action-card">
+            <h3>사이트 리빌드</h3>
+            <p>Cloudflare Pages deploy hook을 호출하여 사이트를 리빌드한다. 새 콘텐츠 반영 시 사용.</p>
+            <button class="action-btn secondary" id="btn-revalidate">Rebuild Site</button>
+            <div class="action-status" id="status-revalidate"></div>
+          </div>
+
+          <div class="action-card">
+            <h3>Dev.to 동기화</h3>
+            <p>publish-to-devto 워크플로는 main 브랜치 push 시 자동 실행된다. 수동 트리거가 필요하면 GitHub Actions에서 실행.</p>
+            <a href="https://github.com/jee599/portfolio-site/actions/workflows/publish-to-devto.yml" target="_blank" class="action-btn secondary" style="text-decoration:none;text-align:center;">Open GitHub Actions</a>
+          </div>
         </div>
       </div>
 
-      <!-- Recent Activity Log -->
-      <div class="section" id="log-section" style="display:none;">
-        <div class="section-title">Activity Summary</div>
-        <div class="log-list" id="activity-log"></div>
+      <!-- Tab: Content -->
+      <div class="tab-panel" id="panel-content">
+        <div class="section">
+          <div class="section-title">Content Engagement</div>
+          <div class="filter-bar" id="content-filter">
+            <button class="filter-btn active" data-filter="all">All</button>
+            <button class="filter-btn" data-filter="build-log">Build Log</button>
+            <button class="filter-btn" data-filter="tip">Tip</button>
+            <button class="filter-btn" data-filter="ai-news">AI News</button>
+            <button class="filter-btn" data-filter="blog">Blog</button>
+          </div>
+          <div style="overflow-x:auto;">
+            <table class="content-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Type</th>
+                  <th class="text-right">Views</th>
+                  <th class="text-right">Likes</th>
+                  <th class="text-right">Comments</th>
+                  <th class="text-right hide-mobile">Date</th>
+                </tr>
+              </thead>
+              <tbody id="content-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Tab: Comments -->
+      <div class="tab-panel" id="panel-comments">
+        <div class="section">
+          <div class="section-title">All Comments</div>
+          <div id="comments-list">
+            <div class="empty-state">Loading comments...</div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -386,21 +626,52 @@ export const prerender = false;
       const AUTH_KEY = 'admin_secret';
       const authWall = document.getElementById('auth-wall');
       const dashboard = document.getElementById('dashboard');
+      const tabNav = document.getElementById('tab-nav');
       const secretInput = document.getElementById('secret-input');
       const authBtn = document.getElementById('auth-btn');
       const authError = document.getElementById('auth-error');
+      const logoutBtn = document.getElementById('logout-btn');
+
+      let currentSecret = '';
+      let allContent = [];
 
       // Check saved secret
       const saved = sessionStorage.getItem(AUTH_KEY);
       if (saved) {
+        currentSecret = saved;
         authWall.style.display = 'none';
         dashboard.classList.add('active');
+        tabNav.classList.add('active');
+        logoutBtn.style.display = '';
         loadDashboard(saved);
       }
 
       authBtn.addEventListener('click', tryAuth);
       secretInput.addEventListener('keydown', (e) => {
         if (e.key === 'Enter') tryAuth();
+      });
+
+      logoutBtn.addEventListener('click', () => {
+        sessionStorage.removeItem(AUTH_KEY);
+        currentSecret = '';
+        authWall.style.display = '';
+        dashboard.classList.remove('active');
+        tabNav.classList.remove('active');
+        logoutBtn.style.display = 'none';
+        secretInput.value = '';
+        authError.style.display = 'none';
+      });
+
+      // Tab switching
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+          btn.classList.add('active');
+          document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+
+          if (btn.dataset.tab === 'comments') loadComments();
+        });
       });
 
       async function tryAuth() {
@@ -412,9 +683,12 @@ export const prerender = false;
         try {
           const res = await fetch(`/api/admin-stats?secret=${encodeURIComponent(secret)}`);
           if (res.ok) {
+            currentSecret = secret;
             sessionStorage.setItem(AUTH_KEY, secret);
             authWall.style.display = 'none';
             dashboard.classList.add('active');
+            tabNav.classList.add('active');
+            logoutBtn.style.display = '';
             const data = await res.json();
             renderDashboard(data);
           } else {
@@ -432,8 +706,11 @@ export const prerender = false;
           const res = await fetch(`/api/admin-stats?secret=${encodeURIComponent(secret)}`);
           if (!res.ok) {
             sessionStorage.removeItem(AUTH_KEY);
+            currentSecret = '';
             authWall.style.display = '';
             dashboard.classList.remove('active');
+            tabNav.classList.remove('active');
+            logoutBtn.style.display = 'none';
             return;
           }
           const data = await res.json();
@@ -443,13 +720,10 @@ export const prerender = false;
         }
       }
 
-      let allContent = [];
-
       function renderDashboard(data) {
         document.getElementById('loading').style.display = 'none';
         document.getElementById('stats-grid').style.display = '';
         document.getElementById('chart-section').style.display = '';
-        document.getElementById('content-section').style.display = '';
         document.getElementById('log-section').style.display = '';
 
         // Stats cards
@@ -494,7 +768,7 @@ export const prerender = false;
 
         container.innerHTML = daily.map(d => {
           const pct = Math.max((d.count / max) * 100, 1);
-          const label = d.date.slice(5); // MM-DD
+          const label = d.date.slice(5);
           return `<div class="chart-bar-wrap">
             <div class="chart-bar" style="height:${pct}%">
               <div class="chart-tooltip">${d.date}: ${d.count}</div>
@@ -527,16 +801,13 @@ export const prerender = false;
 
       function renderActivityLog(content) {
         const log = document.getElementById('activity-log');
-
-        // Generate a summary log from content stats
         const withEngagement = content.filter(c => c.views > 0 || c.likes > 0 || c.comments > 0);
 
         if (withEngagement.length === 0) {
-          log.innerHTML = '<div style="text-align:center;color:#8b95a1;padding:2rem;">No engagement data yet.</div>';
+          log.innerHTML = '<div class="empty-state">No engagement data yet.</div>';
           return;
         }
 
-        // Sort by total engagement
         const sorted = [...withEngagement].sort((a, b) =>
           (b.views + b.likes * 5 + b.comments * 10) - (a.views + a.likes * 5 + a.comments * 10)
         );
@@ -554,6 +825,139 @@ export const prerender = false;
           </div>`;
         }).join('');
       }
+
+      // === Quick Actions ===
+      document.getElementById('btn-generate-news').addEventListener('click', async function() {
+        await runAction(this, 'status-generate-news', 'generate-ai-news', 300000);
+      });
+
+      document.getElementById('btn-revalidate').addEventListener('click', async function() {
+        await runAction(this, 'status-revalidate', 'revalidate');
+      });
+
+      async function runAction(btn, statusId, action, timeout = 30000) {
+        const status = document.getElementById(statusId);
+        btn.disabled = true;
+        status.className = 'action-status loading';
+        status.textContent = action === 'generate-ai-news' ? 'Generating... (1~2 min)' : 'Processing...';
+
+        try {
+          const controller = new AbortController();
+          const timer = setTimeout(() => controller.abort(), timeout);
+
+          const res = await fetch('/api/admin-actions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: currentSecret, action }),
+            signal: controller.signal,
+          });
+          clearTimeout(timer);
+
+          const data = await res.json();
+
+          if (res.ok && data.ok) {
+            status.className = 'action-status success';
+            status.textContent = data.message || 'Success';
+            if (data.generated) {
+              status.textContent += ` (${data.generated} posts)`;
+            }
+          } else {
+            status.className = 'action-status error';
+            status.textContent = data.error || 'Failed';
+          }
+        } catch (e) {
+          status.className = 'action-status error';
+          status.textContent = e.name === 'AbortError' ? 'Timeout - check logs' : String(e);
+        }
+        btn.disabled = false;
+      }
+
+      // === Comments Management ===
+      async function loadComments() {
+        const container = document.getElementById('comments-list');
+        container.innerHTML = '<div class="empty-state">Loading comments...</div>';
+
+        // Get slugs that have comments > 0
+        const withComments = allContent.filter(c => c.comments > 0);
+
+        if (withComments.length === 0) {
+          container.innerHTML = '<div class="empty-state">No comments yet.</div>';
+          return;
+        }
+
+        let allComments = [];
+
+        for (const item of withComments) {
+          try {
+            const res = await fetch('/api/admin-actions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ secret: currentSecret, action: 'list-comments', slug: item.slug }),
+            });
+            if (res.ok) {
+              const data = await res.json();
+              allComments.push(...(data.comments || []).map(c => ({
+                ...c,
+                postTitle: item.title,
+                postSlug: item.slug,
+              })));
+            }
+          } catch { /* skip */ }
+        }
+
+        // Sort by date desc
+        allComments.sort((a, b) => new Date(b.date) - new Date(a.date));
+
+        if (allComments.length === 0) {
+          container.innerHTML = '<div class="empty-state">No comments yet.</div>';
+          return;
+        }
+
+        container.innerHTML = allComments.map(c => `
+          <div class="comment-card" data-slug="${escapeHtml(c.postSlug)}" data-index="${c.index}">
+            <div class="comment-header">
+              <div class="comment-meta">
+                <span class="comment-name">${escapeHtml(c.name)}</span>
+                <span class="comment-date">${new Date(c.date).toLocaleString('ko-KR')}</span>
+                <a href="${c.postSlug}" target="_blank" class="comment-slug">${escapeHtml(c.postSlug)}</a>
+              </div>
+              <button class="delete-btn" onclick="deleteComment(this, '${escapeHtml(c.postSlug)}', ${c.index})">Delete</button>
+            </div>
+            <div class="comment-text">${escapeHtml(c.text)}</div>
+          </div>
+        `).join('');
+      }
+
+      window.deleteComment = async function(btn, slug, index) {
+        if (!confirm('Delete this comment?')) return;
+        btn.textContent = '...';
+        btn.disabled = true;
+
+        try {
+          const res = await fetch('/api/admin-actions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: currentSecret, action: 'delete-comment', slug, commentIndex: index }),
+          });
+
+          if (res.ok) {
+            btn.closest('.comment-card').remove();
+            const remaining = document.querySelectorAll('.comment-card').length;
+            if (remaining === 0) {
+              document.getElementById('comments-list').innerHTML = '<div class="empty-state">No comments yet.</div>';
+            }
+          } else {
+            const data = await res.json();
+            alert(data.error || 'Failed to delete');
+            btn.textContent = 'Delete';
+            btn.disabled = false;
+          }
+        } catch {
+          alert('Failed to delete comment');
+          btn.textContent = 'Delete';
+          btn.disabled = false;
+        }
+      };
 
       function escapeHtml(str) {
         const div = document.createElement('div');
