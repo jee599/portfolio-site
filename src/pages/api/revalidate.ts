@@ -2,7 +2,7 @@ import type { APIRoute } from 'astro';
 
 export const prerender = false;
 
-export const GET: APIRoute = async ({ request }) => {
+const handler: APIRoute = async ({ request }) => {
   const authHeader = request.headers.get('authorization');
   const cronSecret = import.meta.env.CRON_SECRET;
 
@@ -43,3 +43,6 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 };
+
+export const GET = handler;
+export const POST = handler;
