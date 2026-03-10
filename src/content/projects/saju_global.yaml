@@ -1,5 +1,5 @@
 title: "사주 분석 앱"
-url: "https://fortunelab.vercel.app"
+url: "https://fortunelab.store"
 github: "https://github.com/jee599/saju"
 status: "운영중"
 stack: ["Next.js", "Supabase", "OpenAI API", "Vercel"]
