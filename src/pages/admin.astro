@@ -400,6 +400,13 @@ export const prerender = false;
           </div>
         </div>
 
+        <!-- Build Logs by Project -->
+        <div class="section" id="project-logs-section" style="display:none;">
+          <div class="section-title">Build Logs by Project</div>
+          <div class="filter-bar" id="project-filter"></div>
+          <div class="content-list" id="project-logs-list"></div>
+        </div>
+
         <!-- Top Engagement -->
         <div class="two-col" id="top-sections" style="display:none;">
           <div class="section">
@@ -583,6 +590,9 @@ export const prerender = false;
           });
         });
 
+        // Build logs by project
+        renderProjectLogs(data.content || []);
+
         // Top lists
         renderTopLists(data.content || []);
       }
@@ -592,23 +602,24 @@ export const prerender = false;
         const container = document.getElementById('heatmap');
         const rangeEl = document.getElementById('heatmap-range');
 
-        // Build a map of date → count
         const dateMap = {};
         daily.forEach(d => { dateMap[d.date] = d.count; });
 
-        // Generate 90 days (13 weeks) for a wider view
+        // Generate 90 days
         const today = new Date();
         const days = [];
         for (let i = 89; i >= 0; i--) {
           const d = new Date(today);
           d.setDate(d.getDate() - i);
           const key = d.toISOString().split('T')[0];
-          days.push({ date: key, count: dateMap[key] || 0, day: d.getDay() });
+          days.push({ date: key, count: dateMap[key] || 0, day: d.getDay(), month: d.getMonth(), dateObj: d });
         }
 
-        if (days.length > 0) {
-          rangeEl.textContent = `${days[0].date} ~ ${days[days.length-1].date}`;
-        }
+        const totalVisitors = days.reduce((s, d) => s + d.count, 0);
+        const activeDays = days.filter(d => d.count > 0).length;
+        rangeEl.textContent = activeDays > 0
+          ? `최근 90일 · ${totalVisitors.toLocaleString()}명 · ${activeDays}일 활동`
+          : '최근 90일';
 
         const max = Math.max(...days.map(d => d.count), 1);
 
@@ -621,15 +632,13 @@ export const prerender = false;
           return 'l4';
         }
 
-        // Group into weeks (Sun=0 start)
+        const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+        // Group into weeks
         const weeks = [];
         let currentWeek = [];
-
-        // Pad first week
         const firstDay = days[0].day;
-        for (let i = 0; i < firstDay; i++) {
-          currentWeek.push(null);
-        }
+        for (let i = 0; i < firstDay; i++) currentWeek.push(null);
 
         days.forEach(d => {
           if (d.day === 0 && currentWeek.length > 0) {
@@ -640,18 +649,101 @@ export const prerender = false;
         });
         if (currentWeek.length > 0) weeks.push(currentWeek);
 
-        container.innerHTML = weeks.map(week => {
+        // Build month labels
+        const monthLabels = [];
+        let lastMonth = -1;
+        weeks.forEach((week, wi) => {
+          const firstReal = week.find(d => d !== null);
+          if (firstReal && firstReal.month !== lastMonth) {
+            monthLabels.push({ index: wi, label: MONTHS[firstReal.month] });
+            lastMonth = firstReal.month;
+          }
+        });
+
+        // Month label row
+        let monthHtml = '<div style="display:flex;gap:3px;margin-left:22px;margin-bottom:2px;">';
+        let pos = 0;
+        monthLabels.forEach((m, i) => {
+          const gap = m.index - pos;
+          if (gap > 0) monthHtml += `<div style="width:${gap * 17}px;"></div>`;
+          const nextIdx = (i + 1 < monthLabels.length) ? monthLabels[i + 1].index : weeks.length;
+          const span = nextIdx - m.index;
+          monthHtml += `<div class="heatmap-month" style="width:${span * 17}px;">${m.label}</div>`;
+          pos = nextIdx;
+        });
+        monthHtml += '</div>';
+
+        const weeksHtml = weeks.map(week => {
           const cells = [];
           for (let i = 0; i < 7; i++) {
             const d = week[i];
             if (!d) {
               cells.push('<div class="heatmap-cell" style="visibility:hidden;"></div>');
             } else {
-              cells.push(`<div class="heatmap-cell ${level(d.count)}"><div class="tip">${d.date}: ${d.count}</div></div>`);
+              const dateLabel = `${d.dateObj.getMonth()+1}/${d.dateObj.getDate()}`;
+              const tip = d.count > 0 ? `${dateLabel} · ${d.count}명` : `${dateLabel}`;
+              cells.push(`<div class="heatmap-cell ${level(d.count)}"><div class="tip">${tip}</div></div>`);
             }
           }
           return `<div class="heatmap-week">${cells.join('')}</div>`;
         }).join('');
+
+        // Insert month labels above the heatmap
+        container.parentElement.querySelector('.heatmap-month-row')?.remove();
+        const monthRow = document.createElement('div');
+        monthRow.className = 'heatmap-month-row';
+        monthRow.innerHTML = monthHtml;
+        container.parentElement.insertBefore(monthRow, container.parentElement.querySelector('[style*="display:flex"]'));
+
+        container.innerHTML = weeksHtml;
+      }
+
+      // ═══ Project Logs ═══
+      function renderProjectLogs(content) {
+        const logs = content.filter(c => c.type === 'build-log' && c.lang === 'ko');
+        if (logs.length === 0) return;
+
+        document.getElementById('project-logs-section').style.display = '';
+        const projects = [...new Set(logs.map(c => c.project).filter(Boolean))];
+
+        const filterBar = document.getElementById('project-filter');
+        filterBar.innerHTML = `<button class="filter-btn active" data-project="all">All (${logs.length})</button>` +
+          projects.map(p => {
+            const count = logs.filter(c => c.project === p).length;
+            return `<button class="filter-btn" data-project="${esc(p)}">${esc(p)} (${count})</button>`;
+          }).join('');
+
+        function renderLogs(project) {
+          const filtered = project === 'all' ? logs : logs.filter(c => c.project === project);
+          const container = document.getElementById('project-logs-list');
+          container.innerHTML = filtered.sort((a, b) => b.date.localeCompare(a.date)).map(c => {
+            const viewClass = c.views > 0 ? 'has-data' : '';
+            return `<div class="content-item">
+              <div class="content-left">
+                <div class="content-title-row">
+                  <span class="type-badge build-log">${esc(c.project || 'build-log')}</span>
+                  <a href="${c.slug}" target="_blank" class="content-title">${esc(c.title)}</a>
+                </div>
+                <span class="content-date">${c.date}</span>
+              </div>
+              <div class="content-stats">
+                <span class="content-stat ${viewClass}">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                  ${c.views}
+                </span>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        renderLogs('all');
+        filterBar.addEventListener('click', (e) => {
+          const btn = e.target.closest('.filter-btn');
+          if (!btn) return;
+          filterBar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          renderLogs(btn.dataset.project);
+        });
       }
 
       // ═══ Content List ═══
