@@ -1,0 +1,38 @@
+name: Generate AI News
+
+on:
+  schedule:
+    # 매일 UTC 0시 = KST 9시
+    - cron: '0 0 * * *'
+  workflow_dispatch: # 수동 실행 가능
+
+permissions:
+  contents: write
+
+jobs:
+  generate-ai-news:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call generate-ai-news API
+        env:
+          SITE_URL: ${{ vars.SITE_URL || 'https://jidonglab.com' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          echo "Calling AI news generation endpoint..."
+
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            -X POST "${SITE_URL}/api/generate-ai-news" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            --max-time 300)
+
+          echo "HTTP Status: ${HTTP_STATUS}"
+          echo "Response:"
+          cat response.json | jq . 2>/dev/null || cat response.json
+
+          if [ "$HTTP_STATUS" -ge 500 ]; then
+            echo "::error::API returned ${HTTP_STATUS}"
+            exit 1
+          fi
+
+          echo "AI news generation completed successfully"
