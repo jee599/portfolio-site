@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/generate-ai-news",
-      "schedule": "0 0 * * *"
+      "schedule": "0 0,12 * * *"
     },
     {
       "path": "/api/sync-devto",
