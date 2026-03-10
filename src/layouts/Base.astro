@@ -109,8 +109,7 @@ const navItems = [
     <header class="site-header">
       <nav class="site-nav">
         <a href="/" class="site-logo">
-          <span class="logo-mark">J</span>
-          <span class="logo-text">Jidong<span class="logo-lab">Lab</span></span>
+          jidonglab<span class="logo-dot"></span>
         </a>
         <div class="nav-right">
           <div class="nav-tabs">
@@ -144,7 +143,7 @@ const navItems = [
       <div class="footer-inner">
         <div class="footer-grid">
           <div class="footer-col">
-            <div class="footer-logo"><span class="footer-logo-mark">J</span> Jidong<span style="color: #00c471;">Lab</span></div>
+            <div class="footer-logo">jidonglab<span class="logo-dot"></span></div>
             <p class="footer-desc" data-ko="AI를 사용하고, 연구한다." data-en="Using AI, Researching.">AI를 사용하고, 연구한다.</p>
           </div>
           <div class="footer-col">
@@ -170,25 +169,44 @@ const navItems = [
       // Language toggle
       function applyLang(lang) {
         document.documentElement.lang = lang;
-        // Translate UI text
-        document.querySelectorAll('[data-ko]').forEach(el => {
-          el.textContent = lang === 'ko' ? el.dataset.ko : el.dataset.en;
+        document.querySelectorAll('[data-ko][data-en]').forEach(function(el) {
+          var text = lang === 'ko' ? el.dataset.ko : el.dataset.en;
+          // If element has child elements (svg, span, etc), only update the first text node
+          var hasChildren = el.querySelector('*');
+          if (hasChildren) {
+            var found = false;
+            for (var i = 0; i < el.childNodes.length; i++) {
+              if (el.childNodes[i].nodeType === 3 && el.childNodes[i].textContent.trim()) {
+                el.childNodes[i].textContent = text;
+                found = true;
+                break;
+              }
+            }
+            if (!found) {
+              // Prepend text node before first child
+              el.insertBefore(document.createTextNode(text), el.firstChild);
+            }
+          } else {
+            el.textContent = text;
+          }
         });
-        // Show/hide language-specific content
-        document.querySelectorAll('.lang-item').forEach(el => {
-          const itemLang = el.dataset.lang;
+        // Translate placeholders
+        document.querySelectorAll('[data-ph-ko][data-ph-en]').forEach(function(el) {
+          el.placeholder = lang === 'ko' ? el.dataset.phKo : el.dataset.phEn;
+        });
+        document.querySelectorAll('.lang-item').forEach(function(el) {
+          var itemLang = el.dataset.lang;
           if (!itemLang || itemLang === 'all') return;
           el.style.display = itemLang === lang ? '' : 'none';
         });
       }
 
-      const langBtn = document.getElementById('lang-toggle');
-      let lang = localStorage.getItem('lang') || 'ko';
+      var langBtn = document.getElementById('lang-toggle');
+      var lang = localStorage.getItem('lang') || 'ko';
       if (langBtn) {
         langBtn.textContent = lang === 'ko' ? 'EN' : 'KO';
-        // Apply on page load
         applyLang(lang);
-        langBtn.addEventListener('click', () => {
+        langBtn.addEventListener('click', function() {
           lang = lang === 'ko' ? 'en' : 'ko';
           localStorage.setItem('lang', lang);
           langBtn.textContent = lang === 'ko' ? 'EN' : 'KO';
@@ -222,43 +240,31 @@ const navItems = [
   }
 
   .site-logo {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 1.15rem;
+    color: #191f28;
     text-decoration: none;
+    letter-spacing: -0.03em;
     transition: opacity 0.15s;
   }
 
   .site-logo:hover {
-    opacity: 0.8;
+    opacity: 0.7;
   }
 
-  .logo-mark {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
+  .logo-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
     background: #00c471;
-    color: #fff;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 800;
-    font-size: 1rem;
-    border-radius: 8px;
-    letter-spacing: -0.02em;
-  }
-
-  .logo-text {
-    font-family: 'IBM Plex Sans KR', sans-serif;
-    font-weight: 700;
-    font-size: 1.15rem;
-    color: #191f28;
-    letter-spacing: -0.03em;
-  }
-
-  .logo-lab {
-    color: #00c471;
-    margin-left: 0.1em;
+    border-radius: 50%;
+    margin-left: 2px;
+    vertical-align: baseline;
+    position: relative;
+    top: -1px;
   }
 
   .nav-right {
@@ -375,29 +381,14 @@ const navItems = [
   }
 
   .footer-logo {
-    display: flex;
+    display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    font-family: 'IBM Plex Sans KR', sans-serif;
+    font-family: 'JetBrains Mono', monospace;
     font-weight: 700;
-    font-size: 1.1rem;
+    font-size: 1rem;
     color: #191f28;
     margin-bottom: 0.5rem;
     letter-spacing: -0.03em;
-  }
-
-  .footer-logo-mark {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    background: #00c471;
-    color: #fff;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 800;
-    font-size: 0.75rem;
-    border-radius: 6px;
   }
 
   .footer-desc {
