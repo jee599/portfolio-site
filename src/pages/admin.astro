@@ -1,0 +1,565 @@
+---
+export const prerender = false;
+---
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="robots" content="noindex, nofollow" />
+    <title>Admin Dashboard | Jidong Lab</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      body {
+        font-family: 'IBM Plex Sans KR', sans-serif;
+        background: #f9fafb;
+        color: #333d4b;
+        min-height: 100vh;
+      }
+
+      .admin-header {
+        background: #191f28;
+        color: #fff;
+        padding: 1.25rem 2rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .admin-header h1 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        letter-spacing: -0.02em;
+      }
+      .admin-header a {
+        color: #8b95a1;
+        text-decoration: none;
+        font-size: 0.85rem;
+      }
+      .admin-header a:hover { color: #00c471; }
+
+      /* Auth */
+      .auth-wall {
+        max-width: 360px;
+        margin: 8rem auto;
+        text-align: center;
+      }
+      .auth-wall h2 {
+        font-size: 1.25rem;
+        margin-bottom: 1.5rem;
+        color: #191f28;
+      }
+      .auth-input {
+        width: 100%;
+        padding: 0.75rem 1rem;
+        border: 1px solid #e5e8eb;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-family: 'JetBrains Mono', monospace;
+        outline: none;
+        margin-bottom: 1rem;
+      }
+      .auth-input:focus { border-color: #00c471; }
+      .auth-btn {
+        width: 100%;
+        padding: 0.75rem;
+        background: #00c471;
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+      }
+      .auth-btn:hover { background: #00a85e; }
+      .auth-error {
+        color: #e45649;
+        font-size: 0.85rem;
+        margin-top: 0.75rem;
+        display: none;
+      }
+
+      /* Dashboard */
+      .dashboard { display: none; max-width: 1200px; margin: 0 auto; padding: 2rem; }
+      .dashboard.active { display: block; }
+
+      /* Stats cards */
+      .stats-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 1rem;
+        margin-bottom: 2rem;
+      }
+      .stat-card {
+        background: #fff;
+        border: 1px solid #f2f4f6;
+        border-radius: 12px;
+        padding: 1.5rem;
+      }
+      .stat-card .label {
+        font-size: 0.75rem;
+        color: #8b95a1;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        margin-bottom: 0.5rem;
+      }
+      .stat-card .value {
+        font-size: 1.75rem;
+        font-weight: 700;
+        color: #191f28;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .stat-card .sub {
+        font-size: 0.8rem;
+        color: #8b95a1;
+        margin-top: 0.25rem;
+      }
+
+      /* Sections */
+      .section {
+        background: #fff;
+        border: 1px solid #f2f4f6;
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-bottom: 1.5rem;
+      }
+      .section-title {
+        font-size: 1rem;
+        font-weight: 600;
+        color: #191f28;
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+      }
+
+      /* Chart */
+      .chart-container {
+        height: 200px;
+        display: flex;
+        align-items: flex-end;
+        gap: 2px;
+        padding: 0.5rem 0;
+      }
+      .chart-bar-wrap {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        height: 100%;
+        justify-content: flex-end;
+      }
+      .chart-bar {
+        width: 100%;
+        min-height: 2px;
+        background: #00c471;
+        border-radius: 3px 3px 0 0;
+        transition: height 0.3s;
+        cursor: pointer;
+        position: relative;
+      }
+      .chart-bar:hover { background: #00a85e; }
+      .chart-bar-label {
+        font-size: 0.55rem;
+        color: #8b95a1;
+        margin-top: 4px;
+        font-family: 'JetBrains Mono', monospace;
+        writing-mode: vertical-rl;
+        text-orientation: mixed;
+        height: 40px;
+        overflow: hidden;
+      }
+      .chart-tooltip {
+        display: none;
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        background: #191f28;
+        color: #fff;
+        padding: 0.3rem 0.6rem;
+        border-radius: 6px;
+        font-size: 0.7rem;
+        white-space: nowrap;
+        font-family: 'JetBrains Mono', monospace;
+        margin-bottom: 4px;
+        z-index: 10;
+      }
+      .chart-bar:hover .chart-tooltip { display: block; }
+
+      /* Table */
+      .content-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.85rem;
+      }
+      .content-table thead {
+        background: #f9fafb;
+        border-bottom: 2px solid #f2f4f6;
+      }
+      .content-table th {
+        padding: 0.6rem 0.75rem;
+        text-align: left;
+        font-size: 0.7rem;
+        font-weight: 600;
+        color: #8b95a1;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
+      }
+      .content-table td {
+        padding: 0.6rem 0.75rem;
+        border-bottom: 1px solid #f2f4f6;
+        color: #333d4b;
+      }
+      .content-table tr:last-child td { border-bottom: none; }
+      .content-table tr:hover td { background: #f9fafb; }
+
+      .type-badge {
+        display: inline-block;
+        padding: 0.15rem 0.5rem;
+        border-radius: 100px;
+        font-size: 0.65rem;
+        font-weight: 600;
+        text-transform: uppercase;
+      }
+      .type-badge.build-log { background: #e6f9f0; color: #00a85e; }
+      .type-badge.tip { background: #fef3cd; color: #d97706; }
+      .type-badge.ai-news { background: #e6f9f0; color: #00c471; }
+      .type-badge.blog { background: #dbeafe; color: #3b82f6; }
+
+      .mono { font-family: 'JetBrains Mono', monospace; }
+      .text-right { text-align: right; }
+      .text-muted { color: #8b95a1; }
+
+      .title-link {
+        color: #333d4b;
+        text-decoration: none;
+        font-weight: 500;
+      }
+      .title-link:hover { color: #00c471; }
+
+      /* Filter */
+      .filter-bar {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        margin-bottom: 1rem;
+      }
+      .filter-btn {
+        padding: 0.35rem 0.75rem;
+        border: 1px solid #e5e8eb;
+        border-radius: 100px;
+        background: #fff;
+        color: #6b7684;
+        font-size: 0.75rem;
+        font-weight: 500;
+        cursor: pointer;
+        font-family: 'IBM Plex Sans KR', sans-serif;
+      }
+      .filter-btn:hover { border-color: #00c471; color: #00c471; }
+      .filter-btn.active { border-color: #00c471; color: #00c471; background: #e6f9f0; font-weight: 600; }
+
+      /* Engagement Log */
+      .log-list { max-height: 400px; overflow-y: auto; }
+      .log-item {
+        display: flex;
+        align-items: baseline;
+        gap: 0.75rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid #f2f4f6;
+        font-size: 0.82rem;
+      }
+      .log-item:last-child { border-bottom: none; }
+      .log-date { color: #8b95a1; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; flex-shrink: 0; }
+      .log-action { font-weight: 500; }
+      .log-action.view { color: #3b82f6; }
+      .log-action.like { color: #e45649; }
+      .log-action.comment { color: #00c471; }
+
+      .loading {
+        text-align: center;
+        padding: 4rem;
+        color: #8b95a1;
+        font-size: 0.9rem;
+      }
+
+      /* Responsive */
+      @media (max-width: 768px) {
+        .dashboard { padding: 1rem; }
+        .stats-grid { grid-template-columns: repeat(2, 1fr); }
+        .chart-bar-label { display: none; }
+        .content-table { font-size: 0.78rem; }
+        .hide-mobile { display: none; }
+      }
+    </style>
+  </head>
+  <body>
+    <header class="admin-header">
+      <h1>Admin Dashboard</h1>
+      <a href="/">← Back to Site</a>
+    </header>
+
+    <!-- Auth Wall -->
+    <div class="auth-wall" id="auth-wall">
+      <h2>Admin Access</h2>
+      <input type="password" class="auth-input" id="secret-input" placeholder="Enter admin secret" autocomplete="off" />
+      <button class="auth-btn" id="auth-btn">Enter</button>
+      <p class="auth-error" id="auth-error">Invalid secret key</p>
+    </div>
+
+    <!-- Dashboard -->
+    <div class="dashboard" id="dashboard">
+      <div class="loading" id="loading">Loading dashboard...</div>
+
+      <!-- Stats Cards -->
+      <div class="stats-grid" id="stats-grid" style="display:none;">
+        <div class="stat-card">
+          <div class="label">Today Visitors</div>
+          <div class="value" id="stat-today">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total Visitors</div>
+          <div class="value" id="stat-total">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total Views</div>
+          <div class="value" id="stat-views">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total Likes</div>
+          <div class="value" id="stat-likes">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total Comments</div>
+          <div class="value" id="stat-comments">-</div>
+        </div>
+        <div class="stat-card">
+          <div class="label">Total Posts</div>
+          <div class="value" id="stat-posts">-</div>
+          <div class="sub" id="stat-posts-sub"></div>
+        </div>
+      </div>
+
+      <!-- Visitor Trend Chart -->
+      <div class="section" id="chart-section" style="display:none;">
+        <div class="section-title">Visitor Trend (30 days)</div>
+        <div class="chart-container" id="visitor-chart"></div>
+      </div>
+
+      <!-- Content Engagement Table -->
+      <div class="section" id="content-section" style="display:none;">
+        <div class="section-title">Content Engagement</div>
+        <div class="filter-bar" id="content-filter">
+          <button class="filter-btn active" data-filter="all">All</button>
+          <button class="filter-btn" data-filter="build-log">Build Log</button>
+          <button class="filter-btn" data-filter="tip">Tip</button>
+          <button class="filter-btn" data-filter="ai-news">AI News</button>
+          <button class="filter-btn" data-filter="blog">Blog</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table class="content-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Type</th>
+                <th class="text-right">Views</th>
+                <th class="text-right">Likes</th>
+                <th class="text-right">Comments</th>
+                <th class="text-right hide-mobile">Date</th>
+              </tr>
+            </thead>
+            <tbody id="content-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Recent Activity Log -->
+      <div class="section" id="log-section" style="display:none;">
+        <div class="section-title">Activity Summary</div>
+        <div class="log-list" id="activity-log"></div>
+      </div>
+    </div>
+
+    <script is:inline>
+      const AUTH_KEY = 'admin_secret';
+      const authWall = document.getElementById('auth-wall');
+      const dashboard = document.getElementById('dashboard');
+      const secretInput = document.getElementById('secret-input');
+      const authBtn = document.getElementById('auth-btn');
+      const authError = document.getElementById('auth-error');
+
+      // Check saved secret
+      const saved = sessionStorage.getItem(AUTH_KEY);
+      if (saved) {
+        authWall.style.display = 'none';
+        dashboard.classList.add('active');
+        loadDashboard(saved);
+      }
+
+      authBtn.addEventListener('click', tryAuth);
+      secretInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') tryAuth();
+      });
+
+      async function tryAuth() {
+        const secret = secretInput.value.trim();
+        if (!secret) return;
+        authBtn.textContent = '...';
+        authBtn.disabled = true;
+
+        try {
+          const res = await fetch(`/api/admin-stats?secret=${encodeURIComponent(secret)}`);
+          if (res.ok) {
+            sessionStorage.setItem(AUTH_KEY, secret);
+            authWall.style.display = 'none';
+            dashboard.classList.add('active');
+            const data = await res.json();
+            renderDashboard(data);
+          } else {
+            authError.style.display = 'block';
+          }
+        } catch {
+          authError.style.display = 'block';
+        }
+        authBtn.textContent = 'Enter';
+        authBtn.disabled = false;
+      }
+
+      async function loadDashboard(secret) {
+        try {
+          const res = await fetch(`/api/admin-stats?secret=${encodeURIComponent(secret)}`);
+          if (!res.ok) {
+            sessionStorage.removeItem(AUTH_KEY);
+            authWall.style.display = '';
+            dashboard.classList.remove('active');
+            return;
+          }
+          const data = await res.json();
+          renderDashboard(data);
+        } catch {
+          document.getElementById('loading').textContent = 'Failed to load data.';
+        }
+      }
+
+      let allContent = [];
+
+      function renderDashboard(data) {
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('stats-grid').style.display = '';
+        document.getElementById('chart-section').style.display = '';
+        document.getElementById('content-section').style.display = '';
+        document.getElementById('log-section').style.display = '';
+
+        // Stats cards
+        document.getElementById('stat-today').textContent = fmt(data.visitors?.today || 0);
+        document.getElementById('stat-total').textContent = fmt(data.visitors?.total || 0);
+        document.getElementById('stat-views').textContent = fmt(data.summary?.totalViews || 0);
+        document.getElementById('stat-likes').textContent = fmt(data.summary?.totalLikes || 0);
+        document.getElementById('stat-comments').textContent = fmt(data.summary?.totalComments || 0);
+        document.getElementById('stat-posts').textContent = fmt(data.summary?.totalPosts || 0);
+
+        const bt = data.summary?.byType || {};
+        document.getElementById('stat-posts-sub').textContent =
+          `BL ${bt['build-log']||0} / Tip ${bt['tip']||0} / News ${bt['ai-news']||0} / Blog ${bt['blog']||0}`;
+
+        // Visitor chart
+        renderChart(data.visitors?.daily || []);
+
+        // Content table
+        allContent = data.content || [];
+        renderContentTable('all');
+
+        // Filter buttons
+        document.querySelectorAll('#content-filter .filter-btn').forEach(btn => {
+          btn.addEventListener('click', () => {
+            document.querySelectorAll('#content-filter .filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderContentTable(btn.dataset.filter);
+          });
+        });
+
+        // Activity log
+        renderActivityLog(data.content || []);
+      }
+
+      function fmt(n) {
+        return n.toLocaleString();
+      }
+
+      function renderChart(daily) {
+        const container = document.getElementById('visitor-chart');
+        const max = Math.max(...daily.map(d => d.count), 1);
+
+        container.innerHTML = daily.map(d => {
+          const pct = Math.max((d.count / max) * 100, 1);
+          const label = d.date.slice(5); // MM-DD
+          return `<div class="chart-bar-wrap">
+            <div class="chart-bar" style="height:${pct}%">
+              <div class="chart-tooltip">${d.date}: ${d.count}</div>
+            </div>
+            <div class="chart-bar-label">${label}</div>
+          </div>`;
+        }).join('');
+      }
+
+      function renderContentTable(filter) {
+        const tbody = document.getElementById('content-tbody');
+        const filtered = filter === 'all' ? allContent : allContent.filter(c => c.type === filter);
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8b95a1;padding:2rem;">No content</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = filtered.map(c => `
+          <tr data-type="${c.type}">
+            <td><a href="${c.slug}" target="_blank" class="title-link">${escapeHtml(c.title)}</a></td>
+            <td><span class="type-badge ${c.type}">${c.type}</span></td>
+            <td class="text-right mono">${c.views}</td>
+            <td class="text-right mono">${c.likes}</td>
+            <td class="text-right mono">${c.comments}</td>
+            <td class="text-right mono hide-mobile">${c.date}</td>
+          </tr>
+        `).join('');
+      }
+
+      function renderActivityLog(content) {
+        const log = document.getElementById('activity-log');
+
+        // Generate a summary log from content stats
+        const withEngagement = content.filter(c => c.views > 0 || c.likes > 0 || c.comments > 0);
+
+        if (withEngagement.length === 0) {
+          log.innerHTML = '<div style="text-align:center;color:#8b95a1;padding:2rem;">No engagement data yet.</div>';
+          return;
+        }
+
+        // Sort by total engagement
+        const sorted = [...withEngagement].sort((a, b) =>
+          (b.views + b.likes * 5 + b.comments * 10) - (a.views + a.likes * 5 + a.comments * 10)
+        );
+
+        log.innerHTML = sorted.slice(0, 30).map(c => {
+          const parts = [];
+          if (c.views > 0) parts.push(`<span class="log-action view">${c.views} views</span>`);
+          if (c.likes > 0) parts.push(`<span class="log-action like">${c.likes} likes</span>`);
+          if (c.comments > 0) parts.push(`<span class="log-action comment">${c.comments} comments</span>`);
+          return `<div class="log-item">
+            <span class="log-date">${c.date}</span>
+            <span class="type-badge ${c.type}">${c.type}</span>
+            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.title)}</span>
+            ${parts.join(' ')}
+          </div>`;
+        }).join('');
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+    </script>
+  </body>
+</html>
