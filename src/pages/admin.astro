@@ -20,470 +20,291 @@ export const prerender = false;
         min-height: 100vh;
       }
 
+      /* Header */
       .admin-header {
         background: #191f28;
         color: #fff;
-        padding: 1.25rem 2rem;
+        padding: 1rem 2rem;
         display: flex;
         align-items: center;
         justify-content: space-between;
       }
-      .admin-header h1 {
-        font-size: 1.1rem;
-        font-weight: 600;
-        letter-spacing: -0.02em;
-      }
-      .admin-header-right {
-        display: flex;
-        align-items: center;
-        gap: 1rem;
-      }
-      .admin-header a {
-        color: #8b95a1;
-        text-decoration: none;
-        font-size: 0.85rem;
-      }
+      .admin-header h1 { font-size: 1rem; font-weight: 600; letter-spacing: -0.02em; }
+      .admin-header-right { display: flex; align-items: center; gap: 1rem; }
+      .admin-header a { color: #8b95a1; text-decoration: none; font-size: 0.8rem; }
       .admin-header a:hover { color: #00c471; }
       .logout-btn {
-        background: none;
-        border: 1px solid #4e5968;
-        color: #8b95a1;
-        padding: 0.3rem 0.75rem;
-        border-radius: 6px;
-        font-size: 0.75rem;
-        cursor: pointer;
-        font-family: inherit;
-        display: none;
+        background: none; border: 1px solid #4e5968; color: #8b95a1;
+        padding: 0.25rem 0.6rem; border-radius: 6px; font-size: 0.7rem;
+        cursor: pointer; font-family: inherit; display: none;
       }
       .logout-btn:hover { border-color: #e45649; color: #e45649; }
 
-      /* Tab Navigation */
+      /* Tabs */
       .tab-nav {
-        background: #fff;
-        border-bottom: 1px solid #f2f4f6;
-        padding: 0 2rem;
-        display: none;
+        background: #fff; border-bottom: 1px solid #f2f4f6;
+        padding: 0 2rem; display: none; gap: 0;
       }
       .tab-nav.active { display: flex; }
       .tab-btn {
-        padding: 0.85rem 1.25rem;
-        border: none;
-        background: none;
-        color: #8b95a1;
-        font-size: 0.85rem;
-        font-weight: 500;
-        cursor: pointer;
-        border-bottom: 2px solid transparent;
-        font-family: inherit;
-        transition: 0.15s ease;
+        padding: 0.75rem 1.25rem; border: none; background: none;
+        color: #8b95a1; font-size: 0.82rem; font-weight: 500;
+        cursor: pointer; border-bottom: 2px solid transparent;
+        font-family: inherit; transition: 0.15s ease;
       }
       .tab-btn:hover { color: #333d4b; }
-      .tab-btn.active {
-        color: #00c471;
-        border-bottom-color: #00c471;
-        font-weight: 600;
-      }
+      .tab-btn.active { color: #00c471; border-bottom-color: #00c471; font-weight: 600; }
 
       /* Auth */
-      .auth-wall {
-        max-width: 360px;
-        margin: 8rem auto;
-        text-align: center;
-      }
-      .auth-wall h2 {
-        font-size: 1.25rem;
-        margin-bottom: 1.5rem;
-        color: #191f28;
-      }
+      .auth-wall { max-width: 340px; margin: 8rem auto; text-align: center; }
+      .auth-wall h2 { font-size: 1.2rem; margin-bottom: 1.5rem; color: #191f28; }
       .auth-input {
-        width: 100%;
-        padding: 0.75rem 1rem;
-        border: 1px solid #e5e8eb;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        font-family: 'JetBrains Mono', monospace;
-        outline: none;
-        margin-bottom: 1rem;
+        width: 100%; padding: 0.7rem 1rem; border: 1px solid #e5e8eb;
+        border-radius: 8px; font-size: 0.85rem; font-family: 'JetBrains Mono', monospace;
+        outline: none; margin-bottom: 0.75rem;
       }
       .auth-input:focus { border-color: #00c471; }
       .auth-btn {
-        width: 100%;
-        padding: 0.75rem;
-        background: #00c471;
-        color: #fff;
-        border: none;
-        border-radius: 8px;
-        font-size: 0.9rem;
-        font-weight: 600;
-        cursor: pointer;
-        font-family: inherit;
+        width: 100%; padding: 0.7rem; background: #00c471; color: #fff;
+        border: none; border-radius: 8px; font-size: 0.85rem; font-weight: 600;
+        cursor: pointer; font-family: inherit;
       }
       .auth-btn:hover { background: #00a85e; }
-      .auth-error {
-        color: #e45649;
-        font-size: 0.85rem;
-        margin-top: 0.75rem;
-        display: none;
-      }
+      .auth-error { color: #e45649; font-size: 0.8rem; margin-top: 0.5rem; display: none; }
 
       /* Dashboard */
-      .dashboard { display: none; max-width: 1200px; margin: 0 auto; padding: 2rem; }
+      .dashboard { display: none; max-width: 1100px; margin: 0 auto; padding: 1.5rem 2rem; }
       .dashboard.active { display: block; }
-
-      /* Tab panels */
       .tab-panel { display: none; }
       .tab-panel.active { display: block; }
 
-      /* Stats cards */
+      /* Stats Grid */
       .stats-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-        gap: 1rem;
-        margin-bottom: 2rem;
+        display: grid; grid-template-columns: repeat(6, 1fr);
+        gap: 0.75rem; margin-bottom: 1.5rem;
       }
       .stat-card {
-        background: #fff;
-        border: 1px solid #f2f4f6;
-        border-radius: 12px;
-        padding: 1.25rem;
+        background: #fff; border: 1px solid #f2f4f6; border-radius: 10px; padding: 1rem;
       }
       .stat-card .label {
-        font-size: 0.7rem;
-        color: #8b95a1;
-        text-transform: uppercase;
-        letter-spacing: 0.06em;
-        margin-bottom: 0.5rem;
+        font-size: 0.65rem; color: #8b95a1; text-transform: uppercase;
+        letter-spacing: 0.05em; margin-bottom: 0.35rem;
       }
       .stat-card .value {
-        font-size: 1.5rem;
-        font-weight: 700;
-        color: #191f28;
+        font-size: 1.35rem; font-weight: 700; color: #191f28;
         font-family: 'JetBrains Mono', monospace;
       }
-      .stat-card .sub {
-        font-size: 0.75rem;
-        color: #8b95a1;
-        margin-top: 0.25rem;
-      }
+      .stat-card .sub { font-size: 0.7rem; color: #8b95a1; margin-top: 0.15rem; }
 
-      /* Sections */
+      /* Section */
       .section {
-        background: #fff;
-        border: 1px solid #f2f4f6;
-        border-radius: 12px;
-        padding: 1.5rem;
-        margin-bottom: 1.5rem;
+        background: #fff; border: 1px solid #f2f4f6;
+        border-radius: 10px; padding: 1.25rem; margin-bottom: 1.25rem;
       }
       .section-title {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #191f28;
-        margin-bottom: 1rem;
-        display: flex;
-        align-items: center;
-        gap: 0.5rem;
+        font-size: 0.85rem; font-weight: 600; color: #191f28;
+        margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;
+      }
+      .section-subtitle {
+        font-size: 0.7rem; color: #8b95a1; font-weight: 400;
       }
 
-      /* Chart */
-      .chart-container {
-        height: 200px;
-        display: flex;
-        align-items: flex-end;
-        gap: 2px;
-        padding: 0.5rem 0;
+      /* ═══ Calendar Heatmap ═══ */
+      .heatmap-wrap { overflow-x: auto; }
+      .heatmap {
+        display: flex; gap: 3px; padding: 0.25rem 0;
       }
-      .chart-bar-wrap {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        height: 100%;
-        justify-content: flex-end;
+      .heatmap-week {
+        display: flex; flex-direction: column; gap: 3px;
       }
-      .chart-bar {
-        width: 100%;
-        min-height: 2px;
-        background: #00c471;
-        border-radius: 3px 3px 0 0;
-        transition: height 0.3s;
-        cursor: pointer;
-        position: relative;
+      .heatmap-cell {
+        width: 14px; height: 14px; border-radius: 3px;
+        background: #f2f4f6; cursor: pointer; position: relative;
       }
-      .chart-bar:hover { background: #00a85e; }
-      .chart-bar-label {
-        font-size: 0.55rem;
-        color: #8b95a1;
-        margin-top: 4px;
+      .heatmap-cell.l1 { background: #c6efdb; }
+      .heatmap-cell.l2 { background: #6ee7a8; }
+      .heatmap-cell.l3 { background: #00c471; }
+      .heatmap-cell.l4 { background: #008c50; }
+      .heatmap-cell:hover { outline: 2px solid #333d4b; outline-offset: -1px; }
+      .heatmap-cell .tip {
+        display: none; position: absolute; bottom: calc(100% + 6px); left: 50%;
+        transform: translateX(-50%); background: #191f28; color: #fff;
+        padding: 0.25rem 0.5rem; border-radius: 5px; font-size: 0.65rem;
+        white-space: nowrap; font-family: 'JetBrains Mono', monospace; z-index: 10;
+        pointer-events: none;
+      }
+      .heatmap-cell .tip::after {
+        content: ''; position: absolute; top: 100%; left: 50%;
+        transform: translateX(-50%); border: 4px solid transparent;
+        border-top-color: #191f28;
+      }
+      .heatmap-cell:hover .tip { display: block; }
+      .heatmap-labels {
+        display: flex; gap: 3px; margin-bottom: 2px;
+      }
+      .heatmap-month {
+        font-size: 0.6rem; color: #8b95a1; font-family: 'JetBrains Mono', monospace;
+      }
+      .heatmap-legend {
+        display: flex; align-items: center; gap: 4px;
+        margin-top: 0.5rem; justify-content: flex-end;
+      }
+      .heatmap-legend span { font-size: 0.6rem; color: #8b95a1; }
+      .heatmap-legend-cell {
+        width: 12px; height: 12px; border-radius: 2px;
+      }
+      .heatmap-day-labels {
+        display: flex; flex-direction: column; gap: 3px;
+        margin-right: 4px; padding-top: 0;
+      }
+      .heatmap-day-label {
+        height: 14px; font-size: 0.55rem; color: #8b95a1;
         font-family: 'JetBrains Mono', monospace;
-        writing-mode: vertical-rl;
-        text-orientation: mixed;
-        height: 40px;
-        overflow: hidden;
+        display: flex; align-items: center;
       }
-      .chart-tooltip {
-        display: none;
-        position: absolute;
-        bottom: 100%;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #191f28;
-        color: #fff;
-        padding: 0.3rem 0.6rem;
-        border-radius: 6px;
-        font-size: 0.7rem;
-        white-space: nowrap;
-        font-family: 'JetBrains Mono', monospace;
-        margin-bottom: 4px;
-        z-index: 10;
-      }
-      .chart-bar:hover .chart-tooltip { display: block; }
 
-      /* Table */
-      .content-table {
-        width: 100%;
-        border-collapse: collapse;
-        font-size: 0.85rem;
+      /* ═══ Content Cards ═══ */
+      .filter-bar {
+        display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem;
       }
-      .content-table thead {
-        background: #f9fafb;
-        border-bottom: 2px solid #f2f4f6;
+      .filter-btn {
+        padding: 0.3rem 0.7rem; border: 1px solid #e5e8eb; border-radius: 100px;
+        background: #fff; color: #6b7684; font-size: 0.72rem; font-weight: 500;
+        cursor: pointer; font-family: inherit;
       }
-      .content-table th {
-        padding: 0.6rem 0.75rem;
-        text-align: left;
-        font-size: 0.7rem;
-        font-weight: 600;
-        color: #8b95a1;
-        text-transform: uppercase;
-        letter-spacing: 0.04em;
+      .filter-btn:hover { border-color: #00c471; color: #00c471; }
+      .filter-btn.active { border-color: #00c471; color: #00c471; background: #e6f9f0; font-weight: 600; }
+
+      .content-list { display: flex; flex-direction: column; gap: 0; }
+      .content-item {
+        display: grid; grid-template-columns: 1fr auto;
+        align-items: center; gap: 1rem;
+        padding: 0.75rem 0; border-bottom: 1px solid #f2f4f6;
       }
-      .content-table td {
-        padding: 0.6rem 0.75rem;
-        border-bottom: 1px solid #f2f4f6;
-        color: #333d4b;
+      .content-item:last-child { border-bottom: none; }
+      .content-left { min-width: 0; }
+      .content-title-row {
+        display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.2rem;
       }
-      .content-table tr:last-child td { border-bottom: none; }
-      .content-table tr:hover td { background: #f9fafb; }
+      .content-title {
+        font-size: 0.85rem; font-weight: 500; color: #191f28;
+        text-decoration: none; white-space: nowrap; overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .content-title:hover { color: #00c471; }
+      .content-date { font-size: 0.7rem; color: #b0b8c1; font-family: 'JetBrains Mono', monospace; }
 
       .type-badge {
-        display: inline-block;
-        padding: 0.15rem 0.5rem;
-        border-radius: 100px;
-        font-size: 0.65rem;
-        font-weight: 600;
-        text-transform: uppercase;
+        display: inline-block; padding: 0.1rem 0.4rem; border-radius: 100px;
+        font-size: 0.6rem; font-weight: 600; text-transform: uppercase; flex-shrink: 0;
       }
       .type-badge.build-log { background: #e6f9f0; color: #00a85e; }
       .type-badge.tip { background: #fef3cd; color: #d97706; }
       .type-badge.ai-news { background: #e6f9f0; color: #00c471; }
       .type-badge.blog { background: #dbeafe; color: #3b82f6; }
 
-      .mono { font-family: 'JetBrains Mono', monospace; }
-      .text-right { text-align: right; }
-      .text-muted { color: #8b95a1; }
-
-      .title-link {
-        color: #333d4b;
-        text-decoration: none;
-        font-weight: 500;
+      .content-stats {
+        display: flex; gap: 1rem; flex-shrink: 0;
       }
-      .title-link:hover { color: #00c471; }
-
-      /* Filter */
-      .filter-bar {
-        display: flex;
-        gap: 0.5rem;
-        flex-wrap: wrap;
-        margin-bottom: 1rem;
+      .content-stat {
+        display: flex; align-items: center; gap: 0.3rem;
+        font-size: 0.75rem; color: #8b95a1;
+        font-family: 'JetBrains Mono', monospace;
       }
-      .filter-btn {
-        padding: 0.35rem 0.75rem;
-        border: 1px solid #e5e8eb;
-        border-radius: 100px;
-        background: #fff;
-        color: #6b7684;
-        font-size: 0.75rem;
-        font-weight: 500;
-        cursor: pointer;
-        font-family: 'IBM Plex Sans KR', sans-serif;
-      }
-      .filter-btn:hover { border-color: #00c471; color: #00c471; }
-      .filter-btn.active { border-color: #00c471; color: #00c471; background: #e6f9f0; font-weight: 600; }
+      .content-stat svg { width: 13px; height: 13px; }
+      .content-stat.has-data { color: #333d4b; font-weight: 500; }
 
-      /* Activity Log */
-      .log-list { max-height: 400px; overflow-y: auto; }
-      .log-item {
-        display: flex;
-        align-items: baseline;
-        gap: 0.75rem;
-        padding: 0.5rem 0;
-        border-bottom: 1px solid #f2f4f6;
-        font-size: 0.82rem;
-      }
-      .log-item:last-child { border-bottom: none; }
-      .log-date { color: #8b95a1; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; flex-shrink: 0; }
-      .log-action { font-weight: 500; }
-      .log-action.view { color: #3b82f6; }
-      .log-action.like { color: #e45649; }
-      .log-action.comment { color: #00c471; }
-
-      /* Quick Actions */
+      /* ═══ Quick Actions ═══ */
       .actions-grid {
-        display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-        gap: 1rem;
+        display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 0.75rem;
       }
       .action-card {
-        background: #fff;
-        border: 1px solid #f2f4f6;
-        border-radius: 12px;
-        padding: 1.5rem;
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
+        background: #fff; border: 1px solid #f2f4f6; border-radius: 10px;
+        padding: 1.25rem; display: flex; flex-direction: column; gap: 0.5rem;
       }
-      .action-card h3 {
-        font-size: 0.95rem;
-        font-weight: 600;
-        color: #191f28;
-      }
-      .action-card p {
-        font-size: 0.8rem;
-        color: #8b95a1;
-        line-height: 1.5;
-      }
+      .action-card h3 { font-size: 0.9rem; font-weight: 600; color: #191f28; }
+      .action-card p { font-size: 0.75rem; color: #8b95a1; line-height: 1.5; }
       .action-btn {
-        padding: 0.6rem 1rem;
-        border: none;
-        border-radius: 8px;
-        font-size: 0.82rem;
-        font-weight: 600;
-        cursor: pointer;
-        font-family: inherit;
-        transition: 0.15s ease;
-        width: fit-content;
+        padding: 0.5rem 1rem; border: none; border-radius: 8px;
+        font-size: 0.8rem; font-weight: 600; cursor: pointer;
+        font-family: inherit; transition: 0.15s ease; width: fit-content;
       }
-      .action-btn.primary {
-        background: #00c471;
-        color: #fff;
-      }
+      .action-btn.primary { background: #00c471; color: #fff; }
       .action-btn.primary:hover { background: #00a85e; }
-      .action-btn.secondary {
-        background: #f2f4f6;
-        color: #333d4b;
-      }
+      .action-btn.secondary { background: #f2f4f6; color: #333d4b; }
       .action-btn.secondary:hover { background: #e5e8eb; }
-      .action-btn.danger {
-        background: #fef2f2;
-        color: #e45649;
-      }
-      .action-btn.danger:hover { background: #fee2e2; }
-      .action-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-      }
+      .action-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
       .action-status {
-        font-size: 0.75rem;
-        padding: 0.4rem 0.75rem;
-        border-radius: 6px;
-        display: none;
+        font-size: 0.72rem; padding: 0.35rem 0.6rem; border-radius: 6px; display: none;
       }
-      .action-status.success {
-        display: block;
-        background: #e6f9f0;
-        color: #00a85e;
-      }
-      .action-status.error {
-        display: block;
-        background: #fef2f2;
-        color: #e45649;
-      }
-      .action-status.loading {
-        display: block;
-        background: #f0f9ff;
-        color: #3b82f6;
-      }
+      .action-status.success { display: block; background: #e6f9f0; color: #00a85e; }
+      .action-status.error { display: block; background: #fef2f2; color: #e45649; }
+      .action-status.loading { display: block; background: #f0f9ff; color: #3b82f6; }
 
-      /* Comments */
+      /* ═══ Comments ═══ */
       .comment-card {
-        border: 1px solid #f2f4f6;
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 0.75rem;
+        border: 1px solid #f2f4f6; border-radius: 8px;
+        padding: 0.75rem 1rem; margin-bottom: 0.5rem;
       }
       .comment-card:last-child { margin-bottom: 0; }
       .comment-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        margin-bottom: 0.5rem;
+        display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.35rem;
       }
-      .comment-meta {
-        display: flex;
-        align-items: center;
-        gap: 0.75rem;
-        font-size: 0.8rem;
-      }
-      .comment-name {
-        font-weight: 600;
-        color: #191f28;
-      }
-      .comment-date {
-        color: #8b95a1;
-        font-family: 'JetBrains Mono', monospace;
-        font-size: 0.7rem;
-      }
+      .comment-meta { display: flex; align-items: center; gap: 0.5rem; font-size: 0.75rem; }
+      .comment-name { font-weight: 600; color: #191f28; }
+      .comment-date { color: #8b95a1; font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; }
       .comment-slug {
-        color: #8b95a1;
-        font-size: 0.7rem;
-        font-family: 'JetBrains Mono', monospace;
-        background: #f2f4f6;
-        padding: 0.1rem 0.4rem;
-        border-radius: 4px;
+        color: #8b95a1; font-size: 0.65rem; font-family: 'JetBrains Mono', monospace;
+        background: #f2f4f6; padding: 0.05rem 0.35rem; border-radius: 3px;
       }
-      .comment-text {
-        font-size: 0.85rem;
-        color: #333d4b;
-        line-height: 1.6;
-      }
+      .comment-text { font-size: 0.8rem; color: #333d4b; line-height: 1.5; }
       .delete-btn {
-        background: none;
-        border: 1px solid #e5e8eb;
-        color: #8b95a1;
-        padding: 0.2rem 0.5rem;
-        border-radius: 4px;
-        font-size: 0.7rem;
-        cursor: pointer;
-        font-family: inherit;
+        background: none; border: 1px solid #e5e8eb; color: #8b95a1;
+        padding: 0.15rem 0.4rem; border-radius: 4px; font-size: 0.65rem;
+        cursor: pointer; font-family: inherit;
       }
       .delete-btn:hover { border-color: #e45649; color: #e45649; }
 
-      .empty-state {
-        text-align: center;
-        padding: 3rem;
-        color: #8b95a1;
-        font-size: 0.85rem;
-      }
+      .empty-state { text-align: center; padding: 2.5rem; color: #8b95a1; font-size: 0.8rem; }
+      .loading { text-align: center; padding: 3rem; color: #8b95a1; font-size: 0.85rem; }
 
-      .loading {
-        text-align: center;
-        padding: 4rem;
-        color: #8b95a1;
-        font-size: 0.9rem;
+      /* ═══ Top Engagement ═══ */
+      .top-list { display: flex; flex-direction: column; gap: 0; }
+      .top-item {
+        display: flex; align-items: center; gap: 0.75rem;
+        padding: 0.5rem 0; border-bottom: 1px solid #f2f4f6; font-size: 0.8rem;
       }
+      .top-item:last-child { border-bottom: none; }
+      .top-rank {
+        font-family: 'JetBrains Mono', monospace; font-size: 0.7rem;
+        color: #8b95a1; width: 1.5rem; text-align: center; flex-shrink: 0;
+      }
+      .top-title {
+        flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+        color: #333d4b;
+      }
+      .top-stats {
+        display: flex; gap: 0.75rem; flex-shrink: 0;
+        font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; color: #8b95a1;
+      }
+      .top-stat-highlight { color: #00c471; font-weight: 500; }
+
+      /* Two-column layout */
+      .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
 
       /* Responsive */
       @media (max-width: 768px) {
         .dashboard { padding: 1rem; }
-        .stats-grid { grid-template-columns: repeat(2, 1fr); }
-        .chart-bar-label { display: none; }
-        .content-table { font-size: 0.78rem; }
-        .hide-mobile { display: none; }
+        .stats-grid { grid-template-columns: repeat(3, 1fr); }
         .tab-nav { padding: 0 1rem; overflow-x: auto; }
-        .tab-btn { white-space: nowrap; padding: 0.75rem 0.75rem; font-size: 0.8rem; }
+        .tab-btn { white-space: nowrap; padding: 0.65rem 0.75rem; font-size: 0.78rem; }
+        .admin-header { padding: 0.75rem 1rem; }
         .actions-grid { grid-template-columns: 1fr; }
-        .admin-header { padding: 1rem; }
+        .two-col { grid-template-columns: 1fr; }
+        .content-stats { gap: 0.6rem; }
+        .hide-mobile { display: none; }
+        .heatmap-cell { width: 11px; height: 11px; }
       }
     </style>
   </head>
@@ -496,7 +317,6 @@ export const prerender = false;
       </div>
     </header>
 
-    <!-- Tab Navigation -->
     <nav class="tab-nav" id="tab-nav">
       <button class="tab-btn active" data-tab="overview">Overview</button>
       <button class="tab-btn" data-tab="actions">Quick Actions</button>
@@ -516,73 +336,107 @@ export const prerender = false;
     <div class="dashboard" id="dashboard">
       <div class="loading" id="loading">Loading dashboard...</div>
 
-      <!-- Tab: Overview -->
+      <!-- ═══ Overview ═══ -->
       <div class="tab-panel active" id="panel-overview">
         <div class="stats-grid" id="stats-grid" style="display:none;">
           <div class="stat-card">
-            <div class="label">Today Visitors</div>
+            <div class="label">Today</div>
             <div class="value" id="stat-today">-</div>
+            <div class="sub">visitors</div>
           </div>
           <div class="stat-card">
-            <div class="label">Total Visitors</div>
+            <div class="label">Total</div>
             <div class="value" id="stat-total">-</div>
+            <div class="sub">visitors</div>
           </div>
           <div class="stat-card">
-            <div class="label">Total Views</div>
+            <div class="label">Views</div>
             <div class="value" id="stat-views">-</div>
+            <div class="sub">page views</div>
           </div>
           <div class="stat-card">
-            <div class="label">Total Likes</div>
+            <div class="label">Likes</div>
             <div class="value" id="stat-likes">-</div>
           </div>
           <div class="stat-card">
-            <div class="label">Total Comments</div>
+            <div class="label">Comments</div>
             <div class="value" id="stat-comments">-</div>
           </div>
           <div class="stat-card">
-            <div class="label">Total Posts</div>
+            <div class="label">Posts</div>
             <div class="value" id="stat-posts">-</div>
             <div class="sub" id="stat-posts-sub"></div>
           </div>
         </div>
 
-        <div class="section" id="chart-section" style="display:none;">
-          <div class="section-title">Visitor Trend (30 days)</div>
-          <div class="chart-container" id="visitor-chart"></div>
+        <!-- Heatmap -->
+        <div class="section" id="heatmap-section" style="display:none;">
+          <div class="section-title">
+            Visitors
+            <span class="section-subtitle" id="heatmap-range"></span>
+          </div>
+          <div class="heatmap-wrap">
+            <div style="display:flex;">
+              <div class="heatmap-day-labels">
+                <div class="heatmap-day-label" style="visibility:hidden;">.</div>
+                <div class="heatmap-day-label">Mon</div>
+                <div class="heatmap-day-label" style="visibility:hidden;">.</div>
+                <div class="heatmap-day-label">Wed</div>
+                <div class="heatmap-day-label" style="visibility:hidden;">.</div>
+                <div class="heatmap-day-label">Fri</div>
+                <div class="heatmap-day-label" style="visibility:hidden;">.</div>
+              </div>
+              <div class="heatmap" id="heatmap"></div>
+            </div>
+          </div>
+          <div class="heatmap-legend">
+            <span>Less</span>
+            <div class="heatmap-legend-cell" style="background:#f2f4f6;"></div>
+            <div class="heatmap-legend-cell" style="background:#c6efdb;"></div>
+            <div class="heatmap-legend-cell" style="background:#6ee7a8;"></div>
+            <div class="heatmap-legend-cell" style="background:#00c471;"></div>
+            <div class="heatmap-legend-cell" style="background:#008c50;"></div>
+            <span>More</span>
+          </div>
         </div>
 
-        <div class="section" id="log-section" style="display:none;">
-          <div class="section-title">Top Engagement</div>
-          <div class="log-list" id="activity-log"></div>
+        <!-- Top Engagement -->
+        <div class="two-col" id="top-sections" style="display:none;">
+          <div class="section">
+            <div class="section-title">Top by Views</div>
+            <div class="top-list" id="top-views"></div>
+          </div>
+          <div class="section">
+            <div class="section-title">Top by Engagement</div>
+            <div class="top-list" id="top-engagement"></div>
+          </div>
         </div>
       </div>
 
-      <!-- Tab: Quick Actions -->
+      <!-- ═══ Quick Actions ═══ -->
       <div class="tab-panel" id="panel-actions">
         <div class="actions-grid">
           <div class="action-card">
             <h3>AI News 생성</h3>
-            <p>Google, HN, Reddit, X, GitHub에서 AI 뉴스를 수집하고 Claude로 포스트를 자동 생성한다. 완료까지 1~2분 소요.</p>
+            <p>Google, HN, Reddit, X, GitHub에서 AI 뉴스를 수집하고 Claude로 포스트를 자동 생성한다.</p>
             <button class="action-btn primary" id="btn-generate-news">Generate AI News</button>
             <div class="action-status" id="status-generate-news"></div>
           </div>
-
           <div class="action-card">
             <h3>사이트 리빌드</h3>
-            <p>Cloudflare Pages deploy hook을 호출하여 사이트를 리빌드한다. 새 콘텐츠 반영 시 사용.</p>
+            <p>Cloudflare Pages deploy hook을 호출하여 사이트를 리빌드한다.</p>
             <button class="action-btn secondary" id="btn-revalidate">Rebuild Site</button>
             <div class="action-status" id="status-revalidate"></div>
           </div>
-
           <div class="action-card">
-            <h3>Dev.to 동기화</h3>
-            <p>publish-to-devto 워크플로는 main 브랜치 push 시 자동 실행된다. 수동 트리거가 필요하면 GitHub Actions에서 실행.</p>
+            <h3>Dev.to Sync</h3>
+            <p>main 브랜치 push 시 자동 실행. 수동 실행은 GitHub Actions에서.</p>
             <a href="https://github.com/jee599/portfolio-site/actions/workflows/publish-to-devto.yml" target="_blank" class="action-btn secondary" style="text-decoration:none;text-align:center;">Open GitHub Actions</a>
           </div>
         </div>
       </div>
 
-      <!-- Tab: Content -->
+      <!-- ═══ Content ═══ -->
       <div class="tab-panel" id="panel-content">
         <div class="section">
           <div class="section-title">Content Engagement</div>
@@ -593,30 +447,16 @@ export const prerender = false;
             <button class="filter-btn" data-filter="ai-news">AI News</button>
             <button class="filter-btn" data-filter="blog">Blog</button>
           </div>
-          <div style="overflow-x:auto;">
-            <table class="content-table">
-              <thead>
-                <tr>
-                  <th>Title</th>
-                  <th>Type</th>
-                  <th class="text-right">Views</th>
-                  <th class="text-right">Likes</th>
-                  <th class="text-right">Comments</th>
-                  <th class="text-right hide-mobile">Date</th>
-                </tr>
-              </thead>
-              <tbody id="content-tbody"></tbody>
-            </table>
-          </div>
+          <div class="content-list" id="content-list"></div>
         </div>
       </div>
 
-      <!-- Tab: Comments -->
+      <!-- ═══ Comments ═══ -->
       <div class="tab-panel" id="panel-comments">
         <div class="section">
           <div class="section-title">All Comments</div>
           <div id="comments-list">
-            <div class="empty-state">Loading comments...</div>
+            <div class="empty-state">Select this tab to load comments.</div>
           </div>
         </div>
       </div>
@@ -635,7 +475,6 @@ export const prerender = false;
       let currentSecret = '';
       let allContent = [];
 
-      // Check saved secret
       const saved = sessionStorage.getItem(AUTH_KEY);
       if (saved) {
         currentSecret = saved;
@@ -647,9 +486,7 @@ export const prerender = false;
       }
 
       authBtn.addEventListener('click', tryAuth);
-      secretInput.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') tryAuth();
-      });
+      secretInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') tryAuth(); });
 
       logoutBtn.addEventListener('click', () => {
         sessionStorage.removeItem(AUTH_KEY);
@@ -662,14 +499,12 @@ export const prerender = false;
         authError.style.display = 'none';
       });
 
-      // Tab switching
       document.querySelectorAll('.tab-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
           document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
           btn.classList.add('active');
           document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
-
           if (btn.dataset.tab === 'comments') loadComments();
         });
       });
@@ -679,7 +514,6 @@ export const prerender = false;
         if (!secret) return;
         authBtn.textContent = '...';
         authBtn.disabled = true;
-
         try {
           const res = await fetch(`/api/admin-stats?secret=${encodeURIComponent(secret)}`);
           if (res.ok) {
@@ -689,14 +523,11 @@ export const prerender = false;
             dashboard.classList.add('active');
             tabNav.classList.add('active');
             logoutBtn.style.display = '';
-            const data = await res.json();
-            renderDashboard(data);
+            renderDashboard(await res.json());
           } else {
             authError.style.display = 'block';
           }
-        } catch {
-          authError.style.display = 'block';
-        }
+        } catch { authError.style.display = 'block'; }
         authBtn.textContent = 'Enter';
         authBtn.disabled = false;
       }
@@ -713,124 +544,196 @@ export const prerender = false;
             logoutBtn.style.display = 'none';
             return;
           }
-          const data = await res.json();
-          renderDashboard(data);
+          renderDashboard(await res.json());
         } catch {
-          document.getElementById('loading').textContent = 'Failed to load data.';
+          document.getElementById('loading').textContent = 'Failed to load.';
         }
       }
+
+      function fmt(n) { return (n || 0).toLocaleString(); }
 
       function renderDashboard(data) {
         document.getElementById('loading').style.display = 'none';
         document.getElementById('stats-grid').style.display = '';
-        document.getElementById('chart-section').style.display = '';
-        document.getElementById('log-section').style.display = '';
+        document.getElementById('heatmap-section').style.display = '';
+        document.getElementById('top-sections').style.display = '';
 
-        // Stats cards
-        document.getElementById('stat-today').textContent = fmt(data.visitors?.today || 0);
-        document.getElementById('stat-total').textContent = fmt(data.visitors?.total || 0);
-        document.getElementById('stat-views').textContent = fmt(data.summary?.totalViews || 0);
-        document.getElementById('stat-likes').textContent = fmt(data.summary?.totalLikes || 0);
-        document.getElementById('stat-comments').textContent = fmt(data.summary?.totalComments || 0);
-        document.getElementById('stat-posts').textContent = fmt(data.summary?.totalPosts || 0);
-
+        // Stats
+        document.getElementById('stat-today').textContent = fmt(data.visitors?.today);
+        document.getElementById('stat-total').textContent = fmt(data.visitors?.total);
+        document.getElementById('stat-views').textContent = fmt(data.summary?.totalViews);
+        document.getElementById('stat-likes').textContent = fmt(data.summary?.totalLikes);
+        document.getElementById('stat-comments').textContent = fmt(data.summary?.totalComments);
+        document.getElementById('stat-posts').textContent = fmt(data.summary?.totalPosts);
         const bt = data.summary?.byType || {};
         document.getElementById('stat-posts-sub').textContent =
-          `BL ${bt['build-log']||0} / Tip ${bt['tip']||0} / News ${bt['ai-news']||0} / Blog ${bt['blog']||0}`;
+          `BL${bt['build-log']||0} T${bt['tip']||0} N${bt['ai-news']||0} B${bt['blog']||0}`;
 
-        // Visitor chart
-        renderChart(data.visitors?.daily || []);
+        // Heatmap
+        renderHeatmap(data.visitors?.daily || []);
 
-        // Content table
+        // Content
         allContent = data.content || [];
-        renderContentTable('all');
-
-        // Filter buttons
+        renderContentList('all');
         document.querySelectorAll('#content-filter .filter-btn').forEach(btn => {
           btn.addEventListener('click', () => {
             document.querySelectorAll('#content-filter .filter-btn').forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
-            renderContentTable(btn.dataset.filter);
+            renderContentList(btn.dataset.filter);
           });
         });
 
-        // Activity log
-        renderActivityLog(data.content || []);
+        // Top lists
+        renderTopLists(data.content || []);
       }
 
-      function fmt(n) {
-        return n.toLocaleString();
-      }
+      // ═══ Heatmap ═══
+      function renderHeatmap(daily) {
+        const container = document.getElementById('heatmap');
+        const rangeEl = document.getElementById('heatmap-range');
 
-      function renderChart(daily) {
-        const container = document.getElementById('visitor-chart');
-        const max = Math.max(...daily.map(d => d.count), 1);
+        // Build a map of date → count
+        const dateMap = {};
+        daily.forEach(d => { dateMap[d.date] = d.count; });
 
-        container.innerHTML = daily.map(d => {
-          const pct = Math.max((d.count / max) * 100, 1);
-          const label = d.date.slice(5);
-          return `<div class="chart-bar-wrap">
-            <div class="chart-bar" style="height:${pct}%">
-              <div class="chart-tooltip">${d.date}: ${d.count}</div>
-            </div>
-            <div class="chart-bar-label">${label}</div>
-          </div>`;
+        // Generate 90 days (13 weeks) for a wider view
+        const today = new Date();
+        const days = [];
+        for (let i = 89; i >= 0; i--) {
+          const d = new Date(today);
+          d.setDate(d.getDate() - i);
+          const key = d.toISOString().split('T')[0];
+          days.push({ date: key, count: dateMap[key] || 0, day: d.getDay() });
+        }
+
+        if (days.length > 0) {
+          rangeEl.textContent = `${days[0].date} ~ ${days[days.length-1].date}`;
+        }
+
+        const max = Math.max(...days.map(d => d.count), 1);
+
+        function level(count) {
+          if (count === 0) return '';
+          const ratio = count / max;
+          if (ratio <= 0.25) return 'l1';
+          if (ratio <= 0.5) return 'l2';
+          if (ratio <= 0.75) return 'l3';
+          return 'l4';
+        }
+
+        // Group into weeks (Sun=0 start)
+        const weeks = [];
+        let currentWeek = [];
+
+        // Pad first week
+        const firstDay = days[0].day;
+        for (let i = 0; i < firstDay; i++) {
+          currentWeek.push(null);
+        }
+
+        days.forEach(d => {
+          if (d.day === 0 && currentWeek.length > 0) {
+            weeks.push(currentWeek);
+            currentWeek = [];
+          }
+          currentWeek.push(d);
+        });
+        if (currentWeek.length > 0) weeks.push(currentWeek);
+
+        container.innerHTML = weeks.map(week => {
+          const cells = [];
+          for (let i = 0; i < 7; i++) {
+            const d = week[i];
+            if (!d) {
+              cells.push('<div class="heatmap-cell" style="visibility:hidden;"></div>');
+            } else {
+              cells.push(`<div class="heatmap-cell ${level(d.count)}"><div class="tip">${d.date}: ${d.count}</div></div>`);
+            }
+          }
+          return `<div class="heatmap-week">${cells.join('')}</div>`;
         }).join('');
       }
 
-      function renderContentTable(filter) {
-        const tbody = document.getElementById('content-tbody');
+      // ═══ Content List ═══
+      function renderContentList(filter) {
+        const container = document.getElementById('content-list');
         const filtered = filter === 'all' ? allContent : allContent.filter(c => c.type === filter);
 
         if (filtered.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#8b95a1;padding:2rem;">No content</td></tr>';
+          container.innerHTML = '<div class="empty-state">No content</div>';
           return;
         }
 
-        tbody.innerHTML = filtered.map(c => `
-          <tr data-type="${c.type}">
-            <td><a href="${c.slug}" target="_blank" class="title-link">${escapeHtml(c.title)}</a></td>
-            <td><span class="type-badge ${c.type}">${c.type}</span></td>
-            <td class="text-right mono">${c.views}</td>
-            <td class="text-right mono">${c.likes}</td>
-            <td class="text-right mono">${c.comments}</td>
-            <td class="text-right mono hide-mobile">${c.date}</td>
-          </tr>
-        `).join('');
-      }
-
-      function renderActivityLog(content) {
-        const log = document.getElementById('activity-log');
-        const withEngagement = content.filter(c => c.views > 0 || c.likes > 0 || c.comments > 0);
-
-        if (withEngagement.length === 0) {
-          log.innerHTML = '<div class="empty-state">No engagement data yet.</div>';
-          return;
-        }
-
-        const sorted = [...withEngagement].sort((a, b) =>
-          (b.views + b.likes * 5 + b.comments * 10) - (a.views + a.likes * 5 + a.comments * 10)
-        );
-
-        log.innerHTML = sorted.slice(0, 30).map(c => {
-          const parts = [];
-          if (c.views > 0) parts.push(`<span class="log-action view">${c.views} views</span>`);
-          if (c.likes > 0) parts.push(`<span class="log-action like">${c.likes} likes</span>`);
-          if (c.comments > 0) parts.push(`<span class="log-action comment">${c.comments} comments</span>`);
-          return `<div class="log-item">
-            <span class="log-date">${c.date}</span>
-            <span class="type-badge ${c.type}">${c.type}</span>
-            <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(c.title)}</span>
-            ${parts.join(' ')}
+        container.innerHTML = filtered.map(c => {
+          const viewClass = c.views > 0 ? 'has-data' : '';
+          const likeClass = c.likes > 0 ? 'has-data' : '';
+          const commentClass = c.comments > 0 ? 'has-data' : '';
+          return `<div class="content-item">
+            <div class="content-left">
+              <div class="content-title-row">
+                <span class="type-badge ${c.type}">${c.type}</span>
+                <a href="${c.slug}" target="_blank" class="content-title">${esc(c.title)}</a>
+              </div>
+              <span class="content-date">${c.date}</span>
+            </div>
+            <div class="content-stats">
+              <span class="content-stat ${viewClass}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                ${c.views}
+              </span>
+              <span class="content-stat ${likeClass}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
+                ${c.likes}
+              </span>
+              <span class="content-stat ${commentClass}">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                ${c.comments}
+              </span>
+            </div>
           </div>`;
         }).join('');
       }
 
-      // === Quick Actions ===
+      // ═══ Top Lists ═══
+      function renderTopLists(content) {
+        const viewsList = document.getElementById('top-views');
+        const engList = document.getElementById('top-engagement');
+
+        const byViews = [...content].sort((a, b) => b.views - a.views).slice(0, 10);
+        const byEng = [...content].sort((a, b) =>
+          (b.views + b.likes * 5 + b.comments * 10) - (a.views + a.likes * 5 + a.comments * 10)
+        ).slice(0, 10);
+
+        function renderList(list, container, mainStat) {
+          if (list.every(c => c.views === 0 && c.likes === 0 && c.comments === 0)) {
+            container.innerHTML = '<div class="empty-state">No engagement data yet.</div>';
+            return;
+          }
+          container.innerHTML = list.map((c, i) => {
+            const score = c.views + c.likes * 5 + c.comments * 10;
+            const stat = mainStat === 'views'
+              ? `<span class="top-stat-highlight">${c.views}v</span>`
+              : `<span class="top-stat-highlight">${score}pt</span>`;
+            return `<div class="top-item">
+              <span class="top-rank">${i + 1}</span>
+              <span class="type-badge ${c.type}" style="font-size:0.55rem;">${c.type}</span>
+              <span class="top-title">${esc(c.title)}</span>
+              <div class="top-stats">
+                ${stat}
+                <span>${c.likes}L ${c.comments}C</span>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        renderList(byViews, viewsList, 'views');
+        renderList(byEng, engList, 'engagement');
+      }
+
+      // ═══ Quick Actions ═══
       document.getElementById('btn-generate-news').addEventListener('click', async function() {
         await runAction(this, 'status-generate-news', 'generate-ai-news', 300000);
       });
-
       document.getElementById('btn-revalidate').addEventListener('click', async function() {
         await runAction(this, 'status-revalidate', 'revalidate');
       });
@@ -840,11 +743,9 @@ export const prerender = false;
         btn.disabled = true;
         status.className = 'action-status loading';
         status.textContent = action === 'generate-ai-news' ? 'Generating... (1~2 min)' : 'Processing...';
-
         try {
           const controller = new AbortController();
           const timer = setTimeout(() => controller.abort(), timeout);
-
           const res = await fetch('/api/admin-actions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -852,15 +753,11 @@ export const prerender = false;
             signal: controller.signal,
           });
           clearTimeout(timer);
-
           const data = await res.json();
-
           if (res.ok && data.ok) {
             status.className = 'action-status success';
             status.textContent = data.message || 'Success';
-            if (data.generated) {
-              status.textContent += ` (${data.generated} posts)`;
-            }
+            if (data.generated) status.textContent += ` (${data.generated} posts)`;
           } else {
             status.className = 'action-status error';
             status.textContent = data.error || 'Failed';
@@ -872,21 +769,16 @@ export const prerender = false;
         btn.disabled = false;
       }
 
-      // === Comments Management ===
+      // ═══ Comments ═══
       async function loadComments() {
         const container = document.getElementById('comments-list');
         container.innerHTML = '<div class="empty-state">Loading comments...</div>';
-
-        // Get slugs that have comments > 0
         const withComments = allContent.filter(c => c.comments > 0);
-
         if (withComments.length === 0) {
           container.innerHTML = '<div class="empty-state">No comments yet.</div>';
           return;
         }
-
         let allComments = [];
-
         for (const item of withComments) {
           try {
             const res = await fetch('/api/admin-actions', {
@@ -897,33 +789,27 @@ export const prerender = false;
             if (res.ok) {
               const data = await res.json();
               allComments.push(...(data.comments || []).map(c => ({
-                ...c,
-                postTitle: item.title,
-                postSlug: item.slug,
+                ...c, postTitle: item.title, postSlug: item.slug,
               })));
             }
-          } catch { /* skip */ }
+          } catch {}
         }
-
-        // Sort by date desc
         allComments.sort((a, b) => new Date(b.date) - new Date(a.date));
-
         if (allComments.length === 0) {
           container.innerHTML = '<div class="empty-state">No comments yet.</div>';
           return;
         }
-
         container.innerHTML = allComments.map(c => `
-          <div class="comment-card" data-slug="${escapeHtml(c.postSlug)}" data-index="${c.index}">
+          <div class="comment-card" data-slug="${esc(c.postSlug)}" data-index="${c.index}">
             <div class="comment-header">
               <div class="comment-meta">
-                <span class="comment-name">${escapeHtml(c.name)}</span>
+                <span class="comment-name">${esc(c.name)}</span>
                 <span class="comment-date">${new Date(c.date).toLocaleString('ko-KR')}</span>
-                <a href="${c.postSlug}" target="_blank" class="comment-slug">${escapeHtml(c.postSlug)}</a>
+                <a href="${c.postSlug}" target="_blank" class="comment-slug">${esc(c.postSlug)}</a>
               </div>
-              <button class="delete-btn" onclick="deleteComment(this, '${escapeHtml(c.postSlug)}', ${c.index})">Delete</button>
+              <button class="delete-btn" onclick="deleteComment(this, '${esc(c.postSlug)}', ${c.index})">Delete</button>
             </div>
-            <div class="comment-text">${escapeHtml(c.text)}</div>
+            <div class="comment-text">${esc(c.text)}</div>
           </div>
         `).join('');
       }
@@ -932,37 +818,30 @@ export const prerender = false;
         if (!confirm('Delete this comment?')) return;
         btn.textContent = '...';
         btn.disabled = true;
-
         try {
           const res = await fetch('/api/admin-actions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ secret: currentSecret, action: 'delete-comment', slug, commentIndex: index }),
           });
-
           if (res.ok) {
             btn.closest('.comment-card').remove();
-            const remaining = document.querySelectorAll('.comment-card').length;
-            if (remaining === 0) {
-              document.getElementById('comments-list').innerHTML = '<div class="empty-state">No comments yet.</div>';
+            if (!document.querySelectorAll('.comment-card').length) {
+              document.getElementById('comments-list').innerHTML = '<div class="empty-state">No comments.</div>';
             }
           } else {
-            const data = await res.json();
-            alert(data.error || 'Failed to delete');
-            btn.textContent = 'Delete';
-            btn.disabled = false;
+            alert((await res.json()).error || 'Failed');
+            btn.textContent = 'Delete'; btn.disabled = false;
           }
         } catch {
-          alert('Failed to delete comment');
-          btn.textContent = 'Delete';
-          btn.disabled = false;
+          alert('Failed'); btn.textContent = 'Delete'; btn.disabled = false;
         }
       };
 
-      function escapeHtml(str) {
-        const div = document.createElement('div');
-        div.textContent = str;
-        return div.innerHTML;
+      function esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str || '';
+        return d.innerHTML;
       }
     </script>
   </body>
