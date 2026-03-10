@@ -82,9 +82,9 @@ const ContentComponent = rendered.Content;
       </h3>
       <form class="comment-form" id="comment-form">
         <div class="comment-form-row">
-          <input type="text" id="comment-name" class="comment-input comment-name-input" placeholder="이름" maxlength="50" required />
+          <input type="text" id="comment-name" class="comment-input comment-name-input" placeholder="이름" data-ph-ko="이름" data-ph-en="Name" maxlength="50" required />
         </div>
-        <textarea id="comment-text" class="comment-input comment-textarea" placeholder="댓글을 남겨주세요..." maxlength="1000" rows="3" required></textarea>
+        <textarea id="comment-text" class="comment-input comment-textarea" placeholder="댓글을 남겨주세요..." data-ph-ko="댓글을 남겨주세요..." data-ph-en="Leave a comment..." maxlength="1000" rows="3" required></textarea>
         <div class="comment-form-actions">
           <span class="comment-char-count" id="char-count">0 / 1000</span>
           <button type="submit" class="comment-submit" id="comment-submit">
