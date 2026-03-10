@@ -1,128 +1,70 @@
 ---
-title: "What is Vibe Coding — The New Way to Build Software with AI"
+title: "Senior Devs Got 19% Slower But Believed They Were Faster — The Truth About Vibe Coding"
 date: 2026-03-09
-description: "Andrej Karpathy coined vibe coding. Here's what it means, how to do it well, and where it falls short."
-tags: ["vibe-coding", "ai", "claude-code", "productivity"]
+description: "41% of all code is AI-generated. Collins Word of the Year. But the guy who coined it just called it obsolete"
+tags: ["ai", "vibe-coding", "productivity", "agentic-engineering"]
 lang: "en"
 source: "original"
 ---
 
-In February 2025, Andrej Karpathy posted on X: "There's a new kind of coding I call 'vibe coding', where you fully give in to the vibes, embrace exponentials, and forget that the code even exists." The post hit 4.5 million views. Collins English Dictionary named it Word of the Year for 2025. Merriam-Webster added it as a slang and trending term in March 2025.
+In February 2025, OpenAI co-founder Andrej Karpathy fired off a tweet.
 
-A year later, the term has moved past novelty into something that describes a real shift in how software gets built.
+"There's a new kind of coding I call 'vibe coding', where you fully give in to the vibes, embrace exponentials, and forget that the code even exists."
 
-## What Vibe Coding Actually Is
+He was using voice interfaces to tell AI "decrease the sidebar padding by half," pressing "Accept All" without reading diffs, and copy-pasting error messages back to the AI with no commentary. He acknowledged "the code grows beyond my usual comprehension." It was meant for throwaway weekend projects.
 
-The core idea: describe what you want in natural language, let the AI generate the code, review the output, iterate.
+The tweet hit 4.5 million views. Searches spiked 6,700% that spring. Collins Dictionary named it Word of the Year 2025. Karpathy later called it "a shower-thoughts throwaway tweet."
 
-Traditional coding puts the developer at the level of implementation — writing every line, managing syntax, tracking variable state. Vibe coding raises the abstraction layer. The developer defines *what* the code should do. The AI handles *how*.
+One year later, February 2026, Karpathy spoke again. "Vibe coding is now passé." His new term: "Agentic Engineering."
 
-Karpathy described his workflow this way: "I just see stuff, say stuff, run stuff, and copy paste stuff, and it mostly works." He accepts Cursor's suggestions without deeply reading the generated code, trusts the AI to fix its own mistakes through follow-up prompts.
+## Two Definitions at War
 
-This is not fundamentally different from how programming languages themselves have evolved — from assembly to C, from C to Python, each transition moved developers further from machine-level details. Vibe coding is another step in that direction.
+The term "vibe coding" carries two conflicting meanings.
 
-## The Tools
+The first is Karpathy's original framing. Accept AI-generated code without understanding it. "Forget that the code even exists." Suitable for prototypes and throwaway projects. Risky for production.
 
-Three tools dominate the vibe coding landscape right now.
+The second is the practical reality. AI generates code, but humans review, test, and understand it. The AI acts as a "typing assistant" or "pair programmer." Production-viable.
 
-**Claude Code** is a terminal-first AI agent built by Anthropic. It reads your entire codebase, operates inside the shell, and handles multi-step workflows — mapping project structure, running tests, generating PRs, committing changes — without leaving the terminal. It maintains a reliable 200k token context window. On SWE-bench, Claude Sonnet 4 scores 72.7%, the highest of any model currently available. Claude Code is strongest on large, complex codebases where deep repo understanding matters more than raw autocomplete speed.
+Programmer Simon Willison drew the definitive line: "If an LLM wrote every line of your code, but you've reviewed, tested, and understood it all, that's not vibe coding in my book — that's using an LLM as a typing assistant."
 
-**Cursor** is a VS Code fork with AI at the core. Composer mode lets you describe changes across multiple files simultaneously. The `@` reference system lets you point the AI at specific files or functions to anchor its context. Agent mode chains together feature implementation, test writing, lint fixes, and PR creation from a single prompt. Context window is 128k in standard mode, 200k in Max Mode (though in practice Cursor may truncate older context to keep responses fast). Best fit for new projects and multi-file editing workflows.
+## The Numbers: Already Mainstream
 
-**GitHub Copilot** layers on top of VS Code without requiring any tool change. Its strength is zero friction — it works inside the editor you already use. Autocomplete and chat are its primary modes; its agentic capabilities are less developed than Claude Code or Cursor's Agent Mode. At $10/month, it's the cheapest option and the lowest barrier to entry.
+By 2026, AI-assisted coding is the norm, not the exception. 92% of US developers use AI coding tools daily. 82% of global developers use them at least weekly. 41% of all code written globally is AI-generated. 87% of Fortune 500 companies have adopted at least one vibe coding platform.
 
-Choosing between them comes down to context. Large existing codebases with tangled architecture: Claude Code. New projects or heavy multi-file editing: Cursor. Existing VS Code workflow, want productivity gains without changing tools: Copilot.
+The experience-level split is dramatic. Senior developers (10+ years) report 81% productivity gains. Mid-level developers (3–10 years) see 51% faster task completion but need more review time. Junior developers (0–3 years) show mixed results, with 40% admitting they deploy code without full understanding.
 
-## How the Workflow Changes
+## The Uncomfortable Research
 
-With vibe coding, the developer's role shifts from implementer to architect and reviewer.
+METR, an AI evaluation organization, ran a randomized controlled trial in July 2025. Experienced open-source developers using AI coding tools were **19% slower.** They had predicted they'd be 24% faster. After the experiment, they still believed they'd been 20% faster.
 
-Before:
-1. Understand requirements
-2. Design the solution
-3. Write the code directly
-4. Debug
-5. Write tests
-6. Review
+They actually got slower but believed they got faster. The reason: on non-trivial tasks, the cognitive overhead of reviewing, verifying, and fixing AI-generated code negated or reversed the speed benefits.
 
-With vibe coding:
-1. Translate requirements into a clear natural language prompt
-2. Review AI-generated code
-3. Issue correction prompts, iterate
-4. Validate the result
+Security issues are equally real. In May 2025, 170 out of 1,645 web apps generated by the Swedish vibe coding platform Lovable had security vulnerabilities exposing personal information. A December 2025 CodeRabbit analysis of 470 open-source pull requests found AI-co-authored code contained approximately 1.7x more "major" issues compared to human-written code.
 
-The time spent writing code decreases. The time spent evaluating AI output and directing the next step increases. The bottleneck moves from "can I type this fast enough" to "can I tell whether this output is correct."
+## Linus Torvalds Got It Right
 
-Y Combinator's Winter 2025 batch reported that 25% of startups in the cohort had codebases that were 95% or more AI-generated.
+In January 2026, Linux creator Linus Torvalds used Google Antigravity to vibe-code a Python visualizer for his AudioNoise hobby project. He wrote it in the README: "The Python visualizer tool has been basically written by vibe-coding."
 
-## Where It Works and Where It Doesn't
+The crucial detail: he hand-coded the C components himself. Vibe coding was for peripheral tooling, not core logic. At an Open Source Summit, he said vibe coding was fine for getting started but a "horrible idea" for maintenance.
 
-### Works well
+Core C code (kernel logic) — hand-coded. Peripheral Python tool (visualization) — vibe-coded. That's the most practical approach in 2026.
 
-- **Boilerplate-heavy tasks**: CRUD endpoints, repetitive components, test case generation
-- **Rapid prototyping on small projects**: validating a new idea in a day or two
-- **Known library or API usage**: "implement pagination using the Stripe API" — clear, bounded, documentable
-- **Refactoring**: restructuring existing code for readability, applying consistent patterns
-- **Documentation**: comments, READMEs, API docs
+## 2026: From Vibes to Agentic Engineering
 
-### Works poorly
+Karpathy's February 2026 declaration sets the direction clearly. "Today, programming via LLM agents is increasingly becoming a default workflow for professionals, except with more oversight and scrutiny. The goal is to claim the leverage from the use of agents but without any compromise on the quality of the software."
 
-- **Large codebases**: AI context degrades as file count grows. Missing cross-file dependencies, misunderstanding architectural decisions — both become more common at scale
-- **Security-critical code paths**: A December 2025 CodeRabbit analysis of 470 open-source pull requests found AI co-authored code had security vulnerabilities at 2.74x the rate of human-written code
-- **Performance optimization**: Choosing the right algorithm, managing memory, profiling bottlenecks — these require domain-level expertise that AI doesn't reliably possess
-- **Novel system architecture**: When there's no existing pattern to reference, AI extrapolates poorly
-- **Deep business logic**: Code that encodes years of domain decisions doesn't translate cleanly into natural language prompts
+The evolution: from vibe coding (accepting code without understanding) to agentic engineering (agents generate, humans supervise and verify). The agent patterns from earlier — planning, tool use, reflection — now apply to coding workflows. Agents plan, implement, and test. Humans review, direct corrections, agents revise.
 
-## The Productivity Question
+The best practitioners are senior engineers who understand architecture, catch bad AI output, and know when to intervene. They use AI to skip tedious parts while maintaining control over decisions that actually matter.
 
-The numbers are more complicated than the hype suggests.
+> The real risk of vibe coding isn't code quality. It's believing you understand code that you don't.
 
-METR published a randomized controlled trial in July 2025 studying experienced open-source developers using AI coding tools. The result: developers using AI tools took 19% *longer* to complete tasks. They predicted they would be 24% faster, and afterward reported feeling 20% faster. Measured task completion time went the other direction.
+---
 
-One interpretation: experienced developers are already efficient. Adding AI tooling introduces overhead — reviewing generated code, correcting wrong turns, re-prompting — that outweighs gains for developers who already move fast.
+- [Vibe Coding — Wikipedia](https://en.wikipedia.org/wiki/Vibe_coding)
+- [Vibe Coding Is Passé — The New Stack](https://thenewstack.io/vibe-coding-is-passe/)
+- [METR RCT Study on AI Developer Productivity](https://metr.org/)
 
-The picture looks different for less experienced developers or unfamiliar tech stacks. Building something in a language you don't know well, or rapidly prototyping with an API you've never used — the productivity gain is real and measurable in those contexts.
+---
 
-> Vibe coding's productivity gains are largest when skill level is lower, tasks are well-defined, and codebases are small.
-
-## Practical Tips
-
-**Break tasks into small, specific prompts**
-
-"Build a full authentication system" produces mediocre output. "Write a JWT validation middleware for Express that checks the Authorization header and returns 401 on failure" produces something usable. The more bounded the request, the more accurate the output.
-
-**Read every line that touches security, data access, or business logic**
-
-Accepting AI suggestions without reading them is viable for scaffolding and boilerplate. It is not viable for anything that handles user data, authentication, or complex conditional logic. Set a rule and keep it.
-
-**Ask for a plan before implementation**
-
-Before requesting code, ask: "Explain how you'd implement this feature." Review the approach. Correct it if needed. Then ask for the implementation. This catches wrong architectural decisions before they're embedded in code.
-
-**Commit more frequently**
-
-AI edits code in bulk. If something breaks, you want a recent checkpoint to roll back to. Treat small, frequent commits as mandatory when working in agentic mode.
-
-**Request tests alongside code**
-
-When asking for a function, add "and write tests for it." AI-generated tests force the model to specify what the code is supposed to do, which serves as lightweight validation.
-
-**Maintain a project context file**
-
-If you use Claude Code, `CLAUDE.md` at the project root loads automatically at session start. Put your coding conventions, architectural rules, and anti-patterns there. Without it, you'll repeat the same context setup on every session.
-
-## Where This Is Going
-
-Karpathy wrote in early 2026 that vibe coding is now passé. LLMs have improved enough that professional AI-assisted development looks less like "vibe coding" and more like "agentic engineering" — using LLM agents with deliberate oversight and scrutiny, not just accepting whatever the model produces.
-
-The trajectory:
-
-- **2023**: LLMs generate code snippets on demand
-- **2025**: Vibe coding — hand natural language descriptions to AI, get full features back
-- **2026**: Agentic engineering — AI agents plan, execute, and verify. Developers set direction and validate results
-
-Stack Overflow's 2025 Developer Survey found 84% of developers use or plan to use AI tools in their workflow. This is no longer an early-adopter practice.
-
-The tools will keep improving. What doesn't change: the ability to evaluate whether AI output actually solves the right problem, maintains security properties, and remains maintainable. Vibe coding well means being a rigorous reviewer, not just a fluent prompter.
-
-The leverage is real. So is the responsibility for the output.
+*Also available on: [Dev.to](https://dev.to/jidonglab) · [Naver](https://blog.naver.com/jidonglab) · [Medium](https://medium.com/@jidonglab)*

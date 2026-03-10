@@ -1,143 +1,87 @@
 ---
-title: "RAG 2.0 and What's Left for Open Source — The State of Retrieval-Augmented Generation"
+title: "Single-Pass RAG Is Dead — The Complete 2026 AI Keyword Roundup"
 date: 2026-03-09
-description: "Basic RAG is dead. GraphRAG, Agentic RAG, and where open source still matters."
-tags: ["rag", "open-source", "vector-db", "langchain", "llm"]
+description: "Agentic RAG, 700M open-source downloads, LLMs on smartphones. Every remaining keyword in one final guide"
+tags: ["ai", "llm", "rag", "open-source", "edge-ai", "multimodal", "ai-governance"]
 lang: "en"
 source: "original"
 ---
 
-The original RAG pattern — chunk documents, embed them, retrieve the nearest neighbors, stuff into context — was good enough in 2022. In 2026 it fails in production. Multi-hop questions return wrong answers. Irrelevant chunks make LLMs hallucinate. Keyword mismatches miss obvious results. Vector similarity alone is not a retrieval strategy; it's a starting point.
+The word "RAG" has become an umbrella covering three fundamentally different architectures.
 
-What replaced it is a collection of techniques, some of which get bundled under the "RAG 2.0" label. This post covers those techniques, maps them to the open-source tools that implement them, and draws a clear line between where open source remains competitive and where it genuinely falls behind managed alternatives.
+After the 2024 RAG hype cycle came inevitable disillusionment. Building a demo took minutes, but scaling to enterprise broke things fast. Irrelevant documents got stuffed into prompts without verification. A single search pass couldn't handle complex questions. No validation checked whether the answer actually matched the retrieved content.
 
-## What Changed: From Retrieve-Then-Generate to Adaptive Pipelines
+RAG isn't dead. Naive RAG is.
 
-### The Failure Modes of Naive RAG
+## From Naive RAG to Agentic RAG
 
-Naive RAG has three structural failure modes that no amount of prompt engineering fixes.
+First-generation RAG was a straight pipeline: question → search → inject into context → LLM answer. In January 2026, still deploying this approach likely means frustrating users.
 
-**Retrieval precision.** Cosine similarity on dense embeddings favors semantic surface similarity, not relevance. A question about "contract termination conditions" may not retrieve a document that uses "exit clause" or "dissolution terms." Sparse retrieval (BM25) catches keyword matches that dense search misses.
+Agentic RAG isn't a pipeline — it's a loop. The LLM operates as a reasoning engine, not just a text generator. An agent grades whether retrieved documents are actually relevant. If not, it rewrites the query and searches again. After generating an answer, a hallucination checker verifies whether the response is grounded in the documents.
 
-**Context poisoning.** When irrelevant chunks land in the context window, the LLM generates answers from them. This is not a model problem — it is a retrieval problem. Accuracy drops in direct proportion to irrelevant context volume.
+The key distinction isn't better retrieval. It's the ability to notice ambiguity and react to it. Pipeline RAG assumes one search is enough. When that assumption holds, everything is simple. When it doesn't, the system has no way to recover. Production deployments with Self-RAG reported 25–40% reduction in unnecessary retrievals.
 
-**Single-hop limitation.** Comparative or analytical questions ("Is policy A stricter than policy B?") require evidence from multiple documents that must be combined. A single retrieval pass cannot handle this.
+Graph RAG goes further. It handles questions where the answer doesn't exist in any single document chunk — only in the relationships between facts. "Where was Einstein working when he developed relativity?" requires connecting two facts: Einstein → DEVELOPED → Relativity AND Einstein → WORKED_AT → Patent Office. Text retrieval can't make this connection. Knowledge graph traversal can. GraphRAG implementations have achieved search precision up to 99%.
 
-### The Core Advanced RAG Techniques
+## Open Source Models: The Gap Has Closed
 
-**Hybrid Search** combines dense retrieval with BM25 sparse retrieval, merging ranked lists via Reciprocal Rank Fusion (RRF). This is now table stakes. Qdrant and Weaviate ship it as a first-class feature. LlamaIndex exposes it through `BM25Retriever` + `VectorIndexRetriever` composition. Research consistently shows hybrid outperforms either approach alone, especially on domain-specific corpora where vocabulary is specialized.
+As of February 2026, open-weight models routinely match or exceed proprietary model performance from just twelve months ago. On some specialized benchmarks, they compete with the very best closed models available today.
 
-**Reranking** runs a two-stage retrieval. Stage one uses fast approximate nearest neighbor search to pull a large candidate set (top-50 or top-100). Stage two applies a cross-encoder model — Cohere Rerank, `BAAI/bge-reranker-v2-m3`, or `cross-encoder/ms-marco-MiniLM-L-6-v2` — to re-score each candidate on full query-document relevance. Cross-encoders are slower but significantly more accurate than bi-encoder similarity. The latency cost is acceptable because stage one is already fast.
+DeepSeek and Qwen now hold 15% of the global AI market — up from 1% a year ago. Qwen has surpassed 700 million cumulative downloads on Hugging Face, making it the most downloaded AI model family in the world.
 
-**Query Decomposition** breaks complex questions into independent sub-queries that are retrieved separately and merged. RQ-RAG decomposes into latent sub-questions. RAG-Fusion generates multiple reformulated queries and fuses results via RRF. This directly addresses the single-hop limitation. Empirically, decomposition improves recall on multi-hop benchmarks (HotpotQA, MuSiQue) by meaningful margins.
+The cost difference is decisive. Self-hosting DeepSeek V3.2 costs roughly $0.028 per million input tokens when amortized over reasonable use. Equivalent proprietary API calls cost $2–$15 per million. That's a 70x to 500x difference.
 
-**Contextual Chunking** abandons fixed-size character splits. Chunking follows document structure: paragraphs, sections, headings. Anthropic's Contextual Retrieval approach prepends a document-level summary to each chunk before embedding, giving the retriever context about what the chunk belongs to. Sentence-window retrieval stores small chunks for precision but expands to surrounding sentences for generation context.
+When to choose open source: sensitive data that can't leave your infrastructure (healthcare, legal, finance), high-volume processing where API costs exceed self-hosting, need for domain-specific fine-tuning, or vendor lock-in avoidance. When to choose closed APIs: low volume where infrastructure overhead doesn't justify itself, need for absolute best quality on specific tasks, no GPU management capability, or rapid prototyping where an API key gets you started immediately.
 
-**Late Interaction Models** (ColBERT, ColPali) score query-document pairs at the token level rather than the embedding level, achieving higher precision than single-vector retrieval. `ragatouille` wraps ColBERT for LangChain/LlamaIndex integration. For document collections where retrieval quality is the bottleneck, late interaction is worth the storage overhead.
+The self-hosting break-even point sits at roughly 15–40 million tokens per month. Below that, APIs are already cheaper.
 
-## GraphRAG: When Vector Search Is Not Enough
+## Edge AI: LLMs on Your Phone
 
-Microsoft's **GraphRAG** (open-sourced in 2024, `microsoft/graphrag` on GitHub) extracts entities and relationships from documents to build a knowledge graph. Retrieval operates over the graph rather than over flat vector chunks.
+Edge AI means running models directly on user devices — smartphones, laptops, IoT — instead of the cloud. The combination of SLMs and quantization made this possible.
 
-The key capability is **community detection**. GraphRAG clusters entities into thematic communities and generates hierarchical summaries at multiple granularities. Questions like "What are the main themes in these research papers?" or "How does organization A relate to organization B across these documents?" are unanswerable with flat vector retrieval and directly addressable with GraphRAG.
+Llama 3.2 1B (4-bit) runs at 20–30 tokens/sec on iPhone 15+. Qwen 3.5 9B (4-bit) runs at ~50 tok/s on an RTX 4060 Ti laptop. Install Ollama, run `ollama run qwen3.5:9b`, and you have a local LLM. After download, it works without internet.
 
-Benchmark results on multi-hop datasets (HotpotQA, MuSiQue, 2WikiMultihopQA) show 4–10% F1 improvement over standard RAG. The cost is real: graph construction requires LLM calls for entity extraction across all documents. For a 10,000-document corpus this can mean thousands of API calls and significant latency before the system is queryable. Graph updates when documents change require incremental strategies that are not yet mature in the tooling.
+The core advantages are privacy (data never leaves the device), offline operation, zero cost, and sub-200ms latency. For services handling sensitive data in healthcare, finance, or legal contexts, Edge AI's value proposition is strong.
 
-**RAGFlow** is the most complete open-source implementation combining GraphRAG with agentic reasoning and a REST API. It supports multiple embedding backends and storage layers. For teams that want GraphRAG without building it from scratch, RAGFlow is the current best option.
+## Multimodal AI: Text-Only Is Over
 
-The alternative pattern: pair Haystack for retrieval + evaluation with Microsoft GraphRAG for thematic queries. This is used in enterprise compliance deployments where thematic summarization across large document sets is required.
+Multimodal capability is the 2026 baseline for frontier models. GPT-5 and Gemini 2.5 Pro handle text, image understanding, image generation, audio, and video. Claude Opus 4.6 understands images but doesn't generate them.
 
-## Agentic RAG: Dynamic Retrieval Strategy
+Practical applications include generating React components from Figma design screenshots, analyzing medical images, extracting summaries and action items from meeting recordings, and real-time voice conversations. For UE5 developers, showing a UI screenshot to Claude and asking it to generate UMG Widget code is already possible and practical.
 
-Static RAG pipelines are a fixed sequence: retrieve, augment, generate. **Agentic RAG** makes retrieval a tool that an agent decides when and how to use.
+## AI Governance: EU AI Act Is Live
 
-The arXiv survey (2501.09136, January 2025) identifies four core agentic patterns applied to RAG:
+The EU AI Act, effective since August 2024, approaches full high-risk enforcement in August 2026.
 
-- **Reflection**: the agent evaluates whether retrieved evidence is sufficient before generating
-- **Planning**: the agent decomposes multi-step tasks and sequences retrieval actions
-- **Tool Use**: the agent selects between vector search, web search, SQL queries, or API calls based on the question type
-- **Multi-agent Collaboration**: specialized agents (retriever, critic, synthesizer) operate in parallel or sequence
+Risk levels determine regulation intensity. Real-time remote biometric surveillance and social scoring are banned. Medical diagnosis, hiring, and credit scoring AI are classified as high-risk, requiring conformity assessments, transparency, and human oversight. Chatbots must disclose they're AI. Deepfakes require labeling. Minimal-risk categories like spam filters and game AI face almost no regulation.
 
-**LangGraph** is the primary open-source implementation of these patterns. It models agentic workflows as directed graphs where nodes are actions and edges are conditional transitions. It provides checkpointing (state persistence across steps), human-in-the-loop interruption, streaming output, and hybrid composition with LangChain retrievers. A 2025 benchmark that ran identical agentic RAG workflows across LangChain, LangGraph, LlamaIndex, Haystack, and DSPy (using the same model, embeddings, and vector store) ranked LangGraph first for stateful multi-step orchestration.
+For global services, the practical takeaway is implementing "AI-generated content" disclosure now, regardless of where your primary market is.
 
-**DSPy** takes a different approach. Instead of manually writing prompts, you define input/output signatures and a metric, and DSPy optimizes the full pipeline including prompts via gradient-like compilation. For RAG systems where retrieval quality and answer accuracy need systematic optimization rather than manual tuning, DSPy is worth evaluating. The learning curve is steep.
+## Diffusion LLM: The Next Paradigm Candidate
 
-## Open Source Vector Databases: Where They Stand
+Current LLMs generate tokens one at a time sequentially (autoregressive). Diffusion LLMs generate the entire text simultaneously and progressively refine it — same principle as image generation AI like Stable Diffusion.
 
-The vector database market reached $1.73 billion in 2024 and is projected to hit $10.6 billion by 2032. The open-source tier has consolidated around a few clear choices.
+The autoregressive bottleneck: generating 200 tokens requires 200 sequential inference passes. Longer text means proportionally slower output. Diffusion LLMs can theoretically generate entire sequences in parallel, dramatically reducing latency.
 
-**ChromaDB** is the fastest path to a working prototype. Python API, zero configuration, embedded or client-server mode. The 2025 Rust-core rewrite delivered 4x faster writes and queries with multi-threading support. Ceiling: ~10 million vectors before performance degrades relative to purpose-built alternatives. For anything larger, migrate to Qdrant or Milvus.
+It's still in research. Google's Gemini Diffusion leads but hasn't reached general-purpose LLM quality yet. Worth watching as a potential paradigm shift for inference cost and latency in 2026–2027.
 
-**Qdrant** (Rust, GitHub: 9,000+ stars) is the production choice for teams that want self-hosted performance. Payload filtering integrates directly into vector search rather than as a post-processing step — this matters for queries that combine semantic similarity with structured filters (date ranges, categories, metadata). Its 2025 release introduced asymmetric quantization (24x compression with minimal accuracy loss) and Hybrid Cloud deployment for on-premises processing with centralized management. Cloud pricing benchmarks at ~$102/month on AWS us-east for a standard workload, reducible to ~$27 with quantization and disk caching. Self-hosted cost is infrastructure only.
+## The Complete Keyword Map
 
-**Weaviate** (Go, GitHub: 8,000+ stars) adds a GraphQL API, knowledge graph integration, and native multimodal support (text, image, video via third-party integrations). It is the choice when vector search needs to coexist with relationship-aware queries. Trade-off: complex graph-traversal queries run slower than pure vector search workloads. Serverless pricing starts at ~$25/month.
+The full picture of AI keywords as of March 2026 has a clear structure.
 
-**Milvus** (GitHub: 35,000+ stars, the largest in the category) is built for billions of vectors with distributed horizontal scaling. Production deployments at hyperscaler scale use Milvus. Operational complexity is high; Kubernetes is effectively required.
+Agentic systems (Agentic AI, MCP, Context Engineering) form the center. Surrounding them: cost optimization (Model Routing, Token Economics, Prompt Caching), model efficiency (SLM, MoE, Distillation, Quantization), reasoning enhancement (Inference Scaling, Reasoning Models, RLVR), data and retrieval (RAG 2.0, Agentic RAG, Graph RAG), development methods (Vibe Coding → Agentic Engineering), and ecosystem (Open Source, Multimodal, Edge AI, AI Governance).
 
-**pgvector** is the pragmatic choice for teams already running PostgreSQL who do not want a separate vector infrastructure. Performance does not match purpose-built engines at scale but is adequate for many production RAG workloads below ~5 million vectors.
+These keywords don't exist independently — they interconnect. Model Routing operates between SLMs and LLMs. Context Engineering meets RAG. Agentic AI runs on top of MCP and Tool Use. Understanding one naturally leads to the rest.
 
-**Pinecone** (proprietary) remains the benchmark for managed simplicity. Zero infrastructure management, built-in hybrid search, serverless pricing. The cost scaling at large vector volumes is the main argument for moving to self-hosted open-source alternatives.
+> The core skill of 2026 AI isn't any single technology. It's the judgment of which model, at which size, for which task, at which cost. That matching ability is the new engineering competency.
 
-## Where Open Source Still Has an Edge
+---
 
-**Cost at scale.** Pinecone, Weaviate Cloud, and similar managed services price on stored vectors and query volume. At tens of millions of vectors with high query throughput, self-hosted Qdrant or Milvus is significantly cheaper. The break-even point depends on engineering cost, but most teams hit it well before enterprise scale.
+- [Choosing the Right RAG Architecture in 2026](https://medium.com/@skyhawkbytecode/choosing-the-right-rag-architecture-in-2026)
+- [Open Source LLM Leaderboard February 2026](https://awesomeagents.ai/leaderboards/open-source-llm-leaderboard/)
+- [DeepSeek V4 and Qwen 3.5 — Particula](https://particula.tech/blog/deepseek-v4-qwen-open-source-ai-disruption)
+- [O'Reilly Signals for 2026](https://www.oreilly.com/radar/signals-for-2026/)
 
-**Data sovereignty.** Sending financial, medical, or legal documents to a third-party managed service is a compliance problem. Self-hosted open-source stacks keep data within the organization's own infrastructure. HIPAA, SOC 2, and similar requirements are easier to satisfy when the data path is fully controlled.
+---
 
-**Customization depth.** Domain-specific reranker fine-tuning, custom chunking pipelines, bespoke evaluation harnesses — these require direct access to the model and pipeline code. Managed platforms offer configuration; they do not offer modification. A team training `bge-reranker-v2-m3` on domain-specific relevance annotations cannot do that through a managed RAG service.
-
-**Research-to-production latency.** When a new retrieval technique appears in a paper, an open-source implementation typically follows within weeks. Managed platforms adopt new techniques on their own roadmap. For teams building retrieval-quality as a competitive differentiator, open-source frameworks allow earlier integration.
-
-## Where Open Source Falls Behind
-
-**Operational overhead.** Running a production Qdrant or Milvus cluster requires cluster management, index tuning, backup strategies, and scaling decisions. One documented enterprise case: a "simple" RAG project that started as a two-month effort required a dedicated hallucination-debugging engineer, a data specialist for ETL issues, and a DevOps engineer for scaling — tripling the original budget. This is not an unusual outcome.
-
-**Observability and evaluation tooling.** LangSmith (LangChain's managed platform), Arize Phoenix, and similar proprietary tools provide production-grade retrieval quality monitoring, answer faithfulness scoring, and latency tracking with integrated dashboards. Open-source equivalents — Ragas, DeepEval, Phoenix's open-source version — require self-hosting and pipeline integration. The tooling works; the operational discipline to run it consistently does not come for free.
-
-**Security surface.** Open-source RAG stacks require teams to implement role-based access control, PII filtering, audit logging, and prompt injection defenses themselves. A documented incident involved a self-hosted RAG system leaking internal document titles in its responses — five similar instances found in the same audit. Managed platforms ship security controls as defaults; open-source stacks require intentional implementation.
-
-**Enterprise feature maturity.** Dashboard analytics, SLA guarantees, customer support, and compliance certifications (SOC 2, ISO 27001) are mature in managed services and still developing in open-source projects.
-
-## Recommended Stacks for 2026
-
-These are not universal prescriptions. They reflect the most common patterns that balance capability with operational realism.
-
-**Small team, fast validation**
-- ChromaDB (embedded) + LlamaIndex + LangChain
-- Add `BM25Retriever` alongside `VectorIndexRetriever` for hybrid search from day one
-- Evaluation: Ragas integrated into CI
-
-**Production, accuracy-critical**
-- Qdrant (self-hosted or Qdrant Cloud) for storage
-- LlamaIndex for ingestion, transformation, and retrieval
-- LangGraph for agentic orchestration
-- Reranker: `BAAI/bge-reranker-v2-m3` (open-source) or Cohere Rerank (managed API)
-- Evaluation: Haystack evaluation pipelines or DeepEval
-
-**Enterprise, regulated environment**
-- Milvus on-premises + LlamaIndex + Haystack
-- Audit logging at the retrieval layer
-- PII filtering before ingestion and after generation
-
-**When GraphRAG is required**
-- `microsoft/graphrag` for graph construction and querying
-- Or RAGFlow for a more complete managed-ish open-source stack
-- Budget for graph construction cost (LLM calls across full corpus)
-- Design an incremental update strategy before building
-
-**When DSPy makes sense**
-- Established retrieval pipeline with measurable accuracy metrics
-- Team willing to invest in understanding compilation-based optimization
-- Accuracy improvement is worth the setup cost over prompt engineering
-
-## The Honest Assessment
-
-RAG 2.0 is not a single product or a specification. It is a collection of techniques — hybrid search, reranking, query decomposition, contextual chunking, agentic retrieval, graph-augmented retrieval — that address the documented failure modes of naive RAG. All of these techniques have open-source implementations.
-
-The gap between open source and managed services in 2026 is not a capability gap. LangGraph + LlamaIndex + Qdrant + a reranker model covers the same ground as most enterprise RAG platforms on features. The gap is operational: managed services absorb cluster management, security defaults, monitoring, and support. Open source puts that work on the team.
-
-> The question is not whether open source can do RAG 2.0 — it can. The question is whether your team can operate it in production without it becoming a full-time job.
-
-If data sovereignty is required, customization is central to your product, or cost control at scale is a hard constraint: open source is the right choice. If your team's time is better spent on the application layer than on retrieval infrastructure: a managed service likely has a lower true cost of ownership.
-
-Both answers are correct depending on context. The mistake is treating the choice as purely technical when it is primarily organizational.
+*Also available on: [Dev.to](https://dev.to/jidonglab) · [Naver](https://blog.naver.com/jidonglab) · [Medium](https://medium.com/@jidonglab)*
