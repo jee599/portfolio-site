@@ -45,7 +45,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
   ]);
 
   const allContent = [
-    ...buildLogs.map(p => ({ slug: `/posts/${p.slug}`, title: p.data.title, type: 'build-log', date: p.data.date.toISOString().split('T')[0] })),
+    ...buildLogs.map(p => ({ slug: `/posts/${p.slug}`, title: p.data.title, type: 'build-log', date: p.data.date.toISOString().split('T')[0], project: p.data.project, lang: p.data.lang })),
     ...tips.map(p => ({ slug: `/posts/${p.slug}`, title: p.data.title, type: 'tip', date: p.data.date.toISOString().split('T')[0] })),
     ...aiNews.map(p => ({ slug: `/ai-news/${p.slug}`, title: p.data.title, type: 'ai-news', date: p.data.date.toISOString().split('T')[0] })),
     ...blogPosts.map(p => ({ slug: `/blog/${p.slug}`, title: p.data.title, type: 'blog', date: p.data.date.toISOString().split('T')[0] })),
