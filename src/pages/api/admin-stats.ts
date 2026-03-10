@@ -59,9 +59,9 @@ export const GET: APIRoute = async ({ url, locals }) => {
   }
 
   try {
-    // Fetch daily visitor counts for last 30 days
-    const dailyKeys = Array.from({ length: 30 }, (_, i) => `visitors:${getKSTDate(i)}`);
-    const dailyDates = Array.from({ length: 30 }, (_, i) => getKSTDate(i));
+    // Fetch daily visitor counts for last 90 days
+    const dailyKeys = Array.from({ length: 90 }, (_, i) => `visitors:${getKSTDate(i)}`);
+    const dailyDates = Array.from({ length: 90 }, (_, i) => getKSTDate(i));
 
     const pipeline = redis.pipeline();
     // visitor counts
