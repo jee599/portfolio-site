@@ -1,68 +1,27 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { getCollection } from 'astro:content';
-import { fetchArticles, fetchArticleBySlug } from '../../lib/devto';
-
 export async function getStaticPaths() {
-  // Local blog collection posts
   const blogPosts = await getCollection('blog');
-  const syncedDevtoIds = new Set(
-    blogPosts.filter(p => p.data.devto_id).map(p => p.data.devto_id)
-  );
 
-  const localPaths = blogPosts.map((p) => ({
+  return blogPosts.map((p) => ({
     params: { slug: p.slug },
-    props: { entry: p, source: 'local' },
+    props: { entry: p },
   }));
-
-  // Dev.to articles not yet synced locally
-  const localSlugs = new Set(blogPosts.map(p => p.slug));
-  const devtoArticles = await fetchArticles();
-  const devtoPaths = devtoArticles
-    .filter(a => !syncedDevtoIds.has(a.id) && !localSlugs.has(a.slug))
-    .map((a) => ({
-      params: { slug: a.slug },
-      props: { entry: null, source: 'devto', articleSlug: a.slug },
-    }));
-
-  return [...localPaths, ...devtoPaths];
 }
 
-const { entry, source, articleSlug } = Astro.props;
+const { entry } = Astro.props;
 
-// Normalize data from either source
-let title = '';
-let description = '';
-let dateStr = '';
-let tags: string[] = [];
-let sourceLabel = 'Blog';
-let sourceUrl = '';
-let bodyHtml = '';
-let ContentComponent: any = null;
-let readingTime = 0;
+const title = entry.data.title;
+const description = entry.data.description || '';
+const dateStr = entry.data.date.toISOString().split('T')[0];
+const tags: string[] = entry.data.tags || [];
+const sourceLabel = 'Blog';
+const sourceUrl = entry.data.source_url || '';
+const readingTime = 0;
 const blogSlug = Astro.url.pathname;
-
-if (source === 'local' && entry) {
-  title = entry.data.title;
-  description = entry.data.description || '';
-  dateStr = entry.data.date.toISOString().split('T')[0];
-  tags = entry.data.tags || [];
-  sourceLabel = entry.data.source === 'devto' ? 'DEV.to' : 'Blog';
-  sourceUrl = entry.data.source_url || '';
-  const rendered = await entry.render();
-  ContentComponent = rendered.Content;
-} else if (source === 'devto') {
-  const article = await fetchArticleBySlug(articleSlug);
-  if (!article) return Astro.redirect('/posts');
-  title = article.title;
-  description = article.description;
-  dateStr = article.published_at.split('T')[0];
-  tags = Array.isArray(article.tag_list) ? article.tag_list : (typeof article.tag_list === "string" ? article.tag_list.split(", ") : []);
-  sourceLabel = 'DEV.to';
-  sourceUrl = article.url;
-  bodyHtml = article.body_html;
-  readingTime = article.reading_time_minutes;
-}
+const rendered = await entry.render();
+const ContentComponent = rendered.Content;
 ---
 
 <Base title={title} description={description}>
@@ -102,7 +61,7 @@ if (source === 'local' && entry) {
     </header>
 
     <div class="prose">
-      {ContentComponent ? <ContentComponent /> : <Fragment set:html={bodyHtml} />}
+      <ContentComponent />
     </div>
 
     <!-- Engagement: 추천 -->

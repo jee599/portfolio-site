@@ -2,7 +2,6 @@
 import Base from '../layouts/Base.astro';
 import PostCard from '../components/PostCard.astro';
 import { getCollection } from 'astro:content';
-import { fetchArticles } from '../lib/devto';
 import { getAllProjects } from '../lib/projects';
 
 const projects = await getAllProjects();
@@ -16,11 +15,6 @@ const aiNews = (await getCollection('ai-news'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 const blogPosts = (await getCollection('blog'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-
-// Dev.to에서 실시간 fetch하되, 이미 로컬 동기화된 글은 제외
-const devtoArticles = await fetchArticles();
-const syncedDevtoIds = new Set(blogPosts.filter(p => p.data.devto_id).map(p => p.data.devto_id));
-const unsyncedDevto = devtoArticles.filter(a => !syncedDevtoIds.has(a.id));
 
 type PostItem = {
   title: string;
@@ -70,13 +64,6 @@ const allPosts: (PostItem & { lang?: string })[] = [
     date: p.data.date.toISOString().split('T')[0],
     type: 'blog' as const,
     description: p.data.description,
-  })),
-  ...unsyncedDevto.map((a) => ({
-    title: a.title,
-    href: `/blog/${a.slug}`,
-    date: a.published_at.split('T')[0],
-    type: 'blog' as const,
-    description: a.description,
   })),
 ].sort((a, b) => b.date.localeCompare(a.date));
 
