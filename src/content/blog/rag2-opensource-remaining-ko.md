@@ -1,133 +1,87 @@
 ---
-title: "RAG 2.0 시대, 오픈소스에 남은 것 — 검색 증강 생성의 현재와 미래"
+title: "한 번 검색하고 끝내는 RAG는 죽었다 — 2026년 AI 키워드 총결산"
 date: 2026-03-09
-description: "기본 RAG는 끝났다. GraphRAG, Agentic RAG, 그리고 오픈소스 생태계의 현주소."
-tags: ["rag", "open-source", "vector-db", "langchain", "llm"]
+description: "Agentic RAG, 오픈소스 700M 다운로드, 스마트폰에서 돌아가는 LLM. 나머지 키워드를 한 번에 정리한다"
+tags: ["ai", "llm", "rag", "open-source", "edge-ai", "multimodal", "ai-governance"]
 lang: "ko"
 source: "original"
 ---
 
-기본 RAG는 2022년 기준으로 작동했다. 문서를 chunk로 잘라 vector DB에 넣고, 질문과 유사한 chunk를 꺼내 LLM에 넘기는 방식이다. 지금 그 방식으로 production에 올리면 accuracy 문제, hallucination 문제, multi-hop 질문 실패가 즉각 터진다.
+"RAG"라는 단어 하나가 이제 근본적으로 다른 세 가지 아키텍처를 포괄하는 우산이 됐다.
 
-2025~2026년 기준 RAG는 단순 retrieve-then-generate 파이프라인이 아니다. 검색 전략을 동적으로 결정하고, 여러 단계의 reasoning을 거치고, graph 구조로 entity 관계를 추적하는 시스템으로 진화했다. 이 글에서는 그 변화의 핵심을 짚고, 오픈소스 생태계가 어디서 여전히 유효한지 정리한다.
+2024년 RAG 붐 이후 "RAG는 죽었다"는 말이 돌았다. 데모를 만드는 건 몇 분이면 가능했지만, 기업 규모로 확장하려니 문제가 터졌다. 관련 없는 문서를 가져와도 그대로 LLM에 넣고, 검색이 한 번이라 복잡한 질문에 대응을 못 하고, 답변이 검색 결과와 맞는지 검증도 안 됐다.
 
-## RAG의 진화 경로
+RAG가 죽은 건 아니다. 단순한 1세대 RAG가 죽은 것이다.
 
-### Naive RAG의 한계
+## Naive RAG → Agentic RAG로의 진화
 
-기본 RAG의 문제는 크게 세 가지다.
+1세대(Naive RAG)는 질문 → 검색 → context에 넣기 → LLM 답변의 직선 파이프라인이었다. 2026년 1월 기준으로 이 방식을 여전히 쓰고 있다면 사용자를 실망시킬 확률이 높다.
 
-첫째, **retrieval 품질**. cosine similarity로 가장 가까운 chunk를 꺼내는 방식은 keyword mismatch에 취약하다. 질문이 "계약 해지 조건이 어떻게 되나요?"라면, "termination clause"가 들어간 문서를 제대로 찾지 못할 수 있다.
+Agentic RAG는 파이프라인이 아니라 루프다. LLM이 텍스트 생성기가 아니라 추론 엔진으로 동작한다. 검색이 관련 있는지 에이전트가 평가(Grading)하고, 관련 없으면 질문을 재작성(Query Rewriting)해서 다시 검색한다. 답변을 생성한 후에도 환각 체크(Hallucination Check)를 통해 문서에 근거하는지 검증한다.
 
-둘째, **context window 낭비**. 관련성 낮은 chunk가 context에 포함되면 LLM은 거기서 답을 만들어낸다. irrelevant context는 accuracy를 낮춘다.
+핵심 차이는 더 나은 검색이 아니다. 모호함을 인지하고 반응하는 능력이다. Pipeline RAG는 한 번의 검색이면 충분하다고 가정한다. 그 가정이 맞으면 모든 게 단순하다. 맞지 않으면 시스템이 복구할 방법이 없다. Self-RAG 도입 후 프로덕션에서 불필요한 검색이 25~40% 줄었다는 결과가 있다.
 
-셋째, **단순 질문 이상의 실패**. "A의 정책이 B의 정책보다 엄격한가?"처럼 두 문서를 비교해야 하는 질문은 naive RAG로 처리할 수 없다. 관련 chunk를 두 개 꺼낸다고 해결되지 않는다.
+Graph RAG는 한 단계 더 나간다. 답이 단일 문서 청크에 존재하지 않고, 여러 사실의 관계에만 존재할 때 쓴다. "아인슈타인이 상대성 이론을 개발할 때 어디서 일했나?"라는 질문에는 두 가지 사실을 연결해야 한다. 아인슈타인 → 상대성 이론 개발, 아인슈타인 → 특허청 근무. 텍스트 검색으로는 이 연결이 안 된다. 지식 그래프를 통해 엔티티 간 관계를 탐색해야 한다. GraphRAG 적용 사례에서 검색 정밀도가 99%까지 향상된 보고가 있다.
 
-### Advanced RAG: 2.0의 핵심 기법들
+## 오픈소스 모델: 클로즈드를 따라잡다
 
-**Hybrid Search**는 dense retrieval(벡터 유사도)과 sparse retrieval(BM25 키워드)을 결합한다. 두 방식의 결과를 Reciprocal Rank Fusion(RRF)으로 합산하면 단독 방식 대비 recall이 뚜렷하게 올라간다. Qdrant, Weaviate는 이를 기본 기능으로 제공한다.
+2026년 2월 기준으로, 오픈 웨이트 모델이 12개월 전의 독점 모델과 정기적으로 동등하거나 능가한다. 일부 특화 벤치마크에서는 현재 최고 클로즈드 모델과도 경쟁한다.
 
-**Reranking**은 retrieval 이후 단계다. 빠르게 후보를 많이 꺼낸 다음, cross-encoder 모델(Cohere Rerank, BGE Reranker 등)로 relevance를 재평가한다. top-k를 늘려 recall을 높이고, reranking으로 precision을 확보하는 two-stage 구조다.
+DeepSeek과 Qwen이 글로벌 AI 시장의 15%를 점유하게 됐다. 1년 전 1%에서. Qwen은 Hugging Face에서 누적 7억 다운로드를 넘겼다. 세계에서 가장 많이 다운로드된 AI 모델 패밀리다.
 
-**Query Decomposition**은 복잡한 질문을 sub-query로 분해한다. "2023년과 2024년 실적을 비교해줘"를 두 개의 독립 질문으로 나눠 각각 검색하고 결과를 합친다. RQ-RAG, RAG-Fusion이 이 접근을 구현한다.
+비용 격차가 결정적이다. 자체 인프라에서 DeepSeek V3.2를 운영하면 백만 입력 토큰당 약 $0.028이다. 프론티어 독점 모델의 API 비용은 $2~$15다. 70배에서 500배 차이다.
 
-**Contextual Chunking**은 chunk 경계를 문서 구조에 맞게 조정한다. 단순 글자 수 기준 분할 대신 문단, 섹션, 혹은 문서 계층을 따라 자른다. Anthropic이 발표한 Contextual Retrieval은 각 chunk에 문서 전체 맥락을 요약해 붙여 retrieval 품질을 높이는 방식이다.
+오픈소스를 선택하는 기준은 명확하다. 민감한 데이터(의료, 금융, 법률)가 외부로 나가면 안 될 때, 대량 처리(월 수백만 건)로 API 비용이 자체 호스팅보다 비쌀 때, 도메인 특화 파인튜닝이 필요할 때, 벤더 종속을 피하고 싶을 때다. 반대로 소량 처리이거나, 인프라 관리 역량이 없거나, 빠른 프로토타이핑이 목적이면 클로즈드 API가 맞다.
 
-## GraphRAG: 관계 구조를 아는 검색
+셀프 호스팅의 손익분기점은 월 1,500만~4,000만 토큰이다. 그 이하에서는 API가 이미 더 저렴하다.
 
-Microsoft가 2024년 공개한 **GraphRAG**는 문서에서 entity와 관계를 추출해 knowledge graph를 구성한다. 벡터 유사도만으로는 찾기 어려운 "A와 B 사이에 어떤 관계가 있나?" 류의 질문을 처리할 수 있다.
+## Edge AI: 스마트폰에서 돌아가는 LLM
 
-GraphRAG의 강점은 community detection이다. 문서 집합 전체에서 주제 클러스터를 만들고, 글로벌 요약을 생성해 thematic question에 답한다. HotpotQA, MuSiQue 같은 multi-hop 벤치마크에서 기존 RAG 대비 F1 기준 4~10% 향상을 보인다.
+클라우드가 아닌 사용자 디바이스에서 직접 모델을 실행하는 것이 Edge AI다. SLM + Quantization의 결합이 이를 가능하게 만들었다.
 
-단점은 명확하다. graph 구성 비용이 높다. 대용량 문서에 적용하면 LLM API 호출이 대량 발생하고, 그래프 갱신도 복잡하다. 오픈소스로는 `microsoft/graphrag` 패키지가 있고, RAGFlow도 GraphRAG를 지원한다. 하지만 production 수준의 관리 도구는 아직 미성숙하다.
+iPhone 15 이상에서 Llama 3.2 1B(4-bit)가 20~30 tok/s로 동작한다. RTX 4060 Ti 노트북에서 Qwen 3.5 9B(4-bit)가 약 50 tok/s로 돌아간다. Ollama를 설치하고 `ollama run qwen3.5:9b` 한 줄이면 로컬에서 LLM이 실행된다.
 
-## Agentic RAG: 검색 전략을 스스로 결정하는 시스템
+핵심 장점은 프라이버시(데이터가 안 나감), 오프라인 동작(인터넷 불필요), 비용($0), 레이턴시(50~200ms)다. 의료/금융/법률처럼 데이터가 외부로 나가면 안 되는 서비스에서 Edge AI의 가치가 크다.
 
-**Agentic RAG**는 retrieval을 단순 함수 호출이 아닌 agent의 도구로 다룬다. agent는 질문을 분석하고, 어떤 데이터 소스에서 무엇을 검색할지 결정하고, 결과를 평가해 재검색 여부를 판단한다.
+## Multimodal AI: 텍스트만의 시대는 끝났다
 
-arXiv:2501.09136 (Agentic RAG Survey, 2025년 1월)에 따르면 agentic RAG의 핵심 패턴은 네 가지다.
+2026년 프론티어 모델의 기본 사양이 멀티모달이다. 텍스트, 이미지, 오디오, 비디오를 동시에 이해하고 생성한다. GPT-5와 Gemini 2.5 Pro는 텍스트, 이미지 이해, 이미지 생성, 오디오, 비디오를 전부 지원한다.
 
-- **Reflection**: 검색 결과의 충분성을 자기 평가
-- **Planning**: 멀티스텝 작업을 단계별로 분해
-- **Tool Use**: 벡터 검색, 웹 검색, SQL 쿼리를 상황에 따라 선택
-- **Multi-agent Collaboration**: 역할이 다른 여러 agent가 병렬 혹은 순차로 협력
+실전 활용으로는 Figma 디자인 스크린샷을 보여주면 React 컴포넌트를 생성하고, 의료 이미지를 보고 소견을 작성하고, 회의 영상을 넣으면 요약과 액션 아이템을 추출한다. UE5 개발 관점에서는 UI 스크린샷을 Claude에 보여주고 UMG Widget 코드를 생성하게 하는 것이 이미 가능하다.
 
-LangGraph는 이 패턴을 graph 기반 state machine으로 구현한다. 노드는 action, 엣지는 조건 분기다. 체크포인팅, human-in-the-loop, streaming이 기본 제공된다. 2025년 기준 아직 이 수준의 orchestration을 대체할 오픈소스는 없다.
+## AI Governance: EU AI Act가 시행 중이다
 
-## 오픈소스 생태계 현황
+2024년 8월 발효된 EU AI Act가 2026년 8월 고위험 AI 의무 전면 시행을 앞두고 있다.
 
-### Vector DB
+위험 등급에 따라 규제 수준이 달라진다. 실시간 원격 생체인식 감시나 소셜 스코어링은 금지된다. 의료 진단, 채용, 신용 평가 AI는 고위험으로 분류되어 적합성 평가, 투명성, 인간 감독이 필수다. 챗봇은 "AI임을 고지"해야 하고, 딥페이크는 라벨링이 필수다. 스팸 필터나 게임 AI 같은 최소 위험 카테고리는 규제가 거의 없다.
 
-| 도구 | 강점 | 적합한 상황 |
-|------|------|-------------|
-| **ChromaDB** | 설치 없이 바로 쓰는 embedded DB | 프로토타입, 로컬 개발 |
-| **Qdrant** | Rust 기반 고성능, 강력한 payload filtering, hybrid search 내장 | Production, 대규모 |
-| **Weaviate** | GraphQL API, knowledge graph 연동, multimodal | 엔터프라이즈 시맨틱 검색 |
-| **Milvus** | 수십억 벡터 처리, 분산 아키텍처 | 대규모 인프라 |
-| **pgvector** | PostgreSQL 확장, 기존 RDBMS 인프라 활용 | 벡터 DB 따로 운영 안 하려는 팀 |
+한국에서 서비스한다면 EU 규제의 직접적 영향은 적지만, 글로벌 서비스를 고려한다면 "AI가 생성한 콘텐츠"임을 표시하는 투명성 의무를 미리 적용해두는 게 안전하다.
 
-ChromaDB는 2025년 Rust core 재작성으로 쓰기/쿼리 속도가 4배 향상됐다. 하지만 10M 벡터 이상은 Qdrant나 Milvus로 가야 한다.
+## Diffusion LLM: 다음 패러다임 후보
 
-Pinecone 같은 proprietary managed 서비스는 운영 부담이 없는 대신 비용이 선형적으로 오른다. 데이터 볼륨이 커질수록 오픈소스 자체 운영이 경제적으로 유리해진다.
+기존 LLM은 토큰을 하나씩 순서대로 생성한다(Autoregressive). Diffusion LLM은 이미지 생성 AI(Stable Diffusion)와 같은 원리로 전체 텍스트를 동시에 생성하고 점진적으로 정제한다.
 
-### RAG Framework
+Autoregressive의 근본적 한계는 토큰을 순차적으로 생성해야 한다는 것이다. 200토큰을 만들려면 200번의 순차 추론이 필요하고, 긴 텍스트일수록 느려진다. Diffusion LLM은 전체 시퀀스를 동시에 생성하고 병렬 처리할 수 있어서 레이턴시 감소 가능성이 있다.
 
-**LlamaIndex**는 ingestion, indexing, retrieval 파이프라인에 특화돼 있다. LlamaHub을 통해 300개 이상의 데이터 커넥터를 제공하고, 문서 중심 RAG에서 기본 선택지다. GitHub 스타 44K+.
+아직 연구 단계다. Google의 Gemini Diffusion이 가장 앞서 있지만, 범용 LLM 수준의 품질에는 도달하지 못했다. 2026~2027년에 추론 비용과 레이턴시를 극적으로 낮출 수 있는 패러다임 전환 후보로 주시할 가치가 있다.
 
-**LangChain**은 빠른 프로토타이핑과 광범위한 통합에 강하다. 단독으로 쓰기보단 LlamaIndex와 함께 쓰는 패턴이 많다. LlamaIndex로 ingestion/retrieval을, LangChain으로 orchestration을 담당시키는 구조다.
+## 전체 키워드 맵
 
-**LangGraph**는 LangChain 팀이 agentic workflow를 위해 만든 별도 라이브러리다. stateful graph 기반 orchestration, 체크포인팅, HITL을 지원한다. 2025년 기준 agentic RAG 구현의 사실상 표준이다.
+2026년 3월 기준 AI 키워드의 전체 그림이다.
 
-**Haystack**은 evaluation과 compliance에 강하다. 금융, 의료처럼 정확도와 감사 추적이 중요한 환경에 적합하다. Python only라는 제약이 있지만 평가 파이프라인이 성숙해 있다.
+에이전트 시스템(Agentic AI, MCP, Context Engineering)이 중심축이고, 그 주변을 비용 최적화(Model Routing, Token Economics, Prompt Caching), 모델 효율화(SLM, MoE, Distillation, Quantization), 추론 강화(Inference Scaling, Reasoning Models, RLVR), 데이터/검색(RAG 2.0, Agentic RAG, Graph RAG), 개발 방식(Vibe Coding → Agentic Engineering), 생태계(Open Source, Multimodal, Edge AI, AI Governance)가 둘러싸고 있다.
 
-**DSPy**는 다른 접근법이다. 프롬프트를 수동으로 작성하는 대신 목표 메트릭으로 전체 파이프라인을 최적화한다. 실험 단계가 아닌 본격 최적화 단계에서 유용하다.
+각 키워드가 독립적으로 존재하는 게 아니라, 서로 연결되어 있다. Model Routing은 SLM과 LLM 사이에서 작동하고, Context Engineering은 RAG와 만나고, Agentic AI는 MCP와 Tool Use 위에서 돌아간다. 하나를 이해하면 나머지가 자연스럽게 따라온다.
 
-## 오픈소스가 앞서는 영역
+> 2026년 AI의 핵심은 기술이 아니라 조합이다. 어떤 모델을, 어떤 크기로, 어떤 작업에, 어떤 비용으로 매칭하느냐. 이 판단이 엔지니어의 새로운 핵심 역량이다.
 
-**비용 통제**. Pinecone은 편리하지만 수억 벡터 규모에서 월 수천 달러가 된다. Qdrant self-hosted는 그 비용의 일부로 동일한 성능을 낼 수 있다.
+---
 
-**데이터 주권**. 금융, 의료, 법률 데이터를 외부 managed service에 올리는 건 규제 리스크다. 오픈소스 스택은 데이터가 자체 인프라를 벗어나지 않는다.
+- [Choosing the Right RAG Architecture in 2026](https://medium.com/@skyhawkbytecode/choosing-the-right-rag-architecture-in-2026)
+- [Open Source LLM Leaderboard February 2026](https://awesomeagents.ai/leaderboards/open-source-llm-leaderboard/)
+- [DeepSeek V4 and Qwen 3.5 — Particula](https://particula.tech/blog/deepseek-v4-qwen-open-source-ai-disruption)
+- [O'Reilly Signals for 2026](https://www.oreilly.com/radar/signals-for-2026/)
 
-**커스터마이징**. 도메인 특화 reranker를 훈련하거나 chunking 전략을 바꾸거나 평가 파이프라인을 수정하는 건 오픈소스에서만 가능하다. proprietary 플랫폼은 레이어를 추가할 수 없는 부분이 있다.
+---
 
-**실험 속도**. 새로운 retrieval 기법 논문이 나오면 오픈소스 구현이 몇 주 안에 따라온다. 새 기법을 제품에 빠르게 통합하려는 팀에게 오픈소스 스택이 유리하다.
-
-## 오픈소스가 뒤처지는 영역
-
-**운영 부담**. 벡터 DB 클러스터 관리, 인덱스 최적화, 스케일아웃은 전담 엔지니어가 필요하다. 한 중견 기업의 "간단한" RAG 프로젝트가 데이터 엔지니어, DevOps 엔지니어를 추가 투입하고 예산이 3배가 된 사례가 실제로 있다.
-
-**평가 및 모니터링**. Production RAG에서 retrieval 품질, answer faithfulness, latency를 지속적으로 모니터링하는 도구는 오픈소스보다 LangSmith, Arize 같은 proprietary 플랫폼이 완성도가 높다.
-
-**보안**. 오픈소스 RAG 스택의 보안은 팀이 직접 책임진다. 한 CISO가 자체 RAG 시스템이 응답에 내부 문서 제목을 노출하고 있음을 발견한 사례가 있다. role-based access control, audit log, PII 필터링을 모두 구현해야 한다.
-
-**엔터프라이즈 기능의 성숙도**. 대시보드, SLA 보장, 고객 지원은 오픈소스가 아직 따라가지 못하는 영역이다.
-
-## 2026년 기준 권장 스택
-
-팀 규모와 상황에 따라 다르지만 다음 패턴이 합리적이다.
-
-**소규모 팀, 빠른 검증이 목표**
-- ChromaDB (embedded) + LlamaIndex + LangChain
-- Hybrid search는 LlamaIndex의 `BM25Retriever` + `VectorIndexRetriever` 조합
-
-**Production, 정확도가 핵심**
-- Qdrant (self-hosted 또는 Qdrant Cloud) + LlamaIndex (ingestion) + LangGraph (orchestration) + Haystack (evaluation)
-- Reranker: `BAAI/bge-reranker-v2-m3` 또는 Cohere Rerank API
-
-**엔터프라이즈, 규정 준수 필요**
-- Milvus (on-premise) + LlamaIndex + Haystack
-- 평가: Ragas, DeepEval로 파이프라인에 자동화
-
-**GraphRAG가 필요한 경우**
-- `microsoft/graphrag` 또는 RAGFlow
-- 단, 초기 graph 구성 비용과 갱신 전략을 사전에 설계해야 한다
-
-## 결론
-
-기본 RAG는 시작점이었다. 2026년 기준 실제 production 시스템은 hybrid search, reranking, query decomposition이 기본이고, 복잡한 use case는 agentic 패턴이나 GraphRAG를 필요로 한다.
-
-오픈소스 생태계는 이 기법들을 대부분 구현했다. LangGraph, LlamaIndex, Qdrant 조합은 proprietary 플랫폼에 비해 기능상 크게 뒤지지 않는다. 뒤처지는 건 운영 편의성, 모니터링 완성도, 지원 체계다.
-
-> 오픈소스를 쓸지 managed service를 쓸지는 기능의 문제가 아니라 팀 역량과 운영 비용의 문제다.
-
-데이터 주권이 중요하거나, 커스터마이징이 필요하거나, 비용을 통제해야 한다면 오픈소스 스택은 여전히 유효하다. 하지만 그 스택을 운영할 역량이 없다면 managed service의 운영 비용이 더 저렴하다.
+*다른 플랫폼에서도 읽을 수 있다: [Dev.to](https://dev.to/jidonglab) · [Naver](https://blog.naver.com/jidonglab) · [Medium](https://medium.com/@jidonglab)*

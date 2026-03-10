@@ -1,175 +1,94 @@
 ---
-title: "Inference Scaling과 Reasoning 모델 — 더 큰 모델 대신 더 오래 생각하게 하는 법"
+title: "28분 동안 '생각'하는 AI — Inference Scaling과 Reasoning Model의 실체"
 date: 2026-03-09
-description: "o1, DeepSeek-R1, Claude extended thinking까지. test-time compute가 AI를 바꾸는 방식."
-tags: ["inference-scaling", "reasoning", "o1", "deepseek", "claude"]
+description: "DeepSeek R1은 100K thinking 토큰을 생성하는 데 28분이 걸린다. 속도를 희생해서 정확도를 사는 거래"
+tags: ["ai", "llm", "inference-scaling", "reasoning", "deepseek", "rlvr"]
 lang: "ko"
 source: "original"
 ---
 
-AI 업계의 패러다임이 조용히 바뀌었다.
+AI 성능을 높이는 패러다임이 바뀌었다.
 
-2020년부터 2023년까지는 "더 크게"가 답이었다. GPT-3는 175B, GPT-4는 추정 1T+ 파라미터. 스케일 법칙(scaling law)이 지배했고, 더 많이 학습시키면 더 똑똑해졌다.
+2023년까지의 공식은 명확했다. 더 큰 모델, 더 많은 데이터, 더 많은 GPU. GPT-3에서 GPT-4로, 수십억 달러를 학습에 투입하면 모델이 똑똑해졌다. 이걸 Training-Time Scaling이라 한다.
 
-2024년부터 다른 게 작동하기 시작했다.
+2025년부터 다른 접근이 주류로 떠올랐다. 학습된 모델은 그대로 두고, **응답을 생성하는 시점에** 더 많은 계산을 투입해서 품질을 높이는 것. Inference-Time Scaling이다. 인간이 복잡한 문제에 더 많은 시간을 들일수록 더 나은 답을 내는 것과 비슷한 원리다.
 
-모델을 더 크게 만드는 대신, **추론 시점에 더 많이 생각하게 한다.** 이게 inference scaling이다.
+OpenAI의 o-시리즈가 이 패러다임을 대중화했다. 전통적 LLM(GPT-4o 등)이 "즉시 대답"하는 System 1 사고라면, o1/o3 같은 Reasoning Model은 "멈추고, 생각하고, 검증하고, 답하는" System 2 사고를 한다.
 
----
+수치로 보면 이 전환의 규모가 드러난다. 분석가들은 추론 컴퓨팅 수요가 2026년까지 학습 수요의 118배를 초과할 것으로 예측한다. 2030년까지 추론이 전체 AI 컴퓨팅의 75%를 차지하며, 7조 달러의 인프라 투자를 이끌 전망이다. OpenAI의 2024년 추론 비용은 23억 달러로, GPT-4 학습 비용의 15배에 달했다.
 
-## Training-Time vs. Test-Time Compute
+## Reasoning Model이 내부에서 하는 일
 
-기존 패러다임은 간단하다. 훈련에 돈을 쏟아붓고, 추론(inference)은 최대한 빠르고 싸게 처리한다.
+일반 LLM에 "15억 아파트 취득세"를 물으면, 학습 데이터에서 패턴을 매칭해 즉시 답한다. 맞을 수도 있고 틀릴 수도 있다. 중간 과정이 없다.
 
-Inference scaling은 이 방정식을 뒤집는다.
-
-> "추론 시점에 compute를 더 쓰면, 훈련에 더 투자하는 것보다 효율적일 수 있다."
-
-Google DeepMind의 연구가 이걸 수치로 보여줬다. 7B 파라미터 모델에 100배의 추론 compute를 붙이면, 70B 모델의 표준 추론과 맞먹는 성능이 나온다.
-
-작은 모델 + 더 많은 생각 = 큰 모델 + 빠른 답.
-
-트레이드오프는 명확하다. 비용과 latency가 올라간다. 그 대신 정확도가 올라간다.
-
----
-
-## Chain-of-Thought가 왜 작동하는가
-
-Chain-of-thought(CoT)는 단순하다. "단계별로 생각해"라고 시키면 모델이 중간 추론 과정을 토큰으로 생성한다. 그 과정에서 실수를 잡아내고 논리를 교정한다.
-
-표준 CoT는 사람이 읽을 수 있는 수준이다. 2~3문장짜리 추론 체인.
-
-Reasoning 모델의 CoT는 다르다. 수천 토큰에 걸친 내부 독백이다. backtracking이 있고, 가설을 세우고 반박하고, 여러 경로를 동시에 탐색한다.
+Reasoning Model은 다르다. 답하기 전에 `<thinking>` 블록 안에서 단계별 추론을 생성한다.
 
 ```
-표준 LLM:
-질문 → 답변  (수백 토큰)
+[일반 LLM]
+Q: 15억 아파트 취득세는?
+A: 2,250만원입니다 (패턴 매칭, 검증 없음)
 
-Reasoning 모델:
-질문 → [생각 중...수천 토큰...] → 답변
+[Reasoning Model]
+Q: 15억 아파트 취득세는?
+<thinking>
+1. 1주택자 기준
+2. 6억 이하: 1% → 600만원
+3. 6억~9억: 누진 → 약 300만원
+4. 9억~15억: 3% → 1,800만원
+5. 합계: 2,700만원
+6. 검증: 법조항 대조...
+</thinking>
+A: 2,700만원입니다
 ```
 
-이 "생각 중" 단계가 inference scaling의 핵심이다. 토큰을 더 쓰는 대신 품질을 산다.
+이 `<thinking>` 부분이 사용자에게 보이지 않는 thinking 토큰이다. 여기서 비용이 폭발한다.
+
+DeepSeek R1은 GPU에서 60 tokens/sec로 동작할 때, 100K thinking 토큰을 생성하는 데 28분이 걸린다. 일반 모델이 200 output 토큰으로 끝나는 답변을 Reasoning Model은 10,000~100,000 thinking 토큰 + 200 output 토큰으로 처리한다. 비용은 50배 이상 차이가 날 수 있다. 하지만 정확도는 극적으로 올라간다.
+
+## 세 가지 핵심 기법
+
+Inference-Time Scaling의 구체적 기법은 세 가지로 나뉜다.
+
+**Chain-of-Thought(생각 사슬)**은 LLM이 바로 답하지 않고 중간 추론 과정을 생성하는 것이다. o1, o3, DeepSeek R1 모두 이 방식이다. 모델이 "생각하는 과정"을 텍스트로 출력하면, 복잡한 문제에서 정확도가 극적으로 올라간다.
+
+**Self-Consistency(자기 일관성)**는 같은 질문에 대해 여러 번 응답을 생성하고 다수결로 최종 답을 고르는 것이다. 비용이 N배가 되지만, 수학 같은 영역에서 정확도가 크게 향상된다. DeepSeekMath-V2 논문은 Self-Consistency와 Self-Refinement 두 기법의 조합으로 수학 경시대회 벤치마크에서 금메달 수준을 달성했다.
+
+**Self-Refinement(자기 개선)**은 한 번 생성한 답을 스스로 비판하고 수정하는 것이다. 에이전트의 Reflection 패턴과 본질이 같다. 1차 생성 → 자기 비판 → 2차 생성 → 재비판 → 최종 답변.
+
+## DeepSeek R1 vs OpenAI o3
+
+두 모델의 접근이 다르다.
+
+o3는 Dense 트랜스포머 위에 대규모 강화학습과 테스트 시점 탐색을 적용했다. 내부적으로 여러 후보 추론 경로를 생성하고 평가하지만, 그 과정을 사용자에게 공개하지 않는다. 모든 파라미터가 처리 중 활성화되어 완전한 컨텍스트를 포착하지만, 막대한 계산 자원이 필요하다.
+
+DeepSeek R1은 MoE(Mixture of Experts) 아키텍처 위에 순수 강화학습(RLVR)을 적용했다. 사용자에게 보이는 명시적 Chain-of-Thought을 생성해서 추론 과정이 투명하고 감사하기 쉽다. 입력에 따라 파라미터의 일부만 활성화해서 비용이 저렴하다. o1에 필적하는 성능을 70% 낮은 비용으로 달성했다.
+
+핵심 차이를 한 줄로 정리하면, o3는 비싸지만 강력하고 불투명한 반면, R1은 저렴하고 투명하며 거의 동등한 성능이다.
+
+## RLVR: Reasoning 능력은 어디서 오는가
+
+DeepSeek R1의 추론 능력은 RLVR(Reinforcement Learning with Verifiable Rewards)에서 왔다. "검증 가능한 보상"으로 강화학습하는 기법이다.
+
+수학 문제를 모델에게 던지고, 답이 맞으면 보상, 틀리면 벌칙. 이걸 수천만 번 반복한다. 놀라운 발견은 인간 피드백 없이 순수 RL만으로 추론 능력이 자연 발현했다는 것이다. 아무도 "단계별로 풀어라"고 가르치지 않았는데, 모델이 스스로 Chain-of-Thought을 만들어냈다. AIME 벤치마크 정확도가 15.6%에서 71%로 뛰었다.
+
+이 접근이 가능한 조건은 "정답이 자동으로 검증 가능해야 한다"는 것이다. 수학은 정답이 명확하고, 코드는 실행해서 테스트를 통과하는지 확인할 수 있다. 에세이나 창작 같은 주관적 영역에서는 RLVR이 작동하지 않는다. 그래서 RLHF(인간 피드백 기반)가 여전히 필요하다.
+
+2026년 트렌드는 RLVR이 수학/코드를 넘어 화학, 생물학, 법률 등 "검증 가능한" 다른 도메인으로 확장되는 것이다.
+
+## 실전 판단: 언제 Reasoning Model을 쓰는가
+
+모든 질문에 Reasoning Model을 켤 필요는 없다. 핵심 기준은 "틀리면 얼마나 큰 문제인가"다.
+
+번역이 약간 어색해도 큰 문제가 아니다. 하지만 세금 계산이 틀리면 법적 문제가 생긴다. 정확도가 비용보다 중요한 곳에 Reasoning Model을 쓰고, 나머지는 일반 모델로 처리한다. 이것이 Model Routing과 연결되는 지점이다. "이 질문은 깊게 생각해야 하는가?"를 먼저 판단하고 필요한 경우에만 추론 모드를 활성화하는 Selective Reasoning이 2026년의 다음 단계다.
+
+> 학습에 수억 달러를 쓰는 시대는 지나가고 있다. 추론에 어떻게 투자하느냐가 2026년의 승부처다.
 
 ---
 
-## 주요 모델들이 각자 다른 방식으로 접근한다
-
-### OpenAI o1 / o3
-
-o1이 2024년 9월에 등장하면서 reasoning 모델 시대가 열렸다.
-
-숨겨진 chain-of-thought를 내부적으로 돌리고 최종 답변만 보여준다. "thinking budget"으로 compute를 조절할 수 있다. o3는 그 다음 단계로, AIME(수학 올림피아드) 96.7% 정확도, SWE-bench(소프트웨어 엔지니어링) 71.7%를 기록했다.
-
-비용은 무겁다. o1은 input $15/M, output $60/M 토큰이다.
-
-### DeepSeek-R1
-
-2025년 1월, DeepSeek가 오픈소스로 공개했다.
-
-핵심 차별점은 훈련 방식이다. 순수 강화학습(RL)으로 reasoning 능력을 키웠다. 모델이 정답을 맞출 때 보상을 받고, 틀릴 때 패널티를 받는 식으로 스스로 reasoning 전략을 발전시켰다. SFT(supervised fine-tuning)는 이후 단계에서 일관성 보정용으로만 썼다.
-
-아키텍처는 MoE(Mixture of Experts). 671B 파라미터지만 추론 시 37B만 활성화된다. 이게 비용 효율성의 비결이다.
-
-o1 대비 90~95% 저렴하고, 오픈소스라 직접 돌릴 수 있다.
-
-AIME에서 79.8%, SWE-bench에서 49.2%를 기록했다. o3보다 낮지만, 비용 대비 성능비는 다른 차원이다.
-
-### Claude Extended Thinking
-
-Anthropic은 다른 접근을 택했다. "extended thinking" 모드를 on/off로 전환할 수 있게 만들었다.
-
-API에서 `budget_tokens` 파라미터로 thinking에 쓸 토큰을 직접 지정한다.
-
-```python
-response = client.messages.create(
-    model="claude-sonnet-4-5",
-    max_tokens=16000,
-    thinking={
-        "type": "enabled",
-        "budget_tokens": 10000  # thinking에 쓸 최대 토큰
-    },
-    messages=[{"role": "user", "content": prompt}]
-)
-```
-
-thinking 토큰은 output으로 과금된다. $3/M input, $15/M output으로 o1보다 훨씬 저렴하다.
-
-퍼즐 풀기에서 21/28로 1위를 기록했고, 과학 계산 태스크에서 가장 좋은 결과를 보였다.
+- [Understanding Reasoning LLMs — Sebastian Raschka](https://magazine.sebastianraschka.com/p/understanding-reasoning-llms)
+- [DeepSeek-R1 Technical Report](https://arxiv.org/abs/2501.12948)
+- [Inference-Time Scaling — Introl](https://introl.com/blog/inference-time-scaling-research-reasoning-models-december-2025)
 
 ---
 
-## 표준 LLM과 뭐가 다른가
-
-단순히 "더 많이 생각한다"가 아니다. 작동 방식 자체가 다르다.
-
-**표준 LLM**: autoregressive하게 다음 토큰을 예측한다. 각 단계에서 되돌아가지 않는다. 첫 번째 경로를 끝까지 간다.
-
-**Reasoning 모델**: 여러 경로를 탐색하고, 막히면 백트래킹하고, 스스로 검증한다. 인간이 어려운 문제를 풀 때와 비슷한 과정이다.
-
-이 차이가 왜 중요한가. 수학 문제에서 중간에 계산 실수를 하면, 표준 LLM은 그대로 밀어붙인다. Reasoning 모델은 중간에 "이 경로가 이상하다"는 걸 감지하고 수정한다.
-
----
-
-## 언제 Reasoning 모델을 써야 하는가
-
-쓸 때와 쓰지 말아야 할 때가 명확히 구분된다.
-
-**Reasoning 모델이 유리한 경우**
-
-- 수학/알고리즘 문제 (AIME, 코딩 챌린지)
-- 복잡한 코드 디버깅과 리팩토링
-- 법률/금융 문서 분석 (멀티홉 추론 필요)
-- 에이전트 태스크 (여러 단계로 나뉜 계획 수립)
-- 답이 틀리면 실제 피해가 발생하는 고위험 도메인
-
-**표준 LLM이 더 적합한 경우**
-
-- 글쓰기, 번역, 요약
-- 단순 Q&A와 팩트 조회
-- 실시간 응답이 필요한 챗봇
-- 창의적인 컨텐츠 생성
-- 비용 민감도가 높은 대량 처리
-
-핵심 지표는 두 가지다. **"틀렸을 때 얼마나 큰 문제인가"**와 **"멀티스텝 추론이 필요한가."**
-
-연구에 따르면 reasoning 모델로 전환했을 때 토큰 사용량이 평균 6.7배 증가하고, 성능 향상은 평균 4.9%다. 단순 태스크에 쓰면 비용 대비 효과가 없다.
-
----
-
-## 비용 현실
-
-숫자로 보면 차이가 크다.
-
-| 모델 | Input | Output | 특이사항 |
-|---|---|---|---|
-| GPT-4o | $2.5/M | $10/M | 표준 |
-| o1 | $15/M | $60/M | reasoning tokens 포함 |
-| Claude 3.7 Sonnet | $3/M | $15/M | thinking tokens = output |
-| DeepSeek-R1 (API) | $0.55/M | $2.19/M | 가장 저렴 |
-
-DeepSeek-R1을 직접 호스팅하면 비용은 더 내려간다. 오픈소스라 가능한 옵션이다.
-
-reasoning 모델을 쓰면 output 토큰이 많아진다. thinking 과정이 다 output으로 나오기 때문이다. 예산 설계 시 이걸 반드시 반영해야 한다.
-
-코드 생성 파이프라인을 예로 들면: 단순 자동완성은 Haiku로 충분하다. 복잡한 알고리즘 설계는 o3 또는 extended thinking이 맞다. 이 라우팅 하나로 전체 비용의 50~70%를 절약할 수 있다.
-
----
-
-## 시장은 어디로 가는가
-
-2026년까지 inference compute 수요가 training의 118배를 넘을 것이라는 예측이 나온다. 2030년에는 전체 AI compute의 75%가 inference에 쓰일 것으로 본다.
-
-NVIDIA의 Jensen Huang은 reasoning 모델이 일반 모델보다 100배 많은 compute를 쓴다고 말했다. 이게 H100, Blackwell 칩 수요의 진짜 드라이버다.
-
-OpenAI는 o3와 o4-mini 이후로 GPT-5에서 reasoning과 일반 모델을 통합할 계획이라고 밝혔다. 앞으로는 "reasoning 모델"과 "표준 모델"의 구분이 사라지고, 모든 모델이 필요에 따라 thinking depth를 조절할 것이다.
-
-> "더 큰 모델이 아니라 더 오래 생각하는 모델이 AI의 다음 단계다."
-
-이미 그 전환이 시작됐다.
-
----
-
-DeepSeek-R1이 오픈소스로 공개되면서 reasoning 모델에 접근하는 장벽이 낮아졌다. Claude API의 `budget_tokens`를 조절하면 비용과 품질의 균형을 직접 컨트롤할 수 있다.
-
-중요한 건 모든 태스크에 reasoning 모델을 쓰는 게 아니다. 태스크의 복잡도와 위험도에 따라 routing하는 것이다. 이 판단이 inference scaling 시대의 엔지니어링 핵심이다.
+*다른 플랫폼에서도 읽을 수 있다: [Dev.to](https://dev.to/jidonglab) · [Naver](https://blog.naver.com/jidonglab) · [Medium](https://medium.com/@jidonglab)*

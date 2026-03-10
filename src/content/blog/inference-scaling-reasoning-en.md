@@ -1,196 +1,72 @@
 ---
-title: "Inference Scaling and Reasoning Models — Think Longer, Not Bigger"
+title: "An AI That 'Thinks' for 28 Minutes — The Reality of Inference Scaling and Reasoning Models"
 date: 2026-03-09
-description: "From o1 to DeepSeek-R1 to Claude's extended thinking. How test-time compute is reshaping AI."
-tags: ["inference-scaling", "reasoning", "o1", "deepseek", "claude"]
+description: "DeepSeek R1 takes 28 minutes to generate 100K thinking tokens. It's trading speed for accuracy"
+tags: ["ai", "llm", "inference-scaling", "reasoning", "deepseek", "rlvr"]
 lang: "en"
 source: "original"
 ---
 
-The AI scaling narrative shifted quietly but completely.
+The paradigm for improving AI performance has shifted.
 
-From 2020 to 2023, the answer was "bigger." GPT-3 at 175B parameters. GPT-4 at an estimated 1T+. Scaling laws held: more training compute meant smarter models. Labs raced to build larger clusters and feed them more data.
+Through 2023, the formula was clear. Bigger models, more data, more GPUs. Pour billions into training, and the model gets smarter. GPT-3 to GPT-4 was this playbook in action. This is Training-Time Scaling.
 
-Then the returns started flattening.
+Starting in 2025, a different approach became mainstream. Keep the trained model as-is, but invest more computation **at the moment of generating a response.** This is Inference-Time Scaling. The rough analogy is how humans produce better answers when given more time to think through complex problems.
 
-The new answer is different: instead of training larger models, spend more compute at inference time. Let the model think longer. This is inference scaling — also called test-time compute scaling — and it is restructuring the entire AI stack.
+OpenAI's o-series popularized this shift. Traditional LLMs like GPT-4o give instant answers — System 1 thinking. Reasoning models like o1 and o3 pause, think, verify, then answer — System 2 thinking.
 
----
+The scale of this transition shows up in the numbers. Analysts project inference compute demand will exceed training demand by 118x by 2026. By 2030, inference could claim 75% of total AI compute, driving $7 trillion in infrastructure investment. OpenAI's 2024 inference spend reached $2.3 billion — 15 times the training cost for GPT-4.
 
-## The Core Idea: Flipping the Compute Equation
+## What Reasoning Models Actually Do Inside
 
-The classical pipeline is simple. Pour compute into training. Then make inference as fast and cheap as possible, because every query costs money.
+Ask a standard LLM about tax calculations and it pattern-matches from training data. It might be right, might be wrong. No intermediate work visible.
 
-Inference scaling inverts this.
+A reasoning model is different. Before answering, it generates step-by-step reasoning inside a `<thinking>` block. These thinking tokens are invisible to the user but consume compute and cost money.
 
-> Spending compute at query time — generating longer reasoning chains, exploring multiple paths, self-verifying — can be more efficient than scaling model parameters.
+DeepSeek R1 takes 28 minutes to generate 100K thinking tokens on a GPU running at 60 tokens/sec. A standard model finishes in 200 output tokens. A reasoning model might use 10,000–100,000 thinking tokens plus 200 output tokens. Cost can differ by 50x or more. But accuracy improves dramatically.
 
-Google DeepMind quantified this. A 7B parameter model with 100x inference compute can match a 70B model running standard inference. The tradeoff is explicit: you pay more per query, but you get a smaller, more deployable model with equivalent output quality on hard problems.
+## Three Core Techniques
 
-The math only works when the task actually requires deep reasoning. On simple tasks, the extra compute is waste.
+**Chain-of-Thought** has the LLM generate intermediate reasoning steps instead of jumping straight to an answer. This is what o1, o3, and DeepSeek R1 all do. The model's "thought process" as text output significantly improves accuracy on complex problems.
 
----
+**Self-Consistency** generates multiple answers to the same question and uses majority voting to select the final one. Costs multiply by N, but accuracy gains on tasks like math are substantial. DeepSeekMath-V2 combined Self-Consistency with Self-Refinement to achieve gold-medal performance on a competition math benchmark.
 
-## How Chain-of-Thought Actually Works
+**Self-Refinement** has the model critique and revise its own output. Generate once, self-critique, regenerate improved. This is essentially the Reflection pattern from agentic AI applied at the model level.
 
-Chain-of-thought (CoT) prompting is the foundation. Tell a model to "think step by step" and it generates intermediate reasoning tokens before the final answer. Those intermediate steps let the model catch errors, revise assumptions, and build toward a correct conclusion.
+## DeepSeek R1 vs OpenAI o3
 
-Standard CoT is human-readable. A few sentences of visible reasoning before the answer.
+The two leading reasoning models take different architectural approaches.
 
-Reasoning models operate differently. The chain-of-thought runs for thousands of tokens — an internal monologue that backtracks, generates hypotheses, refutes them, and explores multiple solution paths in parallel. It is not optimized for human readability; it is optimized for correctness.
+o3 uses a dense transformer with large-scale reinforcement learning and test-time search. It generates and evaluates multiple reasoning paths internally without revealing them. Every parameter activates during processing, demanding substantial compute but delivering comprehensive reasoning.
 
-```
-Standard LLM:
-question → answer  (hundreds of tokens)
+DeepSeek R1 uses a Mixture-of-Experts architecture with pure reinforcement learning (RLVR). It generates explicit, user-visible Chain-of-Thought, making its reasoning transparent and auditable. Only a subset of parameters activates per input, keeping costs lower. It matched o1's performance at 70% lower cost.
 
-Reasoning model:
-question → [thinking... thousands of tokens... backtracking... self-correction...] → answer
-```
+The core tradeoff: o3 is expensive, powerful, and opaque. R1 is affordable, transparent, and nearly as capable.
 
-The thinking phase is where the compute gets spent. You are buying accuracy with tokens.
+## RLVR: Where Reasoning Ability Comes From
 
-One concrete finding: CoT requests take 35–600% longer than direct requests, with 5–15 seconds of additional latency on complex tasks. That is the cost of the extended trace. The accuracy gain varies — research shows an average improvement of 4.9% with a 6.7x increase in token usage. On hard tasks the gain is substantial. On easy tasks it is negligible or negative.
+DeepSeek R1's reasoning emerged from RLVR — Reinforcement Learning with Verifiable Rewards. The concept is simple: give the model math problems, check if the answer is correct, reward correct answers, penalize wrong ones. Repeat millions of times.
 
----
+The remarkable discovery: without any human feedback, pure RL produced emergent reasoning ability. Nobody taught the model to "solve step by step" — it invented Chain-of-Thought on its own. AIME benchmark accuracy jumped from 15.6% to 71%.
 
-## The Major Models and Their Approaches
+The constraint: answers must be automatically verifiable. Math has clear correct answers. Code can be tested by execution. Essays and creative writing can't be auto-verified — which is why RLHF (human feedback) is still needed for those domains.
 
-### OpenAI o1 and o3
-
-o1 launched in September 2024 and established the category. It runs a hidden chain-of-thought internally and surfaces only the final answer. You can adjust reasoning effort via a "thinking budget" parameter.
-
-o3 extended this further. Benchmark numbers:
-
-- **AIME (math olympiad):** 96.7%
-- **SWE-bench (software engineering):** 71.7%
-- **Codeforces rating:** 2727
-- **GPQA Diamond (graduate-level science):** 87.7%
-
-The cost is steep: $15/M input tokens, $60/M output tokens. Reasoning tokens are included in that output count. For workloads where o3 is necessary, the cost is justified. For workloads that do not need this level of reasoning, it is waste.
-
-### DeepSeek-R1
-
-Released as open-source in January 2025. This changed the conversation significantly.
-
-The training methodology is distinct. DeepSeek-R1 used pure reinforcement learning to develop reasoning capability — the model received rewards for correct answers and penalties for incorrect ones, iterating until it developed its own problem-solving strategies. Supervised fine-tuning was applied only in later stages for coherence.
-
-The architecture is MoE (Mixture of Experts): 671B total parameters, but only 37B activate per forward pass. This is what makes it cost-efficient relative to its capability level.
-
-Benchmarks:
-- **AIME:** 79.8%
-- **SWE-bench:** 49.2%
-- **API cost:** ~$0.55/M input, ~$2.19/M output
-
-That is 90–95% cheaper than o1. And it is open-source, so self-hosted deployments are viable.
-
-The benchmark numbers trail o3, but the cost-performance ratio is in a different category. For most production use cases, DeepSeek-R1 is the realistic choice if you need reasoning capability at scale.
-
-### Claude Extended Thinking
-
-Anthropic built the reasoning toggle directly into the API. Extended thinking is controlled by `budget_tokens` — you specify exactly how many tokens the model can spend thinking before it answers.
-
-```python
-response = client.messages.create(
-    model="claude-sonnet-4-5",
-    max_tokens=16000,
-    thinking={
-        "type": "enabled",
-        "budget_tokens": 10000
-    },
-    messages=[{"role": "user", "content": prompt}]
-)
-```
-
-Thinking tokens count as output at $15/M. Input is $3/M. Compared to o1 ($60/M output), this is substantially cheaper.
-
-Claude 3.7 with extended thinking ranked first on puzzle solving at 21/28 correct answers and produced the strongest results across scientific computing tasks. It trails o3 on coding benchmarks but leads in nuanced analytical work.
-
-The ability to set `budget_tokens` explicitly is a practical advantage for cost control. You decide how much thinking to buy per request type.
-
----
-
-## How Reasoning Models Differ from Standard LLMs
-
-The difference is not just "more thinking." The inference mechanism is structurally different.
-
-**Standard LLM**: autoregressive next-token prediction. Generates left to right, commits to each token, no backtracking. The model takes the first viable path to an answer.
-
-**Reasoning model**: explores the solution space. Generates candidate approaches, detects when a path is failing, backtracks, tries alternatives. Closer to how a human approaches a hard math problem than how a human answers a trivia question.
-
-This matters practically. On a math problem, if a standard LLM makes an arithmetic error in step 3, it propagates that error through steps 4–10 and produces a confident wrong answer. A reasoning model detects the inconsistency mid-trace and corrects course.
-
-The internal reasoning trace also contains a distinct class of behaviors: self-correction ("wait, that can't be right"), hypothesis generation ("if this is true, then..."), and explicit uncertainty acknowledgment. These are not present in standard autoregressive output.
-
----
+The 2026 trend is RLVR extending beyond math and code into chemistry, biology, law, and other domains where "correct" can be programmatically defined.
 
 ## When to Use Reasoning Models
 
-The decision framework is straightforward. Two questions:
+Not every query needs reasoning. The decision criterion: "How bad is it if the answer is wrong?"
 
-1. Is the task multi-step, requiring intermediate conclusions to reach the final answer?
-2. What is the cost of a wrong answer?
+A slightly awkward translation is fine. A wrong tax calculation creates legal problems. Use reasoning models where accuracy outweighs cost and latency. Use standard models for everything else. This connects directly to Model Routing — the next evolution is Selective Reasoning, where the system first judges "does this question need deep thinking?" before activating reasoning mode.
 
-If both answers push toward "yes, complex" and "high stakes," a reasoning model is appropriate. Otherwise, a standard LLM is more cost-effective.
-
-**Use reasoning models for:**
-- Math and algorithmic problems
-- Complex code generation, debugging, and architecture decisions
-- Legal and financial document analysis requiring multi-hop inference
-- Agentic pipelines where each step builds on previous outputs
-- Any domain where confident-but-wrong answers cause real damage
-
-**Use standard LLMs for:**
-- Writing, translation, summarization
-- Conversational interfaces requiring low latency
-- Simple factual retrieval
-- Creative content generation
-- High-volume, cost-sensitive workloads
-
-The "overthinking problem" is real. Reasoning models on simple tasks generate verbose traces that add latency and cost without accuracy improvement. Some tasks that standard models handle correctly at baseline see *decreased* accuracy when forced through a reasoning model — the extended trace introduces variability.
+> The era of spending hundreds of millions on training is fading. How you invest in inference is the competitive edge of 2026.
 
 ---
 
-## Cost Reality Check
-
-Raw numbers for the main models:
-
-| Model | Input | Output | Notes |
-|---|---|---|---|
-| GPT-4o | $2.50/M | $10/M | Standard baseline |
-| OpenAI o1 | $15/M | $60/M | Reasoning tokens in output |
-| OpenAI o3-mini | $1.10/M | $4.40/M | Cheaper reasoning option |
-| Claude 3.7 Sonnet | $3/M | $15/M | Thinking tokens = output |
-| DeepSeek-R1 (API) | $0.55/M | $2.19/M | Open-source, self-hostable |
-
-The output token multiplier is what drives inference scaling costs. A reasoning model that generates 10,000 thinking tokens per query is fundamentally more expensive than a standard model generating 500 output tokens. At $15/M output, 10,000 tokens = $0.15 per query. At 10,000 queries per day, that is $1,500/day from thinking tokens alone.
-
-Model routing is the practical mitigation. Route simple tasks to fast, cheap models. Route complex tasks to reasoning models. The routing logic itself can be a small classifier or rule-based system. This alone cuts total inference costs by 50–70% on mixed workloads.
+- [Understanding Reasoning LLMs — Sebastian Raschka](https://magazine.sebastianraschka.com/p/understanding-reasoning-llms)
+- [DeepSeek-R1 Technical Report](https://arxiv.org/abs/2501.12948)
+- [Inference-Time Scaling — Introl](https://introl.com/blog/inference-time-scaling-research-reasoning-models-december-2025)
 
 ---
 
-## Where the Market Is Going
-
-Analysts project inference compute demand will exceed training compute by 118x by 2026. By 2030, inference could account for 75% of total AI compute, driving $7 trillion in infrastructure investment.
-
-Jensen Huang stated reasoning models demand up to 100x more compute than standard models. This is the actual driver behind Blackwell chip demand — not more models, but the same models thinking longer.
-
-OpenAI has indicated o3 and o4-mini may be its last standalone reasoning models before GPT-5, which is expected to unify reasoning and standard capabilities into one model. The future is probably not "reasoning model vs. standard model" as distinct categories, but dynamic reasoning depth — every model adjusts how long it thinks based on task complexity and user-specified budget.
-
-DeepSeek-R1 proved the incumbents have no moat on reasoning capability. An open-source model at a fraction of the cost matched o1 on most benchmarks. This compressed the pricing of reasoning across the entire market and made self-hosted reasoning viable.
-
----
-
-## The Practical Takeaway
-
-Inference scaling does not replace training-time scaling. It shifts the resource allocation. You spend less on the base model and more on each query. Whether that trade is worth it depends entirely on the task.
-
-The shift from "bigger models" to "smarter inference" changes what matters in production:
-
-- Latency management becomes critical (reasoning takes time)
-- Token budget control becomes a core engineering concern
-- Model routing by task type is now table stakes
-- Cost-per-correct-answer, not cost-per-token, is the real metric
-
-The capability ceiling has moved. A 7B model with sufficient inference compute can beat a 70B model with standard inference on hard reasoning tasks. That is a fundamental change in how you should think about model selection and infrastructure design.
-
-The question is no longer "which model is biggest." It is "how much thinking does this task actually need."
+*Also available on: [Dev.to](https://dev.to/jidonglab) · [Naver](https://blog.naver.com/jidonglab) · [Medium](https://medium.com/@jidonglab)*
