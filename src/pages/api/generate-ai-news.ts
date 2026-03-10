@@ -348,7 +348,7 @@ ${trendingData.length > 0 ? `**GitHub 트렌딩 AI 프로젝트**:\n${JSON.strin
       'anthropic-version': '2023-06-01',
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-4-20250514',
+      model: 'claude-haiku-4-5-20251001',
       max_tokens: 16000,
       messages: [{ role: 'user', content: prompt }],
     }),

@@ -40,7 +40,7 @@
 - **코멘트**: 정리 섹션에서 시사점, 전망 등 분석적 의견 제시
 - 소스 링크: `<small>[출처명](URL)</small>` 형태로 각 섹션에 포함
 - 불필요한 감탄사 없이 팩트 + 분석 위주
-- Claude API (claude-sonnet-4-20250514)로 자동 생성, `ANTHROPIC_API_KEY` 환경변수 필요
+- Claude API (claude-haiku-4-5-20251001)로 자동 생성, `ANTHROPIC_API_KEY` 환경변수 필요
 
 ## 디자인 컨벤션
 - 기본 테마: toss.tech 스타일 (라이트, 클린)
