@@ -8,8 +8,6 @@ const buildLogs = (await getCollection('build-logs'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 const tips = (await getCollection('tips'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-const aiNews = (await getCollection('ai-news'))
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 const blogPosts = (await getCollection('blog'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
@@ -22,10 +20,9 @@ type PostItem = {
   title: string;
   href: string;
   date: string;
-  type: 'build-log' | 'tip' | 'blog' | 'ai-news';
+  type: 'build-log' | 'tip' | 'blog';
   project?: string;
   description?: string;
-  model?: string;
   lang?: string;
 };
 
@@ -43,14 +40,6 @@ const allPosts: PostItem[] = [
     href: `/posts/${p.slug}`,
     date: p.data.date.toISOString().split('T')[0],
     type: 'tip' as const,
-  })),
-  ...aiNews.map((p) => ({
-    title: p.data.title,
-    href: `/ai-news/${p.slug}`,
-    date: p.data.date.toISOString().split('T')[0],
-    type: 'ai-news' as const,
-    description: p.data.summary,
-    model: p.data.model,
   })),
   ...blogPosts.map((p) => ({
     title: p.data.title,
@@ -72,7 +61,6 @@ const categories = [
   { key: 'all', label: '전체', color: '#191f28' },
   { key: 'build-log', label: 'Build Log', color: '#00a85e' },
   { key: 'tip', label: 'AI Tip', color: '#d97706' },
-  { key: 'ai-news', label: 'AI News', color: '#00c471' },
   { key: 'blog', label: 'Blog', color: '#3b82f6' },
 ];
 ---
@@ -80,7 +68,7 @@ const categories = [
 <Base title="AI Posts">
   <div class="page-header fade-in">
     <h1 class="page-title" data-ko="AI Posts" data-en="AI Posts">AI Posts</h1>
-    <p class="page-desc" data-ko="빌드 로그, AI 팁, 뉴스, 블로그 글을 모아 놓은 곳이다." data-en="Build logs, AI tips, news, and blog posts all in one place.">빌드 로그, AI 팁, 뉴스, 블로그 글을 모아 놓은 곳이다.</p>
+    <p class="page-desc" data-ko="빌드 로그, AI 팁, 블로그 글을 모아 놓은 곳이다." data-en="Build logs, AI tips, and blog posts all in one place.">빌드 로그, AI 팁, 블로그 글을 모아 놓은 곳이다.</p>
   </div>
 
   <!-- Category Filter Buttons -->
@@ -110,7 +98,6 @@ const categories = [
           type={post.type}
           project={post.project}
           description={post.description}
-          model={post.model}
         />
       </div>
     ))}
