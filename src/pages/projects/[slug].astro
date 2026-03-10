@@ -26,13 +26,20 @@ const statusColor: Record<string, string> = {
   '실험중': 'text-warning',
   '중단': 'text-danger',
 };
+
+const statusEn: Record<string, string> = {
+  '운영중': 'Live',
+  '개발중': 'In Dev',
+  '실험중': 'Beta',
+  '중단': 'Stopped',
+};
 ---
 
 <Base title={d.title} description={d.one_liner}>
   <article class="fade-in">
     <header class="mb-10">
       <div class="flex items-center gap-3 mb-3">
-        <span class={`text-xs font-mono ${statusColor[d.status] || 'text-muted'}`}>
+        <span class={`text-xs font-mono ${statusColor[d.status] || 'text-muted'}`} data-ko={d.status} data-en={statusEn[d.status] || d.status}>
           {d.status}
         </span>
       </div>
@@ -42,7 +49,7 @@ const statusColor: Record<string, string> = {
       <div class="flex gap-3 text-sm">
         {d.url && (
           <a href={d.url} target="_blank" rel="noopener" class="font-mono text-accent">
-            사이트 &rarr;
+            <span data-ko="사이트" data-en="Site">사이트</span> &rarr;
           </a>
         )}
         <a href={d.github} target="_blank" rel="noopener" class="font-mono text-accent">
@@ -79,7 +86,7 @@ const statusColor: Record<string, string> = {
     )}
 
     {buildLogs.length === 0 && (
-      <p class="text-muted text-sm">아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다.</p>
+      <p class="text-muted text-sm" data-ko="아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다." data-en="No build logs yet. They are generated automatically when you push.">아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다.</p>
     )}
   </article>
 </Base>
