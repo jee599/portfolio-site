@@ -1,28 +1,25 @@
-name: Generate AI News
+name: Revalidate Content
 
 on:
   schedule:
-    # 매일 UTC 0시 = KST 9시, UTC 12시 = KST 21시
-    - cron: '0 0,12 * * *'
-  workflow_dispatch: # 수동 실행 가능
-
-permissions:
-  contents: write
+    # 매일 UTC 6시 = KST 15시
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 jobs:
-  generate-ai-news:
+  revalidate:
     runs-on: ubuntu-latest
     steps:
-      - name: Call generate-ai-news API
+      - name: Call revalidate API
         env:
           SITE_URL: ${{ vars.SITE_URL || 'https://jidonglab.com' }}
         run: |
-          echo "Calling AI news generation endpoint..."
+          echo "Calling revalidate endpoint..."
 
           HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
-            -X POST "${SITE_URL}/api/generate-ai-news" \
+            -X POST "${SITE_URL}/api/revalidate" \
             -H "Content-Type: application/json" \
-            --max-time 300)
+            --max-time 120)
 
           echo "HTTP Status: ${HTTP_STATUS}"
           echo "Response:"
@@ -33,4 +30,4 @@ jobs:
             exit 1
           fi
 
-          echo "AI news generation completed successfully"
+          echo "Revalidation completed successfully"
