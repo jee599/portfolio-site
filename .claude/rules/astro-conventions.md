@@ -18,6 +18,9 @@
 - localStorage `lang` 키로 상태 유지
 
 ## 배포
-- Vercel (hybrid SSR/SSG)
+- Cloudflare Pages (hybrid SSR/SSG)
 - API routes: `export const prerender = false`
-- Cron: `/api/revalidate` (6AM), `/api/generate-ai-news` (midnight + 12PM UTC = 9AM + 9PM KST)
+- Cron: GitHub Actions으로 실행
+  - `/api/revalidate` (UTC 6시)
+  - `/api/generate-ai-news` (UTC 0시 + 12시 = KST 9AM + 9PM)
+  - `/api/sync-devto` (UTC 1시)

@@ -2,7 +2,7 @@
 
 ## 프로젝트 구조
 - **프레임워크**: Astro 4 + React + Tailwind
-- **배포**: Vercel (hybrid SSR/SSG)
+- **배포**: Cloudflare Pages (hybrid SSR/SSG)
 - **콘텐츠**: Astro Content Collections (build-logs, tips, ai-news)
 - **외부 연동**: Dev.to API, GitHub API, Google Custom Search, Anthropic Claude API
 
