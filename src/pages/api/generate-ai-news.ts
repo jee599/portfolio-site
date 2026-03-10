@@ -94,33 +94,91 @@ async function searchHackerNews(keywords: string[]): Promise<NewsItem[]> {
   }
 }
 
-// ─── Reddit (무료, 키 불필요) ───
+// ─── Reddit (무료, 키 불필요) — hot + new 모두 수집 ───
 async function searchReddit(subreddits: string[], keywords: string[]): Promise<NewsItem[]> {
   try {
     const results: NewsItem[] = [];
+    const seen = new Set<string>();
+    const yesterday = Date.now() / 1000 - 86400;
+
     for (const sub of subreddits) {
-      const res = await fetch(
-        `https://www.reddit.com/r/${sub}/new.json?limit=10&t=day`,
-        { headers: { 'User-Agent': 'jidonglab-ai-news/1.0' } }
-      );
+      // hot (인기글) + new (최신글) 모두 수집
+      for (const sort of ['hot', 'new']) {
+        const res = await fetch(
+          `https://www.reddit.com/r/${sub}/${sort}.json?limit=15&t=day`,
+          { headers: { 'User-Agent': 'jidonglab-ai-news/1.0' } }
+        );
+        if (!res.ok) continue;
+        const data = await res.json();
+
+        for (const post of data.data?.children || []) {
+          const d = post.data;
+          if (d.created_utc < yesterday) continue;
+          if (seen.has(d.permalink)) continue;
+
+          const titleLower = d.title.toLowerCase();
+          const matches = keywords.some(k => titleLower.includes(k.toLowerCase()));
+          if (!matches) continue;
+
+          seen.add(d.permalink);
+          results.push({
+            title: d.title,
+            url: `https://reddit.com${d.permalink}`,
+            source: `r/${sub} (${sort})`,
+            snippet: `${d.score} upvotes · ${d.num_comments} comments`,
+          });
+        }
+      }
+    }
+
+    // upvote 순으로 정렬 — 인기글 우선
+    return results.sort((a, b) => {
+      const scoreA = parseInt(a.snippet) || 0;
+      const scoreB = parseInt(b.snippet) || 0;
+      return scoreB - scoreA;
+    });
+  } catch {
+    return [];
+  }
+}
+
+// ─── X(Twitter) 인기 포스트 — Google 검색으로 수집 ───
+async function searchXPosts(keywords: string[]): Promise<NewsItem[]> {
+  const apiKey = import.meta.env.SERPAPI_KEY || import.meta.env.GOOGLE_SEARCH_API_KEY;
+  const searchEngineId = import.meta.env.GOOGLE_SEARCH_ENGINE_ID;
+  if (!apiKey || !searchEngineId) return [];
+
+  try {
+    const results: NewsItem[] = [];
+    const seen = new Set<string>();
+
+    for (const keyword of keywords) {
+      const params = new URLSearchParams({
+        key: apiKey,
+        cx: searchEngineId,
+        q: `site:x.com ${keyword}`,
+        dateRestrict: 'd1',
+        num: '5',
+      });
+      const res = await fetch(`https://www.googleapis.com/customsearch/v1?${params}`);
       if (!res.ok) continue;
       const data = await res.json();
-      const yesterday = Date.now() / 1000 - 86400;
 
-      for (const post of data.data?.children || []) {
-        const d = post.data;
-        if (d.created_utc < yesterday) continue;
-        const titleLower = d.title.toLowerCase();
-        const matches = keywords.some(k => titleLower.includes(k.toLowerCase()));
-        if (!matches) continue;
+      for (const item of data.items || []) {
+        const url = item.link;
+        if (seen.has(url)) continue;
+        // x.com 또는 twitter.com 게시물만
+        if (!url.includes('x.com/') && !url.includes('twitter.com/')) continue;
+        seen.add(url);
         results.push({
-          title: d.title,
-          url: `https://reddit.com${d.permalink}`,
-          source: `r/${sub}`,
-          snippet: `${d.score} upvotes · ${d.num_comments} comments`,
+          title: item.title,
+          url,
+          source: 'X (Twitter)',
+          snippet: item.snippet || '',
         });
       }
     }
+
     return results;
   } catch {
     return [];
@@ -199,7 +257,9 @@ const MODEL_KEYWORDS: Record<string, string[]> = {
   etc: ['llm', 'llama', 'mistral', 'ai model', 'hugging face', 'open source ai', 'transformer'],
 };
 
-const REDDIT_SUBREDDITS = ['LocalLLaMA', 'MachineLearning', 'artificial'];
+const REDDIT_SUBREDDITS = ['LocalLLaMA', 'MachineLearning', 'artificial', 'singularity', 'ChatGPT', 'ClaudeAI'];
+
+const X_SEARCH_KEYWORDS = ['Anthropic Claude AI', 'OpenAI GPT', 'Google Gemini AI', 'LLM AI news'];
 
 // ─── Claude API로 주제별 풍부한 포스트 생성 ───
 async function generateTopicPosts(
@@ -426,13 +486,16 @@ export const POST: APIRoute = async ({ request }) => {
   const errors: string[] = [];
 
   try {
-    // 전체 뉴스 소스에서 수집
-    const trendingRepos = await fetchGitHubTrending();
-    const allHnNews = await searchHackerNews(['AI', 'LLM', 'Claude', 'GPT', 'Gemini', 'Anthropic', 'OpenAI']);
-    const allRedditNews = await searchReddit(
-      REDDIT_SUBREDDITS,
-      ['claude', 'anthropic', 'gemini', 'gpt', 'openai', 'llm', 'llama', 'mistral', 'ai model'],
-    );
+    // 전체 뉴스 소스에서 수집 (Google, HN, Reddit, X 병렬)
+    const [trendingRepos, allHnNews, allRedditNews, allXNews] = await Promise.all([
+      fetchGitHubTrending(),
+      searchHackerNews(['AI', 'LLM', 'Claude', 'GPT', 'Gemini', 'Anthropic', 'OpenAI']),
+      searchReddit(
+        REDDIT_SUBREDDITS,
+        ['claude', 'anthropic', 'gemini', 'gpt', 'openai', 'llm', 'llama', 'mistral', 'ai model'],
+      ),
+      searchXPosts(X_SEARCH_KEYWORDS),
+    ]);
 
     // 모델별 뉴스 수집 후 Claude API로 주제별 포스트 생성
     for (const [model, queries] of Object.entries(MODEL_SEARCH_QUERIES)) {
@@ -456,6 +519,12 @@ export const POST: APIRoute = async ({ request }) => {
         keywords.some(k => item.title.toLowerCase().includes(k))
       );
       allNews.push(...redditFiltered);
+
+      // X/Twitter (모델별 필터링)
+      const xFiltered = allXNews.filter(item =>
+        keywords.some(k => item.title.toLowerCase().includes(k) || item.snippet.toLowerCase().includes(k))
+      );
+      allNews.push(...xFiltered);
 
       // URL 기준 중복 제거
       const uniqueNews = allNews.filter(
