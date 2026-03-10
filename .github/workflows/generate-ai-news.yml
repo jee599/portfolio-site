@@ -16,12 +16,14 @@ jobs:
       - name: Call generate-ai-news API
         env:
           SITE_URL: ${{ vars.SITE_URL || 'https://jidonglab.com' }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           echo "Calling AI news generation endpoint..."
 
           HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
             -X POST "${SITE_URL}/api/generate-ai-news" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
             --max-time 300)
 
           echo "HTTP Status: ${HTTP_STATUS}"
