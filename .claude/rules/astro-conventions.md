@@ -20,4 +20,4 @@
 ## 배포
 - Vercel (hybrid SSR/SSG)
 - API routes: `export const prerender = false`
-- Cron: `/api/revalidate` (6AM), `/api/generate-ai-news` (midnight UTC = 9AM KST)
+- Cron: `/api/revalidate` (6AM), `/api/generate-ai-news` (midnight + 12PM UTC = 9AM + 9PM KST)
