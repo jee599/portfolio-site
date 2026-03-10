@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'src/content/blog/**'
+      - 'src/content/build-logs/**'
+      - 'src/content/tips/**'
+      - 'src/content/ai-news/**'
   workflow_dispatch: # 수동 실행
 
 permissions:
@@ -21,12 +24,14 @@ jobs:
         uses: actions/github-script@v7
         env:
           DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+          SITE_URL: ${{ vars.SITE_URL || 'https://jidonglab.com' }}
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
 
             const devtoKey = process.env.DEVTO_API_KEY;
+            const siteUrl = process.env.SITE_URL;
             if (!devtoKey) {
               console.log('DEVTO_API_KEY not set, skipping');
               return;
@@ -41,99 +46,114 @@ jobs:
             const existingTitles = new Set(existing.map(a => a.title));
             console.log(`Found ${existing.length} existing Dev.to articles`);
 
-            // Read blog directory
-            const blogDir = 'src/content/blog';
-            const files = fs.readdirSync(blogDir).filter(f => f.endsWith('.md'));
+            // Content directories to scan
+            const collections = [
+              { dir: 'src/content/blog', urlPrefix: '/blog', type: 'blog' },
+              { dir: 'src/content/build-logs', urlPrefix: '/posts', type: 'build-log' },
+              { dir: 'src/content/tips', urlPrefix: '/posts', type: 'tip' },
+              { dir: 'src/content/ai-news', urlPrefix: '/ai-news', type: 'ai-news' },
+            ];
 
             let published = 0;
             let skipped = 0;
 
-            for (const file of files) {
-              const content = fs.readFileSync(path.join(blogDir, file), 'utf-8');
-
-              // Parse frontmatter
-              const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-              if (!fmMatch) continue;
-
-              const frontmatter = fmMatch[1];
-              const body = fmMatch[2].trim();
-
-              // Extract fields
-              const titleMatch = frontmatter.match(/title:\s*"([^"]+)"/);
-              const tagsMatch = frontmatter.match(/tags:\s*\[([^\]]+)\]/);
-              const langMatch = frontmatter.match(/lang:\s*"?(\w+)"?/);
-              const sourceMatch = frontmatter.match(/source:\s*"?([^"\n]+)"?/);
-              const descMatch = frontmatter.match(/description:\s*"([^"]+)"/);
-
-              if (!titleMatch) continue;
-
-              const title = titleMatch[1];
-              const lang = langMatch ? langMatch[1] : 'ko';
-              const source = sourceMatch ? sourceMatch[1].trim() : '';
-
-              // Skip devto-migration posts (already on Dev.to)
-              if (source === 'devto-migration' || source === 'devto') {
-                skipped++;
+            for (const col of collections) {
+              if (!fs.existsSync(col.dir)) {
+                console.log(`Directory ${col.dir} not found, skipping`);
                 continue;
               }
 
-              // Build canonical URL
-              const slug = file.replace('.md', '');
-              const canonicalUrl = `https://jidonglab.com/blog/${slug}`;
+              const files = fs.readdirSync(col.dir).filter(f => f.endsWith('.md') || f.endsWith('.mdx'));
+              console.log(`\n[${col.type}] Found ${files.length} files in ${col.dir}`);
 
-              // Skip if already published
-              if (existingUrls.has(canonicalUrl) || existingTitles.has(title)) {
-                skipped++;
-                continue;
-              }
+              for (const file of files) {
+                const content = fs.readFileSync(path.join(col.dir, file), 'utf-8');
 
-              // Parse tags
-              let tags = [];
-              if (tagsMatch) {
-                tags = tagsMatch[1]
-                  .split(',')
-                  .map(t => t.trim().replace(/['"]/g, '').replace(/[^a-zA-Z0-9]/g, ''))
-                  .filter(t => t.length > 0)
-                  .slice(0, 4);
-              }
+                // Parse frontmatter
+                const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
+                if (!fmMatch) continue;
 
-              // Add language indicator for English posts
-              const devtoBody = lang === 'en'
-                ? body
-                : body;
+                const frontmatter = fmMatch[1];
+                const body = fmMatch[2].trim();
 
-              try {
-                const res = await fetch('https://dev.to/api/articles', {
-                  method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'api-key': devtoKey,
-                  },
-                  body: JSON.stringify({
-                    article: {
-                      title,
-                      body_markdown: devtoBody,
-                      published: true,
-                      tags,
-                      canonical_url: canonicalUrl,
-                      description: descMatch ? descMatch[1] : undefined,
-                    },
-                  }),
-                });
+                // Extract fields
+                const titleMatch = frontmatter.match(/title:\s*"([^"]+)"/);
+                if (!titleMatch) continue;
 
-                if (res.ok) {
-                  const data = await res.json();
-                  console.log(`Published: "${title}" → ${data.url}`);
-                  published++;
-                } else {
-                  const err = await res.text();
-                  console.log(`Failed: "${title}" — ${res.status}: ${err}`);
+                const title = titleMatch[1];
+                const tagsMatch = frontmatter.match(/tags:\s*\[([^\]]+)\]/);
+                const descMatch = frontmatter.match(/description:\s*"([^"]+)"/);
+                const summaryMatch = frontmatter.match(/summary:\s*"([^"]+)"/);
+                const sourceMatch = frontmatter.match(/source:\s*"?([^"\n]+)"?/);
+
+                // Skip posts that came from Dev.to originally
+                const source = sourceMatch ? sourceMatch[1].trim() : '';
+                if (source === 'devto-migration' || source === 'devto') {
+                  skipped++;
+                  continue;
                 }
 
-                // Rate limit: Dev.to allows ~10 req/30s
-                await new Promise(r => setTimeout(r, 3000));
-              } catch (e) {
-                console.log(`Error publishing "${title}": ${e.message}`);
+                // Build canonical URL
+                const slug = file.replace(/\.(md|mdx)$/, '');
+                const canonicalUrl = `${siteUrl}${col.urlPrefix}/${slug}`;
+
+                // Skip if already published
+                if (existingUrls.has(canonicalUrl) || existingTitles.has(title)) {
+                  skipped++;
+                  continue;
+                }
+
+                // Parse tags
+                let tags = [];
+                if (tagsMatch) {
+                  tags = tagsMatch[1]
+                    .split(',')
+                    .map(t => t.trim().replace(/['"]/g, '').replace(/[^a-zA-Z0-9]/g, ''))
+                    .filter(t => t.length > 0)
+                    .slice(0, 4);
+                }
+
+                // Add collection type as tag if not present
+                const typeTag = col.type.replace('-', '');
+                if (!tags.includes(typeTag) && tags.length < 4) {
+                  tags.push(typeTag);
+                }
+
+                const description = descMatch ? descMatch[1] : (summaryMatch ? summaryMatch[1] : undefined);
+
+                try {
+                  const res = await fetch('https://dev.to/api/articles', {
+                    method: 'POST',
+                    headers: {
+                      'Content-Type': 'application/json',
+                      'api-key': devtoKey,
+                    },
+                    body: JSON.stringify({
+                      article: {
+                        title,
+                        body_markdown: body,
+                        published: true,
+                        tags,
+                        canonical_url: canonicalUrl,
+                        description,
+                      },
+                    }),
+                  });
+
+                  if (res.ok) {
+                    const data = await res.json();
+                    console.log(`Published: "${title}" → ${data.url}`);
+                    published++;
+                  } else {
+                    const err = await res.text();
+                    console.log(`Failed: "${title}" — ${res.status}: ${err}`);
+                  }
+
+                  // Rate limit: Dev.to allows ~10 req/30s
+                  await new Promise(r => setTimeout(r, 3000));
+                } catch (e) {
+                  console.log(`Error publishing "${title}": ${e.message}`);
+                }
               }
             }
 
