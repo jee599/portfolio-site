@@ -67,6 +67,13 @@ const statusColors: Record<string, string> = {
   '실험중': '#f59e0b',
   '중단': '#ef4444',
 };
+
+const statusEn: Record<string, string> = {
+  '운영중': 'Live',
+  '개발중': 'In Dev',
+  '실험중': 'Beta',
+  '중단': 'Stopped',
+};
 ---
 
 <Base title="Home">
@@ -121,7 +128,7 @@ const statusColors: Record<string, string> = {
               <div class="sidebar-project">
                 <a href={`/projects/${p.slug}`} class="sidebar-project-info">
                   <span class="sidebar-project-name">{p.title}</span>
-                  <span class="sidebar-project-status" style={`color: ${statusColors[p.status] || '#8b95a1'}`}>{p.status}</span>
+                  <span class="sidebar-project-status" style={`color: ${statusColors[p.status] || '#8b95a1'}`} data-ko={p.status} data-en={statusEn[p.status] || p.status}>{p.status}</span>
                 </a>
                 <div class="sidebar-project-links">
                   {p.url && (

@@ -17,6 +17,13 @@ const statusColor: Record<string, string> = {
   '실험중': 'color: #f59e0b',
   '중단': 'color: #ef4444',
 };
+
+const statusEn: Record<string, string> = {
+  '운영중': 'Live',
+  '개발중': 'In Dev',
+  '실험중': 'Beta',
+  '중단': 'Stopped',
+};
 ---
 
 <a
@@ -28,7 +35,7 @@ const statusColor: Record<string, string> = {
     <h3 class="font-display font-bold transition-colors" style="color: #e8e8f0;">
       {title}
     </h3>
-    <span class="text-xs font-mono" style={statusColor[status] || 'color: #7a7a9a'}>
+    <span class="text-xs font-mono" style={statusColor[status] || 'color: #7a7a9a'} data-ko={status} data-en={statusEn[status] || status}>
       {status}
     </span>
   </div>

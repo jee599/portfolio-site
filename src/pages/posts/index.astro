@@ -44,10 +44,10 @@ const allPosts: PostItem[] = [
 ].sort((a, b) => b.date.localeCompare(a.date));
 
 const categories = [
-  { key: 'all', label: '전체', color: '#191f28' },
-  { key: 'build-log', label: 'Build Log', color: '#00a85e' },
-  { key: 'tip', label: 'AI Tip', color: '#d97706' },
-  { key: 'blog', label: 'Blog', color: '#3b82f6' },
+  { key: 'all', label: '전체', labelEn: 'All', color: '#191f28' },
+  { key: 'build-log', label: 'Build Log', labelEn: 'Build Log', color: '#00a85e' },
+  { key: 'tip', label: 'AI Tip', labelEn: 'AI Tip', color: '#d97706' },
+  { key: 'blog', label: 'Blog', labelEn: 'Blog', color: '#3b82f6' },
 ];
 ---
 
@@ -66,7 +66,7 @@ const categories = [
         style={`--cat-color: ${cat.color}`}
       >
         <span class="cat-dot" style={`background: ${cat.color}`}></span>
-        {cat.label}
+        <span data-ko={cat.label} data-en={cat.labelEn || cat.label}>{cat.label}</span>
         <span class="cat-count">
           {cat.key === 'all' ? allPosts.length : allPosts.filter(p => p.type === cat.key).length}
         </span>
