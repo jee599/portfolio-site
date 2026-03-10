@@ -1,5 +1,4 @@
 import type { APIRoute } from 'astro';
-import Anthropic from '@anthropic-ai/sdk';
 
 export const prerender = false;
 
@@ -281,17 +280,28 @@ ${trendingData.length > 0 ? `**GitHub 트렌딩 AI 프로젝트**:\n${JSON.strin
 
 뉴스가 1~2개뿐이면 하나의 포스트로 통합해도 됩니다. 하지만 서로 무관한 뉴스 3개 이상이면 반드시 주제별로 분리하세요.`;
 
-  const client = new Anthropic({ apiKey: anthropicApiKey });
-
-  const response = await client.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 16000,
-    messages: [{ role: 'user', content: prompt }],
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicApiKey,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 16000,
+      messages: [{ role: 'user', content: prompt }],
+    }),
   });
 
-  // 응답에서 JSON 파싱
-  const textContent = response.content.find(c => c.type === 'text');
-  if (!textContent || textContent.type !== 'text') return [];
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Claude API error: ${error}`);
+  }
+
+  const data = await response.json();
+  const textContent = data.content?.find((c: any) => c.type === 'text');
+  if (!textContent) return [];
 
   let jsonStr = textContent.text;
   // JSON 블록 추출
