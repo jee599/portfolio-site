@@ -109,7 +109,8 @@ const navItems = [
     <header class="site-header">
       <nav class="site-nav">
         <a href="/" class="site-logo">
-          Jidong Lab
+          <span class="logo-mark">J</span>
+          <span class="logo-text">Jidong<span class="logo-lab">Lab</span></span>
         </a>
         <div class="nav-right">
           <div class="nav-tabs">
@@ -143,7 +144,7 @@ const navItems = [
       <div class="footer-inner">
         <div class="footer-grid">
           <div class="footer-col">
-            <div class="footer-logo">Jidong Lab</div>
+            <div class="footer-logo"><span class="footer-logo-mark">J</span> Jidong<span style="color: #00c471;">Lab</span></div>
             <p class="footer-desc" data-ko="AI를 사용하고, 연구한다." data-en="Using AI, Researching.">AI를 사용하고, 연구한다.</p>
           </div>
           <div class="footer-col">
@@ -221,12 +222,43 @@ const navItems = [
   }
 
   .site-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    text-decoration: none;
+    transition: opacity 0.15s;
+  }
+
+  .site-logo:hover {
+    opacity: 0.8;
+  }
+
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: #00c471;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 1rem;
+    border-radius: 8px;
+    letter-spacing: -0.02em;
+  }
+
+  .logo-text {
     font-family: 'IBM Plex Sans KR', sans-serif;
     font-weight: 700;
-    font-size: 1.25rem;
+    font-size: 1.15rem;
     color: #191f28;
-    text-decoration: none;
-    letter-spacing: -0.02em;
+    letter-spacing: -0.03em;
+  }
+
+  .logo-lab {
+    color: #00c471;
+    margin-left: 0.1em;
   }
 
   .nav-right {
@@ -343,11 +375,29 @@ const navItems = [
   }
 
   .footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-family: 'IBM Plex Sans KR', sans-serif;
     font-weight: 700;
     font-size: 1.1rem;
     color: #191f28;
     margin-bottom: 0.5rem;
+    letter-spacing: -0.03em;
+  }
+
+  .footer-logo-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: #00c471;
+    color: #fff;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800;
+    font-size: 0.75rem;
+    border-radius: 6px;
   }
 
   .footer-desc {
