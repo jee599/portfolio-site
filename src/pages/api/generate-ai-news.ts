@@ -584,9 +584,9 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    // Vercel 리빌드 트리거
+    // Cloudflare Pages 리빌드 트리거
     if (committed.length > 0) {
-      const hookUrl = import.meta.env.VERCEL_DEPLOY_HOOK;
+      const hookUrl = import.meta.env.CF_DEPLOY_HOOK;
       if (hookUrl) {
         await fetch(hookUrl, { method: 'POST' });
       }

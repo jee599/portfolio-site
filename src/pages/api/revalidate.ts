@@ -13,10 +13,10 @@ export const GET: APIRoute = async ({ request }) => {
     });
   }
 
-  const hookUrl = import.meta.env.VERCEL_DEPLOY_HOOK;
+  const hookUrl = import.meta.env.CF_DEPLOY_HOOK;
 
   if (!hookUrl) {
-    return new Response(JSON.stringify({ error: 'VERCEL_DEPLOY_HOOK not configured' }), {
+    return new Response(JSON.stringify({ error: 'CF_DEPLOY_HOOK not configured' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });

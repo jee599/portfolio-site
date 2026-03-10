@@ -134,7 +134,7 @@ export const POST: APIRoute = async ({ request }) => {
 
     // Trigger rebuild if new articles were synced
     if (synced > 0) {
-      const hookUrl = import.meta.env.VERCEL_DEPLOY_HOOK;
+      const hookUrl = import.meta.env.CF_DEPLOY_HOOK;
       if (hookUrl) {
         await fetch(hookUrl, { method: 'POST' });
       }
