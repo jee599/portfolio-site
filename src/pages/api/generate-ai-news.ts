@@ -66,131 +66,141 @@ async function searchGoogle(query: string, runtimeEnv?: Record<string, string>):
   }
 }
 
-// ─── Hacker News (무료, 키 불필요) ───
+// ─── Hacker News (무료, 키 불필요) — 병렬 검색 + 포인트 정렬 ───
 async function searchHackerNews(keywords: string[]): Promise<NewsItem[]> {
   try {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const timestamp = Math.floor(yesterday.getTime() / 1000);
 
-    const results: NewsItem[] = [];
-    for (const keyword of keywords) {
-      const params = new URLSearchParams({
-        query: keyword,
-        tags: 'story',
-        numericFilters: `created_at_i>${timestamp}`,
-        hitsPerPage: '5',
-      });
-      const res = await fetch(`https://hn.algolia.com/api/v1/search?${params}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-      for (const hit of data.hits || []) {
-        results.push({
+    const seen = new Set<string>();
+
+    // 모든 키워드 검색을 병렬로
+    const allResults = await Promise.all(
+      keywords.map(async (keyword) => {
+        const params = new URLSearchParams({
+          query: keyword,
+          tags: 'story',
+          numericFilters: `created_at_i>${timestamp},points>10`,
+          hitsPerPage: '10',
+        });
+        const res = await fetch(`https://hn.algolia.com/api/v1/search?${params}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.hits || []).map((hit: any) => ({
           title: hit.title,
           url: hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`,
           source: 'Hacker News',
           snippet: `${hit.points || 0} points · ${hit.num_comments || 0} comments`,
-        });
-      }
-    }
-    return results;
+          _points: hit.points || 0,
+        }));
+      })
+    );
+
+    // 중복 제거 + 포인트 높은 순 정렬
+    return allResults
+      .flat()
+      .filter(item => {
+        if (seen.has(item.url)) return false;
+        seen.add(item.url);
+        return true;
+      })
+      .sort((a, b) => b._points - a._points)
+      .map(({ _points, ...item }) => item);
   } catch {
     return [];
   }
 }
 
-// ─── Reddit (무료, 키 불필요) — hot + new 모두 수집 ───
+// ─── Reddit (무료, 키 불필요) — hot/top/new 병렬 수집, 핫 포스트 키워드 필터 완화 ───
 async function searchReddit(subreddits: string[], keywords: string[]): Promise<NewsItem[]> {
   try {
-    const results: NewsItem[] = [];
     const seen = new Set<string>();
     const yesterday = Date.now() / 1000 - 86400;
 
-    for (const sub of subreddits) {
-      // hot (인기글) + new (최신글) 모두 수집
-      for (const sort of ['hot', 'new']) {
+    // 모든 subreddit × sort 조합을 병렬로
+    const fetches = subreddits.flatMap(sub =>
+      (['hot', 'top', 'new'] as const).map(async (sort) => {
         const res = await fetch(
-          `https://www.reddit.com/r/${sub}/${sort}.json?limit=15&t=day`,
+          `https://www.reddit.com/r/${sub}/${sort}.json?limit=20&t=day`,
           { headers: { 'User-Agent': 'jidonglab-ai-news/1.0' } }
         );
-        if (!res.ok) continue;
+        if (!res.ok) return [];
         const data = await res.json();
 
-        for (const post of data.data?.children || []) {
-          const d = post.data;
-          if (d.created_utc < yesterday) continue;
-          if (seen.has(d.permalink)) continue;
-
-          const titleLower = d.title.toLowerCase();
-          const matches = keywords.some(k => titleLower.includes(k.toLowerCase()));
-          if (!matches) continue;
-
-          seen.add(d.permalink);
-          results.push({
+        return (data.data?.children || [])
+          .map((post: any) => post.data)
+          .filter((d: any) => d.created_utc >= yesterday)
+          .map((d: any) => ({
             title: d.title,
             url: `https://reddit.com${d.permalink}`,
-            source: `r/${sub} (${sort})`,
+            source: `r/${sub}`,
             snippet: `${d.score} upvotes · ${d.num_comments} comments`,
-          });
-        }
-      }
-    }
+            _score: d.score || 0,
+            _matchesKeyword: keywords.some(k => d.title.toLowerCase().includes(k.toLowerCase())),
+          }));
+      })
+    );
 
-    // upvote 순으로 정렬 — 인기글 우선
-    return results.sort((a, b) => {
-      const scoreA = parseInt(a.snippet) || 0;
-      const scoreB = parseInt(b.snippet) || 0;
-      return scoreB - scoreA;
-    });
+    const allResults = (await Promise.all(fetches)).flat();
+
+    // hot 포스트 (50+ upvotes)는 키워드 필터 없이 수집, 나머지는 키워드 필터
+    return allResults
+      .filter(item => {
+        if (seen.has(item.url)) return false;
+        seen.add(item.url);
+        return item._matchesKeyword || item._score >= 50;
+      })
+      .sort((a, b) => b._score - a._score)
+      .map(({ _score, _matchesKeyword, ...item }) => item);
   } catch {
     return [];
   }
 }
 
-// ─── X(Twitter) 인기 포스트 — Google 검색으로 수집 ───
+// ─── X(Twitter) 인기 포스트 — Google 검색으로 병렬 수집 ───
 async function searchXPosts(keywords: string[], runtimeEnv?: Record<string, string>): Promise<NewsItem[]> {
   const apiKey = getEnv('SERPAPI_KEY', runtimeEnv) || getEnv('GOOGLE_SEARCH_API_KEY', runtimeEnv);
   const searchEngineId = getEnv('GOOGLE_SEARCH_ENGINE_ID', runtimeEnv);
   if (!apiKey || !searchEngineId) return [];
 
   try {
-    const results: NewsItem[] = [];
     const seen = new Set<string>();
 
-    for (const keyword of keywords) {
-      const params = new URLSearchParams({
-        key: apiKey,
-        cx: searchEngineId,
-        q: `site:x.com ${keyword}`,
-        dateRestrict: 'd1',
-        num: '5',
-      });
-      const res = await fetch(`https://www.googleapis.com/customsearch/v1?${params}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-
-      for (const item of data.items || []) {
-        const url = item.link;
-        if (seen.has(url)) continue;
-        // x.com 또는 twitter.com 게시물만
-        if (!url.includes('x.com/') && !url.includes('twitter.com/')) continue;
-        seen.add(url);
-        results.push({
-          title: item.title,
-          url,
-          source: 'X (Twitter)',
-          snippet: item.snippet || '',
+    const allResults = await Promise.all(
+      keywords.map(async (keyword) => {
+        const params = new URLSearchParams({
+          key: apiKey,
+          cx: searchEngineId,
+          q: `site:x.com ${keyword}`,
+          dateRestrict: 'd1',
+          num: '5',
         });
-      }
-    }
+        const res = await fetch(`https://www.googleapis.com/customsearch/v1?${params}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.items || [])
+          .filter((item: any) => item.link.includes('x.com/') || item.link.includes('twitter.com/'))
+          .map((item: any) => ({
+            title: item.title,
+            url: item.link,
+            source: 'X (Twitter)',
+            snippet: item.snippet || '',
+          }));
+      })
+    );
 
-    return results;
+    return allResults.flat().filter(item => {
+      if (seen.has(item.url)) return false;
+      seen.add(item.url);
+      return true;
+    });
   } catch {
     return [];
   }
 }
 
-// ─── GitHub Trending AI Repos (전날 별 급상승, 무료) ───
+// ─── GitHub Trending AI Repos (전날 별 급상승, 무료) — 병렬 검색 ───
 async function fetchGitHubTrending(runtimeEnv?: Record<string, string>): Promise<TrendingRepo[]> {
   try {
     const yesterday = new Date();
@@ -202,33 +212,26 @@ async function fetchGitHubTrending(runtimeEnv?: Record<string, string>): Promise
       `topic:ai stars:>100 pushed:>${dateStr}`,
       `topic:machine-learning stars:>100 pushed:>${dateStr}`,
       `topic:generative-ai stars:>50 pushed:>${dateStr}`,
+      `topic:agent stars:>50 pushed:>${dateStr}`,
     ];
 
-    const allRepos: TrendingRepo[] = [];
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'jidonglab-ai-news/1.0',
+    };
+    const githubToken = getEnv('GITHUB_TOKEN', runtimeEnv);
+    if (githubToken) {
+      headers.Authorization = `Bearer ${githubToken}`;
+    }
 
-    for (const q of queries) {
-      const params = new URLSearchParams({
-        q,
-        sort: 'stars',
-        order: 'desc',
-        per_page: '10',
-      });
-
-      const headers: Record<string, string> = {
-        Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'jidonglab-ai-news/1.0',
-      };
-      const githubToken = getEnv('GITHUB_TOKEN', runtimeEnv);
-      if (githubToken) {
-        headers.Authorization = `Bearer ${githubToken}`;
-      }
-
-      const res = await fetch(`https://api.github.com/search/repositories?${params}`, { headers });
-      if (!res.ok) continue;
-      const data = await res.json();
-
-      for (const repo of data.items || []) {
-        allRepos.push({
+    // 모든 쿼리를 병렬로
+    const allResults = await Promise.all(
+      queries.map(async (q) => {
+        const params = new URLSearchParams({ q, sort: 'stars', order: 'desc', per_page: '10' });
+        const res = await fetch(`https://api.github.com/search/repositories?${params}`, { headers });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.items || []).map((repo: any) => ({
           name: repo.name,
           fullName: repo.full_name,
           url: repo.html_url,
@@ -236,19 +239,20 @@ async function fetchGitHubTrending(runtimeEnv?: Record<string, string>): Promise
           stars: repo.stargazers_count,
           todayStars: 0,
           language: repo.language || 'Unknown',
-        });
-      }
-    }
+        }));
+      })
+    );
 
     const seen = new Set<string>();
-    return allRepos
-      .filter(r => {
+    return allResults
+      .flat()
+      .filter((r: TrendingRepo) => {
         if (seen.has(r.fullName)) return false;
         seen.add(r.fullName);
         return true;
       })
-      .sort((a, b) => b.stars - a.stars)
-      .slice(0, 10);
+      .sort((a: TrendingRepo, b: TrendingRepo) => b.stars - a.stars)
+      .slice(0, 15);
   } catch {
     return [];
   }
@@ -549,7 +553,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
         const posts = await generateTopicPosts(
           model,
           uniqueNews,
-          model === 'etc' ? trendingRepos : [],
+          trendingRepos,
           dateStr,
           anthropicApiKey!,
         );
