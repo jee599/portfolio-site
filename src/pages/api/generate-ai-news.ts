@@ -66,131 +66,141 @@ async function searchGoogle(query: string, runtimeEnv?: Record<string, string>):
   }
 }
 
-// ─── Hacker News (무료, 키 불필요) ───
+// ─── Hacker News (무료, 키 불필요) — 병렬 검색 + 포인트 정렬 ───
 async function searchHackerNews(keywords: string[]): Promise<NewsItem[]> {
   try {
     const yesterday = new Date();
     yesterday.setDate(yesterday.getDate() - 1);
     const timestamp = Math.floor(yesterday.getTime() / 1000);
 
-    const results: NewsItem[] = [];
-    for (const keyword of keywords) {
-      const params = new URLSearchParams({
-        query: keyword,
-        tags: 'story',
-        numericFilters: `created_at_i>${timestamp}`,
-        hitsPerPage: '5',
-      });
-      const res = await fetch(`https://hn.algolia.com/api/v1/search?${params}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-      for (const hit of data.hits || []) {
-        results.push({
+    const seen = new Set<string>();
+
+    // 모든 키워드 검색을 병렬로
+    const allResults = await Promise.all(
+      keywords.map(async (keyword) => {
+        const params = new URLSearchParams({
+          query: keyword,
+          tags: 'story',
+          numericFilters: `created_at_i>${timestamp},points>10`,
+          hitsPerPage: '10',
+        });
+        const res = await fetch(`https://hn.algolia.com/api/v1/search?${params}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.hits || []).map((hit: any) => ({
           title: hit.title,
           url: hit.url || `https://news.ycombinator.com/item?id=${hit.objectID}`,
           source: 'Hacker News',
           snippet: `${hit.points || 0} points · ${hit.num_comments || 0} comments`,
-        });
-      }
-    }
-    return results;
+          _points: hit.points || 0,
+        }));
+      })
+    );
+
+    // 중복 제거 + 포인트 높은 순 정렬
+    return allResults
+      .flat()
+      .filter(item => {
+        if (seen.has(item.url)) return false;
+        seen.add(item.url);
+        return true;
+      })
+      .sort((a, b) => b._points - a._points)
+      .map(({ _points, ...item }) => item);
   } catch {
     return [];
   }
 }
 
-// ─── Reddit (무료, 키 불필요) — hot + new 모두 수집 ───
+// ─── Reddit (무료, 키 불필요) — hot/top/new 병렬 수집, 핫 포스트 키워드 필터 완화 ───
 async function searchReddit(subreddits: string[], keywords: string[]): Promise<NewsItem[]> {
   try {
-    const results: NewsItem[] = [];
     const seen = new Set<string>();
     const yesterday = Date.now() / 1000 - 86400;
 
-    for (const sub of subreddits) {
-      // hot (인기글) + new (최신글) 모두 수집
-      for (const sort of ['hot', 'new']) {
+    // 모든 subreddit × sort 조합을 병렬로
+    const fetches = subreddits.flatMap(sub =>
+      (['hot', 'top', 'new'] as const).map(async (sort) => {
         const res = await fetch(
-          `https://www.reddit.com/r/${sub}/${sort}.json?limit=15&t=day`,
+          `https://www.reddit.com/r/${sub}/${sort}.json?limit=20&t=day`,
           { headers: { 'User-Agent': 'jidonglab-ai-news/1.0' } }
         );
-        if (!res.ok) continue;
+        if (!res.ok) return [];
         const data = await res.json();
 
-        for (const post of data.data?.children || []) {
-          const d = post.data;
-          if (d.created_utc < yesterday) continue;
-          if (seen.has(d.permalink)) continue;
-
-          const titleLower = d.title.toLowerCase();
-          const matches = keywords.some(k => titleLower.includes(k.toLowerCase()));
-          if (!matches) continue;
-
-          seen.add(d.permalink);
-          results.push({
+        return (data.data?.children || [])
+          .map((post: any) => post.data)
+          .filter((d: any) => d.created_utc >= yesterday)
+          .map((d: any) => ({
             title: d.title,
             url: `https://reddit.com${d.permalink}`,
-            source: `r/${sub} (${sort})`,
+            source: `r/${sub}`,
             snippet: `${d.score} upvotes · ${d.num_comments} comments`,
-          });
-        }
-      }
-    }
+            _score: d.score || 0,
+            _matchesKeyword: keywords.some(k => d.title.toLowerCase().includes(k.toLowerCase())),
+          }));
+      })
+    );
 
-    // upvote 순으로 정렬 — 인기글 우선
-    return results.sort((a, b) => {
-      const scoreA = parseInt(a.snippet) || 0;
-      const scoreB = parseInt(b.snippet) || 0;
-      return scoreB - scoreA;
-    });
+    const allResults = (await Promise.all(fetches)).flat();
+
+    // hot 포스트 (50+ upvotes)는 키워드 필터 없이 수집, 나머지는 키워드 필터
+    return allResults
+      .filter(item => {
+        if (seen.has(item.url)) return false;
+        seen.add(item.url);
+        return item._matchesKeyword || item._score >= 50;
+      })
+      .sort((a, b) => b._score - a._score)
+      .map(({ _score, _matchesKeyword, ...item }) => item);
   } catch {
     return [];
   }
 }
 
-// ─── X(Twitter) 인기 포스트 — Google 검색으로 수집 ───
+// ─── X(Twitter) 인기 포스트 — Google 검색으로 병렬 수집 ───
 async function searchXPosts(keywords: string[], runtimeEnv?: Record<string, string>): Promise<NewsItem[]> {
   const apiKey = getEnv('SERPAPI_KEY', runtimeEnv) || getEnv('GOOGLE_SEARCH_API_KEY', runtimeEnv);
   const searchEngineId = getEnv('GOOGLE_SEARCH_ENGINE_ID', runtimeEnv);
   if (!apiKey || !searchEngineId) return [];
 
   try {
-    const results: NewsItem[] = [];
     const seen = new Set<string>();
 
-    for (const keyword of keywords) {
-      const params = new URLSearchParams({
-        key: apiKey,
-        cx: searchEngineId,
-        q: `site:x.com ${keyword}`,
-        dateRestrict: 'd1',
-        num: '5',
-      });
-      const res = await fetch(`https://www.googleapis.com/customsearch/v1?${params}`);
-      if (!res.ok) continue;
-      const data = await res.json();
-
-      for (const item of data.items || []) {
-        const url = item.link;
-        if (seen.has(url)) continue;
-        // x.com 또는 twitter.com 게시물만
-        if (!url.includes('x.com/') && !url.includes('twitter.com/')) continue;
-        seen.add(url);
-        results.push({
-          title: item.title,
-          url,
-          source: 'X (Twitter)',
-          snippet: item.snippet || '',
+    const allResults = await Promise.all(
+      keywords.map(async (keyword) => {
+        const params = new URLSearchParams({
+          key: apiKey,
+          cx: searchEngineId,
+          q: `site:x.com ${keyword}`,
+          dateRestrict: 'd1',
+          num: '5',
         });
-      }
-    }
+        const res = await fetch(`https://www.googleapis.com/customsearch/v1?${params}`);
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.items || [])
+          .filter((item: any) => item.link.includes('x.com/') || item.link.includes('twitter.com/'))
+          .map((item: any) => ({
+            title: item.title,
+            url: item.link,
+            source: 'X (Twitter)',
+            snippet: item.snippet || '',
+          }));
+      })
+    );
 
-    return results;
+    return allResults.flat().filter(item => {
+      if (seen.has(item.url)) return false;
+      seen.add(item.url);
+      return true;
+    });
   } catch {
     return [];
   }
 }
 
-// ─── GitHub Trending AI Repos (전날 별 급상승, 무료) ───
+// ─── GitHub Trending AI Repos (전날 별 급상승, 무료) — 병렬 검색 ───
 async function fetchGitHubTrending(runtimeEnv?: Record<string, string>): Promise<TrendingRepo[]> {
   try {
     const yesterday = new Date();
@@ -202,33 +212,26 @@ async function fetchGitHubTrending(runtimeEnv?: Record<string, string>): Promise
       `topic:ai stars:>100 pushed:>${dateStr}`,
       `topic:machine-learning stars:>100 pushed:>${dateStr}`,
       `topic:generative-ai stars:>50 pushed:>${dateStr}`,
+      `topic:agent stars:>50 pushed:>${dateStr}`,
     ];
 
-    const allRepos: TrendingRepo[] = [];
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'jidonglab-ai-news/1.0',
+    };
+    const githubToken = getEnv('GITHUB_TOKEN', runtimeEnv);
+    if (githubToken) {
+      headers.Authorization = `Bearer ${githubToken}`;
+    }
 
-    for (const q of queries) {
-      const params = new URLSearchParams({
-        q,
-        sort: 'stars',
-        order: 'desc',
-        per_page: '10',
-      });
-
-      const headers: Record<string, string> = {
-        Accept: 'application/vnd.github.v3+json',
-        'User-Agent': 'jidonglab-ai-news/1.0',
-      };
-      const githubToken = getEnv('GITHUB_TOKEN', runtimeEnv);
-      if (githubToken) {
-        headers.Authorization = `Bearer ${githubToken}`;
-      }
-
-      const res = await fetch(`https://api.github.com/search/repositories?${params}`, { headers });
-      if (!res.ok) continue;
-      const data = await res.json();
-
-      for (const repo of data.items || []) {
-        allRepos.push({
+    // 모든 쿼리를 병렬로
+    const allResults = await Promise.all(
+      queries.map(async (q) => {
+        const params = new URLSearchParams({ q, sort: 'stars', order: 'desc', per_page: '10' });
+        const res = await fetch(`https://api.github.com/search/repositories?${params}`, { headers });
+        if (!res.ok) return [];
+        const data = await res.json();
+        return (data.items || []).map((repo: any) => ({
           name: repo.name,
           fullName: repo.full_name,
           url: repo.html_url,
@@ -236,19 +239,20 @@ async function fetchGitHubTrending(runtimeEnv?: Record<string, string>): Promise
           stars: repo.stargazers_count,
           todayStars: 0,
           language: repo.language || 'Unknown',
-        });
-      }
-    }
+        }));
+      })
+    );
 
     const seen = new Set<string>();
-    return allRepos
-      .filter(r => {
+    return allResults
+      .flat()
+      .filter((r: TrendingRepo) => {
         if (seen.has(r.fullName)) return false;
         seen.add(r.fullName);
         return true;
       })
-      .sort((a, b) => b.stars - a.stars)
-      .slice(0, 10);
+      .sort((a: TrendingRepo, b: TrendingRepo) => b.stars - a.stars)
+      .slice(0, 15);
   } catch {
     return [];
   }
@@ -492,9 +496,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const allPosts: TopicPost[] = [];
   const errors: string[] = [];
 
-  try {
-    // 전체 뉴스 소스에서 수집 (Google, HN, Reddit, X 병렬)
-    const [trendingRepos, allHnNews, allRedditNews, allXNews] = await Promise.all([
+  // Cloudflare waitUntil() — 즉시 응답 반환 후 백그라운드 처리
+  const runtime = (locals as any).runtime;
+  const ctx = runtime?.ctx;
+
+  const doWork = async () => {
+    // 1) 모든 뉴스 소스 + Google 검색을 병렬로 수집
+    const allGoogleSearches = Object.entries(MODEL_SEARCH_QUERIES).flatMap(
+      ([model, queries]) => queries.map(q => searchGoogle(q, runtimeEnv).then(news => ({ model, news })))
+    );
+
+    const [trendingRepos, allHnNews, allRedditNews, allXNews, ...googleResults] = await Promise.all([
       fetchGitHubTrending(runtimeEnv),
       searchHackerNews(['AI', 'LLM', 'Claude', 'GPT', 'Gemini', 'Anthropic', 'OpenAI']),
       searchReddit(
@@ -502,93 +514,89 @@ export const POST: APIRoute = async ({ request, locals }) => {
         ['claude', 'anthropic', 'gemini', 'gpt', 'openai', 'llm', 'llama', 'mistral', 'ai model'],
       ),
       searchXPosts(X_SEARCH_KEYWORDS, runtimeEnv),
+      ...allGoogleSearches,
     ]);
 
-    // 모델별 뉴스 수집 후 Claude API로 주제별 포스트 생성
-    for (const [model, queries] of Object.entries(MODEL_SEARCH_QUERIES)) {
-      const allNews: NewsItem[] = [];
+    // 모델별 Google 검색 결과 그룹핑
+    const googleByModel: Record<string, NewsItem[]> = {};
+    for (const { model, news } of googleResults) {
+      if (!googleByModel[model]) googleByModel[model] = [];
+      googleByModel[model].push(...news);
+    }
 
-      // Google Custom Search
-      for (const query of queries) {
-        const news = await searchGoogle(query, runtimeEnv);
-        allNews.push(...news);
-      }
+    // 2) 모델별 뉴스 취합 + Claude API 호출을 병렬로
+    const modelEntries = Object.keys(MODEL_SEARCH_QUERIES);
+    const generatePromises = modelEntries.map(async (model) => {
+      const allNews: NewsItem[] = [...(googleByModel[model] || [])];
 
-      // Hacker News (모델별 필터링)
+      // HN, Reddit, X 필터링
       const keywords = MODEL_KEYWORDS[model] || [];
-      const hnFiltered = allHnNews.filter(item =>
-        keywords.some(k => item.title.toLowerCase().includes(k))
+      allNews.push(
+        ...allHnNews.filter(item => keywords.some(k => item.title.toLowerCase().includes(k))),
+        ...allRedditNews.filter(item => keywords.some(k => item.title.toLowerCase().includes(k))),
+        ...allXNews.filter(item =>
+          keywords.some(k => item.title.toLowerCase().includes(k) || item.snippet.toLowerCase().includes(k))
+        ),
       );
-      allNews.push(...hnFiltered);
-
-      // Reddit (모델별 필터링)
-      const redditFiltered = allRedditNews.filter(item =>
-        keywords.some(k => item.title.toLowerCase().includes(k))
-      );
-      allNews.push(...redditFiltered);
-
-      // X/Twitter (모델별 필터링)
-      const xFiltered = allXNews.filter(item =>
-        keywords.some(k => item.title.toLowerCase().includes(k) || item.snippet.toLowerCase().includes(k))
-      );
-      allNews.push(...xFiltered);
 
       // URL 기준 중복 제거
-      const uniqueNews = allNews.filter(
-        (item, index, self) => index === self.findIndex(n => n.url === item.url)
-      ).slice(0, 10);
+      const uniqueNews = allNews
+        .filter((item, index, self) => index === self.findIndex(n => n.url === item.url))
+        .slice(0, 10);
 
-      // 뉴스가 없으면 건너뛰기
       if (uniqueNews.length === 0 && !(model === 'etc' && trendingRepos.length > 0)) {
         console.log(`[${model}] No news found, skipping`);
-        continue;
+        return { model, posts: [] as TopicPost[], error: undefined };
       }
 
       try {
         const posts = await generateTopicPosts(
           model,
           uniqueNews,
-          model === 'etc' ? trendingRepos : [],
+          trendingRepos,
           dateStr,
-          anthropicApiKey,
+          anthropicApiKey!,
         );
-        allPosts.push(...posts);
+        return { model, posts, error: undefined };
       } catch (err) {
-        errors.push(`[${model}] Claude API error: ${String(err)}`);
         console.error(`[${model}] Failed to generate posts:`, err);
+        return { model, posts: [] as TopicPost[], error: `[${model}] Claude API error: ${String(err)}` };
       }
+    });
+
+    const results = await Promise.all(generatePromises);
+
+    for (const r of results) {
+      allPosts.push(...r.posts);
+      if (r.error) errors.push(r.error);
     }
 
-    // GitHub에 커밋
+    // 3) GitHub 커밋도 병렬로
     const githubToken = getEnv('GITHUB_TOKEN', runtimeEnv);
     const githubRepo = getEnv('GITHUB_REPO', runtimeEnv) || 'jee599/portfolio-site';
 
     if (!githubToken) {
-      return new Response(JSON.stringify({
-        error: 'GITHUB_TOKEN not set',
-        generated: allPosts.length,
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.error('GITHUB_TOKEN not set');
+      return;
     }
 
-    const committed: string[] = [];
-    for (const post of allPosts) {
-      const filePath = `src/content/ai-news/${dateStr}-${post.slug}.md`;
-      const result = await commitToGitHub(
-        filePath,
-        post.markdown,
-        `feat: auto-generate AI news — ${post.slug} (${dateStr}) [skip-log]`,
-        githubToken,
-        githubRepo,
-      );
+    const commitResults = await Promise.all(
+      allPosts.map(async (post) => {
+        const filePath = `src/content/ai-news/${dateStr}-${post.slug}.md`;
+        const result = await commitToGitHub(
+          filePath,
+          post.markdown,
+          `feat: auto-generate AI news — ${post.slug} (${dateStr}) [skip-log]`,
+          githubToken,
+          githubRepo,
+        );
+        return { filePath, ...result };
+      })
+    );
 
-      if (result.ok) {
-        committed.push(filePath);
-      } else {
-        errors.push(`[${post.slug}] GitHub commit failed: ${result.error}`);
-      }
+    const committed = commitResults.filter(r => r.ok).map(r => r.filePath);
+    for (const r of commitResults) {
+      if (!r.ok) errors.push(`GitHub commit failed: ${r.filePath} — ${r.error}`);
     }
 
     // Cloudflare Pages 리빌드 트리거
@@ -599,29 +607,38 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     }
 
+    console.log(`AI News generation done: ${committed.length} committed, ${errors.length} errors`);
+  };
+
+  // waitUntil()이 있으면 백그라운드 실행 (Cloudflare), 없으면 동기 실행
+  if (ctx?.waitUntil) {
+    ctx.waitUntil(doWork());
+    return new Response(
+      JSON.stringify({ ok: true, message: 'AI news generation started in background', date: dateStr }),
+      { status: 202, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // waitUntil 없는 환경 (로컬 등) — 동기 실행
+  try {
+    await doWork();
     const hasErrors = errors.length > 0;
     return new Response(
       JSON.stringify({
-        ok: !hasErrors || committed.length > 0,
+        ok: !hasErrors || allPosts.length > 0,
         date: dateStr,
         totalPosts: allPosts.length,
-        committed: committed.length,
-        files: committed,
-        trendingRepos: trendingRepos.length,
         ...(hasErrors ? { errors } : {}),
       }),
       {
-        status: hasErrors && committed.length === 0 ? 500 : 200,
+        status: hasErrors && allPosts.length === 0 ? 500 : 200,
         headers: { 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
     return new Response(
       JSON.stringify({ error: 'Failed to generate AI news', details: String(error) }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 };
