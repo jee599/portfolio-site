@@ -492,9 +492,17 @@ export const POST: APIRoute = async ({ request, locals }) => {
   const allPosts: TopicPost[] = [];
   const errors: string[] = [];
 
-  try {
-    // 전체 뉴스 소스에서 수집 (Google, HN, Reddit, X 병렬)
-    const [trendingRepos, allHnNews, allRedditNews, allXNews] = await Promise.all([
+  // Cloudflare waitUntil() — 즉시 응답 반환 후 백그라운드 처리
+  const runtime = (locals as any).runtime;
+  const ctx = runtime?.ctx;
+
+  const doWork = async () => {
+    // 1) 모든 뉴스 소스 + Google 검색을 병렬로 수집
+    const allGoogleSearches = Object.entries(MODEL_SEARCH_QUERIES).flatMap(
+      ([model, queries]) => queries.map(q => searchGoogle(q, runtimeEnv).then(news => ({ model, news })))
+    );
+
+    const [trendingRepos, allHnNews, allRedditNews, allXNews, ...googleResults] = await Promise.all([
       fetchGitHubTrending(runtimeEnv),
       searchHackerNews(['AI', 'LLM', 'Claude', 'GPT', 'Gemini', 'Anthropic', 'OpenAI']),
       searchReddit(
@@ -502,46 +510,39 @@ export const POST: APIRoute = async ({ request, locals }) => {
         ['claude', 'anthropic', 'gemini', 'gpt', 'openai', 'llm', 'llama', 'mistral', 'ai model'],
       ),
       searchXPosts(X_SEARCH_KEYWORDS, runtimeEnv),
+      ...allGoogleSearches,
     ]);
 
-    // 모델별 뉴스 수집 후 Claude API로 주제별 포스트 생성
-    for (const [model, queries] of Object.entries(MODEL_SEARCH_QUERIES)) {
-      const allNews: NewsItem[] = [];
+    // 모델별 Google 검색 결과 그룹핑
+    const googleByModel: Record<string, NewsItem[]> = {};
+    for (const { model, news } of googleResults) {
+      if (!googleByModel[model]) googleByModel[model] = [];
+      googleByModel[model].push(...news);
+    }
 
-      // Google Custom Search
-      for (const query of queries) {
-        const news = await searchGoogle(query, runtimeEnv);
-        allNews.push(...news);
-      }
+    // 2) 모델별 뉴스 취합 + Claude API 호출을 병렬로
+    const modelEntries = Object.keys(MODEL_SEARCH_QUERIES);
+    const generatePromises = modelEntries.map(async (model) => {
+      const allNews: NewsItem[] = [...(googleByModel[model] || [])];
 
-      // Hacker News (모델별 필터링)
+      // HN, Reddit, X 필터링
       const keywords = MODEL_KEYWORDS[model] || [];
-      const hnFiltered = allHnNews.filter(item =>
-        keywords.some(k => item.title.toLowerCase().includes(k))
+      allNews.push(
+        ...allHnNews.filter(item => keywords.some(k => item.title.toLowerCase().includes(k))),
+        ...allRedditNews.filter(item => keywords.some(k => item.title.toLowerCase().includes(k))),
+        ...allXNews.filter(item =>
+          keywords.some(k => item.title.toLowerCase().includes(k) || item.snippet.toLowerCase().includes(k))
+        ),
       );
-      allNews.push(...hnFiltered);
-
-      // Reddit (모델별 필터링)
-      const redditFiltered = allRedditNews.filter(item =>
-        keywords.some(k => item.title.toLowerCase().includes(k))
-      );
-      allNews.push(...redditFiltered);
-
-      // X/Twitter (모델별 필터링)
-      const xFiltered = allXNews.filter(item =>
-        keywords.some(k => item.title.toLowerCase().includes(k) || item.snippet.toLowerCase().includes(k))
-      );
-      allNews.push(...xFiltered);
 
       // URL 기준 중복 제거
-      const uniqueNews = allNews.filter(
-        (item, index, self) => index === self.findIndex(n => n.url === item.url)
-      ).slice(0, 10);
+      const uniqueNews = allNews
+        .filter((item, index, self) => index === self.findIndex(n => n.url === item.url))
+        .slice(0, 10);
 
-      // 뉴스가 없으면 건너뛰기
       if (uniqueNews.length === 0 && !(model === 'etc' && trendingRepos.length > 0)) {
         console.log(`[${model}] No news found, skipping`);
-        continue;
+        return { model, posts: [] as TopicPost[], error: undefined };
       }
 
       try {
@@ -550,45 +551,48 @@ export const POST: APIRoute = async ({ request, locals }) => {
           uniqueNews,
           model === 'etc' ? trendingRepos : [],
           dateStr,
-          anthropicApiKey,
+          anthropicApiKey!,
         );
-        allPosts.push(...posts);
+        return { model, posts, error: undefined };
       } catch (err) {
-        errors.push(`[${model}] Claude API error: ${String(err)}`);
         console.error(`[${model}] Failed to generate posts:`, err);
+        return { model, posts: [] as TopicPost[], error: `[${model}] Claude API error: ${String(err)}` };
       }
+    });
+
+    const results = await Promise.all(generatePromises);
+
+    for (const r of results) {
+      allPosts.push(...r.posts);
+      if (r.error) errors.push(r.error);
     }
 
-    // GitHub에 커밋
+    // 3) GitHub 커밋도 병렬로
     const githubToken = getEnv('GITHUB_TOKEN', runtimeEnv);
     const githubRepo = getEnv('GITHUB_REPO', runtimeEnv) || 'jee599/portfolio-site';
 
     if (!githubToken) {
-      return new Response(JSON.stringify({
-        error: 'GITHUB_TOKEN not set',
-        generated: allPosts.length,
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      });
+      console.error('GITHUB_TOKEN not set');
+      return;
     }
 
-    const committed: string[] = [];
-    for (const post of allPosts) {
-      const filePath = `src/content/ai-news/${dateStr}-${post.slug}.md`;
-      const result = await commitToGitHub(
-        filePath,
-        post.markdown,
-        `feat: auto-generate AI news — ${post.slug} (${dateStr}) [skip-log]`,
-        githubToken,
-        githubRepo,
-      );
+    const commitResults = await Promise.all(
+      allPosts.map(async (post) => {
+        const filePath = `src/content/ai-news/${dateStr}-${post.slug}.md`;
+        const result = await commitToGitHub(
+          filePath,
+          post.markdown,
+          `feat: auto-generate AI news — ${post.slug} (${dateStr}) [skip-log]`,
+          githubToken,
+          githubRepo,
+        );
+        return { filePath, ...result };
+      })
+    );
 
-      if (result.ok) {
-        committed.push(filePath);
-      } else {
-        errors.push(`[${post.slug}] GitHub commit failed: ${result.error}`);
-      }
+    const committed = commitResults.filter(r => r.ok).map(r => r.filePath);
+    for (const r of commitResults) {
+      if (!r.ok) errors.push(`GitHub commit failed: ${r.filePath} — ${r.error}`);
     }
 
     // Cloudflare Pages 리빌드 트리거
@@ -599,29 +603,38 @@ export const POST: APIRoute = async ({ request, locals }) => {
       }
     }
 
+    console.log(`AI News generation done: ${committed.length} committed, ${errors.length} errors`);
+  };
+
+  // waitUntil()이 있으면 백그라운드 실행 (Cloudflare), 없으면 동기 실행
+  if (ctx?.waitUntil) {
+    ctx.waitUntil(doWork());
+    return new Response(
+      JSON.stringify({ ok: true, message: 'AI news generation started in background', date: dateStr }),
+      { status: 202, headers: { 'Content-Type': 'application/json' } }
+    );
+  }
+
+  // waitUntil 없는 환경 (로컬 등) — 동기 실행
+  try {
+    await doWork();
     const hasErrors = errors.length > 0;
     return new Response(
       JSON.stringify({
-        ok: !hasErrors || committed.length > 0,
+        ok: !hasErrors || allPosts.length > 0,
         date: dateStr,
         totalPosts: allPosts.length,
-        committed: committed.length,
-        files: committed,
-        trendingRepos: trendingRepos.length,
         ...(hasErrors ? { errors } : {}),
       }),
       {
-        status: hasErrors && committed.length === 0 ? 500 : 200,
+        status: hasErrors && allPosts.length === 0 ? 500 : 200,
         headers: { 'Content-Type': 'application/json' },
       }
     );
   } catch (error) {
     return new Response(
       JSON.stringify({ error: 'Failed to generate AI news', details: String(error) }),
-      {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' },
-      }
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
   }
 };
