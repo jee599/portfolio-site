@@ -29,7 +29,7 @@ jobs:
             const devtoKey = process.env.DEVTO_API_KEY;
             const dryRun = process.env.DRY_RUN === 'true';
             if (!devtoKey) {
-              console.log('DEVTO_API_KEY not set');
+              core.setFailed('DEVTO_API_KEY not set');
               return;
             }
 
@@ -40,8 +40,17 @@ jobs:
               const items = [];
               let page = 1;
               while (true) {
-                const res = await fetch(`${endpoint}?per_page=100&page=${page}`, { headers });
-                if (!res.ok) break;
+                let res;
+                try {
+                  res = await fetch(`${endpoint}?per_page=100&page=${page}`, { headers });
+                } catch (e) {
+                  console.log(`Network error fetching ${endpoint} page ${page}: ${e.message}`);
+                  break;
+                }
+                if (!res.ok) {
+                  console.log(`API error ${res.status} fetching ${endpoint} page ${page}`);
+                  break;
+                }
                 const batch = await res.json();
                 if (batch.length === 0) break;
                 items.push(...batch);
@@ -51,8 +60,14 @@ jobs:
               return items;
             }
 
-            const published = await fetchAll('https://dev.to/api/articles/me/published');
-            const unpublished = await fetchAll('https://dev.to/api/articles/me/unpublished');
+            let published, unpublished;
+            try {
+              published = await fetchAll('https://dev.to/api/articles/me/published');
+              unpublished = await fetchAll('https://dev.to/api/articles/me/unpublished');
+            } catch (e) {
+              core.setFailed(`Failed to fetch articles: ${e.message}`);
+              return;
+            }
             const allArticles = [...published, ...unpublished];
             console.log(`Total articles: ${allArticles.length} (${published.length} published, ${unpublished.length} unpublished)`);
 
@@ -187,7 +202,8 @@ jobs:
               }
 
               // 깨진 태그 (ainew파싱 등 비정상 태그가 제목에 있는 경우)
-              if (/[가-힣]/.test(a.tag_list?.join(',') || '')) {
+              const tagStr = Array.isArray(a.tag_list) ? a.tag_list.join(',') : (a.tag_list || '');
+              if (/[가-힣]/.test(tagStr)) {
                 toUnpublish.push({ id: a.id, title: a.title, reason: 'broken-tags' });
                 processedIds.add(a.id);
                 continue;
