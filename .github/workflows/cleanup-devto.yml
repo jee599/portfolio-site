@@ -1,7 +1,16 @@
 name: Cleanup Dev.to Articles
 
 on:
-  workflow_dispatch: # 수동 실행 전용
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (로그만 출력, 실제 변경 없음)'
+        required: false
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
 
 permissions:
   contents: read
@@ -10,13 +19,15 @@ jobs:
   cleanup:
     runs-on: ubuntu-latest
     steps:
-      - name: Cleanup duplicate and low-quality Dev.to articles
+      - name: Cleanup duplicate, similar, and low-quality Dev.to articles
         uses: actions/github-script@v7
         env:
           DEVTO_API_KEY: ${{ secrets.DEVTO_API_KEY }}
+          DRY_RUN: ${{ inputs.dry_run }}
         with:
           script: |
             const devtoKey = process.env.DEVTO_API_KEY;
+            const dryRun = process.env.DRY_RUN === 'true';
             if (!devtoKey) {
               console.log('DEVTO_API_KEY not set');
               return;
@@ -24,93 +35,185 @@ jobs:
 
             const headers = { 'api-key': devtoKey };
 
-            // Fetch all published articles (paginated)
-            let allArticles = [];
-            let page = 1;
-            while (true) {
-              const res = await fetch(`https://dev.to/api/articles/me/published?per_page=100&page=${page}`, { headers });
-              if (!res.ok) break;
-              const batch = await res.json();
-              if (batch.length === 0) break;
-              allArticles.push(...batch);
-              page++;
-            }
-
-            // Fetch unpublished too
-            page = 1;
-            while (true) {
-              const res = await fetch(`https://dev.to/api/articles/me/unpublished?per_page=100&page=${page}`, { headers });
-              if (!res.ok) break;
-              const batch = await res.json();
-              if (batch.length === 0) break;
-              allArticles.push(...batch);
-              page++;
-            }
-
-            console.log(`Total articles found: ${allArticles.length}`);
-
-            // 1) 제목 중복 찾기 — 오래된 것을 unpublish
-            const titleMap = new Map();
-            for (const a of allArticles) {
-              const key = a.title.trim();
-              if (!titleMap.has(key)) {
-                titleMap.set(key, []);
+            // ── 1. Fetch all articles (published + unpublished) ──
+            async function fetchAll(endpoint) {
+              const items = [];
+              let page = 1;
+              while (true) {
+                const res = await fetch(`${endpoint}?per_page=100&page=${page}`, { headers });
+                if (!res.ok) break;
+                const batch = await res.json();
+                if (batch.length === 0) break;
+                items.push(...batch);
+                page++;
+                await new Promise(r => setTimeout(r, 500));
               }
-              titleMap.get(key).push(a);
+              return items;
+            }
+
+            const published = await fetchAll('https://dev.to/api/articles/me/published');
+            const unpublished = await fetchAll('https://dev.to/api/articles/me/unpublished');
+            const allArticles = [...published, ...unpublished];
+            console.log(`Total articles: ${allArticles.length} (${published.length} published, ${unpublished.length} unpublished)`);
+
+            // ── 2. Fetch full body for each published article ──
+            const fullArticles = [];
+            for (const a of published) {
+              try {
+                const res = await fetch(`https://dev.to/api/articles/${a.id}`, { headers });
+                if (res.ok) {
+                  const full = await res.json();
+                  fullArticles.push(full);
+                } else {
+                  fullArticles.push(a);
+                }
+                await new Promise(r => setTimeout(r, 300));
+              } catch {
+                fullArticles.push(a);
+              }
+            }
+
+            // ── 3. Similarity helpers ──
+            function normalize(str) {
+              return str
+                .toLowerCase()
+                .replace(/[^a-z0-9가-힣\s]/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+            }
+
+            // 단어 기반 유사도 (Jaccard)
+            function wordSimilarity(a, b) {
+              const setA = new Set(normalize(a).split(' '));
+              const setB = new Set(normalize(b).split(' '));
+              const inter = new Set([...setA].filter(x => setB.has(x)));
+              const union = new Set([...setA, ...setB]);
+              return union.size === 0 ? 0 : inter.size / union.size;
+            }
+
+            // 날짜 추출 (제목 또는 canonical_url에서)
+            function extractDate(article) {
+              // canonical_url에서 날짜 추출: /ai-news/2026-03-12-xxx
+              const urlMatch = article.canonical_url?.match(/(\d{4}-\d{2}-\d{2})/);
+              if (urlMatch) return urlMatch[1];
+              // 제목에서 날짜 추출
+              const titleMatch = article.title?.match(/(\d{4}-\d{2}-\d{2})/);
+              if (titleMatch) return titleMatch[1];
+              return null;
             }
 
             const toUnpublish = [];
+            const processedIds = new Set();
+
+            // ── 4. Exact title duplicates → keep highest views ──
+            const titleMap = new Map();
+            for (const a of fullArticles) {
+              const key = a.title.trim();
+              if (!titleMap.has(key)) titleMap.set(key, []);
+              titleMap.get(key).push(a);
+            }
 
             for (const [title, articles] of titleMap) {
               if (articles.length > 1) {
-                // 가장 최근 것만 남기고 나머지 unpublish
-                articles.sort((a, b) => new Date(b.published_at || b.created_at) - new Date(a.published_at || a.created_at));
+                // 조회수 높은 순 정렬
+                articles.sort((a, b) => (b.page_views_count || 0) - (a.page_views_count || 0));
+                console.log(`\n[EXACT DUP] "${title}"`);
+                console.log(`  Keep: id=${articles[0].id} (views: ${articles[0].page_views_count || 0})`);
                 for (let i = 1; i < articles.length; i++) {
-                  toUnpublish.push({ id: articles[i].id, title: articles[i].title, reason: 'duplicate' });
+                  console.log(`  Remove: id=${articles[i].id} (views: ${articles[i].page_views_count || 0})`);
+                  toUnpublish.push({ id: articles[i].id, title: articles[i].title, reason: 'exact-duplicate' });
+                  processedIds.add(articles[i].id);
                 }
               }
             }
 
-            // 2) 저품질 감지: 본문 200자 미만, 또는 frontmatter/raw markdown 노출
-            for (const a of allArticles) {
-              // body_markdown이 없으면 API에서 full article 가져오기
-              let bodyLen = a.body_markdown?.length || 0;
-              if (bodyLen === 0) {
-                try {
-                  const fullRes = await fetch(`https://dev.to/api/articles/${a.id}`, { headers });
-                  if (fullRes.ok) {
-                    const full = await fullRes.json();
-                    bodyLen = full.body_markdown?.length || 0;
+            // ── 5. Fuzzy similar titles (same date/topic) → keep highest views ──
+            const remaining = fullArticles.filter(a => !processedIds.has(a.id));
+            const checked = new Set();
 
-                    // frontmatter가 본문에 노출되는 경우 감지
-                    const body = full.body_markdown || '';
-                    if (body.startsWith('---') && body.includes('title:')) {
-                      toUnpublish.push({ id: a.id, title: a.title, reason: 'raw-frontmatter-exposed' });
-                      continue;
-                    }
-                  }
-                } catch {}
+            for (let i = 0; i < remaining.length; i++) {
+              if (checked.has(remaining[i].id)) continue;
+              const group = [remaining[i]];
+
+              for (let j = i + 1; j < remaining.length; j++) {
+                if (checked.has(remaining[j].id)) continue;
+
+                const sim = wordSimilarity(remaining[i].title, remaining[j].title);
+                const dateA = extractDate(remaining[i]);
+                const dateB = extractDate(remaining[j]);
+                const sameDate = dateA && dateB && dateA === dateB;
+
+                // 같은 날짜 + 제목 유사도 50% 이상이면 중복으로 판단
+                // 또는 제목 유사도 70% 이상이면 날짜 무관하게 중복
+                if ((sameDate && sim >= 0.5) || sim >= 0.7) {
+                  group.push(remaining[j]);
+                  checked.add(remaining[j].id);
+                }
               }
 
-              if (bodyLen > 0 && bodyLen < 200) {
+              if (group.length > 1) {
+                // 조회수 높은 순 정렬
+                group.sort((a, b) => (b.page_views_count || 0) - (a.page_views_count || 0));
+                console.log(`\n[SIMILAR] Group (similarity-based):`);
+                console.log(`  Keep: "${group[0].title}" (views: ${group[0].page_views_count || 0})`);
+                for (let k = 1; k < group.length; k++) {
+                  console.log(`  Remove: "${group[k].title}" (views: ${group[k].page_views_count || 0})`);
+                  if (!processedIds.has(group[k].id)) {
+                    toUnpublish.push({ id: group[k].id, title: group[k].title, reason: 'similar-duplicate' });
+                    processedIds.add(group[k].id);
+                  }
+                }
+              }
+              checked.add(remaining[i].id);
+            }
+
+            // ── 6. Low quality detection ──
+            for (const a of fullArticles) {
+              if (processedIds.has(a.id)) continue;
+              const body = a.body_markdown || '';
+
+              // frontmatter 노출
+              if (body.startsWith('---') && body.includes('title:')) {
+                toUnpublish.push({ id: a.id, title: a.title, reason: 'raw-frontmatter' });
+                processedIds.add(a.id);
+                continue;
+              }
+
+              // 본문 너무 짧음 (200자 미만)
+              if (body.length > 0 && body.length < 200) {
                 toUnpublish.push({ id: a.id, title: a.title, reason: 'too-short' });
+                processedIds.add(a.id);
+                continue;
+              }
+
+              // 깨진 태그 (ainew파싱 등 비정상 태그가 제목에 있는 경우)
+              if (/[가-힣]/.test(a.tag_list?.join(',') || '')) {
+                toUnpublish.push({ id: a.id, title: a.title, reason: 'broken-tags' });
+                processedIds.add(a.id);
+                continue;
               }
             }
 
-            // 중복 제거 (같은 ID가 여러 이유로 걸릴 수 있음)
-            const uniqueIds = new Set();
+            // ── 7. Execute unpublish ──
+            // 중복 ID 제거
+            const seen = new Set();
             const uniqueToUnpublish = toUnpublish.filter(item => {
-              if (uniqueIds.has(item.id)) return false;
-              uniqueIds.add(item.id);
+              if (seen.has(item.id)) return false;
+              seen.add(item.id);
               return true;
             });
 
-            console.log(`\nArticles to unpublish: ${uniqueToUnpublish.length}`);
+            console.log(`\n${'='.repeat(60)}`);
+            console.log(`Articles to unpublish: ${uniqueToUnpublish.length}`);
+            if (dryRun) console.log('(DRY RUN — no changes will be made)');
+            console.log('='.repeat(60));
 
-            // Unpublish
-            let unpublished = 0;
+            let unpublishedCount = 0;
             for (const item of uniqueToUnpublish) {
-              console.log(`  Unpublishing [${item.reason}]: "${item.title}" (id: ${item.id})`);
+              console.log(`  [${item.reason}] "${item.title}" (id: ${item.id})`);
+
+              if (dryRun) continue;
+
               try {
                 const res = await fetch(`https://dev.to/api/articles/${item.id}`, {
                   method: 'PUT',
@@ -118,23 +221,29 @@ jobs:
                     'Content-Type': 'application/json',
                     'api-key': devtoKey,
                   },
-                  body: JSON.stringify({
-                    article: { published: false },
-                  }),
+                  body: JSON.stringify({ article: { published: false } }),
                 });
 
                 if (res.ok) {
-                  console.log(`    → Unpublished`);
-                  unpublished++;
+                  console.log(`    → Unpublished ✓`);
+                  unpublishedCount++;
                 } else {
                   const err = await res.text();
                   console.log(`    → Failed: ${res.status} ${err}`);
                 }
-
                 await new Promise(r => setTimeout(r, 2000));
               } catch (e) {
                 console.log(`    → Error: ${e.message}`);
               }
             }
 
-            console.log(`\nDone: ${unpublished}/${uniqueToUnpublish.length} unpublished`);
+            // ── 8. Summary ──
+            console.log(`\n${'='.repeat(60)}`);
+            console.log(`Summary:`);
+            console.log(`  Total articles scanned: ${fullArticles.length}`);
+            console.log(`  Exact duplicates: ${toUnpublish.filter(x => x.reason === 'exact-duplicate').length}`);
+            console.log(`  Similar duplicates: ${toUnpublish.filter(x => x.reason === 'similar-duplicate').length}`);
+            console.log(`  Raw frontmatter: ${toUnpublish.filter(x => x.reason === 'raw-frontmatter').length}`);
+            console.log(`  Too short: ${toUnpublish.filter(x => x.reason === 'too-short').length}`);
+            console.log(`  Broken tags: ${toUnpublish.filter(x => x.reason === 'broken-tags').length}`);
+            console.log(`  ${dryRun ? 'Would unpublish' : 'Unpublished'}: ${dryRun ? uniqueToUnpublish.length : unpublishedCount}`);
