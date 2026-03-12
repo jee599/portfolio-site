@@ -153,7 +153,24 @@ jobs:
                   tags = ['ai'];
                 }
 
-                const description = descMatch ? descMatch[1] : (summaryMatch ? summaryMatch[1] : undefined);
+                // description 보장: description > summary > 본문 앞 100자
+                let description = descMatch ? descMatch[1] : (summaryMatch ? summaryMatch[1] : undefined);
+                if (!description && body.length > 0) {
+                  description = body.replace(/[#*>\-\[\]`]/g, '').trim().slice(0, 150).trim() + '...';
+                }
+
+                // series 결정: 컬렉션 타입별 시리즈 그룹
+                const modelMatch = frontmatter.match(/model:\s*"?([^"\n\s]+)"?/);
+                const projectMatch = frontmatter.match(/project:\s*"?([^"\n\s]+)"?/);
+                let series;
+                if (col.type === 'ai-news' && modelMatch) {
+                  const modelSeries = { claude: 'AI News — Claude', gemini: 'AI News — Gemini', gpt: 'AI News — GPT', etc: 'AI News — Open Source & Others' };
+                  series = modelSeries[modelMatch[1]] || 'AI News';
+                } else if (col.type === 'build-log' && projectMatch) {
+                  series = `Build Log — ${projectMatch[1]}`;
+                } else if (col.type === 'tip') {
+                  series = 'AI Dev Tips';
+                }
 
                 // jidonglab 푸터 링크 강제 추가
                 const lang = langMatch ? langMatch[1].trim() : 'ko';
@@ -178,6 +195,7 @@ jobs:
                         tags,
                         canonical_url: canonicalUrl,
                         description,
+                        ...(series ? { series } : {}),
                       },
                     }),
                   });

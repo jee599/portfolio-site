@@ -26,6 +26,7 @@ const modelLabels: Record<string, string> = {
   title={entry.data.title}
   date={entry.data.date}
   tags={[modelLabels[entry.data.model] || entry.data.model, ...entry.data.tags]}
+  description={entry.data.summary}
 >
   <Content />
   {entry.data.sources && entry.data.sources.length > 0 && (

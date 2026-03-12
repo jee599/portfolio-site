@@ -8,9 +8,10 @@ interface Props {
   tags?: string[];
   pair?: string;
   lang?: string;
+  description?: string;
 }
 
-const { title, date, project, tags = [], pair, lang } = Astro.props;
+const { title, date, project, tags = [], pair, lang, description } = Astro.props;
 const dateStr = date.toISOString().split('T')[0];
 const formattedDate = date.toLocaleDateString('ko-KR', {
   year: 'numeric',
@@ -18,9 +19,24 @@ const formattedDate = date.toLocaleDateString('ko-KR', {
   day: 'numeric',
 });
 const slug = Astro.url.pathname;
+const siteUrl = 'https://jidonglab.com';
+const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
+
+const articleJsonLd = {
+  '@context': 'https://schema.org',
+  '@type': 'Article',
+  headline: title,
+  datePublished: date.toISOString(),
+  author: { '@type': 'Person', name: 'jidonglab' },
+  publisher: { '@type': 'Organization', name: 'Jidong Lab', url: siteUrl },
+  url: canonicalUrl,
+  ...(description ? { description } : {}),
+  ...(tags.length > 0 ? { keywords: tags.join(', ') } : {}),
+};
 ---
 
-<Base title={title}>
+<Base title={title} description={description}>
+  <script type="application/ld+json" set:html={JSON.stringify(articleJsonLd)} />
   <article class="post fade-in">
     <header class="post-header">
       <h1 class="post-title">{title}</h1>

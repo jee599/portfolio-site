@@ -1,0 +1,9 @@
+<svg width="1200" height="630" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1200" height="630" fill="#ffffff"/>
+  <rect x="0" y="0" width="1200" height="4" fill="#00c471"/>
+  <circle cx="600" cy="240" r="60" fill="#00c471"/>
+  <text x="600" y="265" text-anchor="middle" font-family="monospace" font-weight="800" font-size="64" fill="#fff">j</text>
+  <text x="600" y="360" text-anchor="middle" font-family="monospace" font-weight="700" font-size="48" fill="#191f28">jidonglab</text>
+  <text x="600" y="420" text-anchor="middle" font-family="sans-serif" font-size="24" fill="#8b95a1">AI를 사용하고, 연구합니다.</text>
+  <rect x="0" y="626" width="1200" height="4" fill="#00c471"/>
+</svg>
