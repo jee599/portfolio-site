@@ -155,6 +155,14 @@ jobs:
 
                 const description = descMatch ? descMatch[1] : (summaryMatch ? summaryMatch[1] : undefined);
 
+                // jidonglab 푸터 링크 강제 추가
+                const lang = langMatch ? langMatch[1].trim() : 'ko';
+                const footer = lang === 'en'
+                  ? `\n\n---\n\n> 📌 Originally published at [Jidong Lab](${canonicalUrl})\n> More AI news and dev logs → [jidonglab.com](${siteUrl})`
+                  : `\n\n---\n\n> 📌 원문: [Jidong Lab](${canonicalUrl})\n> AI 소식과 개발 로그 → [jidonglab.com](${siteUrl})`;
+
+                const bodyWithFooter = body + footer;
+
                 try {
                   const res = await fetch('https://dev.to/api/articles', {
                     method: 'POST',
@@ -165,7 +173,7 @@ jobs:
                     body: JSON.stringify({
                       article: {
                         title,
-                        body_markdown: body,
+                        body_markdown: bodyWithFooter,
                         published: true,
                         tags,
                         canonical_url: canonicalUrl,
