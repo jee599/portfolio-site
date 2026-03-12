@@ -44,6 +44,7 @@ const aiNews = defineCollection({
     summary: z.string().optional(),
     sources: z.array(z.string()).optional(),
     auto_generated: z.boolean().default(true),
+    lang: z.enum(['ko', 'en']).default('ko'),
   }),
 });
 

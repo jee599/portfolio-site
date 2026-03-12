@@ -54,6 +54,15 @@ jobs:
               { dir: 'src/content/ai-news', urlPrefix: '/ai-news', type: 'ai-news' },
             ];
 
+            // Dev.to 태그 변환: 하이픈 제거, 영문+숫자만, 소문자, 최대 20자
+            function sanitizeTag(tag) {
+              return tag
+                .toLowerCase()
+                .replace(/-/g, '')        // ai-news → ainews
+                .replace(/[^a-z0-9]/g, '') // 한글/특수문자 제거
+                .slice(0, 20);
+            }
+
             let published = 0;
             let skipped = 0;
 
@@ -70,25 +79,44 @@ jobs:
                 const content = fs.readFileSync(path.join(col.dir, file), 'utf-8');
 
                 // Parse frontmatter
-                const fmMatch = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/);
-                if (!fmMatch) continue;
+                const fmMatch = content.match(/^---\s*\n([\s\S]*?)\n---\s*\n([\s\S]*)$/);
+                if (!fmMatch) {
+                  console.log(`  Skip (no frontmatter): ${file}`);
+                  continue;
+                }
 
                 const frontmatter = fmMatch[1];
                 const body = fmMatch[2].trim();
 
+                // Skip empty body
+                if (!body || body.length < 50) {
+                  console.log(`  Skip (empty/short body): ${file}`);
+                  continue;
+                }
+
                 // Extract fields
                 const titleMatch = frontmatter.match(/title:\s*"([^"]+)"/);
-                if (!titleMatch) continue;
+                if (!titleMatch) {
+                  console.log(`  Skip (no title): ${file}`);
+                  continue;
+                }
 
                 const title = titleMatch[1];
                 const tagsMatch = frontmatter.match(/tags:\s*\[([^\]]+)\]/);
                 const descMatch = frontmatter.match(/description:\s*"([^"]+)"/);
                 const summaryMatch = frontmatter.match(/summary:\s*"([^"]+)"/);
                 const sourceMatch = frontmatter.match(/source:\s*"?([^"\n]+)"?/);
+                const langMatch = frontmatter.match(/lang:\s*"?([^"\n\s]+)"?/);
 
                 // Skip posts that came from Dev.to originally
                 const source = sourceMatch ? sourceMatch[1].trim() : '';
                 if (source === 'devto-migration' || source === 'devto') {
+                  skipped++;
+                  continue;
+                }
+
+                // ai-news 컬렉션: placeholder 파일 스킵
+                if (col.type === 'ai-news' && file === 'placeholder.md') {
                   skipped++;
                   continue;
                 }
@@ -103,20 +131,26 @@ jobs:
                   continue;
                 }
 
-                // Parse tags
+                // Parse and sanitize tags for Dev.to
                 let tags = [];
                 if (tagsMatch) {
                   tags = tagsMatch[1]
                     .split(',')
-                    .map(t => t.trim().replace(/['"]/g, '').replace(/[^a-zA-Z0-9]/g, ''))
+                    .map(t => t.trim().replace(/['"]/g, ''))
+                    .map(t => sanitizeTag(t))
                     .filter(t => t.length > 0)
                     .slice(0, 4);
                 }
 
                 // Add collection type as tag if not present
-                const typeTag = col.type.replace('-', '');
+                const typeTag = sanitizeTag(col.type);
                 if (!tags.includes(typeTag) && tags.length < 4) {
                   tags.push(typeTag);
+                }
+
+                // Ensure at least one tag
+                if (tags.length === 0) {
+                  tags = ['ai'];
                 }
 
                 const description = descMatch ? descMatch[1] : (summaryMatch ? summaryMatch[1] : undefined);
@@ -142,17 +176,17 @@ jobs:
 
                   if (res.ok) {
                     const data = await res.json();
-                    console.log(`Published: "${title}" → ${data.url}`);
+                    console.log(`  Published: "${title}" → ${data.url} [tags: ${tags.join(', ')}]`);
                     published++;
                   } else {
                     const err = await res.text();
-                    console.log(`Failed: "${title}" — ${res.status}: ${err}`);
+                    console.log(`  Failed: "${title}" — ${res.status}: ${err}`);
                   }
 
                   // Rate limit: Dev.to allows ~10 req/30s
                   await new Promise(r => setTimeout(r, 3000));
                 } catch (e) {
-                  console.log(`Error publishing "${title}": ${e.message}`);
+                  console.log(`  Error publishing "${title}": ${e.message}`);
                 }
               }
             }

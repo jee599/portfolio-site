@@ -24,6 +24,7 @@ jobs:
             -X POST "${SITE_URL}/api/generate-ai-news" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer ${CRON_SECRET}" \
+            -H "X-Sync: true" \
             --max-time 300)
 
           echo "HTTP Status: ${HTTP_STATUS}"

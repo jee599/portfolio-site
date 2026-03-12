@@ -6,6 +6,7 @@ import { getCollection } from 'astro:content';
 const modelFilter = Astro.url.searchParams.get('model');
 
 let aiNews = (await getCollection('ai-news'))
+  .filter(n => (n.data as any).lang !== 'en')
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
 if (modelFilter && ['claude', 'gemini', 'gpt', 'etc', 'daily'].includes(modelFilter)) {
