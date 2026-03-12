@@ -218,3 +218,50 @@ jobs:
             }
 
             console.log(`\nDone: ${published} published, ${skipped} skipped`);
+
+            // ── 기존 글에 jidonglab 푸터 누락 시 추가 ──
+            console.log('\n--- Checking existing articles for missing jidonglab footer ---');
+            let updated = 0;
+            for (const article of existing) {
+              try {
+                const fullRes = await fetch(`https://dev.to/api/articles/${article.id}`, {
+                  headers: { 'api-key': devtoKey },
+                });
+                if (!fullRes.ok) continue;
+                const full = await fullRes.json();
+                const body = full.body_markdown || '';
+
+                // 이미 jidonglab 링크가 있으면 스킵
+                if (body.includes('jidonglab.com') || body.includes('Jidong Lab')) {
+                  continue;
+                }
+
+                // 언어 감지 (한글이 많으면 ko)
+                const koChars = (body.match(/[가-힣]/g) || []).length;
+                const isKo = koChars > 20;
+                const canonical = full.canonical_url || `${siteUrl}`;
+                const footer = isKo
+                  ? `\n\n---\n\n> 📌 원문: [Jidong Lab](${canonical})\n> AI 소식과 개발 로그 → [jidonglab.com](${siteUrl})`
+                  : `\n\n---\n\n> 📌 Originally published at [Jidong Lab](${canonical})\n> More AI news and dev logs → [jidonglab.com](${siteUrl})`;
+
+                const res = await fetch(`https://dev.to/api/articles/${article.id}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'api-key': devtoKey,
+                  },
+                  body: JSON.stringify({
+                    article: { body_markdown: body + footer },
+                  }),
+                });
+
+                if (res.ok) {
+                  console.log(`  Updated footer: "${full.title}"`);
+                  updated++;
+                }
+                await new Promise(r => setTimeout(r, 2000));
+              } catch (e) {
+                console.log(`  Error updating ${article.id}: ${e.message}`);
+              }
+            }
+            console.log(`Footer updates: ${updated}`);
