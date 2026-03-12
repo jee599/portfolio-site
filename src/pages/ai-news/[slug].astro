@@ -4,13 +4,37 @@ import { getCollection } from 'astro:content';
 
 export async function getStaticPaths() {
   const news = await getCollection('ai-news');
-  return news.map((entry) => ({
-    params: { slug: entry.slug },
-    props: { entry },
-  }));
+
+  // 한/영 쌍 매핑: slug가 xxx-en이면 xxx와 쌍
+  const slugMap = new Map<string, { ko?: string; en?: string }>();
+  for (const entry of news) {
+    const lang = (entry.data as any).lang || 'ko';
+    const baseSlug = lang === 'en' && entry.slug.endsWith('-en')
+      ? entry.slug.slice(0, -3)
+      : entry.slug;
+
+    if (!slugMap.has(baseSlug)) slugMap.set(baseSlug, {});
+    const pair = slugMap.get(baseSlug)!;
+    if (lang === 'en') pair.en = entry.slug;
+    else pair.ko = entry.slug;
+  }
+
+  return news.map((entry) => {
+    const lang = (entry.data as any).lang || 'ko';
+    const baseSlug = lang === 'en' && entry.slug.endsWith('-en')
+      ? entry.slug.slice(0, -3)
+      : entry.slug;
+    const pair = slugMap.get(baseSlug);
+    const pairSlug = lang === 'en' ? pair?.ko : pair?.en;
+
+    return {
+      params: { slug: entry.slug },
+      props: { entry, pairSlug, lang },
+    };
+  });
 }
 
-const { entry } = Astro.props;
+const { entry, pairSlug, lang } = Astro.props;
 const { Content } = await entry.render();
 
 const modelLabels: Record<string, string> = {
@@ -20,6 +44,8 @@ const modelLabels: Record<string, string> = {
   etc: 'Others',
   daily: 'Daily',
 };
+
+const siteUrl = 'https://jidonglab.com';
 ---
 
 <PostLayout
@@ -27,8 +53,19 @@ const modelLabels: Record<string, string> = {
   date={entry.data.date}
   tags={[modelLabels[entry.data.model] || entry.data.model, ...entry.data.tags]}
   description={entry.data.summary}
+  lang={lang}
+  pair={pairSlug}
 >
   <Content />
+
+  {pairSlug && (
+    <div class="lang-switch">
+      <a href={`/ai-news/${pairSlug}`} class="lang-switch-link">
+        {lang === 'en' ? '🇰🇷 한국어로 읽기' : '🇺🇸 Read in English'}
+      </a>
+    </div>
+  )}
+
   {entry.data.sources && entry.data.sources.length > 0 && (
     <hr />
     <h3>Sources</h3>
@@ -39,3 +76,30 @@ const modelLabels: Record<string, string> = {
     </ul>
   )}
 </PostLayout>
+
+<style>
+  .lang-switch {
+    margin: 2rem 0;
+    text-align: center;
+  }
+
+  .lang-switch-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 1.25rem;
+    border: 1px solid #e5e8eb;
+    border-radius: 8px;
+    color: #6b7684;
+    font-size: 0.85rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all 0.2s;
+  }
+
+  .lang-switch-link:hover {
+    border-color: #00c471;
+    color: #00c471;
+    background: #f0fdf4;
+  }
+</style>

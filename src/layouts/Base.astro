@@ -1,11 +1,17 @@
 ---
+interface HreflangLink {
+  lang: string;
+  url: string;
+}
+
 interface Props {
   title: string;
   description?: string;
   ogImage?: string;
+  hreflangs?: HreflangLink[];
 }
 
-const { title, description = 'AI를 사용하고, 연구합니다.', ogImage } = Astro.props;
+const { title, description = 'AI를 사용하고, 연구합니다.', ogImage, hreflangs } = Astro.props;
 const siteUrl = 'https://jidonglab.com';
 const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
 const currentPath = Astro.url.pathname;
@@ -38,6 +44,9 @@ const navItems = [
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
 
+    {hreflangs && hreflangs.map(hl => (
+      <link rel="alternate" hreflang={hl.lang} href={hl.url} />
+    ))}
     <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="alternate" type="application/rss+xml" title="jidonglab" href="/rss.xml" />
 
