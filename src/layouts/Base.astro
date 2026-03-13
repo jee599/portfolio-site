@@ -179,6 +179,12 @@ const navItems = [
     </footer>
 
     <script is:inline>
+      // Visitor tracking (once per session)
+      if (!sessionStorage.getItem('v_tracked')) {
+        fetch('/api/visitors', { method: 'POST' }).catch(function(){});
+        sessionStorage.setItem('v_tracked', '1');
+      }
+
       // Language toggle
       function applyLang(lang) {
         document.documentElement.lang = lang;
