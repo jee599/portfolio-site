@@ -65,11 +65,11 @@ cat > "$PROMPT_FILE" << 'ENDOFPROMPT'
 Frontmatter:
 ```
 ---
-title: "Specific, clear English title — one-line impact summary"
+title: "Key Keyword, One-Line Impact"
 date: __TODAY__
 model: claude 또는 gemini 또는 gpt 또는 etc
 tags: [ai-news, related-tags]
-summary: "2-3 sentence summary in English"
+summary: "120~155자 영어 description. 주요 키워드를 포함하고, 구체적 정보(숫자, 회사명, 제품명)를 넣는다."
 sources: ["url1", "url2"]
 auto_generated: true
 ---
@@ -77,14 +77,21 @@ auto_generated: true
 
 영어 본문 스타일 (Stripe/Cloudflare 블로그 톤):
 - 직역이 아니라 영어 독자 관점에서 다시 쓴다
-- 제목: "핵심 키워드, one-line impact" 패턴 (예: "Anthropic Partner Network, $100M Bet on Enterprise Channel")
-- 훅 문단으로 시작: 놀라운 사실 또는 핵심 숫자로 바로 들어간다
-- H2 섹션은 스토리텔링으로 (## The $100M Question, ## Why This Matters)
-- 2,000~4,000자 (영어 기준)
-- 출처 링크를 본문에 자연스럽게 녹인다
-- 글 끝에 참고 링크 목록
-- "In this blog post, we will explore" 같은 메타 서술 금지
-- "Let's dive in!", "Without further ado" 같은 클리셰 금지
+- **SEO**: 제목과 첫 문단에 주요 키워드를 자연스럽게 포함한다. 보조 키워드는 H2와 본문에 분산 배치한다
+- **제목**: "핵심 키워드, one-line impact" 패턴 (예: "Anthropic Partner Network, $100M Bet on Enterprise Channel")
+- **훅 문단**: 놀라운 사실 또는 핵심 숫자로 바로 시작한다. 도입부에 메타 서술 넣지 않는다
+- **H2 섹션**: 스토리텔링 헤딩 (## The $100M Question, ## Why This Matters). 서술적이고 호기심을 유발하는 제목
+- **분량**: 2,000~4,000자 (영어 기준)
+- **참고 링크**: 본문에 자연스럽게 녹이되, 글 하단에 ## References 섹션으로 모아서 정리한다
+- **끝맺음**: 인용구(>) 형태로 핵심 메시지를 한 문장으로 압축한다
+- **금지**: "In this blog post, we will explore" 같은 메타 서술, "Let's dive in!", "Without further ado" 같은 클리셰, 이모지, 불릿 포인트 남발
+
+### DEV.to 영어 교차 게시 (canonical_url)
+
+동일한 영어 콘텐츠를 DEV.to에도 게시할 경우, frontmatter에 canonical_url을 추가한다:
+```
+canonical_url: https://jidonglab.com/ai-news/{slug}
+```
 
 ### 2. 한국어 버전 → DEV.to
 
@@ -93,22 +100,23 @@ auto_generated: true
 Frontmatter:
 ```
 ---
-title: "구체적이고 명확한 한국어 제목, 한 줄 임팩트"
+title: "핵심 키워드, 한 줄 임팩트"
 published: true
-description: "50자 내외 설명"
+description: "80~120자 한국어 설명. 주요 키워드를 포함하고, 구체적 정보(숫자, 회사명, 제품명)를 넣는다."
 tags: ai, ainews, 관련태그1, 관련태그2
 ---
 ```
 
-한국어 본문 스타일 ("~다" 해체, 반말 서술체):
-- "~습니다/~ㅂ니다" 쓰지 않는다. "~다/~이다"로 통일
-- 제목: "핵심 키워드, 한 줄 임팩트" 패턴
-- 훅 문단으로 시작
-- H2 섹션은 스토리텔링으로 (## 두 가지 이상한 관찰에서 시작됐다)
-- 2,000~4,000자 (한국어 기준)
-- 출처 링크를 본문에 자연스럽게 녹인다
-- 글 끝에 참고 링크 목록
-- "이 글에서는 ~에 대해 알아보겠습니다" 같은 교과서 도입 금지
+한국어 본문 스타일 (반말 해체 "~다/~이다"):
+- "~습니다/~ㅂ니다" 절대 쓰지 않는다. "~다/~이다"로 통일
+- **SEO**: 제목과 첫 문단에 주요 키워드를 자연스럽게 포함한다. 보조 키워드는 H2와 본문에 분산 배치한다
+- **제목**: "핵심 키워드, 한 줄 임팩트" 패턴 (예: "Anthropic 파트너 네트워크, 엔터프라이즈 채널에 $100M 베팅")
+- **훅 문단**: 놀라운 사실 또는 핵심 숫자로 바로 시작한다. 도입부에 메타 서술 넣지 않는다
+- **H2 섹션**: 스토리텔링 헤딩 (## 두 가지 이상한 관찰에서 시작됐다, ## 숫자가 말해주는 것). 서술적이고 호기심을 유발하는 제목
+- **분량**: 2,000~4,000자 (한국어 기준)
+- **참고 링크**: 본문에 자연스럽게 녹이되, 글 하단에 ## 참고 링크 섹션으로 모아서 정리한다
+- **끝맺음**: 인용구(>) 형태로 핵심 메시지를 한 문장으로 압축한다
+- **금지**: "이 글에서는 ~에 대해 알아보겠습니다" 같은 교과서 도입, 이모지, 불릿 포인트 남발, "~습니다" 존댓말
 
 ### DEV.to 태그 규칙
 - 최대 4개, 영문 소문자, 하이픈 없음 (ainews, claude, openai, gemini, llm, opensource 등)
