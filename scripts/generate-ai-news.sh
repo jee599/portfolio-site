@@ -1,6 +1,7 @@
 #!/bin/bash
 # AI 뉴스 생성 스크립트 — Claude Code CLI 사용 (구독 모델)
-# 크롤링 소스: Google, X/Twitter, Reddit, Threads, 글로벌 뉴스
+# 영어 → jidonglab.com + DEV.to (portfolio-site 워크플로우)
+# 한국어 → DEV.to (dev_blog 워크플로우)
 # Usage: ./scripts/generate-ai-news.sh
 
 set -uo pipefail
@@ -14,6 +15,7 @@ export PATH="/Users/jidong/.local/bin:/opt/homebrew/bin:/usr/local/bin:$PATH"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 NEWS_DIR="$PROJECT_DIR/src/content/ai-news"
+DEVTO_DIR="/Users/jidong/dev_blog/posts"
 TODAY=$(date +%Y-%m-%d)
 LOG_FILE="/tmp/ai-news-${TODAY}.log"
 
@@ -29,7 +31,7 @@ fi
 # 프롬프트를 임시 파일로 생성
 PROMPT_FILE=$(mktemp /tmp/ai-news-prompt-XXXXXX.txt)
 cat > "$PROMPT_FILE" << 'ENDOFPROMPT'
-오늘은 __TODAY__이다. AI/LLM 관련 최신 뉴스를 크롤링해서 jidonglab.com용 뉴스 포스트를 생성해라.
+오늘은 __TODAY__이다. AI/LLM 관련 최신 뉴스를 크롤링해서 두 가지 버전(영어 + 한국어)의 뉴스 포스트를 생성해라.
 
 ## 크롤링 소스 (WebSearch 도구 사용)
 
@@ -52,41 +54,72 @@ cat > "$PROMPT_FILE" << 'ENDOFPROMPT'
 - 단순 루머나 의견이 아닌, 공식 발표/출시/연구 결과 위주
 - 최소 3개, 최대 5개의 독립적인 주제를 선별
 
-## 포스트 생성 규칙
+## 파일 생성 규칙 — 주제당 2개 파일 (영어 + 한국어)
 
-선별된 각 주제별로 별도의 마크다운 파일을 Write 도구로 생성해라.
+각 주제별로 **2개 파일**을 Write 도구로 생성해라.
+
+### 1. 영어 버전 → jidonglab.com + DEV.to
 
 파일 경로: __NEWS_DIR__/__TODAY__-{slug}.md
-slug는 영문 kebab-case (예: claude-partner-network-100m)
 
-### Frontmatter 형식 (YAML):
+Frontmatter:
 ```
 ---
-title: "구체적이고 명확한 제목"
+title: "Specific, clear English title — one-line impact summary"
 date: __TODAY__
-model: claude 또는 gemini 또는 gpt 또는 etc (가장 관련 깊은 모델, 범용이면 etc)
-tags: [ai-news, 관련태그들]
-summary: "2~3문장 요약 (존댓말)"
+model: claude 또는 gemini 또는 gpt 또는 etc
+tags: [ai-news, related-tags]
+summary: "2-3 sentence summary in English"
 sources: ["url1", "url2"]
 auto_generated: true
 ---
 ```
 
-### 본문 규칙:
-- **존댓말** 사용 ("~했습니다", "~입니다")
-- 필수 섹션: ## 무슨 일이 있었나 → ## 관련 소식 → ## 개념 정리 또는 ## 수치로 보기 → ## 정리
-- 각 섹션에 출처 링크: <small>[출처명](URL)</small>
-- 최소 5,000자 (공백 포함)
-- 불필요한 감탄사 없이 팩트 + 분석 위주
-- 정리 섹션에서 시사점, 전망 등 분석적 의견 제시
-- 관련 소식 섹션에서 해당 주제와 연관된 다른 뉴스, 기술 개념 설명 포함
+영어 본문 스타일 (Stripe/Cloudflare 블로그 톤):
+- 직역이 아니라 영어 독자 관점에서 다시 쓴다
+- 제목: "핵심 키워드, one-line impact" 패턴 (예: "Anthropic Partner Network, $100M Bet on Enterprise Channel")
+- 훅 문단으로 시작: 놀라운 사실 또는 핵심 숫자로 바로 들어간다
+- H2 섹션은 스토리텔링으로 (## The $100M Question, ## Why This Matters)
+- 2,000~4,000자 (영어 기준)
+- 출처 링크를 본문에 자연스럽게 녹인다
+- 글 끝에 참고 링크 목록
+- "In this blog post, we will explore" 같은 메타 서술 금지
+- "Let's dive in!", "Without further ado" 같은 클리셰 금지
 
-반드시 Write 도구로 파일을 생성해라. 파일을 생성하지 않으면 실패다.
+### 2. 한국어 버전 → DEV.to
+
+파일 경로: __DEVTO_DIR__/__TODAY__-{slug}-ko.md
+
+Frontmatter:
+```
+---
+title: "구체적이고 명확한 한국어 제목, 한 줄 임팩트"
+published: true
+description: "50자 내외 설명"
+tags: ai, ainews, 관련태그1, 관련태그2
+---
+```
+
+한국어 본문 스타일 ("~다" 해체, 반말 서술체):
+- "~습니다/~ㅂ니다" 쓰지 않는다. "~다/~이다"로 통일
+- 제목: "핵심 키워드, 한 줄 임팩트" 패턴
+- 훅 문단으로 시작
+- H2 섹션은 스토리텔링으로 (## 두 가지 이상한 관찰에서 시작됐다)
+- 2,000~4,000자 (한국어 기준)
+- 출처 링크를 본문에 자연스럽게 녹인다
+- 글 끝에 참고 링크 목록
+- "이 글에서는 ~에 대해 알아보겠습니다" 같은 교과서 도입 금지
+
+### DEV.to 태그 규칙
+- 최대 4개, 영문 소문자, 하이픈 없음 (ainews, claude, openai, gemini, llm, opensource 등)
+
+반드시 Write 도구로 모든 파일을 생성해라. 파일을 생성하지 않으면 실패다.
 ENDOFPROMPT
 
 # 날짜와 경로 치환
 sed -i '' "s|__TODAY__|${TODAY}|g" "$PROMPT_FILE"
 sed -i '' "s|__NEWS_DIR__|${NEWS_DIR}|g" "$PROMPT_FILE"
+sed -i '' "s|__DEVTO_DIR__|${DEVTO_DIR}|g" "$PROMPT_FILE"
 
 PROMPT_CONTENT=$(cat "$PROMPT_FILE")
 rm -f "$PROMPT_FILE"
@@ -98,7 +131,7 @@ claude -p \
   --model sonnet \
   --permission-mode bypassPermissions \
   --allowedTools "WebSearch WebFetch Write" \
-  --max-budget-usd 1.0 \
+  --max-budget-usd 2.0 \
   --no-session-persistence \
   "$PROMPT_CONTENT" 2>&1 | tee -a "$LOG_FILE"
 
@@ -107,21 +140,33 @@ echo "" | tee -a "$LOG_FILE"
 echo "[$TODAY] Claude CLI 종료 코드: ${CLAUDE_EXIT}" | tee -a "$LOG_FILE"
 
 # 생성된 파일 확인
-GENERATED=$(find "$NEWS_DIR" -name "${TODAY}-*.md" 2>/dev/null | wc -l | tr -d ' ')
-echo "[$TODAY] 생성 완료: ${GENERATED}개 포스트" | tee -a "$LOG_FILE"
+EN_COUNT=$(find "$NEWS_DIR" -name "${TODAY}-*.md" 2>/dev/null | wc -l | tr -d ' ')
+KO_COUNT=$(find "$DEVTO_DIR" -name "${TODAY}-*-ko.md" 2>/dev/null | wc -l | tr -d ' ')
+echo "[$TODAY] 영어(jidonglab): ${EN_COUNT}개, 한국어(DEV.to): ${KO_COUNT}개" | tee -a "$LOG_FILE"
 
-if [ "$GENERATED" -eq "0" ]; then
+if [ "$EN_COUNT" -eq "0" ] && [ "$KO_COUNT" -eq "0" ]; then
   echo "[$TODAY] ERROR: 뉴스가 생성되지 않았다" | tee -a "$LOG_FILE"
   exit 1
 fi
 
-# 생성된 파일 목록
-find "$NEWS_DIR" -name "${TODAY}-*.md" -exec ls -la {} \; | tee -a "$LOG_FILE"
+# portfolio-site git push (영어 → jidonglab + DEV.to)
+if [ "$EN_COUNT" -gt "0" ]; then
+  echo "[$TODAY] portfolio-site push 중..." | tee -a "$LOG_FILE"
+  cd "$PROJECT_DIR"
+  git add src/content/ai-news/
+  git commit -m "feat: AI news ${TODAY} (${EN_COUNT} posts, en)" || true
+  git pull --rebase origin main 2>/dev/null || true
+  git push origin main || echo "[$TODAY] WARNING: portfolio-site push 실패" | tee -a "$LOG_FILE"
+fi
 
-# git commit & push
-cd "$PROJECT_DIR"
-git add src/content/ai-news/
-git commit -m "feat: AI 뉴스 자동 생성 (${TODAY})" || true
-git push origin main || echo "[$TODAY] WARNING: git push 실패" | tee -a "$LOG_FILE"
+# dev_blog git push (한국어 → DEV.to)
+if [ "$KO_COUNT" -gt "0" ]; then
+  echo "[$TODAY] dev_blog push 중..." | tee -a "$LOG_FILE"
+  cd "$DEVTO_DIR/.."
+  git add posts/
+  git commit -m "post: AI news ${TODAY} (${KO_COUNT} posts, ko)" || true
+  git pull --rebase origin main 2>/dev/null || true
+  git push origin main || echo "[$TODAY] WARNING: dev_blog push 실패" | tee -a "$LOG_FILE"
+fi
 
 echo "[$TODAY] 완료" | tee -a "$LOG_FILE"
