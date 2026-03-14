@@ -1,7 +1,5 @@
 import type { APIRoute } from 'astro';
 import Anthropic from '@anthropic-ai/sdk';
-import fs from 'node:fs';
-import path from 'node:path';
 
 export const prerender = false;
 
@@ -475,50 +473,33 @@ export const POST: APIRoute = async ({ request }) => {
       }
     }
 
-    // 저장 모드 결정: GITHUB_TOKEN이 없으면 로컬 파일 저장
     const githubToken = import.meta.env.GITHUB_TOKEN;
     const githubRepo = import.meta.env.GITHUB_REPO || 'jee599/portfolio-site';
-    const isLocal = !githubToken;
 
     const saved: string[] = [];
 
-    if (isLocal) {
-      // 로컬 파일 시스템에 저장
-      const contentDir = path.resolve('src/content/ai-news');
-      for (const post of allPosts) {
-        const filePath = path.join(contentDir, `${dateStr}-${post.slug}.md`);
-        try {
-          fs.writeFileSync(filePath, post.markdown, 'utf-8');
-          saved.push(`src/content/ai-news/${dateStr}-${post.slug}.md`);
-        } catch (err) {
-          errors.push(`[${post.slug}] Local write failed: ${String(err)}`);
-        }
-      }
-    } else {
-      // GitHub에 커밋
-      for (const post of allPosts) {
-        const filePath = `src/content/ai-news/${dateStr}-${post.slug}.md`;
-        const result = await commitToGitHub(
-          filePath,
-          post.markdown,
-          `feat: auto-generate AI news — ${post.slug} (${dateStr}) [skip-log]`,
-          githubToken,
-          githubRepo,
-        );
+    for (const post of allPosts) {
+      const filePath = `src/content/ai-news/${dateStr}-${post.slug}.md`;
+      const result = await commitToGitHub(
+        filePath,
+        post.markdown,
+        `feat: auto-generate AI news — ${post.slug} (${dateStr}) [skip-log]`,
+        githubToken,
+        githubRepo,
+      );
 
-        if (result.ok) {
-          saved.push(filePath);
-        } else {
-          errors.push(`[${post.slug}] GitHub commit failed: ${result.error}`);
-        }
+      if (result.ok) {
+        saved.push(filePath);
+      } else {
+        errors.push(`[${post.slug}] GitHub commit failed: ${result.error}`);
       }
+    }
 
-      // Vercel 리빌드 트리거
-      if (saved.length > 0) {
-        const hookUrl = import.meta.env.VERCEL_DEPLOY_HOOK;
-        if (hookUrl) {
-          await fetch(hookUrl, { method: 'POST' });
-        }
+    // 리빌드 트리거
+    if (saved.length > 0) {
+      const hookUrl = import.meta.env.VERCEL_DEPLOY_HOOK;
+      if (hookUrl) {
+        await fetch(hookUrl, { method: 'POST' });
       }
     }
 
@@ -527,7 +508,6 @@ export const POST: APIRoute = async ({ request }) => {
       JSON.stringify({
         ok: !hasErrors || saved.length > 0,
         date: dateStr,
-        mode: isLocal ? 'local' : 'github',
         totalPosts: allPosts.length,
         saved: saved.length,
         files: saved,
