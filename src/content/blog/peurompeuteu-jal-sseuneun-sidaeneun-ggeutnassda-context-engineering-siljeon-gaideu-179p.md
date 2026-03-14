@@ -1,10 +1,9 @@
 ---
 title: "프롬프트 잘 쓰는 시대는 끝났다 — Context Engineering 실전 가이드"
 description: "집중된 300토큰이 113,000토큰보다 나은 성능을 보인다. 적게, 정확하게 넣는 기술"
-pubDate: "2026-03-09"
-tags: "ai, llm, productivity, beginners"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-09"
+tags: ["ai", "llm", "productivity", "beginners"]
+source: "devto"
 ---
 
 LLM이 나쁜 답을 낼 때 원인은 모델보다 컨텍스트 설계인 경우가 많다. 컨텍스트는 시스템 프롬프트, 도구 정의, RAG 문서, 메모리, 대화 이력, 사용자 메시지까지 포함한 전체 입력이다.

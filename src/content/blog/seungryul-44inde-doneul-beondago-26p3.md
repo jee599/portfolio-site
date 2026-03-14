@@ -1,10 +1,9 @@
 ---
 title: "승률 44%인데 돈을 번다고?"
 description: "승률 44.3%. 100번 중 56번을 진다.  이 전략이 180일 동안 +6.78% 수익을 냈다. 처음에는 내 백테스트가 틀렸나 싶어서 세 번 돌려봤다. 맞았다. 반 이상 지는데..."
-pubDate: "2026-02-27"
-tags: "ai, trading, python, beginners"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-27"
+tags: ["ai", "trading", "python", "beginners"]
+source: "devto"
 ---
 
 승률 44.3%. 100번 중 56번을 진다.

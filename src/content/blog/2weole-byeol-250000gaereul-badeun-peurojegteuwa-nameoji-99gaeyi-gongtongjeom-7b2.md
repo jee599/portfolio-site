@@ -1,10 +1,9 @@
 ---
 title: "2월에 별 250,000개를 받은 프로젝트와, 나머지 99개의 공통점"
 description: "2026년 2~3월 GitHub 트렌딩 100개 프로젝트를 뜯어봤다. 챗봇은 죽었다."
-pubDate: "2026-03-06"
-tags: "ai, opensource, productivity, webdev"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-06"
+tags: ["ai", "opensource", "productivity", "webdev"]
+source: "devto"
 ---
 
 2026년 2월, 하나의 GitHub 레포지토리가 60일 만에 별 250,000개를 찍었다.

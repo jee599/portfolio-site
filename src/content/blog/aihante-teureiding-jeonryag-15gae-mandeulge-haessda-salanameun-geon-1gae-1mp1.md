@@ -1,10 +1,9 @@
 ---
 title: "AI한테 트레이딩 전략 15개 만들게 했다. 살아남은 건 1개."
 description: "전략이 복잡할수록 수익이 높을 거라고 생각했다.  지표 5개를 조합하고, ATR로 동적 손절을 걸고, 볼륨 게이트까지 추가하면 당연히 더 정교한 판단을 할 거라고. 그래서..."
-pubDate: "2026-02-27"
-tags: "ai, trading, python, beginners"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-27"
+tags: ["ai", "trading", "python", "beginners"]
+source: "devto"
 ---
 
 전략이 복잡할수록 수익이 높을 거라고 생각했다.

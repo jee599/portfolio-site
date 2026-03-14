@@ -1,10 +1,9 @@
 ---
 title: "사주 앱 디자인: ‘사주 사이트’를 검색하면 안 되는 이유, 그리고 Three.js로 우주를 깐 이야기"
 description: "사주 사이트 디자인 검색 → 쓰레기. 본질 분해 → A(i)strology 발견 → Three.js로 별 8,000개를 깐 과정"
-pubDate: "2026-03-06"
-tags: "ai, webdev, threejs, design"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-06"
+tags: ["ai", "webdev", "threejs", "design"]
+source: "devto"
 ---
 
 “사주 사이트 디자인”을 검색하면 나오는 건 전부 Cafe24 템플릿이다.

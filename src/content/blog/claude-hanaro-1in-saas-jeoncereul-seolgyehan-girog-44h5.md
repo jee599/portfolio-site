@@ -1,10 +1,9 @@
 ---
 title: "Claude 하나로 1인 SaaS 전체를 설계한 기록"
 description: "9개 세션, 20개 산출물, 가상 전문가 6명. 혼자, 하루, $0."
-pubDate: "2026-02-26"
-tags: "ai, productivity, saas, claude"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-26"
+tags: ["ai", "productivity", "saas", "claude"]
+source: "devto"
 ---
 
 "로그인 벽부터 제거하세요. magic link 인증이 최대 이탈 원인입니다."

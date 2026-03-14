@@ -1,10 +1,9 @@
 ---
 title: "Next.js 앱을 하루만에 6개국어로 만든 방법"
 description: "한국어, 영어, 일본어, 중국어, 베트남어, 힌디어. next-intl로 하루만에."
-pubDate: "2026-02-26"
-tags: "webdev, nextjs, beginners, ai"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-26"
+tags: ["webdev", "nextjs", "beginners", "ai"]
+source: "devto"
 ---
 
 사주 앱을 6개국에 내놓기로 했다. 한국, 미국, 일본, 중국, 베트남, 인도.

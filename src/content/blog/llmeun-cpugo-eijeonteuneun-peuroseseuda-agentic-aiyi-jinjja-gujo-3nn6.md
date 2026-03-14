@@ -1,10 +1,9 @@
 ---
 title: "LLM은 CPU고, 에이전트는 프로세스다 — Agentic AI의 진짜 구조"
 description: "GPT-4급 성능이 100분의 1 가격이 된 2026년, 진짜 병목은 모델이 아니라 아키텍처다"
-pubDate: "2026-03-09"
-tags: "ai, agenticai, llm, architecture"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-09"
+tags: ["ai", "agenticai", "llm", "architecture"]
+source: "devto"
 ---
 
 2024~2026년 프로덕션 AI 실패의 대부분은 모델 품질 때문이 아니었다.

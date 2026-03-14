@@ -1,10 +1,9 @@
 ---
 title: "Claude vs GPT vs Gemini — 칵테일해서 쓰는 법"
 description: "“어떤 모델이 제일 좋아요?”  이 질문 자체가 아마추어다.  정답은 “태스크마다 다르다”이고, 프로는 섞어 쓴다.  사주 앱이랑 부동산 분석 서비스를 사이드 프로젝트로 만들면서..."
-pubDate: "2026-02-26"
-tags: "ai, llm, productivity, webdev"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-26"
+tags: ["ai", "llm", "productivity", "webdev"]
+source: "devto"
 ---
 
 “어떤 모델이 제일 좋아요?”

@@ -1,10 +1,9 @@
 ---
 title: "Claude Code, 깔아놓고 채팅만 하고 있다면 — CLAUDE.md, Hooks, MCP 설정법"
 description: "Claude Code의 진짜 힘은 채팅창이 아니라 설정 파일에 있다."
-pubDate: "2026-03-03"
-tags: "ai, webdev, claude, productivity"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-03"
+tags: ["ai", "webdev", "claude", "productivity"]
+source: "devto"
 ---
 
 Claude Code를 깔았다. `claude`를 치면 대화창이 뜬다. 거기서 “이 버그 고쳐줘” “테스트 짜줘”를 한다.

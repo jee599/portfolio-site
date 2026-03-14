@@ -1,10 +1,9 @@
 ---
 title: "AI에게 사주를 맡기면 안 되는 이유 — 그리고 올바르게 맡기는 법"
 description: "LLM에 만세력 계산을 시켰더니 간지가 틀렸다. 3주 날린 뒤 깨달은 구조."
-pubDate: "2026-02-25"
-tags: "ai, webdev, llm, architecture"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-25"
+tags: ["ai", "webdev", "llm", "architecture"]
+source: "devto"
 ---
 
 사주 앱을 만들면서 가장 먼저 배운 건, AI한테 뭘 시킬지가 아니라 **뭘 안 시킬지**였다.

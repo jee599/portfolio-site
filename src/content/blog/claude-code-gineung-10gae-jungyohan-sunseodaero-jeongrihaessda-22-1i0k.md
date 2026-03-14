@@ -1,10 +1,9 @@
 ---
 title: "Claude Code 기능 10개, 중요한 순서대로 정리했다 (2/2)"
 description: "Ralph Loop부터 Agent Teams까지. 스케일링과 병렬화의 영역."
-pubDate: "2026-03-04"
-tags: "ai, claudecode, productivity, webdev"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-04"
+tags: ["ai", "claudecode", "productivity", "webdev"]
+source: "devto"
 ---
 
 1편에서 기반 5개를 다뤘다. CLAUDE.md, Skills, Hooks, GitHub Actions, Subagents.

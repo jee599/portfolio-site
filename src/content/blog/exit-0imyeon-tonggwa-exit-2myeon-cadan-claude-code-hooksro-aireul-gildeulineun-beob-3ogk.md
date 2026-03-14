@@ -1,10 +1,9 @@
 ---
 title: "exit 0이면 통과, exit 2면 차단 — Claude Code Hooks로 AI를 길들이는 법"
 description: "CLAUDE.md의 지시는 잊힐 수 있다. Hooks는 매번, 확정적으로 실행된다"
-pubDate: "2026-03-09"
-tags: "ai, llm, productivity, webdev"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-09"
+tags: ["ai", "llm", "productivity", "webdev"]
+source: "devto"
 ---
 
 CLAUDE.md는 강력하지만 컨텍스트 압력(context pressure)에서 지시가 밀릴 수 있다. Hooks는 다르다. LLM에게 부탁하는 게 아니라 실행 레벨에서 차단/강제를 수행한다.

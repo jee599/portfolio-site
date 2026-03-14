@@ -1,10 +1,9 @@
 ---
 title: "CLAUDE.md 하나로 팀 전체의 AI 품질을 통일한 방법"
 description: "팀원 10명이 각자 다른 프롬프트를 쓰면 답변 품질이 들쭉날쭉하다. 한 파일로 해결했다"
-pubDate: "2026-03-09"
-tags: "ai, productivity, beginners, webdev"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-09"
+tags: ["ai", "productivity", "beginners", "webdev"]
+source: "devto"
 ---
 
 팀의 AI 품질 편차는 모델 문제가 아니라 컨텍스트 표준 부재에서 나온다. 같은 질문에 다른 답이 나오는 이유는 팀원이 각자 다른 프롬프트/규칙을 쓰기 때문이다.

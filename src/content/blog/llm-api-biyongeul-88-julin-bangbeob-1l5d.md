@@ -1,10 +1,9 @@
 ---
 title: "LLM API 비용을 88% 줄인 방법"
 description: "무료 분석 1건 $0.085, 월 $2,550. 이걸 $406으로 만든 구조."
-pubDate: "2026-02-25"
-tags: "ai, webdev, llm, costoptimization"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-25"
+tags: ["ai", "webdev", "llm", "costoptimization"]
+source: "devto"
 ---
 
 무료 분석 1건에 $0.085. 하루 1,000명이면 월 $2,550.

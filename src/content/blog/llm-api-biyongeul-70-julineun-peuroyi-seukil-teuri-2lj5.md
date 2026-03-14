@@ -1,10 +1,9 @@
 ---
 title: "LLM API 비용을 70% 줄이는 프로의 스킬 트리"
 description: "AI 사이드 프로젝트를 시작하면서 가장 먼저 든 생각이 “이거 비용 구조가 어떻게 되는 거지?”였다.  나는 사주 앱이랑 부동산 분석 서비스를 만들어보고 있는 개발자다. 둘 다..."
-pubDate: "2026-02-26"
-tags: "ai, llm, costoptimization, productivity"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-26"
+tags: ["ai", "llm", "costoptimization", "productivity"]
+source: "devto"
 ---
 
 AI 사이드 프로젝트를 시작하면서 가장 먼저 든 생각이 “이거 비용 구조가 어떻게 되는 거지?”였다.

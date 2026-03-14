@@ -1,10 +1,9 @@
 ---
 title: "AI의 USB-C를 만들겠다는 프로토콜 — MCP가 바꾸는 것"
 description: "N개 AI × M개 도구 = N×M개 커스텀 연동. MCP는 이걸 N+M으로 바꿨다"
-pubDate: "2026-03-09"
-tags: "ai, mcp, llm, productivity"
-lang: "ko"
-source: "devto-migration"
+date: "2026-03-09"
+tags: ["ai", "mcp", "llm", "productivity"]
+source: "devto"
 ---
 
 AI 3개와 도구 3개를 연동하려면 과거엔 9개의 커스텀 코드가 필요했다. Claude용, ChatGPT용, Cursor용을 각각 따로 짜야 했기 때문이다. N×M 문제다.

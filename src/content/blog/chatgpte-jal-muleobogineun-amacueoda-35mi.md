@@ -1,10 +1,9 @@
 ---
 title: "ChatGPT에 \"잘 물어보기\"는 아마추어다"
 description: "“프롬프트 엔지니어링”이라고 하면 대부분 “AI한테 잘 질문하는 법”을 떠올린다.  틀렸다.  그건 채팅 유저의 관점이다.  API로 서비스를 만드는 개발자에게 프롬프팅은 모델의..."
-pubDate: "2026-02-26"
-tags: "ai, llm, beginners, webdev"
-lang: "ko"
-source: "devto-migration"
+date: "2026-02-26"
+tags: ["ai", "llm", "beginners", "webdev"]
+source: "devto"
 ---
 
 “프롬프트 엔지니어링”이라고 하면 대부분 “AI한테 잘 질문하는 법”을 떠올린다.
