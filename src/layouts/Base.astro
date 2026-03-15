@@ -221,10 +221,35 @@ const navItems = [
       }
 
       var langBtn = document.getElementById('lang-toggle');
-      var lang = localStorage.getItem('lang') || 'ko';
-      if (langBtn) {
-        langBtn.textContent = lang === 'ko' ? 'EN' : 'KO';
+      var saved = localStorage.getItem('lang');
+
+      function initLang(lang) {
+        if (langBtn) {
+          langBtn.textContent = lang === 'ko' ? 'EN' : 'KO';
+        }
         applyLang(lang);
+      }
+
+      if (saved) {
+        var lang = saved;
+        initLang(lang);
+      } else {
+        // 첫 방문: 리전 감지
+        var lang = 'ko';
+        initLang(lang); // fallback 먼저 적용
+        fetch('/api/locale')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            lang = data.lang;
+            localStorage.setItem('lang', lang);
+            initLang(lang);
+          })
+          .catch(function() {
+            // fallback: ko 유지
+          });
+      }
+
+      if (langBtn) {
         langBtn.addEventListener('click', function() {
           lang = lang === 'ko' ? 'en' : 'ko';
           localStorage.setItem('lang', lang);
@@ -233,6 +258,8 @@ const navItems = [
         });
       }
     </script>
+    <!-- Cloudflare Web Analytics -->
+    <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "CF_ANALYTICS_TOKEN"}'></script>
   </body>
 </html>
 
