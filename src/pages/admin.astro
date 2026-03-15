@@ -1281,17 +1281,45 @@ export const prerender = false;
         }
       }
 
+      function getGhToken() {
+        var t = sessionStorage.getItem('gh_token');
+        if (!t) {
+          t = prompt('GitHub Personal Access Token (repo 권한 필요):');
+          if (t) sessionStorage.setItem('gh_token', t);
+        }
+        return t || '';
+      }
+
+      async function projectAction(payload) {
+        payload.secret = currentSecret;
+        payload.github_token = getGhToken();
+        if (!payload.github_token) return { error: 'Token required' };
+        const res = await fetch('/api/admin-projects', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        const data = await res.json();
+        if (data.need_token) {
+          sessionStorage.removeItem('gh_token');
+          payload.github_token = getGhToken();
+          if (!payload.github_token) return { error: 'Token required' };
+          const res2 = await fetch('/api/admin-projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload),
+          });
+          return res2.json();
+        }
+        return data;
+      }
+
       window.changeStatus = async function(select) {
         const slug = select.dataset.slug;
         const newStatus = select.value;
         const statusMap = { '운영중': 'live', '개발중': 'dev', '실험중': 'beta', '중단': 'stopped' };
         try {
-          const res = await fetch('/api/admin-projects', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ secret: currentSecret, action: 'change-status', slug, status: newStatus }),
-          });
-          const data = await res.json();
+          const data = await projectAction({ action: 'change-status', slug, status: newStatus });
           if (data.ok) {
             select.className = 'status-select ' + (statusMap[newStatus] || '');
           } else {
@@ -1304,12 +1332,7 @@ export const prerender = false;
         const slug = input.dataset.slug;
         const url = input.value.trim();
         try {
-          const res = await fetch('/api/admin-projects', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ secret: currentSecret, action: 'change-url', slug, url }),
-          });
-          const data = await res.json();
+          const data = await projectAction({ action: 'change-url', slug, url });
           if (data.ok) {
             input.classList.add('saved');
             setTimeout(() => input.classList.remove('saved'), 2000);
@@ -1323,17 +1346,13 @@ export const prerender = false;
         const slug = btn.dataset.slug;
         const newVisible = btn.dataset.visible !== 'true';
         try {
-          const res = await fetch('/api/admin-projects', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ secret: currentSecret, action: 'toggle-visible', slug, visible: newVisible }),
-          });
-          const data = await res.json();
-          if (data.command) {
-            alert(data.message);
+          const data = await projectAction({ action: 'toggle-visible', slug, visible: newVisible });
+          if (data.ok) {
+            btn.dataset.visible = String(newVisible);
+            btn.className = `visible-toggle ${newVisible ? 'on' : 'off'}`;
+          } else {
+            alert(data.error || 'Failed');
           }
-          btn.dataset.visible = String(newVisible);
-          btn.className = `visible-toggle ${newVisible ? 'on' : 'off'}`;
         } catch (e) { alert('Error: ' + e); }
       };
 

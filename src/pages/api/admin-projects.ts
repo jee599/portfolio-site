@@ -154,9 +154,9 @@ export const POST: APIRoute = async ({ request, locals }) => {
     return json({ error: 'Unauthorized' }, 401);
   }
 
-  const token = getGitHubToken(locals);
+  const token = body.github_token || getGitHubToken(locals);
   if (!token) {
-    return json({ error: 'GITHUB_TOKEN이 Cloudflare 환경변수에 설정되지 않았다. Settings > Environment Variables에서 추가해라.' }, 500);
+    return json({ error: 'GITHUB_TOKEN 필요. Admin 설정에서 입력해라.', need_token: true }, 400);
   }
 
   if (action === 'toggle-visible') {
