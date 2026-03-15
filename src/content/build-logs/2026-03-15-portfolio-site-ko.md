@@ -1,22 +1,23 @@
 ---
-title: "세션 로그 105개를 블로그로 바꾸는 자동화 파이프라인"
+title: "블로그 자동화 파이프라인: 105개 세션 로그를 빌드로그로 바꾸는 Claude Code 자동화"
 project: "portfolio-site"
 date: 2026-03-15
 lang: ko
 tags: [automation, claude-code, build-log, admin, devto]
+description: "Claude Code 자동화 파이프라인으로 세션 로그 105개를 파싱해 빌드로그를 자동 생성한다. 세션 파싱, CLI 호출, git push까지 전 과정을 기록한다."
 ---
 
-Claude Code로 작업하면서 가장 번거로운 게 있다. 빌드로그 쓰기다. 작업은 끝났는데 "어떻게 했는지 글로 남겨야 하는" 그 단계에서 손이 안 가게 된다.
+105개의 Claude Code 세션 기록이 `.jsonl`로 쌓여 있었다. 빌드로그를 쓰려면 이 기록을 하나하나 열어보고 정리해야 하는데, 매번 손이 안 갔다. 그래서 블로그 자동화 파이프라인을 만들었다. 세션 파싱부터 빌드로그 생성, git push, Cloudflare 배포까지 한 번에 돌아간다.
 
-해결책은 단순했다. Claude Code가 모든 세션을 `.jsonl`로 저장한다는 걸 활용하면 된다. 세션 기록을 파싱해서 Claude에게 빌드로그를 쓰게 하면, 빌드로그 자체도 자동화할 수 있다.
+**TL;DR**: Claude Code 세션 `.jsonl`을 파싱하고 Claude CLI로 빌드로그를 자동 생성하는 파이프라인을 구축했다. 작업 기록은 이미 다 있었다 — 안 쓴 이유는 귀찮아서였지, 재료가 없어서가 아니었다.
 
-## 왜 이게 가능한가
+## 세션 `.jsonl`에 빌드로그 재료가 전부 있었다
 
 Claude Code는 `~/.claude/projects/` 아래에 프로젝트별로 세션 파일을 `.jsonl` 형태로 저장한다. 각 줄에 메시지 하나가 JSON으로 들어 있다. 사용자 프롬프트, Claude의 응답, 도구 호출 결과, 타임스탬프까지 전부다.
 
 이 파일을 파싱하면 "누가 뭘 물었고, Claude가 어떤 도구를 몇 번 썼고, 무슨 파일을 건드렸는지"가 다 나온다. 빌드로그에 필요한 재료가 이미 거기 있었던 셈이다.
 
-## 파이프라인 구조
+## Claude Code 자동화 파이프라인의 구조
 
 `scripts/parse-sessions.py`가 `.jsonl` 세션을 파싱해서 작업 요약 마크다운을 만든다. 프로젝트 slug와 날짜를 넘기면, 해당 기간의 세션을 찾아서 프롬프트·도구 사용 통계·변경 파일 목록을 정리한다.
 
@@ -39,7 +40,7 @@ Claude CLI가 `--allowedTools "Write Read"`로 실행되면서 `src/content/buil
 
 도구 사용은 세션 전체에서 총 Read 19회, Write 17회, Bash 30회, Agent 4회다.
 
-## 삽질: 빌드가 아예 깨진 상태에서 시작했다
+## 빌드가 아예 깨진 상태에서 시작해야 했다
 
 파이프라인 작업을 시작하기 전에 먼저 빌드를 살려야 했다. 포트폴리오 사이트가 배포 중에 깨진 채로 방치되어 있었다.
 
@@ -58,7 +59,7 @@ src/content/blog/huggingface-ai-teureiding-arenaeseo-1wi-jeonryageul-humcyeowass
 
 빌드 에러를 잡는 데 Bash 30회 중 절반 가까이를 썼다. `npx astro check`로 타입 에러를 확인하고, 빌드 실패 로그를 분석하고, 파일을 수정하는 사이클을 반복했다.
 
-## Admin 페이지와 조회수 카드
+## Admin 페이지에 플랫폼별 조회수 카드를 붙였다
 
 빌드를 살린 뒤에는 admin 기능을 붙였다. `src/pages/admin.astro`에 플랫폼별 조회수 표시 기능을 추가하고, `src/pages/api/admin-build-logs.ts`와 `src/pages/api/admin-projects.ts` 두 개의 API 엔드포인트를 만들었다.
 
@@ -66,7 +67,7 @@ Overview 섹션에는 플랫폼별 조회수 카드가 생겼다. DEV.to, Medium
 
 `src/lib/projects.ts`와 `src/content/config.ts`도 수정되었다. 프로젝트 스키마에 플랫폼 조회수 필드를 추가하고, `src/pages/projects/[slug].astro`에서 표시하는 구조다.
 
-## Claude CLI를 Claude Code 안에서 호출하는 구조
+## Claude CLI를 Claude Code 안에서 호출하는 재귀 구조
 
 파이프라인에서 가장 재미있는 부분은 `generate-build-log.sh` 내부에서 `claude -p` CLI를 호출하는 것이다.
 
@@ -84,10 +85,18 @@ claude -p \
 
 세션 요약이 50KB를 넘으면 `head -c 50000`으로 잘라낸다. Claude의 컨텍스트 제한을 고려한 처리다.
 
-## 자동화의 실제 흐름
+## cron 한 줄로 6개 프로젝트 빌드로그가 생성된다
 
 cron 모드로 실행하면 전체 과정이 자동이다. 각 프로젝트의 마지막 빌드로그 날짜를 확인하고, 그 이후에 세션이 있으면 후보 목록에 올린다. 선택 없이 전체 처리 후, `git commit` + `git push`까지 한 번에 실행된다. push가 완료되면 Cloudflare Pages가 자동으로 빌드를 트리거한다.
 
 `--interactive` 플래그를 쓰면 프로젝트 목록이 표시되고 선택할 수 있다. 지금 읽고 있는 이 글도 그 파이프라인으로 생성된 것이다.
 
 > 작업 기록이 이미 다 남아있다. 안 쓴 이유는 귀찮아서였지, 재료가 없어서가 아니었다.
+
+---
+
+## 관련 글
+
+- [Claude Code 멀티에이전트 오케스트레이터: 3개 LLM 병렬 실행, 86세션의 삽질 기록](/posts/2026-03-15-LLMTrio-ko)
+- [Claude Code로 Claude Code 책 쓰기 — PostToolUse 훅이 25번 루프한 이야기](/posts/2026-03-15-claudebook-ko)
+- [에이전트 10명 고용해서 멘토링 플랫폼 만든 기록: 6세션, 1289 tool calls](/posts/2026-03-15-coffee-chat-ko)

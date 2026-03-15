@@ -23,6 +23,7 @@ const buildLogs = defineCollection({
     lang: z.enum(['ko', 'en']),
     pair: z.string().optional(),
     tags: z.array(z.string()),
+    description: z.string().optional(),
     published_to: z.array(z.enum(['devto', 'naver', 'tistory'])).optional(),
   }),
 });
