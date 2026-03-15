@@ -173,13 +173,21 @@ ${OUTPUT_FILE}
 ## Frontmatter
 \`\`\`yaml
 ---
-title: "구체적이고 핵심을 담은 제목"
+title: "[주요 키워드] + [구체적 숫자/결과]"
 project: "${slug}"
 date: ${TODAY}
 lang: ko
-tags: [관련 태그들]
+tags: [claude-code, 관련 태그들]
+description: "120~155자 한국어. 주요 키워드 포함, 구체적 숫자 넣기"
 ---
 \`\`\`
+
+## SEO + 후킹 규칙
+- **제목**: 주요 키워드를 앞에 배치. "Claude Code + [구체적 결과]" 패턴
+- **첫 문단 (훅)**: 놀라운 사실이나 구체적 숫자로 바로 시작. 메타 서술 금지
+- **첫 문단 후 TL;DR**: **TL;DR** 1~2문장으로 핵심 요약
+- **H2**: 호기심을 유발하는 스토리 헤딩 (예: "## Opus 3개 병렬, 하루 만에 크레딧 바닥")
+- **description**: Google 검색 결과에 보이는 snippet. 120~155자, 키워드 포함
 
 ## 글쓰기 규칙
 - **코드 구현이 아니라 Claude Code 활용 방법에 초점**을 맞춘다
@@ -215,6 +223,87 @@ ENDOFPROMPT
 
   if [ -f "$OUTPUT_FILE" ]; then
     echo "생성됨: $OUTPUT_FILE" | tee -a "$LOG_FILE"
+
+    # 3) 영어 번역 생성 (portfolio-site + dev_blog)
+    EN_OUTPUT="$BUILD_LOGS_DIR/${TODAY}-${slug}-en.md"
+    DEVTO_DIR="/Users/jidong/dev_blog/posts"
+    DEVTO_SLUG=$(echo "$slug" | tr '_' '-')
+    DEVTO_OUTPUT="$DEVTO_DIR/${TODAY}-${DEVTO_SLUG}-build-log-en.md"
+    KO_CONTENT=$(cat "$OUTPUT_FILE")
+
+    EN_PROMPT_FILE=$(mktemp /tmp/build-log-en-prompt-XXXXXX.txt)
+    cat > "$EN_PROMPT_FILE" << ENENDOFPROMPT
+아래 한국어 빌드 로그를 영어로 번역해서 2개 파일을 생성해라. 직역이 아니라 영어 개발자 관점에서 다시 쓴다.
+
+## 한국어 원문
+${KO_CONTENT}
+
+## 출력 파일 1: portfolio-site 영어 버전
+Write 도구로 아래 경로에 파일을 생성:
+${EN_OUTPUT}
+
+Frontmatter:
+\`\`\`yaml
+---
+title: "English title with keywords (Claude Code + specific result)"
+project: "${slug}"
+date: ${TODAY}
+lang: en
+pair: "${TODAY}-${slug}-ko"
+tags: [claude-code, relevant-tags]
+description: "120-155 char English description with keywords"
+---
+\`\`\`
+
+## 출력 파일 2: DEV.to 영어 버전
+Write 도구로 아래 경로에 파일을 생성:
+${DEVTO_OUTPUT}
+
+Frontmatter:
+\`\`\`yaml
+---
+title: "Same English title"
+published: true
+description: "Same 120-155 char description"
+tags: claudecode, ai, relevant, tags
+series: "Building with Claude Code: ${slug}"
+canonical_url: https://jidonglab.com/posts/${TODAY}-${slug}-en
+---
+\`\`\`
+
+## 영어 글쓰기 규칙
+- Stripe/Cloudflare 블로그 톤: professional but conversational
+- 코드 블록, 파일 경로, 명령어는 그대로 유지
+- 구체적 숫자 유지 (86 sessions, 961 tool calls 등)
+- SEO: "Claude Code", "multi-agent", "AI automation" 키워드 자연스럽게 포함
+- 첫 문단: 놀라운 사실이나 숫자로 시작 (훅)
+- TL;DR 포함
+- H2는 호기심 유발형 스토리 헤딩
+- DEV.to tags: 영문 소문자, 최대 4개, 하이픈 없음
+- 분량: 2,000~4,000 words
+- "In this blog post, we will explore" 같은 클리셰 금지
+
+반드시 Write 도구로 2개 파일 모두 생성해라.
+ENENDOFPROMPT
+
+    EN_PROMPT_CONTENT=$(cat "$EN_PROMPT_FILE")
+    rm -f "$EN_PROMPT_FILE"
+
+    echo "영어 번역 생성 중..." | tee -a "$LOG_FILE"
+    claude -p \
+      --model sonnet \
+      --permission-mode bypassPermissions \
+      --allowedTools "Write Read" \
+      --max-budget-usd 1.0 \
+      --no-session-persistence \
+      "$EN_PROMPT_CONTENT" 2>&1 | tee -a "$LOG_FILE"
+
+    if [ -f "$EN_OUTPUT" ]; then
+      echo "영어(portfolio): $EN_OUTPUT" | tee -a "$LOG_FILE"
+    fi
+    if [ -f "$DEVTO_OUTPUT" ]; then
+      echo "영어(DEV.to): $DEVTO_OUTPUT" | tee -a "$LOG_FILE"
+    fi
   else
     echo "WARNING: 파일이 생성되지 않았다: $OUTPUT_FILE" | tee -a "$LOG_FILE"
   fi
@@ -243,6 +332,20 @@ if [ "$GENERATED" -gt 0 ]; then
 else
   echo "" | tee -a "$LOG_FILE"
   echo "생성된 빌드 로그 없음." | tee -a "$LOG_FILE"
+fi
+
+# dev_blog push → DEV.to 자동 발행 (GitHub Actions)
+DEVTO_DIR="/Users/jidong/dev_blog"
+DEVTO_COUNT=$(find "$DEVTO_DIR/posts" -name "${TODAY}-*-en.md" 2>/dev/null | wc -l | tr -d ' ')
+
+if [ "$DEVTO_COUNT" -gt 0 ] && [ "$INTERACTIVE" != true ]; then
+  echo "" | tee -a "$LOG_FILE"
+  echo "DEV.to 영어 글: ${DEVTO_COUNT}개 → dev_blog push" | tee -a "$LOG_FILE"
+  cd "$DEVTO_DIR"
+  git add posts/${TODAY}-*.md
+  git commit -m "post: build logs ${TODAY} (${DEVTO_COUNT} posts, en)" 2>&1 | tee -a "$LOG_FILE" || true
+  git pull --rebase origin main 2>/dev/null || true
+  git push origin main 2>&1 | tee -a "$LOG_FILE" || echo "WARNING: dev_blog push 실패" | tee -a "$LOG_FILE"
 fi
 
 echo "[$TODAY] 완료" | tee -a "$LOG_FILE"
