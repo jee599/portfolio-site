@@ -321,10 +321,17 @@ export const prerender = false;
         font-size: 0.68rem; color: #8b95a1; font-family: 'JetBrains Mono', monospace;
         overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
       }
+      .platform-stats-row {
+        display: flex; flex-direction: column; align-items: flex-end; gap: 0.2rem; flex-shrink: 0;
+      }
       .platform-lang {
         font-size: 0.6rem; font-weight: 600; color: #8b95a1;
         background: #f2f4f6; padding: 0.15rem 0.45rem; border-radius: 100px;
-        flex-shrink: 0; font-family: 'JetBrains Mono', monospace;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .platform-views {
+        font-size: 0.75rem; font-weight: 700; color: #00c471;
+        font-family: 'JetBrains Mono', monospace;
       }
 
       /* Responsive */
@@ -469,7 +476,10 @@ export const prerender = false;
                 <span class="platform-name">DEV.to</span>
                 <span class="platform-url">dev.to/ji_ai</span>
               </div>
-              <span class="platform-lang">EN + KO</span>
+              <div class="platform-stats-row">
+                <span class="platform-lang">EN + KO</span>
+                <span class="platform-views" id="devto-views">—</span>
+              </div>
             </a>
             <a href="https://plzai.hashnode.dev" target="_blank" class="platform-card">
               <div class="platform-icon" style="background:#2962ff;">
@@ -479,7 +489,10 @@ export const prerender = false;
                 <span class="platform-name">Hashnode</span>
                 <span class="platform-url">plzai.hashnode.dev</span>
               </div>
-              <span class="platform-lang">EN</span>
+              <div class="platform-stats-row">
+                <span class="platform-lang">EN</span>
+                <span class="platform-views" id="hashnode-views">—</span>
+              </div>
             </a>
             <a href="https://jidonglab.blogspot.com" target="_blank" class="platform-card">
               <div class="platform-icon" style="background:#ff6d00;">
@@ -489,7 +502,10 @@ export const prerender = false;
                 <span class="platform-name">Blogger</span>
                 <span class="platform-url">jidonglab.blogspot.com</span>
               </div>
-              <span class="platform-lang">KO</span>
+              <div class="platform-stats-row">
+                <span class="platform-lang">KO</span>
+                <span class="platform-views" id="blogger-views">—</span>
+              </div>
             </a>
             <a href="https://jidonglab.com" target="_blank" class="platform-card">
               <div class="platform-icon" style="background:#00c471;">
@@ -499,7 +515,10 @@ export const prerender = false;
                 <span class="platform-name">Jidong Lab</span>
                 <span class="platform-url">jidonglab.com</span>
               </div>
-              <span class="platform-lang">EN + KO</span>
+              <div class="platform-stats-row">
+                <span class="platform-lang">EN + KO</span>
+                <span class="platform-views" id="jidonglab-views">—</span>
+              </div>
             </a>
           </div>
         </div>
@@ -678,6 +697,9 @@ export const prerender = false;
 
         // Top lists
         renderTopLists(data.content || []);
+
+        // Platform stats (async, non-blocking)
+        loadPlatformStats();
       }
 
       // ═══ Heatmap ═══
@@ -1012,6 +1034,31 @@ export const prerender = false;
           alert('Failed'); btn.textContent = 'Delete'; btn.disabled = false;
         }
       };
+
+      // ═══ Platform Stats ═══
+      async function loadPlatformStats() {
+        try {
+          const res = await fetch(`/api/platform-stats?secret=${encodeURIComponent(currentSecret)}`);
+          if (!res.ok) return;
+          const data = await res.json();
+
+          if (data.devto) {
+            document.getElementById('devto-views').textContent = fmt(data.devto.views) + ' views';
+          }
+          if (data.hashnode) {
+            document.getElementById('hashnode-views').textContent = fmt(data.hashnode.views) + ' views';
+          }
+          if (data.blogger) {
+            document.getElementById('blogger-views').textContent = fmt(data.blogger.views) + ' views';
+          }
+          // jidonglab uses the existing visitor data
+          const jidongEl = document.getElementById('jidonglab-views');
+          const totalEl = document.getElementById('stat-total');
+          if (jidongEl && totalEl) {
+            jidongEl.textContent = totalEl.textContent + ' visitors';
+          }
+        } catch {}
+      }
 
       function esc(str) {
         const d = document.createElement('div');
