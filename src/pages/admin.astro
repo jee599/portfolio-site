@@ -350,6 +350,17 @@ export const prerender = false;
       .status-badge.dev { background: #dbeafe; color: #3b82f6; }
       .status-badge.beta { background: #fef3cd; color: #d97706; }
       .status-badge.stopped { background: #fef2f2; color: #e45649; }
+      .status-select {
+        padding: 0.15rem 0.35rem; border-radius: 100px; border: 1px solid #e5e8eb;
+        font-size: 0.65rem; font-weight: 600; cursor: pointer; font-family: inherit;
+        appearance: none; -webkit-appearance: none;
+        background: #fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='8' height='8' viewBox='0 0 8 8'%3E%3Cpath fill='%238b95a1' d='M0 2l4 4 4-4z'/%3E%3C/svg%3E") no-repeat right 6px center;
+        padding-right: 18px;
+      }
+      .status-select.live { background-color: #e6f9f0; color: #00a85e; }
+      .status-select.dev { background-color: #dbeafe; color: #3b82f6; }
+      .status-select.beta { background-color: #fef3cd; color: #d97706; }
+      .status-select.stopped { background-color: #fef2f2; color: #e45649; }
       .visible-toggle {
         width: 36px; height: 20px; border-radius: 10px; border: none;
         cursor: pointer; position: relative; transition: 0.2s;
@@ -367,6 +378,13 @@ export const prerender = false;
         font-size: 0.6rem; font-family: 'JetBrains Mono', monospace;
         padding: 0.1rem 0.35rem; border-radius: 3px; background: #f2f4f6; color: #6b7684;
       }
+      .url-input {
+        width: 100%; min-width: 120px; padding: 0.2rem 0.4rem; border: 1px solid #e5e8eb;
+        border-radius: 5px; font-size: 0.68rem; font-family: 'JetBrains Mono', monospace;
+        color: #333d4b; outline: none;
+      }
+      .url-input:focus { border-color: #00c471; }
+      .url-input.saved { border-color: #00c471; background: #e6f9f0; }
       .cli-copy-btn {
         padding: 0.25rem 0.5rem; border: 1px solid #e5e8eb; border-radius: 5px;
         background: #fff; color: #333d4b; font-size: 0.7rem; cursor: pointer;
@@ -1213,9 +1231,13 @@ export const prerender = false;
           const statusEn = { '운영중': 'Live', '개발중': 'Dev', '실험중': 'Beta', '중단': 'Stopped' };
 
           let html = `<table class="project-table"><thead><tr>
-            <th>Project</th><th>Status</th><th>Stack</th><th>Visible</th>
+            <th>Project</th><th>Status</th><th>URL</th><th>Stack</th><th>Visible</th>
             <th>Last Log</th><th>Commits</th><th>Build Log</th>
           </tr></thead><tbody>`;
+
+          // 진행 중(운영중, 개발중) 프로젝트를 먼저 보여준다
+          const statusOrder = { '운영중': 0, '개발중': 1, '실험중': 2, '중단': 3 };
+          projects.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.order - b.order);
 
           projects.forEach(p => {
             const sc = statusMap[p.status] || '';
@@ -1225,9 +1247,21 @@ export const prerender = false;
               : '<span style="color:#b0b8c1;font-size:0.7rem;">—</span>';
             const cliCmd = `bash scripts/generate-build-log.sh --project ${p.slug}`;
 
+            const siteIcon = p.url
+              ? `<a href="${esc(p.url)}" target="_blank" style="color:#00c471;margin-left:4px;" title="${esc(p.url)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
+              : '';
+
+            const urlInput = `<input class="url-input" value="${esc(p.url || '')}" data-slug="${esc(p.slug)}"
+              placeholder="https://..." onchange="changeUrl(this)" />`;
+
             html += `<tr>
-              <td><strong>${esc(p.title)}</strong><br><span style="font-size:0.68rem;color:#8b95a1;">${esc(p.slug)}</span></td>
-              <td><span class="status-badge ${sc}">${statusEn[p.status] || p.status}</span></td>
+              <td><strong>${esc(p.title)}</strong>${siteIcon}<br><span style="font-size:0.68rem;color:#8b95a1;">${esc(p.slug)}</span></td>
+              <td><select class="status-select ${sc}" data-slug="${esc(p.slug)}" onchange="changeStatus(this)">
+                ${['운영중','개발중','실험중','중단'].map(s =>
+                  `<option value="${s}" ${s === p.status ? 'selected' : ''}>${statusEn[s] || s}</option>`
+                ).join('')}
+              </select></td>
+              <td>${urlInput}</td>
               <td><div class="stack-tags">${p.stack.map(s => `<span class="stack-tag">${esc(s)}</span>`).join('')}</div></td>
               <td><button class="visible-toggle ${p.visible ? 'on' : 'off'}" data-slug="${esc(p.slug)}" data-visible="${p.visible}"
                 onclick="toggleVisible(this)"></button></td>
@@ -1246,6 +1280,44 @@ export const prerender = false;
           wrap.innerHTML = `<div class="empty-state">Error: ${e}</div>`;
         }
       }
+
+      window.changeStatus = async function(select) {
+        const slug = select.dataset.slug;
+        const newStatus = select.value;
+        const statusMap = { '운영중': 'live', '개발중': 'dev', '실험중': 'beta', '중단': 'stopped' };
+        try {
+          const res = await fetch('/api/admin-projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: currentSecret, action: 'change-status', slug, status: newStatus }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            select.className = 'status-select ' + (statusMap[newStatus] || '');
+          } else {
+            alert(data.error || 'Failed');
+          }
+        } catch (e) { alert('Error: ' + e); }
+      };
+
+      window.changeUrl = async function(input) {
+        const slug = input.dataset.slug;
+        const url = input.value.trim();
+        try {
+          const res = await fetch('/api/admin-projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: currentSecret, action: 'change-url', slug, url }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            input.classList.add('saved');
+            setTimeout(() => input.classList.remove('saved'), 2000);
+          } else {
+            alert(data.error || 'Failed');
+          }
+        } catch (e) { alert('Error: ' + e); }
+      };
 
       window.toggleVisible = async function(btn) {
         const slug = btn.dataset.slug;

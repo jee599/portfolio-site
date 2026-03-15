@@ -76,32 +76,95 @@ export const GET: APIRoute = async ({ url, locals }) => {
   return json({ projects: projectsWithMeta });
 };
 
+async function updateProjectYaml(
+  slug: string,
+  field: string,
+  value: string | boolean,
+  token: string,
+): Promise<{ ok: boolean; error?: string }> {
+  const filePath = `src/content/projects/${slug}.yaml`;
+  const repo = `${GITHUB_USERNAME}/portfolio-site`;
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+    Authorization: `Bearer ${token}`,
+  };
+
+  try {
+    // 현재 파일 내용 + SHA 가져오기
+    const getRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, { headers });
+    if (!getRes.ok) return { ok: false, error: `File not found: ${slug}.yaml` };
+    const fileData = await getRes.json();
+    const sha = fileData.sha;
+    let content = atob(fileData.content);
+
+    // 필드 업데이트
+    const regex = new RegExp(`^${field}:.*$`, 'm');
+    const yamlValue = typeof value === 'boolean' ? String(value) : `"${value}"`;
+    if (regex.test(content)) {
+      content = content.replace(regex, `${field}: ${yamlValue}`);
+    } else {
+      content = content.trimEnd() + `\n${field}: ${yamlValue}\n`;
+    }
+
+    // GitHub API로 커밋
+    const putRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
+      method: 'PUT',
+      headers: { ...headers, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        message: `chore: ${slug} ${field} → ${value}`,
+        content: btoa(unescape(encodeURIComponent(content))),
+        sha,
+      }),
+    });
+
+    if (!putRes.ok) {
+      const err = await putRes.text();
+      return { ok: false, error: `GitHub API error: ${err}` };
+    }
+
+    return { ok: true };
+  } catch (e) {
+    return { ok: false, error: String(e) };
+  }
+}
+
 export const POST: APIRoute = async ({ request, locals }) => {
   const body = await request.json();
-  const { secret, action, slug, visible } = body;
+  const { secret, action, slug } = body;
 
   const adminSecret = import.meta.env.ADMIN_SECRET || (locals as any).runtime?.env?.ADMIN_SECRET;
   if (!adminSecret || secret !== adminSecret) {
     return json({ error: 'Unauthorized' }, 401);
   }
 
-  if (action === 'toggle-visible') {
-    // visible 토글은 로컬 dev 서버에서만 동작 (YAML 파일 직접 수정)
-    // 프로덕션에서는 안내 메시지 반환
-    const isDev = import.meta.env.DEV;
-    if (!isDev) {
-      return json({
-        ok: false,
-        error: 'visible 토글은 로컬 dev 서버에서만 동작한다. YAML 파일을 직접 수정해라.',
-      });
-    }
+  const token = getGitHubToken(locals);
+  if (!token) {
+    return json({ error: 'GITHUB_TOKEN not configured' }, 500);
+  }
 
-    // 로컬: fs 사용 불가 (Astro SSR) → CLI 명령어 안내
-    return json({
-      ok: true,
-      message: `${slug}의 visible을 ${visible}로 변경하려면:\nsrc/content/projects/${slug}.yaml에 visible: ${visible} 추가`,
-      command: `echo "visible: ${visible}" >> src/content/projects/${slug}.yaml`,
-    });
+  if (action === 'toggle-visible') {
+    const { visible } = body;
+    const result = await updateProjectYaml(slug, 'visible', visible, token);
+    if (!result.ok) return json(result);
+    return json({ ok: true, message: `${slug} visible → ${visible}` });
+  }
+
+  if (action === 'change-status') {
+    const { status } = body;
+    const validStatuses = ['운영중', '개발중', '실험중', '중단'];
+    if (!validStatuses.includes(status)) {
+      return json({ error: `Invalid status: ${status}` }, 400);
+    }
+    const result = await updateProjectYaml(slug, 'status', status, token);
+    if (!result.ok) return json(result);
+    return json({ ok: true, message: `${slug} status → ${status}` });
+  }
+
+  if (action === 'change-url') {
+    const { url } = body;
+    const result = await updateProjectYaml(slug, 'url', url, token);
+    if (!result.ok) return json(result);
+    return json({ ok: true, message: `${slug} url → ${url}` });
   }
 
   return json({ error: 'Unknown action' }, 400);

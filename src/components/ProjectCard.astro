@@ -32,9 +32,21 @@ const statusEn: Record<string, string> = {
   style="background: #1a1a2e; border: 1px solid #2a2a3e;"
 >
   <div class="flex items-start justify-between mb-3">
-    <h3 class="font-display font-bold transition-colors" style="color: #e8e8f0;">
-      {title}
-    </h3>
+    <div class="flex items-center gap-2">
+      <h3 class="font-display font-bold transition-colors" style="color: #e8e8f0;">
+        {title}
+      </h3>
+      {url && (
+        <a href={url} target="_blank" rel="noopener" onclick="event.stopPropagation()"
+          class="inline-flex items-center" style="color: #10b981;" title={url}>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </a>
+      )}
+    </div>
     <span class="text-xs font-mono" style={statusColor[status] || 'color: #7a7a9a'} data-ko={status} data-en={statusEn[status] || status}>
       {status}
     </span>
