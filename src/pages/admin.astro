@@ -9,7 +9,7 @@ export const prerender = false;
     <meta name="robots" content="noindex, nofollow" />
     <title>Admin Dashboard | Jidong Lab</title>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <style>
+    <style is:inline>
       @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+KR:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
 
       * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -120,6 +120,7 @@ export const prerender = false;
       .heatmap-cell {
         width: 14px; height: 14px; border-radius: 3px;
         background: #f2f4f6; cursor: pointer; position: relative;
+        overflow: visible; font-size: 0; line-height: 0;
       }
       .heatmap-cell.l1 { background: #c6efdb; }
       .heatmap-cell.l2 { background: #6ee7a8; }
