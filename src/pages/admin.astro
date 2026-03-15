@@ -334,6 +334,66 @@ export const prerender = false;
         font-family: 'JetBrains Mono', monospace;
       }
 
+      /* ═══ Projects Table ═══ */
+      .project-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+      .project-table th {
+        text-align: left; padding: 0.5rem 0.75rem; border-bottom: 2px solid #f2f4f6;
+        font-size: 0.7rem; color: #8b95a1; text-transform: uppercase; letter-spacing: 0.05em;
+      }
+      .project-table td { padding: 0.6rem 0.75rem; border-bottom: 1px solid #f2f4f6; vertical-align: middle; }
+      .project-table tr:hover td { background: #f9fafb; }
+      .status-badge {
+        display: inline-block; padding: 0.1rem 0.45rem; border-radius: 100px;
+        font-size: 0.65rem; font-weight: 600;
+      }
+      .status-badge.live { background: #e6f9f0; color: #00a85e; }
+      .status-badge.dev { background: #dbeafe; color: #3b82f6; }
+      .status-badge.beta { background: #fef3cd; color: #d97706; }
+      .status-badge.stopped { background: #fef2f2; color: #e45649; }
+      .visible-toggle {
+        width: 36px; height: 20px; border-radius: 10px; border: none;
+        cursor: pointer; position: relative; transition: 0.2s;
+      }
+      .visible-toggle.on { background: #00c471; }
+      .visible-toggle.off { background: #e5e8eb; }
+      .visible-toggle::after {
+        content: ''; position: absolute; width: 16px; height: 16px;
+        border-radius: 50%; background: #fff; top: 2px; transition: 0.2s;
+      }
+      .visible-toggle.on::after { left: 18px; }
+      .visible-toggle.off::after { left: 2px; }
+      .stack-tags { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+      .stack-tag {
+        font-size: 0.6rem; font-family: 'JetBrains Mono', monospace;
+        padding: 0.1rem 0.35rem; border-radius: 3px; background: #f2f4f6; color: #6b7684;
+      }
+      .cli-copy-btn {
+        padding: 0.25rem 0.5rem; border: 1px solid #e5e8eb; border-radius: 5px;
+        background: #fff; color: #333d4b; font-size: 0.7rem; cursor: pointer;
+        font-family: 'JetBrains Mono', monospace;
+      }
+      .cli-copy-btn:hover { border-color: #00c471; color: #00c471; }
+      .cli-copy-btn.copied { border-color: #00c471; color: #00c471; background: #e6f9f0; }
+      .commit-mini { font-size: 0.7rem; color: #6b7684; font-family: 'JetBrains Mono', monospace; }
+      .commit-mini .sha { color: #00c471; }
+
+      /* ═══ Build Logs Table ═══ */
+      .bl-filter-bar { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-bottom: 1rem; }
+      .published-badge {
+        display: inline-block; padding: 0.05rem 0.35rem; border-radius: 100px;
+        font-size: 0.58rem; font-weight: 600; margin-right: 0.2rem;
+      }
+      .published-badge.devto { background: #0a0a0a; color: #fff; }
+      .published-badge.naver { background: #03c75a; color: #fff; }
+      .published-badge.tistory { background: #eb5d0b; color: #fff; }
+      .bl-action-btn {
+        padding: 0.2rem 0.5rem; border: 1px solid #e5e8eb; border-radius: 5px;
+        background: #fff; color: #333d4b; font-size: 0.68rem; cursor: pointer;
+        font-family: inherit; margin-right: 0.3rem;
+      }
+      .bl-action-btn:hover { border-color: #00c471; color: #00c471; }
+      .bl-action-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
       /* Responsive */
       @media (max-width: 768px) {
         .dashboard { padding: 1rem; }
@@ -361,6 +421,8 @@ export const prerender = false;
 
     <nav class="tab-nav" id="tab-nav">
       <button class="tab-btn active" data-tab="overview">Overview</button>
+      <button class="tab-btn" data-tab="projects">Projects</button>
+      <button class="tab-btn" data-tab="build-logs">Build Logs</button>
       <button class="tab-btn" data-tab="actions">Quick Actions</button>
       <button class="tab-btn" data-tab="content">Content</button>
       <button class="tab-btn" data-tab="comments">Comments</button>
@@ -513,6 +575,27 @@ export const prerender = false;
           <div class="section">
             <div class="section-title">Top by Engagement</div>
             <div class="top-list" id="top-engagement"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Projects ═══ -->
+      <div class="tab-panel" id="panel-projects">
+        <div class="section">
+          <div class="section-title">Projects <span class="section-subtitle" id="projects-count"></span></div>
+          <div id="projects-table-wrap">
+            <div class="empty-state">Loading projects...</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ═══ Build Logs ═══ -->
+      <div class="tab-panel" id="panel-build-logs">
+        <div class="section">
+          <div class="section-title">Build Logs <span class="section-subtitle" id="bl-count"></span></div>
+          <div class="bl-filter-bar" id="bl-filter-bar"></div>
+          <div id="bl-list-wrap">
+            <div class="empty-state">Loading build logs...</div>
           </div>
         </div>
       </div>
@@ -670,6 +753,8 @@ export const prerender = false;
           btn.classList.add('active');
           document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
           if (btn.dataset.tab === 'comments') loadComments();
+          if (btn.dataset.tab === 'projects') loadProjects();
+          if (btn.dataset.tab === 'build-logs') loadBuildLogs();
         });
       });
 
@@ -1111,6 +1196,210 @@ export const prerender = false;
           setViews('jidonglab-views', totalText + ' visitors');
         } catch {}
       }
+
+      // ═══ Projects Tab ═══
+      let projectsLoaded = false;
+      async function loadProjects() {
+        if (projectsLoaded) return;
+        const wrap = document.getElementById('projects-table-wrap');
+        try {
+          const res = await fetch(`/api/admin-projects?secret=${encodeURIComponent(currentSecret)}`);
+          if (!res.ok) { wrap.innerHTML = '<div class="empty-state">Failed to load.</div>'; return; }
+          const data = await res.json();
+          const projects = data.projects || [];
+          document.getElementById('projects-count').textContent = `(${projects.length})`;
+
+          const statusMap = { '운영중': 'live', '개발중': 'dev', '실험중': 'beta', '중단': 'stopped' };
+          const statusEn = { '운영중': 'Live', '개발중': 'Dev', '실험중': 'Beta', '중단': 'Stopped' };
+
+          let html = `<table class="project-table"><thead><tr>
+            <th>Project</th><th>Status</th><th>Stack</th><th>Visible</th>
+            <th>Last Log</th><th>Commits</th><th>Build Log</th>
+          </tr></thead><tbody>`;
+
+          projects.forEach(p => {
+            const sc = statusMap[p.status] || '';
+            const recentCommit = p.recentCommits?.[0];
+            const commitHtml = recentCommit
+              ? `<span class="commit-mini"><span class="sha">${esc(recentCommit.sha)}</span> ${esc(recentCommit.message.slice(0, 40))}</span>`
+              : '<span style="color:#b0b8c1;font-size:0.7rem;">—</span>';
+            const cliCmd = `bash scripts/generate-build-log.sh --project ${p.slug}`;
+
+            html += `<tr>
+              <td><strong>${esc(p.title)}</strong><br><span style="font-size:0.68rem;color:#8b95a1;">${esc(p.slug)}</span></td>
+              <td><span class="status-badge ${sc}">${statusEn[p.status] || p.status}</span></td>
+              <td><div class="stack-tags">${p.stack.map(s => `<span class="stack-tag">${esc(s)}</span>`).join('')}</div></td>
+              <td><button class="visible-toggle ${p.visible ? 'on' : 'off'}" data-slug="${esc(p.slug)}" data-visible="${p.visible}"
+                onclick="toggleVisible(this)"></button></td>
+              <td style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#6b7684;">
+                ${p.lastLogDate || '—'} <span style="color:#b0b8c1;">(${p.logCount})</span>
+              </td>
+              <td>${commitHtml}</td>
+              <td><button class="cli-copy-btn" onclick="copyCmd(this, '${esc(cliCmd)}')">Copy CLI</button></td>
+            </tr>`;
+          });
+
+          html += '</tbody></table>';
+          wrap.innerHTML = html;
+          projectsLoaded = true;
+        } catch (e) {
+          wrap.innerHTML = `<div class="empty-state">Error: ${e}</div>`;
+        }
+      }
+
+      window.toggleVisible = async function(btn) {
+        const slug = btn.dataset.slug;
+        const newVisible = btn.dataset.visible !== 'true';
+        try {
+          const res = await fetch('/api/admin-projects', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: currentSecret, action: 'toggle-visible', slug, visible: newVisible }),
+          });
+          const data = await res.json();
+          if (data.command) {
+            alert(data.message);
+          }
+          btn.dataset.visible = String(newVisible);
+          btn.className = `visible-toggle ${newVisible ? 'on' : 'off'}`;
+        } catch (e) { alert('Error: ' + e); }
+      };
+
+      window.copyCmd = function(btn, cmd) {
+        navigator.clipboard.writeText(cmd).then(() => {
+          btn.textContent = 'Copied!';
+          btn.classList.add('copied');
+          setTimeout(() => { btn.textContent = 'Copy CLI'; btn.classList.remove('copied'); }, 2000);
+        });
+      };
+
+      // ═══ Build Logs Tab ═══
+      let buildLogsLoaded = false;
+      let allBuildLogs = [];
+      async function loadBuildLogs() {
+        if (buildLogsLoaded) return;
+        const wrap = document.getElementById('bl-list-wrap');
+        try {
+          const res = await fetch(`/api/admin-build-logs?secret=${encodeURIComponent(currentSecret)}`);
+          if (!res.ok) { wrap.innerHTML = '<div class="empty-state">Failed to load.</div>'; return; }
+          const data = await res.json();
+          allBuildLogs = data.logs || [];
+          document.getElementById('bl-count').textContent = `(${allBuildLogs.length})`;
+
+          // 프로젝트별 + 언어별 필터 생성
+          const projects = [...new Set(allBuildLogs.map(l => l.project))].sort();
+          const filterBar = document.getElementById('bl-filter-bar');
+          filterBar.innerHTML = `<button class="filter-btn active" data-blfilter="all">All</button>` +
+            projects.map(p => `<button class="filter-btn" data-blfilter="project:${esc(p)}">${esc(p)}</button>`).join('') +
+            `<button class="filter-btn" data-blfilter="lang:ko">KO</button>` +
+            `<button class="filter-btn" data-blfilter="lang:en">EN</button>`;
+
+          filterBar.addEventListener('click', (e) => {
+            const btn = e.target.closest('.filter-btn');
+            if (!btn) return;
+            filterBar.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            renderBuildLogs(btn.dataset.blfilter);
+          });
+
+          renderBuildLogs('all');
+          buildLogsLoaded = true;
+        } catch (e) {
+          wrap.innerHTML = `<div class="empty-state">Error: ${e}</div>`;
+        }
+      }
+
+      function renderBuildLogs(filter) {
+        let filtered = allBuildLogs;
+        if (filter.startsWith('project:')) {
+          filtered = allBuildLogs.filter(l => l.project === filter.replace('project:', ''));
+        } else if (filter.startsWith('lang:')) {
+          filtered = allBuildLogs.filter(l => l.lang === filter.replace('lang:', ''));
+        }
+
+        const wrap = document.getElementById('bl-list-wrap');
+        if (filtered.length === 0) {
+          wrap.innerHTML = '<div class="empty-state">No build logs.</div>';
+          return;
+        }
+
+        let html = `<table class="project-table"><thead><tr>
+          <th>Title</th><th>Project</th><th>Date</th><th>Lang</th><th>Published</th><th>Actions</th>
+        </tr></thead><tbody>`;
+
+        filtered.forEach(l => {
+          const badges = (l.published_to || []).map(p =>
+            `<span class="published-badge ${p}">${p}</span>`
+          ).join('') || '<span style="color:#b0b8c1;font-size:0.65rem;">—</span>';
+
+          html += `<tr>
+            <td><a href="/posts/${esc(l.slug)}" target="_blank" class="content-title" style="font-size:0.8rem;">${esc(l.title)}</a></td>
+            <td><span style="font-size:0.72rem;color:#6b7684;">${esc(l.project)}</span></td>
+            <td style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;">${l.date}</td>
+            <td><span style="font-size:0.65rem;font-weight:600;color:#8b95a1;">${l.lang.toUpperCase()}</span></td>
+            <td>${badges}</td>
+            <td>
+              <button class="bl-action-btn" onclick="publishDevto('${esc(l.slug)}', this)">DEV.to</button>
+              <button class="bl-action-btn" onclick="copyMarkdown('${esc(l.slug)}', this)">MD Copy</button>
+            </td>
+          </tr>`;
+        });
+
+        html += '</tbody></table>';
+        wrap.innerHTML = html;
+      }
+
+      window.publishDevto = async function(slug, btn) {
+        if (!confirm(`${slug}을 DEV.to에 발행할까?`)) return;
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          const res = await fetch('/api/admin-build-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: currentSecret, action: 'publish-devto', slug }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            alert(data.message);
+            btn.textContent = 'Done';
+          } else {
+            alert('Error: ' + (data.error || 'Failed'));
+            btn.textContent = 'DEV.to';
+            btn.disabled = false;
+          }
+        } catch (e) {
+          alert('Error: ' + e);
+          btn.textContent = 'DEV.to';
+          btn.disabled = false;
+        }
+      };
+
+      window.copyMarkdown = async function(slug, btn) {
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          const res = await fetch('/api/admin-build-logs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ secret: currentSecret, action: 'get-markdown', slug }),
+          });
+          const data = await res.json();
+          if (data.ok) {
+            await navigator.clipboard.writeText(`# ${data.title}\n\n${data.markdown}`);
+            btn.textContent = 'Copied!';
+            setTimeout(() => { btn.textContent = 'MD Copy'; btn.disabled = false; }, 2000);
+          } else {
+            alert('Error: ' + (data.error || 'Failed'));
+            btn.textContent = 'MD Copy';
+            btn.disabled = false;
+          }
+        } catch (e) {
+          alert('Error: ' + e);
+          btn.textContent = 'MD Copy';
+          btn.disabled = false;
+        }
+      };
 
       function esc(str) {
         const d = document.createElement('div');

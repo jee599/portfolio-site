@@ -10,6 +10,7 @@ export interface Project {
   stack: string[];
   one_liner: string;
   order: number;
+  visible: boolean;
 }
 
 export async function getAllProjects(): Promise<Project[]> {
@@ -27,6 +28,7 @@ export async function getAllProjects(): Promise<Project[]> {
     stack: p.data.stack,
     one_liner: p.data.one_liner,
     order: p.data.order ?? 99,
+    visible: p.data.visible ?? true,
   }));
 
   // Local YAML takes priority over GitHub (by slug match)
@@ -36,7 +38,37 @@ export async function getAllProjects(): Promise<Project[]> {
     ...localProjects,
     ...githubProjects
       .filter((p) => !localSlugs.has(p.slug))
-      .map((p) => ({ ...p, order: p.order ?? 99 })),
+      .map((p) => ({ ...p, order: p.order ?? 99, visible: true })),
+  ];
+
+  return merged.filter((p) => p.visible !== false).sort((a, b) => a.order - b.order);
+}
+
+export async function getAllProjectsIncludingHidden(): Promise<Project[]> {
+  const [localEntries, githubProjects] = await Promise.all([
+    getCollection('projects'),
+    fetchGitHubProjects(),
+  ]);
+
+  const localProjects: Project[] = localEntries.map((p) => ({
+    slug: p.id.replace('.yaml', ''),
+    title: p.data.title,
+    url: p.data.url,
+    github: p.data.github,
+    status: p.data.status,
+    stack: p.data.stack,
+    one_liner: p.data.one_liner,
+    order: p.data.order ?? 99,
+    visible: p.data.visible ?? true,
+  }));
+
+  const localSlugs = new Set(localProjects.map((p) => p.slug));
+
+  const merged: Project[] = [
+    ...localProjects,
+    ...githubProjects
+      .filter((p) => !localSlugs.has(p.slug))
+      .map((p) => ({ ...p, order: p.order ?? 99, visible: true })),
   ];
 
   return merged.sort((a, b) => a.order - b.order);

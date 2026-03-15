@@ -33,6 +33,51 @@ const statusEn: Record<string, string> = {
   '실험중': 'Beta',
   '중단': 'Stopped',
 };
+
+// GitHub API로 최근 커밋 fetch (빌드타임)
+interface Commit {
+  sha: string;
+  message: string;
+  date: string;
+}
+
+let recentCommits: Commit[] = [];
+try {
+  const repoPath = d.github.replace('https://github.com/', '').replace(/\/$/, '');
+  const token = import.meta.env.GITHUB_TOKEN || '';
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github.v3+json',
+    ...(token ? { Authorization: `Bearer ${token}` } : {}),
+  };
+  const res = await fetch(`https://api.github.com/repos/${repoPath}/commits?per_page=10`, { headers });
+  if (res.ok) {
+    const data = await res.json();
+    recentCommits = data.map((c: any) => ({
+      sha: c.sha?.slice(0, 7),
+      message: c.commit?.message?.split('\n')[0] || '',
+      date: c.commit?.author?.date?.split('T')[0] || '',
+    }));
+  }
+} catch {}
+
+// 커밋 + 빌드 로그를 날짜순 타임라인으로 통합
+type TimelineItem = { type: 'commit'; date: string; sha: string; message: string }
+  | { type: 'build-log'; date: string; title: string; slug: string };
+
+const timeline: TimelineItem[] = [
+  ...recentCommits.map((c) => ({
+    type: 'commit' as const,
+    date: c.date,
+    sha: c.sha,
+    message: c.message,
+  })),
+  ...buildLogs.map((log) => ({
+    type: 'build-log' as const,
+    date: log.data.date.toISOString().split('T')[0],
+    title: log.data.title,
+    slug: log.slug,
+  })),
+].sort((a, b) => b.date.localeCompare(a.date));
 ---
 
 <Base title={d.title} description={d.one_liner}>
@@ -66,26 +111,33 @@ const statusEn: Record<string, string> = {
       </div>
     </header>
 
-    {buildLogs.length > 0 && (
+    {timeline.length > 0 ? (
       <section>
         <h2 class="text-sm font-mono text-muted uppercase tracking-widest mb-6">
-          Build Logs
+          <span data-ko="타임라인" data-en="Timeline">타임라인</span>
         </h2>
-        <div>
-          {buildLogs.map((log) => (
-            <PostCard
-              title={log.data.title}
-              href={`/posts/${log.slug}`}
-              date={log.data.date.toISOString().split('T')[0]}
-              type="build-log"
-              project={log.data.project}
-            />
+        <div class="relative pl-6 border-l-2 border-gray-200">
+          {timeline.map((item) => (
+            <div class="mb-4 relative">
+              <div class={`absolute -left-[25px] w-3 h-3 rounded-full ${item.type === 'build-log' ? 'bg-accent' : 'bg-gray-300'}`} />
+              <div class="flex items-baseline gap-2">
+                <span class="text-xs font-mono text-muted">{item.date}</span>
+                {item.type === 'build-log' ? (
+                  <a href={`/posts/${item.slug}`} class="text-sm font-medium text-accent hover:underline">
+                    {item.title}
+                  </a>
+                ) : (
+                  <span class="text-sm text-body">
+                    <span class="font-mono text-xs text-accent">{item.sha}</span>
+                    {' '}{item.message}
+                  </span>
+                )}
+              </div>
+            </div>
           ))}
         </div>
       </section>
-    )}
-
-    {buildLogs.length === 0 && (
+    ) : (
       <p class="text-muted text-sm" data-ko="아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다." data-en="No build logs yet. They are generated automatically when you push.">아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다.</p>
     )}
   </article>

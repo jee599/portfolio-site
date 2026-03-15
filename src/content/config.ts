@@ -10,6 +10,7 @@ const projects = defineCollection({
     stack: z.array(z.string()),
     one_liner: z.string(),
     order: z.number().optional(),
+    visible: z.boolean().default(true),
   }),
 });
 
@@ -22,6 +23,7 @@ const buildLogs = defineCollection({
     lang: z.enum(['ko', 'en']),
     pair: z.string().optional(),
     tags: z.array(z.string()),
+    published_to: z.array(z.enum(['devto', 'naver', 'tistory'])).optional(),
   }),
 });
 

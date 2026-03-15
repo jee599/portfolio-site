@@ -1,0 +1,31 @@
+# CLI 스크립트 전용 — 로컬 git 경로 매핑
+# generate-build-log.sh에서 참조
+
+projects:
+  saju_global:
+    path: /Users/jidong/portfolio/saju
+    branch: main
+
+  portfolio-site:
+    path: /Users/jidong/portfolio/portfolio-site
+    branch: main
+
+  trading-bot:
+    path: /Users/jidong/portfolio/trading-bot
+    branch: main
+
+  coffee-chat:
+    path: /Users/jidong/portfolio/coffee-chat
+    branch: main
+
+  claudebook:
+    path: /Users/jidong/portfolio/claudebook
+    branch: main
+
+  hidegame:
+    path: /Users/jidong/portfolio/hidegame
+    branch: main
+
+  shortsmaker:
+    path: /Users/jidong/portfolio/shortsmaker
+    branch: main
