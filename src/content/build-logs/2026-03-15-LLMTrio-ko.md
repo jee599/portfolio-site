@@ -1,5 +1,5 @@
 ---
-title: "3개 LLM을 병렬로 돌리는 오케스트레이터 만들기 — LLMTrio 빌드 로그"
+title: "3개 LLM을 병렬로 돌리는 오케스트레이터, 86세션의 삽질 기록"
 project: "LLMTrio"
 date: 2026-03-15
 lang: ko

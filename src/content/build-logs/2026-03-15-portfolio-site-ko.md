@@ -1,5 +1,5 @@
 ---
-title: "Claude Code 세션 기록으로 빌드로그를 자동 생성하는 파이프라인 구축"
+title: "세션 로그 105개를 블로그로 바꾸는 자동화 파이프라인"
 project: "portfolio-site"
 date: 2026-03-15
 lang: ko
