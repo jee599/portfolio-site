@@ -213,10 +213,9 @@ const navItems = [
         document.querySelectorAll('[data-ph-ko][data-ph-en]').forEach(function(el) {
           el.placeholder = lang === 'ko' ? el.dataset.phKo : el.dataset.phEn;
         });
+        // lang-item: 모든 글을 항상 표시 (언어 전환은 UI 텍스트만 변경)
         document.querySelectorAll('.lang-item').forEach(function(el) {
-          var itemLang = el.dataset.lang;
-          if (!itemLang || itemLang === 'all') return;
-          el.style.display = itemLang === lang ? '' : 'none';
+          el.style.display = '';
         });
       }
 

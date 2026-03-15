@@ -8,12 +8,10 @@ const modelFilter = Astro.url.searchParams.get('model');
 const allNews = (await getCollection('ai-news'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
-let aiNewsKo = allNews.filter(n => (n.data as any).lang !== 'en');
-let aiNewsEn = allNews.filter(n => (n.data as any).lang === 'en');
+let filteredNews = allNews;
 
 if (modelFilter && ['claude', 'gemini', 'gpt', 'etc', 'daily'].includes(modelFilter)) {
-  aiNewsKo = aiNewsKo.filter(n => n.data.model === modelFilter);
-  aiNewsEn = aiNewsEn.filter(n => n.data.model === modelFilter);
+  filteredNews = filteredNews.filter(n => n.data.model === modelFilter);
 }
 
 const models = [
@@ -52,48 +50,23 @@ const modelLabels: Record<string, string> = {
   </div>
 
   <div class="fade-in stagger-2">
-    {/* 한국어 포스트 */}
-    {aiNewsKo.map((news) => (
-      <div class="lang-item" data-lang="ko">
-        <PostCard
-          title={news.data.title}
-          href={`/ai-news/${news.slug}`}
-          date={news.data.date.toISOString().split('T')[0]}
-          type="ai-news"
-          model={news.data.model}
-          description={news.data.summary}
-        />
-      </div>
-    ))}
-    {/* 영어 포스트 */}
-    {aiNewsEn.map((news) => (
-      <div class="lang-item" data-lang="en">
-        <PostCard
-          title={news.data.title}
-          href={`/ai-news/${news.slug}`}
-          date={news.data.date.toISOString().split('T')[0]}
-          type="ai-news"
-          model={news.data.model}
-          description={news.data.summary}
-        />
-      </div>
+    {filteredNews.map((news) => (
+      <PostCard
+        title={news.data.title}
+        href={`/ai-news/${news.slug}`}
+        date={news.data.date.toISOString().split('T')[0]}
+        type="ai-news"
+        model={news.data.model}
+        description={news.data.summary}
+      />
     ))}
   </div>
 
-  <div class="lang-item" data-lang="ko">
-    {aiNewsKo.length === 0 && (
-      <p class="text-muted fade-in stagger-1">
-        {modelFilter ? `${modelLabels[modelFilter] || modelFilter} 관련 소식이 아직 없다.` : '아직 AI 뉴스가 없다. 매일 아침 9시에 자동으로 생성된다.'}
-      </p>
-    )}
-  </div>
-  <div class="lang-item" data-lang="en">
-    {aiNewsEn.length === 0 && (
-      <p class="text-muted fade-in stagger-1">
-        {modelFilter ? `No ${modelLabels[modelFilter] || modelFilter} news yet.` : 'No AI news yet. Auto-generated daily at 9 AM KST.'}
-      </p>
-    )}
-  </div>
+  {filteredNews.length === 0 && (
+    <p class="text-muted fade-in stagger-1" data-ko={modelFilter ? `${modelLabels[modelFilter] || modelFilter} 관련 소식이 아직 없다.` : '아직 AI 뉴스가 없다. 매일 아침 9시에 자동으로 생성된다.'} data-en={modelFilter ? `No ${modelLabels[modelFilter] || modelFilter} news yet.` : 'No AI news yet. Auto-generated daily at 9 AM KST.'}>
+      {modelFilter ? `${modelLabels[modelFilter] || modelFilter} 관련 소식이 아직 없다.` : '아직 AI 뉴스가 없다. 매일 아침 9시에 자동으로 생성된다.'}
+    </p>
+  )}
 </Base>
 
 <style>

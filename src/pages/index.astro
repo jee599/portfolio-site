@@ -41,7 +41,7 @@ const allPosts: (PostItem & { lang?: string })[] = [
     type: 'ai-news' as const,
     description: p.data.summary,
     model: p.data.model,
-    lang: (p.data as any).lang || 'ko',
+    lang: 'all',
   })),
   ...blogPosts.map((p) => ({
     title: p.data.title,

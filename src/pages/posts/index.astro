@@ -106,9 +106,7 @@ const categories = [
 
       items.forEach(item => {
         const matchesCat = cat === 'all' || item.dataset.type === cat;
-        const itemLang = item.dataset.lang;
-        const matchesLang = !itemLang || itemLang === 'all' || itemLang === lang;
-        item.style.display = matchesCat && matchesLang ? '' : 'none';
+        item.style.display = matchesCat ? '' : 'none';
       });
     }
 
