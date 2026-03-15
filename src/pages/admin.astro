@@ -403,7 +403,7 @@ export const prerender = false;
 
         <!-- Build Logs by Project -->
         <div class="section" id="project-logs-section" style="display:none;">
-          <div class="section-title">Build Logs by Project</div>
+          <div class="section-title">Content by Views</div>
           <div class="filter-bar" id="project-filter"></div>
           <div class="content-list" id="project-logs-list"></div>
         </div>
@@ -701,28 +701,28 @@ export const prerender = false;
 
       // ═══ Project Logs ═══
       function renderProjectLogs(content) {
-        const logs = content.filter(c => c.type === 'build-log' && c.lang === 'ko');
+        const logs = content.filter(c => c.type !== 'placeholder').sort((a, b) => b.views - a.views);
         if (logs.length === 0) return;
 
         document.getElementById('project-logs-section').style.display = '';
-        const projects = [...new Set(logs.map(c => c.project).filter(Boolean))];
+        const types = [...new Set(logs.map(c => c.type))];
 
         const filterBar = document.getElementById('project-filter');
         filterBar.innerHTML = `<button class="filter-btn active" data-project="all">All (${logs.length})</button>` +
-          projects.map(p => {
-            const count = logs.filter(c => c.project === p).length;
-            return `<button class="filter-btn" data-project="${esc(p)}">${esc(p)} (${count})</button>`;
+          types.map(t => {
+            const count = logs.filter(c => c.type === t).length;
+            return `<button class="filter-btn" data-project="${esc(t)}">${esc(t)} (${count})</button>`;
           }).join('');
 
-        function renderLogs(project) {
-          const filtered = project === 'all' ? logs : logs.filter(c => c.project === project);
+        function renderLogs(filter) {
+          const filtered = filter === 'all' ? logs : logs.filter(c => c.type === filter);
           const container = document.getElementById('project-logs-list');
-          container.innerHTML = filtered.sort((a, b) => b.date.localeCompare(a.date)).map(c => {
+          container.innerHTML = filtered.sort((a, b) => b.views - a.views).map(c => {
             const viewClass = c.views > 0 ? 'has-data' : '';
             return `<div class="content-item">
               <div class="content-left">
                 <div class="content-title-row">
-                  <span class="type-badge build-log">${esc(c.project || 'build-log')}</span>
+                  <span class="type-badge ${c.type}">${esc(c.type)}</span>
                   <a href="${c.slug}" target="_blank" class="content-title">${esc(c.title)}</a>
                 </div>
                 <span class="content-date">${c.date}</span>
