@@ -294,6 +294,39 @@ export const prerender = false;
       /* Two-column layout */
       .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
 
+      /* ═══ Platforms Grid ═══ */
+      .platforms-grid {
+        display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;
+      }
+      .platform-card {
+        display: flex; align-items: center; gap: 0.75rem;
+        padding: 0.85rem 1rem; border: 1px solid #f2f4f6; border-radius: 10px;
+        text-decoration: none; transition: all 0.2s; background: #fff;
+      }
+      .platform-card:hover {
+        border-color: #00c471; box-shadow: 0 2px 12px rgba(0,196,113,0.08);
+        transform: translateY(-1px);
+      }
+      .platform-icon {
+        width: 36px; height: 36px; border-radius: 8px;
+        display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+      }
+      .platform-info {
+        display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; flex: 1;
+      }
+      .platform-name {
+        font-size: 0.85rem; font-weight: 600; color: #191f28;
+      }
+      .platform-url {
+        font-size: 0.68rem; color: #8b95a1; font-family: 'JetBrains Mono', monospace;
+        overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      }
+      .platform-lang {
+        font-size: 0.6rem; font-weight: 600; color: #8b95a1;
+        background: #f2f4f6; padding: 0.15rem 0.45rem; border-radius: 100px;
+        flex-shrink: 0; font-family: 'JetBrains Mono', monospace;
+      }
+
       /* Responsive */
       @media (max-width: 768px) {
         .dashboard { padding: 1rem; }
@@ -302,6 +335,7 @@ export const prerender = false;
         .tab-btn { white-space: nowrap; padding: 0.65rem 0.75rem; font-size: 0.78rem; }
         .admin-header { padding: 0.75rem 1rem; }
         .actions-grid { grid-template-columns: 1fr; }
+        .platforms-grid { grid-template-columns: 1fr; }
         .two-col { grid-template-columns: 1fr; }
         .content-stats { gap: 0.6rem; }
         .hide-mobile { display: none; }
@@ -423,6 +457,54 @@ export const prerender = false;
 
       <!-- ═══ Quick Actions ═══ -->
       <div class="tab-panel" id="panel-actions">
+        <!-- Publishing Platforms -->
+        <div class="section" style="margin-bottom:1.25rem;">
+          <div class="section-title">Publishing Platforms</div>
+          <div class="platforms-grid">
+            <a href="https://dev.to/ji_ai" target="_blank" class="platform-card">
+              <div class="platform-icon" style="background:#0a0a0a;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M7.42 10.05c-.18-.16-.46-.23-.84-.23H6v4.36h.58c.37 0 .65-.08.83-.23.18-.15.27-.45.27-.83v-2.26c0-.36-.09-.65-.26-.81zm13.38-7.7H3.2c-1.17 0-2.13.95-2.13 2.13v14.96c0 1.17.95 2.13 2.13 2.13h17.6c1.17 0 2.13-.95 2.13-2.13V4.48c0-1.17-.95-2.13-2.13-2.13zM8.93 14.14c-.31.3-.74.45-1.29.45H5.67V9.41h1.97c.55 0 .98.15 1.29.45.31.3.46.73.46 1.27v1.74c0 .54-.15.97-.46 1.27zM12.9 10.3h-2.04v1.25h1.25v.9h-1.25v1.25h2.04v.9h-2.62c-.28 0-.5-.22-.5-.5V9.91c0-.28.22-.5.5-.5h2.62v.89zm5.63 4.08c-.3.44-.76.66-1.38.66-.62 0-1.08-.22-1.38-.66-.3-.44-.45-1.08-.45-1.92V11c0-.84.15-1.48.45-1.92.3-.44.76-.66 1.38-.66.62 0 1.08.22 1.38.66.3.44.45 1.08.45 1.92v1.6c0 .84-.15 1.48-.45 1.92zm-.84-4.35c-.1-.2-.26-.3-.46-.3-.2 0-.36.1-.46.3-.1.2-.15.51-.15.92v1.93c0 .41.05.72.15.92.1.2.26.3.46.3.2 0 .36-.1.46-.3.1-.2.15-.51.15-.92v-1.93c0-.41-.05-.72-.15-.92z"/></svg>
+              </div>
+              <div class="platform-info">
+                <span class="platform-name">DEV.to</span>
+                <span class="platform-url">dev.to/ji_ai</span>
+              </div>
+              <span class="platform-lang">EN + KO</span>
+            </a>
+            <a href="https://plzai.hashnode.dev" target="_blank" class="platform-card">
+              <div class="platform-icon" style="background:#2962ff;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M22.351 8.019l-6.37-6.37a5.63 5.63 0 0 0-7.962 0l-6.37 6.37a5.63 5.63 0 0 0 0 7.962l6.37 6.37a5.63 5.63 0 0 0 7.962 0l6.37-6.37a5.63 5.63 0 0 0 0-7.962zM12 15.953a3.953 3.953 0 1 1 0-7.906 3.953 3.953 0 0 1 0 7.906z"/></svg>
+              </div>
+              <div class="platform-info">
+                <span class="platform-name">Hashnode</span>
+                <span class="platform-url">plzai.hashnode.dev</span>
+              </div>
+              <span class="platform-lang">EN</span>
+            </a>
+            <a href="https://jidonglab.blogspot.com" target="_blank" class="platform-card">
+              <div class="platform-icon" style="background:#ff6d00;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="white"><path d="M21.976 24H2.026C.9 24 0 23.1 0 21.976V2.026C0 .9.9 0 2.026 0H21.97C23.1 0 24 .9 24 2.026v19.948C24 23.1 23.1 24 21.976 24zM5.3 16.607c0 1.762 1.43 3.19 3.194 3.19h7.012c1.762 0 3.193-1.428 3.193-3.19v-3.504a.467.467 0 0 0-.467-.467h-.467a1.89 1.89 0 0 1-1.888-1.888V10.5c0-.257-.21-.467-.467-.467H8.493a3.197 3.197 0 0 0-3.194 3.193v3.38zM8.493 8.2h3.88c.258 0 .467-.21.467-.467V7.28c0-1.043-.845-1.888-1.888-1.888H8.493A3.197 3.197 0 0 0 5.3 8.586v.08c0 .258.21.467.467.467h2.26c.257 0 .466-.21.466-.467v-.467z"/></svg>
+              </div>
+              <div class="platform-info">
+                <span class="platform-name">Blogger</span>
+                <span class="platform-url">jidonglab.blogspot.com</span>
+              </div>
+              <span class="platform-lang">KO</span>
+            </a>
+            <a href="https://jidonglab.com" target="_blank" class="platform-card">
+              <div class="platform-icon" style="background:#00c471;">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+              </div>
+              <div class="platform-info">
+                <span class="platform-name">Jidong Lab</span>
+                <span class="platform-url">jidonglab.com</span>
+              </div>
+              <span class="platform-lang">EN + KO</span>
+            </a>
+          </div>
+        </div>
+
+        <!-- Actions -->
         <div class="actions-grid">
           <div class="action-card">
             <h3>AI News 생성</h3>
@@ -437,9 +519,9 @@ export const prerender = false;
             <div class="action-status" id="status-revalidate"></div>
           </div>
           <div class="action-card">
-            <h3>Dev.to Sync</h3>
-            <p>main 브랜치 push 시 자동 실행. 수동 실행은 GitHub Actions에서.</p>
-            <a href="https://github.com/jee599/portfolio-site/actions/workflows/publish-to-devto.yml" target="_blank" class="action-btn secondary" style="text-decoration:none;text-align:center;">Open GitHub Actions</a>
+            <h3>GitHub Actions</h3>
+            <p>DEV.to, Hashnode, Blogger 자동 발행 워크플로우 관리.</p>
+            <a href="https://github.com/jee599/dev_blog/actions" target="_blank" class="action-btn secondary" style="text-decoration:none;text-align:center;">Open GitHub Actions</a>
           </div>
         </div>
       </div>
