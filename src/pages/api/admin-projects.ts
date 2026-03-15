@@ -92,12 +92,22 @@ async function updateProjectYaml(
   try {
     // 현재 파일 내용 + SHA 가져오기
     const getRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, { headers });
-    if (!getRes.ok) return { ok: false, error: `File not found: ${slug}.yaml` };
-    const fileData = await getRes.json();
-    const sha = fileData.sha;
-    // base64 → UTF-8 디코딩 (한국어 포함)
-    const rawBytes = Uint8Array.from(atob(fileData.content.replace(/\n/g, '')), c => c.charCodeAt(0));
-    let content = new TextDecoder().decode(rawBytes);
+
+    let content: string;
+    let sha: string | undefined;
+
+    if (getRes.ok) {
+      const fileData = await getRes.json();
+      sha = fileData.sha;
+      const rawBytes = Uint8Array.from(atob(fileData.content.replace(/\n/g, '')), c => c.charCodeAt(0));
+      content = new TextDecoder().decode(rawBytes);
+    } else if (getRes.status === 404) {
+      // YAML 파일이 없으면 새로 생성
+      content = `title: "${slug}"\ngithub: "https://github.com/${GITHUB_USERNAME}/${slug}"\nstatus: "개발중"\nstack: []\none_liner: ""\norder: 99\n`;
+      sha = undefined;
+    } else {
+      return { ok: false, error: `GitHub API error: ${getRes.status}` };
+    }
 
     // 필드 업데이트
     const regex = new RegExp(`^${field}:.*$`, 'm');
@@ -111,15 +121,17 @@ async function updateProjectYaml(
     // UTF-8 → base64 인코딩
     const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(content)));
 
-    // GitHub API로 커밋
+    // GitHub API로 커밋 (create or update)
+    const putBody: any = {
+      message: `chore: ${slug} ${field} → ${value}`,
+      content: encoded,
+    };
+    if (sha) putBody.sha = sha;
+
     const putRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
       method: 'PUT',
       headers: { ...headers, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        message: `chore: ${slug} ${field} → ${value}`,
-        content: encoded,
-        sha,
-      }),
+      body: JSON.stringify(putBody),
     });
 
     if (!putRes.ok) {
@@ -144,7 +156,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
 
   const token = getGitHubToken(locals);
   if (!token) {
-    return json({ error: 'GITHUB_TOKEN not configured' }, 500);
+    return json({ error: 'GITHUB_TOKEN이 Cloudflare 환경변수에 설정되지 않았다. Settings > Environment Variables에서 추가해라.' }, 500);
   }
 
   if (action === 'toggle-visible') {
