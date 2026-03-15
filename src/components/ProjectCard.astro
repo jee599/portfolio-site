@@ -19,160 +19,70 @@ const statusConfig: Record<string, { bg: string; color: string; border: string; 
 };
 
 const sc = statusConfig[status] || statusConfig['중단'];
-const isActive = status === '운영중' || status === '개발중';
 ---
 
-<a
-  href={`/projects/${slug}`}
-  class="project-card"
+<div
+  class="pcard"
   style={`border-left: 3px solid ${sc.border};`}
 >
-  <div class="project-card-header">
-    <div class="project-card-title-row">
-      <h3 class="project-card-title">{title}</h3>
-      <div class="project-card-links">
-        {url && (
-          <a href={url} target="_blank" rel="noopener" onclick="event.stopPropagation()"
-            class="project-link-icon" title={url}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
-              <polyline points="15 3 21 3 21 9"/>
-              <line x1="10" y1="14" x2="21" y2="3"/>
-            </svg>
-          </a>
-        )}
-        <a href={github} target="_blank" rel="noopener" onclick="event.stopPropagation()"
-          class="project-link-icon gh" title="GitHub">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-            <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+  <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:0.5rem;margin-bottom:0.5rem;">
+    <div style="display:flex;align-items:center;gap:0.4rem;min-width:0;">
+      <a href={`/projects/${slug}`}
+        style="font-size:1rem;font-weight:700;color:#191f28;text-decoration:none;letter-spacing:-0.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+        {title}
+      </a>
+      {url && (
+        <a href={url} target="_blank" rel="noopener"
+          style="display:inline-flex;align-items:center;color:#8b95a1;flex-shrink:0;" title={url}>
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/>
+            <line x1="10" y1="14" x2="21" y2="3"/>
           </svg>
         </a>
-      </div>
+      )}
+      <a href={github} target="_blank" rel="noopener"
+        style="display:inline-flex;align-items:center;color:#b0b8c1;flex-shrink:0;" title="GitHub">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+          <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+        </svg>
+      </a>
     </div>
-    <span class="project-status" style={`background: ${sc.bg}; color: ${sc.color};`}
+    <span style={`display:inline-flex;align-items:center;gap:0.3rem;padding:0.15rem 0.5rem;border-radius:100px;font-size:0.62rem;font-weight:600;font-family:'JetBrains Mono',monospace;white-space:nowrap;flex-shrink:0;background:${sc.bg};color:${sc.color};`}
       data-ko={status} data-en={sc.en}>
-      <span class="status-dot" style={`background: ${sc.dot};`}></span>
+      <span style={`display:inline-block;width:6px;height:6px;border-radius:50%;background:${sc.dot};${status === '운영중' ? 'animation:pulsedot 2s ease-in-out infinite;' : ''}`}></span>
       {status}
     </span>
   </div>
 
-  <p class="project-card-desc">{one_liner}</p>
+  <p style="font-size:0.83rem;color:#6b7684;line-height:1.5;margin:0 0 0.75rem 0;">{one_liner}</p>
 
-  <div class="project-card-stack">
+  <div style="display:flex;flex-wrap:wrap;gap:0.25rem;">
     {stack.map((tech) => (
-      <span class="stack-chip">{tech}</span>
+      <span style="font-size:0.65rem;font-family:'JetBrains Mono',monospace;padding:0.12rem 0.45rem;border-radius:4px;background:#f2f4f6;color:#6b7684;">
+        {tech}
+      </span>
     ))}
   </div>
-</a>
+</div>
 
-<style>
-  .project-card {
+<style is:global>
+  .pcard {
     display: block;
     background: #fff;
     border: 1px solid #f2f4f6;
     border-radius: 12px;
-    padding: 1.25rem 1.5rem;
-    text-decoration: none;
+    padding: 1.1rem 1.25rem;
     transition: all 0.2s ease;
   }
-  .project-card:hover {
+  .pcard:hover {
     border-color: #e5e8eb;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
-    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.04);
+    transform: translateY(-1px);
   }
-
-  .project-card-header {
-    display: flex;
-    align-items: flex-start;
-    justify-content: space-between;
-    gap: 0.75rem;
-    margin-bottom: 0.6rem;
-  }
-  .project-card-title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    min-width: 0;
-  }
-  .project-card-title {
-    font-size: 1rem;
-    font-weight: 700;
-    color: #191f28;
-    letter-spacing: -0.02em;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-  .project-card-links {
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    flex-shrink: 0;
-  }
-  .project-link-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 24px;
-    height: 24px;
-    border-radius: 5px;
-    color: #8b95a1;
-    transition: all 0.15s;
-  }
-  .project-link-icon:hover {
-    color: #00c471;
-    background: #e6f9f0;
-  }
-  .project-link-icon.gh:hover {
-    color: #333d4b;
-    background: #f2f4f6;
-  }
-
-  .project-status {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.2rem 0.55rem;
-    border-radius: 100px;
-    font-size: 0.65rem;
-    font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-  .status-dot {
-    width: 6px;
-    height: 6px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  /* 운영중 dot에 pulse 애니메이션 */
-  .project-card:has(.status-dot[style*="#00c471"]) .status-dot {
-    animation: pulse-dot 2s ease-in-out infinite;
-  }
-  @keyframes pulse-dot {
+  .pcard a:hover svg { color: #00c471; }
+  @keyframes pulsedot {
     0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  .project-card-desc {
-    font-size: 0.85rem;
-    color: #6b7684;
-    line-height: 1.55;
-    margin-bottom: 0.85rem;
-  }
-
-  .project-card-stack {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.3rem;
-  }
-  .stack-chip {
-    font-size: 0.68rem;
-    font-family: 'JetBrains Mono', monospace;
-    padding: 0.15rem 0.5rem;
-    border-radius: 4px;
-    background: #f2f4f6;
-    color: #6b7684;
+    50% { opacity: 0.3; }
   }
 </style>

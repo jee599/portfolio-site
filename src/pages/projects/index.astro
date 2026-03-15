@@ -2,47 +2,29 @@
 import Base from '../../layouts/Base.astro';
 import ProjectCard from '../../components/ProjectCard.astro';
 import { getAllProjects } from '../../lib/projects';
-import { getCollection } from 'astro:content';
 
 const statusOrder: Record<string, number> = { '운영중': 0, '개발중': 1, '실험중': 2, '중단': 3 };
 const projects = (await getAllProjects()).sort((a, b) =>
   (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.order - b.order
 );
 
-const buildLogs = await getCollection('build-logs');
-const logCountByProject: Record<string, number> = {};
-buildLogs.filter(l => l.data.lang === 'ko').forEach(l => {
-  logCountByProject[l.data.project] = (logCountByProject[l.data.project] || 0) + 1;
-});
-
-const statusLabels: Record<string, { ko: string; en: string }> = {
-  '운영중': { ko: '운영중', en: 'Live' },
-  '개발중': { ko: '개발중', en: 'In Dev' },
-  '실험중': { ko: '실험중', en: 'Beta' },
-};
-
 const activeProjects = projects.filter(p => p.status === '운영중' || p.status === '개발중');
 const otherProjects = projects.filter(p => p.status !== '운영중' && p.status !== '개발중');
 ---
 
 <Base title="Projects" description="AI 프로젝트 포트폴리오">
-  <div class="fade-in">
-    <div class="projects-hero">
-      <h1 class="projects-title">Projects</h1>
-      <p class="projects-subtitle" data-ko="만들고 있는 것들" data-en="What I'm building">만들고 있는 것들</p>
-      <div class="projects-stats">
-        <span class="projects-stat">{projects.length} <span data-ko="프로젝트" data-en="projects">프로젝트</span></span>
-        <span class="projects-stat-sep"></span>
-        <span class="projects-stat">{activeProjects.length} <span data-ko="진행중" data-en="active">진행중</span></span>
-        <span class="projects-stat-sep"></span>
-        <span class="projects-stat">{buildLogs.filter(l => l.data.lang === 'ko').length} <span data-ko="빌드 로그" data-en="build logs">빌드 로그</span></span>
-      </div>
-    </div>
+  <div class="fade-in" style="max-width:880px;margin:0 auto;">
+    <h1 style="font-size:1.8rem;font-weight:800;color:#191f28;letter-spacing:-0.03em;margin-bottom:0.15rem;">
+      Projects
+    </h1>
+    <p style="font-size:0.9rem;color:#8b95a1;margin-bottom:2rem;"
+      data-ko="만들고 있는 것들" data-en="What I'm building">만들고 있는 것들</p>
 
     {activeProjects.length > 0 && (
-      <section class="projects-section">
-        <h2 class="section-label" data-ko="진행중" data-en="Active">진행중</h2>
-        <div class="projects-grid">
+      <section style="margin-bottom:2rem;">
+        <h2 style="font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#00c471;margin-bottom:0.75rem;"
+          data-ko="진행중" data-en="Active">진행중</h2>
+        <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(2,1fr);">
           {activeProjects.map((p) => (
             <ProjectCard
               slug={p.slug}
@@ -59,9 +41,10 @@ const otherProjects = projects.filter(p => p.status !== '운영중' && p.status 
     )}
 
     {otherProjects.length > 0 && (
-      <section class="projects-section">
-        <h2 class="section-label" data-ko="실험 / 기타" data-en="Experiments">실험 / 기타</h2>
-        <div class="projects-grid">
+      <section>
+        <h2 style="font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.1em;color:#8b95a1;margin-bottom:0.75rem;padding-top:1rem;border-top:1px solid #f2f4f6;"
+          data-ko="실험 / 기타" data-en="Experiments">실험 / 기타</h2>
+        <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(3,1fr);">
           {otherProjects.map((p) => (
             <ProjectCard
               slug={p.slug}
@@ -80,59 +63,12 @@ const otherProjects = projects.filter(p => p.status !== '운영중' && p.status 
 </Base>
 
 <style>
-  .projects-hero {
-    margin-bottom: 2.5rem;
-  }
-  .projects-title {
-    font-size: 2rem;
-    font-weight: 800;
-    color: #191f28;
-    letter-spacing: -0.03em;
-    margin-bottom: 0.25rem;
-  }
-  .projects-subtitle {
-    font-size: 1rem;
-    color: #8b95a1;
-    margin-bottom: 1rem;
-  }
-  .projects-stats {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-  }
-  .projects-stat {
-    font-size: 0.8rem;
-    font-family: 'JetBrains Mono', monospace;
-    color: #6b7684;
-  }
-  .projects-stat-sep {
-    width: 3px;
-    height: 3px;
-    border-radius: 50%;
-    background: #e5e8eb;
-  }
-
-  .projects-section {
-    margin-bottom: 2.5rem;
-  }
-  .section-label {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #8b95a1;
-    margin-bottom: 1rem;
-    padding-bottom: 0.5rem;
-    border-bottom: 1px solid #f2f4f6;
-  }
-  .projects-grid {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(2, 1fr);
-  }
   @media (max-width: 768px) {
-    .projects-grid {
-      grid-template-columns: 1fr;
+    div[style*="grid-template-columns:repeat(2"] {
+      grid-template-columns: 1fr !important;
+    }
+    div[style*="grid-template-columns:repeat(3"] {
+      grid-template-columns: 1fr !important;
     }
   }
 </style>

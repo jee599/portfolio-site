@@ -95,7 +95,9 @@ async function updateProjectYaml(
     if (!getRes.ok) return { ok: false, error: `File not found: ${slug}.yaml` };
     const fileData = await getRes.json();
     const sha = fileData.sha;
-    let content = atob(fileData.content);
+    // base64 → UTF-8 디코딩 (한국어 포함)
+    const rawBytes = Uint8Array.from(atob(fileData.content.replace(/\n/g, '')), c => c.charCodeAt(0));
+    let content = new TextDecoder().decode(rawBytes);
 
     // 필드 업데이트
     const regex = new RegExp(`^${field}:.*$`, 'm');
@@ -106,13 +108,16 @@ async function updateProjectYaml(
       content = content.trimEnd() + `\n${field}: ${yamlValue}\n`;
     }
 
+    // UTF-8 → base64 인코딩
+    const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(content)));
+
     // GitHub API로 커밋
     const putRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
       method: 'PUT',
       headers: { ...headers, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: `chore: ${slug} ${field} → ${value}`,
-        content: btoa(unescape(encodeURIComponent(content))),
+        content: encoded,
         sha,
       }),
     });
