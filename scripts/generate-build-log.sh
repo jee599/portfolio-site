@@ -282,6 +282,11 @@ canonical_url: https://jidonglab.com/posts/${TODAY}-${slug}-en
 - DEV.to tags: 영문 소문자, 최대 4개, 하이픈 없음
 - 분량: 2,000~4,000 words
 - "In this blog post, we will explore" 같은 클리셰 금지
+- 글 마지막에 아래 푸터를 반드시 포함:
+
+---
+
+*More projects and build logs at [jidonglab.com](https://jidonglab.com)*
 
 반드시 Write 도구로 2개 파일 모두 생성해라.
 ENENDOFPROMPT
