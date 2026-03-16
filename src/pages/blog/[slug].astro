@@ -1,9 +1,9 @@
 ---
 import Base from '../../layouts/Base.astro';
 import { getCollection } from 'astro:content';
+
 export async function getStaticPaths() {
   const blogPosts = await getCollection('blog');
-
   return blogPosts.map((p) => ({
     params: { slug: p.slug },
     props: { entry: p },
@@ -16,194 +16,254 @@ const title = entry.data.title;
 const description = entry.data.description || '';
 const dateStr = entry.data.date.toISOString().split('T')[0];
 const tags: string[] = entry.data.tags || [];
-const sourceLabel = 'Blog';
 const sourceUrl = entry.data.source_url || '';
-const readingTime = 0;
 const blogSlug = Astro.url.pathname;
 const rendered = await entry.render();
 const ContentComponent = rendered.Content;
+
+// Reading time estimate
+const wordCount = entry.body?.split(/\s+/).length || 0;
+const readingTime = Math.max(1, Math.ceil(wordCount / 200));
 ---
 
 <Base title={title} description={description}>
   <article class="blog-post fade-in">
+    <!-- Breadcrumb -->
+    <nav class="breadcrumb">
+      <a href="/blog">Blog</a>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+      <span>Article</span>
+    </nav>
+
     <header class="blog-header">
-      <span class="blog-source">{sourceLabel}</span>
-      <h1 class="blog-title">{title}</h1>
-      <div class="blog-meta">
-        <time datetime={dateStr}>{dateStr}</time>
-        {readingTime > 0 && (
-          <>
-            <span class="blog-sep">&middot;</span>
-            <span>{readingTime}분</span>
-          </>
-        )}
-        {sourceUrl && (
-          <>
-            <span class="blog-sep">&middot;</span>
-            <a href={sourceUrl} target="_blank" rel="noopener" class="blog-external">
-              원문 보기 →
-            </a>
-          </>
-        )}
-        <span class="blog-sep">&middot;</span>
-        <span class="blog-views" id="view-count">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-          <span id="view-num">0</span>
-        </span>
-      </div>
       {tags.length > 0 && (
         <div class="blog-tags">
           {tags.map((tag: string) => (
-            <span class="blog-tag">#{tag}</span>
+            <span class="blog-tag">{tag}</span>
           ))}
         </div>
       )}
+      <h1 class="blog-title">{title}</h1>
+      {description && (
+        <p class="blog-subtitle">{description}</p>
+      )}
+      <div class="blog-meta">
+        <div class="meta-left">
+          <div class="meta-avatar">
+            <svg width="16" height="16" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg"><circle cx="16" cy="16" r="16" fill="#00c471"/><text x="16" y="23" text-anchor="middle" font-family="'JetBrains Mono',monospace" font-weight="800" font-size="20" fill="#fff">j</text></svg>
+          </div>
+          <span class="meta-author">jidonglab</span>
+          <span class="meta-sep">/</span>
+          <time datetime={dateStr}>{dateStr}</time>
+          <span class="meta-sep">/</span>
+          <span>{readingTime} min read</span>
+        </div>
+        <div class="meta-right">
+          <span class="meta-views" id="view-count">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+            <span id="view-num">0</span>
+          </span>
+          {sourceUrl && (
+            <a href={sourceUrl} target="_blank" rel="noopener" class="meta-source">
+              Source
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6M15 3h6v6M10 14L21 3"/></svg>
+            </a>
+          )}
+        </div>
+      </div>
     </header>
 
     <div class="prose">
       <ContentComponent />
     </div>
 
-    <!-- Engagement: 추천 -->
+    <!-- Engagement -->
     <div class="engagement" id="engagement">
       <button class="like-btn" id="btn-like">
-        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14z"/><path d="M7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>
-        <span data-ko="추천" data-en="Like">추천</span>
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>
         <span class="like-count" id="like-count">0</span>
       </button>
+      <div class="share-group">
+        <button class="share-btn" id="btn-share-copy" title="Copy link">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </button>
+        <button class="share-btn" id="btn-share-x" title="Share on X">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+        </button>
+      </div>
     </div>
 
-    <!-- Comments: 댓글 -->
+    <!-- Comments -->
     <div class="comments-section" id="comments-section">
       <h3 class="comments-title">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-        <span data-ko="댓글" data-en="Comments">댓글</span>
+        <span data-ko="Comments" data-en="Comments">Comments</span>
         <span class="comment-count" id="comment-count">0</span>
       </h3>
       <form class="comment-form" id="comment-form">
         <div class="comment-form-row">
-          <input type="text" id="comment-name" class="comment-input comment-name-input" placeholder="이름" data-ph-ko="이름" data-ph-en="Name" maxlength="50" required />
+          <input type="text" id="comment-name" class="comment-input comment-name-input" placeholder="Name" maxlength="50" required />
         </div>
-        <textarea id="comment-text" class="comment-input comment-textarea" placeholder="댓글을 남겨주세요..." data-ph-ko="댓글을 남겨주세요..." data-ph-en="Leave a comment..." maxlength="1000" rows="3" required></textarea>
+        <textarea id="comment-text" class="comment-input comment-textarea" placeholder="Leave a comment..." maxlength="1000" rows="3" required></textarea>
         <div class="comment-form-actions">
           <span class="comment-char-count" id="char-count">0 / 1000</span>
-          <button type="submit" class="comment-submit" id="comment-submit">
-            <span data-ko="등록" data-en="Submit">등록</span>
-          </button>
+          <button type="submit" class="comment-submit" id="comment-submit">Post</button>
         </div>
       </form>
       <div class="comment-list" id="comment-list"></div>
-      <p class="comments-empty" id="comments-empty" style="display:none;" data-ko="아직 댓글이 없다. 첫 댓글을 남겨보자." data-en="No comments yet. Be the first!">아직 댓글이 없다. 첫 댓글을 남겨보자.</p>
+      <p class="comments-empty" id="comments-empty" style="display:none;">No comments yet. Be the first!</p>
     </div>
 
     <footer class="blog-footer">
-      <a href="/posts" class="blog-back">&larr; 모든 글 보기</a>
+      <a href="/blog" class="blog-back">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        Back to Blog
+      </a>
     </footer>
   </article>
 </Base>
 
 <style>
   .blog-post {
-    max-width: 680px;
+    max-width: 720px;
     margin: 0 auto;
-    padding: 2rem 0 6rem;
+    padding: 1rem 0 6rem;
   }
 
-  .blog-header {
-    margin-bottom: 3.5rem;
-  }
-
-  .blog-source {
-    font-size: 0.7rem;
-    font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-    text-transform: uppercase;
-    color: #3b82f6;
-    background: #eff6ff;
-    padding: 0.15rem 0.45rem;
-    border-radius: 3px;
-  }
-
-  .blog-title {
-    font-size: clamp(1.75rem, 4vw, 2.25rem);
-    font-weight: 700;
-    color: #191f28;
-    line-height: 1.35;
-    letter-spacing: -0.03em;
-    margin: 0.75rem 0 1rem;
-    word-break: keep-all;
-  }
-
-  .blog-meta {
-    font-size: 0.9rem;
-    color: #8b95a1;
+  /* ═══ Breadcrumb ═══ */
+  .breadcrumb {
     display: flex;
     align-items: center;
-    flex-wrap: wrap;
-  }
-
-  .blog-sep {
-    margin: 0 0.4rem;
-    color: #d1d6db;
-  }
-
-  .blog-external {
+    gap: 0.4rem;
     font-size: 0.8rem;
+    color: #b0b8c1;
+    margin-bottom: 2rem;
     font-family: 'JetBrains Mono', monospace;
+  }
+
+  .breadcrumb a {
     color: #8b95a1;
     text-decoration: none;
     transition: color 0.15s;
   }
 
-  .blog-external:hover {
+  .breadcrumb a:hover {
     color: #00c471;
+  }
+
+  /* ═══ Header ═══ */
+  .blog-header {
+    margin-bottom: 3rem;
+    padding-bottom: 2rem;
+    border-bottom: 1px solid #f2f4f6;
   }
 
   .blog-tags {
     display: flex;
     flex-wrap: wrap;
     gap: 0.4rem;
-    margin-top: 1rem;
+    margin-bottom: 1rem;
   }
 
   .blog-tag {
+    font-size: 0.7rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 500;
+    color: #00c471;
+    background: #e6f9f0;
+    padding: 0.2rem 0.55rem;
+    border-radius: 100px;
+  }
+
+  .blog-title {
+    font-size: clamp(1.75rem, 4vw, 2.5rem);
+    font-weight: 800;
+    color: #191f28;
+    line-height: 1.3;
+    letter-spacing: -0.03em;
+    margin: 0 0 0.75rem;
+    word-break: keep-all;
+  }
+
+  .blog-subtitle {
+    font-size: 1.05rem;
+    color: #6b7684;
+    line-height: 1.6;
+    margin-bottom: 1.5rem;
+  }
+
+  .blog-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+  }
+
+  .meta-left {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
     font-size: 0.8rem;
     color: #8b95a1;
-    padding: 0.2rem 0.6rem;
-    background: #f2f4f6;
-    border-radius: 4px;
   }
 
-  .blog-footer {
-    margin-top: 5rem;
-    padding-top: 2rem;
-    border-top: 1px solid #f2f4f6;
+  .meta-avatar {
+    display: flex;
+    align-items: center;
   }
 
-  .blog-back {
-    font-size: 0.9rem;
-    color: #8b95a1;
-    text-decoration: none;
-    transition: color 0.15s;
+  .meta-author {
+    font-weight: 600;
+    color: #333d4b;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
   }
 
-  .blog-back:hover {
-    color: #00c471;
+  .meta-sep {
+    color: #d1d6db;
   }
 
-  .blog-views {
+  .meta-right {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .meta-views {
     display: inline-flex;
     align-items: center;
     gap: 0.3rem;
+    font-size: 0.8rem;
     color: #8b95a1;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  .meta-source {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+    font-family: 'JetBrains Mono', monospace;
+    color: #8b95a1;
+    text-decoration: none;
+    padding: 0.25rem 0.6rem;
+    border: 1px solid #e5e8eb;
+    border-radius: 6px;
+    transition: all 0.15s;
+  }
+
+  .meta-source:hover {
+    border-color: #00c471;
+    color: #00c471;
   }
 
   /* ═══ Engagement ═══ */
   .engagement {
     display: flex;
-    justify-content: center;
+    align-items: center;
+    justify-content: space-between;
     margin-top: 3rem;
-    padding: 1.5rem;
+    padding: 1.25rem 1.5rem;
     background: #f9fafb;
     border-radius: 12px;
     border: 1px solid #f2f4f6;
@@ -213,13 +273,12 @@ const ContentComponent = rendered.Content;
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    padding: 0.65rem 1.5rem;
+    padding: 0.5rem 1.25rem;
     border: 1px solid #e5e8eb;
     border-radius: 100px;
     background: #fff;
     color: #8b95a1;
     font-size: 0.9rem;
-    font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
     -webkit-user-select: none;
@@ -227,51 +286,78 @@ const ContentComponent = rendered.Content;
   }
 
   .like-btn:hover {
-    border-color: #00c471;
-    color: #00c471;
+    border-color: #ff6b6b;
+    color: #ff6b6b;
     transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 196, 113, 0.1);
+    box-shadow: 0 2px 8px rgba(255, 107, 107, 0.15);
   }
 
   .like-btn.active {
-    background: #e6f9f0;
-    border-color: #00c471;
-    color: #00a85e;
+    background: #fff5f5;
+    border-color: #ff6b6b;
+    color: #ff6b6b;
   }
 
   .like-btn.active svg {
-    fill: #00c471;
+    fill: #ff6b6b;
   }
 
   .like-count {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.85rem;
-    min-width: 1.5ch;
-    text-align: center;
+    font-weight: 600;
+  }
+
+  .share-group {
+    display: flex;
+    gap: 0.5rem;
+  }
+
+  .share-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 1px solid #e5e8eb;
+    border-radius: 8px;
+    background: #fff;
+    color: #8b95a1;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .share-btn:hover {
+    border-color: #191f28;
+    color: #191f28;
+    background: #f9fafb;
   }
 
   /* ═══ Comments ═══ */
   .comments-section {
-    margin-top: 3rem;
+    margin-top: 2.5rem;
   }
 
   .comments-title {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 700;
     color: #191f28;
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.25rem;
     padding-bottom: 0.75rem;
     border-bottom: 2px solid #191f28;
   }
 
   .comment-count {
     font-family: 'JetBrains Mono', monospace;
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: #00c471;
     font-weight: 600;
+    background: #e6f9f0;
+    padding: 0.1rem 0.45rem;
+    border-radius: 100px;
   }
 
   .comment-form {
@@ -286,7 +372,7 @@ const ContentComponent = rendered.Content;
     width: 100%;
     padding: 0.75rem 1rem;
     border: 1px solid #e5e8eb;
-    border-radius: 8px;
+    border-radius: 10px;
     font-size: 0.9rem;
     font-family: inherit;
     color: #333d4b;
@@ -298,7 +384,7 @@ const ContentComponent = rendered.Content;
   .comment-input:focus {
     outline: none;
     border-color: #00c471;
-    box-shadow: 0 0 0 3px rgba(0, 196, 113, 0.1);
+    box-shadow: 0 0 0 3px rgba(0, 196, 113, 0.08);
   }
 
   .comment-input::placeholder {
@@ -331,10 +417,10 @@ const ContentComponent = rendered.Content;
 
   .comment-submit {
     padding: 0.5rem 1.25rem;
-    background: #00c471;
+    background: #191f28;
     color: #fff;
     border: none;
-    border-radius: 6px;
+    border-radius: 8px;
     font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
@@ -342,11 +428,11 @@ const ContentComponent = rendered.Content;
   }
 
   .comment-submit:hover {
-    background: #00a85e;
+    background: #333d4b;
   }
 
   .comment-submit:disabled {
-    opacity: 0.5;
+    opacity: 0.4;
     cursor: not-allowed;
   }
 
@@ -361,59 +447,99 @@ const ContentComponent = rendered.Content;
     font-size: 0.9rem;
     padding: 2rem 0;
   }
+
+  /* ═══ Footer ═══ */
+  .blog-footer {
+    margin-top: 4rem;
+    padding-top: 2rem;
+    border-top: 1px solid #f2f4f6;
+  }
+
+  .blog-back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.85rem;
+    color: #8b95a1;
+    text-decoration: none;
+    padding: 0.5rem 1rem;
+    border: 1px solid #e5e8eb;
+    border-radius: 8px;
+    transition: all 0.15s;
+  }
+
+  .blog-back:hover {
+    border-color: #00c471;
+    color: #00c471;
+  }
+
+  /* ═══ Animation ═══ */
+  .fade-in {
+    animation: fadeUp 0.5s ease-out both;
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(16px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (max-width: 640px) {
+    .blog-meta { flex-direction: column; align-items: flex-start; }
+    .engagement { flex-direction: column; gap: 1rem; align-items: stretch; }
+    .share-group { justify-content: center; }
+    .like-btn { justify-content: center; }
+  }
 </style>
 
 <script is:inline define:vars={{ blogSlug }}>
-  const API = '/api/engagement';
-  const slug = blogSlug;
-  const likedKey = `liked:${slug}`;
-  const viewedKey = `viewed:${slug}`;
-  const savedName = localStorage.getItem('comment-name') || '';
+  var API = '/api/engagement';
+  var slug = blogSlug;
+  var likedKey = 'liked:' + slug;
+  var viewedKey = 'viewed:' + slug;
+  var savedName = localStorage.getItem('comment-name') || '';
 
-  const viewEl = document.getElementById('view-num');
-  const likeCountEl = document.getElementById('like-count');
-  const likeBtnEl = document.getElementById('btn-like');
-  const commentCountEl = document.getElementById('comment-count');
-  const commentListEl = document.getElementById('comment-list');
-  const commentFormEl = document.getElementById('comment-form');
-  const commentNameEl = document.getElementById('comment-name');
-  const commentTextEl = document.getElementById('comment-text');
-  const commentSubmitEl = document.getElementById('comment-submit');
-  const charCountEl = document.getElementById('char-count');
-  const emptyEl = document.getElementById('comments-empty');
+  var viewEl = document.getElementById('view-num');
+  var likeCountEl = document.getElementById('like-count');
+  var likeBtnEl = document.getElementById('btn-like');
+  var commentCountEl = document.getElementById('comment-count');
+  var commentListEl = document.getElementById('comment-list');
+  var commentFormEl = document.getElementById('comment-form');
+  var commentNameEl = document.getElementById('comment-name');
+  var commentTextEl = document.getElementById('comment-text');
+  var commentSubmitEl = document.getElementById('comment-submit');
+  var charCountEl = document.getElementById('char-count');
+  var emptyEl = document.getElementById('comments-empty');
 
   if (commentNameEl && savedName) commentNameEl.value = savedName;
 
   if (commentTextEl && charCountEl) {
-    commentTextEl.addEventListener('input', () => {
-      charCountEl.textContent = `${commentTextEl.value.length} / 1000`;
+    commentTextEl.addEventListener('input', function() {
+      charCountEl.textContent = commentTextEl.value.length + ' / 1000';
     });
   }
 
-  async function trackView() {
+  function trackView() {
     if (!sessionStorage.getItem(viewedKey)) {
-      try {
-        const res = await fetch(API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, action: 'view' }),
-        });
-        const data = await res.json();
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: slug, action: 'view' }),
+      }).then(function(r) { return r.json(); }).then(function(data) {
         if (viewEl && data.views) viewEl.textContent = String(data.views);
         sessionStorage.setItem(viewedKey, '1');
-      } catch {}
+      }).catch(function() {});
     }
   }
 
-  async function loadEngagement() {
-    try {
-      const res = await fetch(`${API}?slug=${encodeURIComponent(slug)}`);
-      const data = await res.json();
-      if (viewEl) viewEl.textContent = String(data.views || 0);
-      if (likeCountEl) likeCountEl.textContent = String(data.likes || 0);
-      if (likeBtnEl && localStorage.getItem(likedKey)) likeBtnEl.classList.add('active');
-      renderComments(data.comments || []);
-    } catch {}
+  function loadEngagement() {
+    fetch(API + '?slug=' + encodeURIComponent(slug))
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        if (viewEl) viewEl.textContent = String(data.views || 0);
+        if (likeCountEl) likeCountEl.textContent = String(data.likes || 0);
+        if (likeBtnEl && localStorage.getItem(likedKey)) likeBtnEl.classList.add('active');
+        renderComments(data.comments || []);
+      }).catch(function() {});
   }
 
   function renderComments(comments) {
@@ -425,61 +551,75 @@ const ContentComponent = rendered.Content;
       return;
     }
     emptyEl.style.display = 'none';
-    commentListEl.innerHTML = comments.map(c => {
-      const d = new Date(c.date);
-      const ds = `${d.getFullYear()}.${String(d.getMonth()+1).padStart(2,'0')}.${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
-      const safeName = escapeHtml(c.name);
-      const safeText = escapeHtml(c.text).replace(/\n/g, '<br/>');
-      return `<div class="comment"><div class="comment-header"><span class="comment-author">${safeName}</span><span class="comment-date">${ds}</span></div><div class="comment-body">${safeText}</div></div>`;
+    commentListEl.innerHTML = comments.map(function(c) {
+      var d = new Date(c.date);
+      var ds = d.getFullYear() + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0') + ' ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+      return '<div class="comment"><div class="comment-header"><span class="comment-author">' + escapeHtml(c.name) + '</span><span class="comment-date">' + ds + '</span></div><div class="comment-body">' + escapeHtml(c.text).replace(/\n/g, '<br/>') + '</div></div>';
     }).join('');
   }
 
   function escapeHtml(str) {
-    const div = document.createElement('div');
+    var div = document.createElement('div');
     div.textContent = str;
     return div.innerHTML;
   }
 
   if (likeBtnEl) {
-    likeBtnEl.addEventListener('click', async () => {
-      const isLiked = localStorage.getItem(likedKey);
-      const action = isLiked ? 'unlike' : 'like';
-      try {
-        const res = await fetch(API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, action }),
-        });
-        const data = await res.json();
+    likeBtnEl.addEventListener('click', function() {
+      var isLiked = localStorage.getItem(likedKey);
+      var action = isLiked ? 'unlike' : 'like';
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: slug, action: action }),
+      }).then(function(r) { return r.json(); }).then(function(data) {
         if (likeCountEl && data.likes !== undefined) likeCountEl.textContent = String(data.likes);
         if (isLiked) { localStorage.removeItem(likedKey); likeBtnEl.classList.remove('active'); }
         else { localStorage.setItem(likedKey, '1'); likeBtnEl.classList.add('active'); }
-      } catch {}
+      }).catch(function() {});
     });
   }
 
   if (commentFormEl) {
-    commentFormEl.addEventListener('submit', async (e) => {
+    commentFormEl.addEventListener('submit', function(e) {
       e.preventDefault();
-      const name = commentNameEl?.value.trim();
-      const text = commentTextEl?.value.trim();
+      var name = commentNameEl ? commentNameEl.value.trim() : '';
+      var text = commentTextEl ? commentTextEl.value.trim() : '';
       if (!name || !text) return;
       if (commentSubmitEl) { commentSubmitEl.disabled = true; commentSubmitEl.textContent = '...'; }
-      try {
-        const res = await fetch(API, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ slug, action: 'comment', name, text }),
-        });
-        const data = await res.json();
+      fetch(API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: slug, action: 'comment', name: name, text: text }),
+      }).then(function(r) { return r.json(); }).then(function(data) {
         if (data.success) {
           localStorage.setItem('comment-name', name);
           if (commentTextEl) commentTextEl.value = '';
           if (charCountEl) charCountEl.textContent = '0 / 1000';
-          await loadEngagement();
+          loadEngagement();
         }
-      } catch {}
-      if (commentSubmitEl) { commentSubmitEl.disabled = false; commentSubmitEl.textContent = '등록'; }
+      }).catch(function() {}).finally(function() {
+        if (commentSubmitEl) { commentSubmitEl.disabled = false; commentSubmitEl.textContent = 'Post'; }
+      });
+    });
+  }
+
+  // Share buttons
+  var copyBtn = document.getElementById('btn-share-copy');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function() {
+      navigator.clipboard.writeText(window.location.href).then(function() {
+        copyBtn.style.color = '#00c471';
+        copyBtn.style.borderColor = '#00c471';
+        setTimeout(function() { copyBtn.style.color = ''; copyBtn.style.borderColor = ''; }, 1500);
+      });
+    });
+  }
+
+  var xBtn = document.getElementById('btn-share-x');
+  if (xBtn) {
+    xBtn.addEventListener('click', function() {
+      window.open('https://twitter.com/intent/tweet?url=' + encodeURIComponent(window.location.href) + '&text=' + encodeURIComponent(document.title), '_blank');
     });
   }
 
