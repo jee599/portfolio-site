@@ -1,128 +1,126 @@
 ---
-title: "3 Projects, 949 Tool Calls, One Day: How Claude Code Ships at a Different Scale"
+title: "949 Tool Calls in One Day: Running 3 Claude Code Projects in Parallel"
 project: "portfolio-site"
 date: 2026-03-16
 lang: en
 pair: "2026-03-16-portfolio-site-ko"
-tags: [claude-code, astro, portfolio, automation, admin]
-description: "3 sessions, 10h 49m, 949 tool calls — a dental site redesign, an LLM router app from scratch, and a portfolio hub migration, all in one day with Claude Opus 4.6."
+tags: [claude-code, astro, next-js, llm-orchestration, automation]
+description: "10 hours 49 minutes, 949 tool calls, three completely different projects shipped in one day. Here's what the data reveals about parallel Claude Code workflows."
 ---
 
-949 tool calls. 3 separate projects. 10 hours and 49 minutes. What would have taken a solo developer at minimum two weeks got done in a single day.
+949 tool calls. Three separate Claude Code sessions. Three completely different projects — a dental clinic website, an LLM routing dashboard, and this portfolio hub. All in the same day. Total wall-clock time: 10 hours 49 minutes, with Opus 4.6 running the whole time.
 
-**TL;DR** Three Claude Opus 4.6 sessions ran in parallel on March 15, 2026: a dental clinic homepage redesign, an LLM mixer app prototype from zero, and a portfolio site migration to a project hub. The key was a prompt strategy of "hand over a big spec first, then have Claude phase it out itself."
+**TL;DR** Splitting projects into separate sessions keeps context clean, but you pay for it in repeated setup time and more rollback requests when UI direction isn't locked in upfront.
 
-## Can You Actually Run Three Projects in One Day?
+## Why I Asked for 5 Rollbacks on a Dental Website
 
-The three sessions on 2026-03-15:
+The first session was `uddental` — a redesign of a dental clinic site in Yongin, Korea. 4 hours 52 minutes, 309 tool calls. Bash 110 times, Edit 105 times, Read 74 times.
 
-- **Session 1** (4h 52min, 309 tool calls): `uddental` — dental clinic UI redesign
-- **Session 2** (2h 35min, 368 tool calls): `llmmixer_claude` — LLM routing app, 0 to 1
-- **Session 3** (3h 20min, 272 tool calls): `portfolio-site` — hub migration
-
-Tool usage breakdown: `Bash(417)`, `Edit(200)`, `Read(180)`, `Write(123)`, `Grep(13)`, `Agent(9)`. Nearly half the calls were `Bash` — dev server restarts, `git push`, `npm install` and other repetitive ops dominated the runtime.
-
-## Handing Off a Spec in One Line
-
-Session 2 had the most instructive prompt pattern.
+The work got messy because the visual direction kept shifting in real time. It started simple: "cycle through the photos." Then: blur the background. More transparent. Remove the blur. Just a subtle blur. Actually, remove the blur again. This loop ran five times.
 
 ```
-/Users/jidong/Downloads/SPEC.md implement this.
-First write a detailed implementation plan as a markdown file.
+"a bit more blurred, make it more transparent"
+"not stronger blur — more like seeing through to the background"
+"don't blur it"
+"just a very subtle blur"
 ```
 
-Then:
+Claude Code implemented each request faithfully. The problem was rollbacks.
+
+> "Actually, revert what you just did."
+
+When you're editing files directly with Edit instead of committing to git, rollbacks get complicated. Claude Code needs to remember the previous state, and that accuracy degrades as the session gets longer. We ended up converging on a workaround: take a screenshot, share it, and say "get it back to this version."
+
+SSR/CSR hydration errors also caused friction. A component that calculated the current day and operating hours using `Date.now()` produced different values on server vs. client when rendered server-side in Next.js. The error:
 
 ```
-For each phase: implement it, do an objective self-review,
-iterate up to 3 times until it's solid,
-then move on to the next phase.
+A tree hydrated but some attributes of the server rendered HTML didn't match
+the client properties.
 ```
 
-Two prompts. Claude wrote `IMPLEMENTATION_PLAN.md` itself, then ran a sequential implement → self-review → fix cycle starting from Phase 0. No micromanagement required. Once you make Claude write the plan, it maintains its own context.
+Hit this twice. The fix is either rendering client-only via `useEffect` or using `suppressHydrationWarning`. Pasting the error message directly into Claude Code gets you the root cause immediately.
 
-Result: starting from an empty repo, 81 files generated in 2h 35min — Next.js + TypeScript dashboard, CLI entrypoint, SSE log streaming, Claude/Codex/Gemini adapters.
+Near the end of the session, an interesting request came in:
 
-## "Roll It Back" — The Limits of Delegating Version Control
+> "Create a test button panel where I can pick from multiple colors for the background."
 
-Session 1's most time-consuming stretch. As the dental hero section's design direction kept shifting, rollback requests piled up.
+The `HeroBgPicker.tsx` component got built — a 10-color palette pulled from real hospital and professional brand colors, letting the client quickly settle on a visual direction. Building a design decision tool alongside the product is one of the more practical Claude Code patterns.
 
-```
-no, roll back what you just did
-```
+## How One SPEC.md File Drove 70+ Files of Architecture
 
-```
-no I mean just... undo back to before I asked for this
-```
+Session two was `llmmixer_claude`. 2 hours 35 minutes, 368 tool calls. Bash 149 times, Write 93 times, Read 66 times, Edit 52 times.
 
-Claude can roll back on git commit boundaries cleanly. But when changes accumulate without commits, "go back to before" becomes context-tracking, and accuracy drops. The lesson: when UI direction isn't locked in yet and you're iterating, either use feature branches per variation or explicitly ask for `git stash` before each change.
+The opening prompt was simple:
 
-## Hydration Errors: Claude Can't Dodge Them Either
+> "Read /Users/jidong/Downloads/SPEC.md and implement it. First write a detailed implementation plan as a markdown file."
 
-The same error hit in two separate sessions:
+Step one: read SPEC.md, produce `IMPLEMENTATION_PLAN.md` with phases 0 through 3. Then:
 
-```
-A tree hydrated but some attributes of the server rendered HTML didn't match the client properties.
-This won't be patched up. This can happen if a SSR-ed Client Component used:
-- Variable input such as Date.now() or Math.random() which changes each time it's called.
-```
+> "Implement each phase, give objective feedback on what you built, revise up to 3 times until it's solid, then move to the next phase."
 
-The culprit was the dental site's "is the clinic open right now?" feature. Server render time and client hydration time differ — `Date.now()` on both sides guarantees a mismatch. Claude initially generated it that way, hit the error, then fixed it by splitting into `useEffect` + client-only state.
+This is the core prompt pattern. An explicit loop: implement → self-review → revise (max 3 rounds) → next phase. Claude Code ran Phase 0 self-review unprompted, surfaced issues in a list, and worked through them.
 
-Claude knows these Next.js/React SSR patterns and can fix them fast. The problem is it doesn't generate hydration-safe code by default. When requesting components that use real-time data, specifying "handle this as client-only rendering" upfront gets you clean code on the first pass.
+Starting from an empty repo, 70+ files were generated in 2 hours 35 minutes: a Next.js dashboard, a core package with adapters, router, and workflow engine, a CLI entrypoint, and SSE log streaming.
 
-## Redesigning the Portfolio as a Project Hub
+Mid-session, `npm install` failed. Root cause: `workspace:*` protocol in `package.json` — pnpm syntax that npm doesn't support. Claude Code fixed the dependency declarations. Build errors usually resolve as soon as you paste the error message in.
 
-Session 3 was the structural work. The existing site was AI news and blog-centric, with a project section manually managing 7 entries. Two goals:
+Gemini CLI auth also surfaced during adapter testing. One prompt handled it:
 
-First, extract the project registry into `scripts/project-registry.yaml` — a mapping of local git paths to portfolio slugs. Second, automate build log generation. The pipeline: parse the JSONL conversation logs stored in `.claude/projects/`, extract per-session summaries (prompts, tool call counts, changed files), and feed them to Claude CLI to draft build logs.
+> "Gemini should be authenticated, but if it's not, wrap the dashboard so users can authenticate via CLI from the UI."
 
-The key prompt in session 3:
+Claude Code built an auth state check that routes users to a Setup tab when credentials are missing. The principle: don't suppress errors, surface them as UI.
+
+## Portfolio Hub Pivot + JSONL-Based Build Log Automation
+
+Session three was this site, `portfolio-site`. 3 hours 20 minutes, 272 tool calls.
+
+The core pivot: transform from an AI news aggregator into a **project portfolio hub**. The implementation plan went in as a prompt:
 
 ```
 Implement the following plan:
-# jidonglab portfolio hub migration
-...
-Also set up claude code schedule to auto-update each project every 6 hours
-and publish build log posts to jidonglab.
+# jidonglab Portfolio Hub Redesign
+## Context
+Convert jidonglab.com from an AI news/blog site
+into a project portfolio hub.
 ```
 
-Automation included. Output: `scripts/parse-sessions.py`, `scripts/generate-build-log.sh`, and new Projects + Build Logs tabs in the admin panel.
+The pattern: write the plan, paste it with "Implement the following plan:" prepended. Claude Code reads it and executes file by file.
 
-## The GitHub 403 That Came from Patching the Wrong Layer
+Mid-session, an interesting question came up:
 
-Session 3's final debug spiral.
+> "What's that .jsonl thing Claude Code saves locally in .claude?"
 
-```
-when I update a link or project status in admin it shows some yaml error
-```
+Claude Code sessions are stored as JSONL files under `~/.claude/projects/`. Every conversation turn, tool call, and result gets recorded. Parse that, and you can auto-generate build logs.
 
-The admin was committing YAML changes directly via GitHub API. It hit `403`. The cause: while moving the GitHub token server-side to avoid client exposure, the required permission scopes were stripped out in the process. Fixed by patching `src/pages/api/admin-projects.ts`.
+> "We should extract build logs from the JSONL directly."
 
-```
-github api error 403
-test and fix this until it works perfectly
-```
+`parse-sessions.py` got built to parse the JSONL, piped into `generate-build-log.sh` which hands the data to Claude. The post you're reading now is the first output of that pipeline.
 
-That single-line prompt was enough. Claude identified the root cause, patched it, tested, patched again. No GitHub API docs needed.
+**Before:** Build logs were written manually. Remembering what happened each session took 30–60 minutes per post. **After:** One `generate-build-log.sh` run extracts the session summary and generates a draft. Editing takes 10–15 minutes.
 
-## JSONL Conversation Logs → Build Log Pipeline
+Toward the end, adding project status controls in the admin UI hit a GitHub API 403. The endpoint was committing YAML files directly, and the token was missing the right scope. One prompt:
 
-This post is the first output of that pipeline. Claude Code stores all conversation history as JSONL files under `~/.claude/projects/`. `scripts/parse-sessions.py` reads those files and extracts per-session user prompts, tool call counts, and the list of changed files. That summary gets passed to Claude CLI, which drafts the build log.
+> "Test this and keep fixing until it works perfectly."
 
-**Before:** Build logs were hand-written. Recalling what happened each session, then writing it up — 30 to 60 minutes per session.
+That single line triggered a full loop: diagnose → fix → test → re-fix, automated.
 
-**After:** One run of `generate-build-log.sh` extracts session summaries and generates a draft. Editing takes 10–15 minutes.
+## What Three Parallel Sessions Actually Look Like
 
-## What Actually Changes When You Work This Way
+Separate sessions mean clean context resets. Switching from `uddental` to `portfolio-site` means zero carryover confusion. The tradeoff is ramp-up time — each session has to re-orient to the project structure.
 
-It's not that you write less code. You make fewer decisions. Session 3 produced 27 new files and 10 modified files, none of which I wrote by hand. My job was to set direction and structure prompts.
+Tool usage ratios differed meaningfully across sessions:
 
-The failure mode is equally clear. When UI direction isn't settled and you keep sending vague requests like "make it trendier," you burn tool calls fast. That's why session 1 hit 309 tool calls. One reference screenshot is worth 30 rounds of iteration.
+- **uddental**: Bash 36% / Edit 34% — heavy UI iteration, lots of back-and-forth
+- **llmmixer**: Bash 40% / Write 25% — new project, mostly creating files
+- **portfolio-site**: Bash 58% / Edit 16% — existing codebase, lots of command execution
 
-Looking at the tool usage split: `Edit(200)` outpaced `Write(123)`. Claude itself defaults to modifying existing files over rewriting from scratch — a preference that plays out across the whole session.
+High Bash ratios mean frequent build-and-verify cycles. New greenfield projects push Write ratios up. Existing codebases run more commands.
 
-> Make Claude write the spec first, and it maintains its own context. Focus prompts on *what*, not *how* — the output quality reflects it.
+Across all 949 tool calls, Bash led at 417 (44%). Running and verifying code is a much larger part of Claude Code work than writing it.
+
+The other pattern that emerged: vague aesthetic prompts are expensive. "Make it more trendy" repeated five times burns tool calls fast. Session 1 hit 309 calls partly because visual direction wasn't locked. One reference screenshot beats 30 iterations.
+
+> Let Claude own the "what" by writing the spec first. Write prompts that define outcomes, not instructions. The results improve significantly.
 
 ---
 

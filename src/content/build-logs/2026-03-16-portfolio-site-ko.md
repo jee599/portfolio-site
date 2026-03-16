@@ -1,124 +1,122 @@
 ---
-title: "Claude Code 949번의 tool call로 포트폴리오 사이트 + 2개 신규 프로젝트를 하루 만에 만든 방법"
+title: "Claude Code 949 tool calls: 하루에 3개 프로젝트 동시 진행한 기록"
 project: "portfolio-site"
 date: 2026-03-16
 lang: ko
-tags: [claude-code, astro, portfolio, automation, admin]
-description: "하루 3세션, 949번의 tool call로 치과 사이트 리뉴얼, LLM 라우터 앱 0→1, 포트폴리오 허브 전환을 동시에 진행했다. Claude Opus 4.6이 어떻게 세 프로젝트를 병렬로 소화했는지 투명하게 공개한다."
+tags: [claude-code, astro, next-js, llm-orchestration, automation]
+description: "하루 10시간 49분, 949번의 tool call로 치과 웹사이트, LLM 오케스트레이터, 포트폴리오 허브를 동시에 만들었다. Claude Code로 병렬 프로젝트를 돌리는 실전 전략."
 ---
 
-하루에 세 프로젝트, 총 10시간 49분, 949번의 tool call. 혼자서 이걸 처음부터 짰다면 최소 2주는 걸렸을 작업량이다.
+하루에 Claude Code 세션을 3개 열고 949번의 tool call을 날렸다. 치과 웹사이트, LLM 라우팅 대시보드, 포트폴리오 허브 — 전혀 다른 세 프로젝트를 같은 날 동시에 진행했다. 총 소요 시간은 10시간 49분. Opus 4.6 모델이 하루 종일 돌아갔다.
 
-**TL;DR** Claude Opus 4.6 3세션으로 치과 홈페이지 리뉴얼, LLM 믹서 앱 프로토타입, 포트폴리오 사이트 허브 전환을 동시에 완료했다. 핵심은 "큰 spec을 먼저 주고 Phase별로 쪼개서 받는" 프롬프트 전략이다.
+**TL;DR** 한 세션에서 다른 프로젝트로 전환하면서 진행하는 대신 세션을 분리하면 컨텍스트가 깔끔하게 유지된다. 대신 중간에 롤백 요청이 늘어나는 게 문제다.
 
-## 하루에 세 프로젝트를 동시에 돌린다는 게 가능한가
+## 치과 웹사이트에서 롤백을 5번 요청한 이유
 
-2026-03-15 하루 동안 진행한 세션은 세 개다.
+첫 번째 세션은 `uddental` — 용인 동백 유디치과 웹사이트 리뉴얼이었다. 4시간 52분, 309 tool calls. Bash 110번, Edit 105번, Read 74번.
 
-- **세션 1** (4h 52min, 309 tool calls): `uddental` — 치과 홈페이지 UI 리뉴얼
-- **세션 2** (2h 35min, 368 tool calls): `llmmixer_claude` — LLM 라우팅 앱 0→1
-- **세션 3** (3h 20min, 272 tool calls): `portfolio-site` — 포트폴리오 허브 전환
-
-도구 사용 분포는 `Bash(417)`, `Edit(200)`, `Read(180)`, `Write(123)`, `Grep(13)`, `Agent(9)`. `Bash`가 절반에 가깝다는 게 특이한데, dev 서버 구동/재시작, git push, npm install 같은 반복 작업이 많았기 때문이다.
-
-## "이걸 구현해줘" 한 줄로 spec 넘기기
-
-세션 2에서 쓴 프롬프트가 인상적이다.
+작업이 복잡하게 꼬인 건 UI 방향이 실시간으로 바뀌었기 때문이다. 처음에는 단순히 "사진들을 번갈아 보여줘"였다. 그 다음은 배경 흐리게, 배경 더 투명하게, 블러 없애줘, 아주 미세한 블러만, 다시 블러 없애줘... 이 패턴이 5번 반복됐다.
 
 ```
-/Users/jidong/Downloads/SPEC.md 이거 구현해줘.
-구현계획을 조금 촘촘하게 일단 세워서 구현계획 md를 만들어줘
+"조금 더 흐릿해야할 것 같아 더 투명"
+"더 강한 블러가 아니라 더 뒷배경이 보이는 식"
+"블러처리하지마"
+"아주 미세한 블러만 줘"
 ```
 
-그 다음:
+Claude Code는 매번 충실하게 구현했다. 문제는 이전 상태로 돌아가는 요청이 왔을 때다.
+
+> "아니 방금 작업 내용 롤백해줘"
+
+git을 쓰지 않고 직접 Edit으로 수정하다 보면 롤백이 까다롭다. Claude Code가 이전 코드를 기억하고 있어야 하는데, 세션이 길어질수록 이게 부정확해진다. 결국 스크린샷을 찍어서 공유하고 "이 버전으로 돌려줘"라고 하는 방식으로 수렴했다.
+
+SSR/CSR 하이드레이션 에러도 발목을 잡았다. `Date.now()`로 현재 요일/운영 시간을 계산하는 컴포넌트를 Next.js 서버 사이드로 렌더링하면 클라이언트와 값이 달라진다. 에러 메시지:
 
 ```
-각 phase 구현하고 구현사항에 대해 피드백 객관적으로하고,
-수정하는 과정을 완벽해질때까지 최대 3번 수행해줘,
-그리고 다음 Phase로 넘어가면서 구현해줘
+A tree hydrated but some attributes of the server rendered HTML didn't match
+the client properties.
 ```
 
-두 번의 프롬프트로 Claude가 `IMPLEMENTATION_PLAN.md`를 직접 작성하고, Phase 0부터 순차적으로 구현 → 셀프 리뷰 → 수정 사이클을 돌렸다. 직접 Phase를 지시하지 않아도 된다. 계획서를 먼저 만들게 하면 Claude가 스스로 맥락을 유지한다.
+이걸 두 번 마주쳤다. 해결 방법은 `useEffect`로 클라이언트에서만 렌더링하거나 `suppressHydrationWarning`을 쓰는 것이다. Claude Code에게 에러 메시지를 그대로 붙여넣으면 원인을 정확히 짚어냈다.
 
-결과: 빈 레포에서 Next.js + TypeScript 대시보드, CLI 엔트리포인트, SSE 로그 스트리밍, Claude/Codex/Gemini 어댑터까지 2시간 35분에 생성 파일 81개.
+세션 막바지에 흥미로운 요청이 왔다.
 
-## "롤백해줘" — 버전 관리를 Claude에게 위임할 때의 한계
+> "지금 메인 뒤에 색 여러개 선택할 수 있는 버튼 테스트용으로 만들어줘"
 
-세션 1에서 가장 시간을 많이 쓴 구간이다. 치과 히어로 섹션의 UI 방향을 바꾸면서 롤백 요청이 반복됐다.
+`HeroBgPicker.tsx` 컴포넌트를 만들어서 실제 병원이나 전문 브랜드에서 쓰는 색 10개를 팔레트로 제공했다. 빠르게 비주얼을 결정할 수 있는 방식이다. 코드를 짜면서 동시에 디자인 결정 도구를 만드는 게 Claude Code의 실용적인 활용 패턴 중 하나다.
 
-```
-아니 방금 작업 내용 롤백해줘
-```
+## SPEC.md 하나로 전체 아키텍처 구현하기
 
-```
-아니 그소리가아니라 그냥 ... 이거 요청하기 전으로 돌려줘
-```
+두 번째 세션은 `llmmixer_claude`. 2시간 35분, 368 tool calls. Bash 149번, Write 93번, Read 66번, Edit 52번.
 
-Claude는 `git` 커밋 단위로 롤백할 수 있지만, 커밋 없이 수정이 쌓인 상태에서 "이전으로" 돌리는 건 맥락을 추적하는 방식이라 정확도가 떨어진다. 이번 세션에서 학습한 점: UI 방향이 확정되지 않은 상태에서 반복 수정할 때는 각 변형을 feature 브랜치로 분리하거나, 수정 전에 `git stash`를 명시적으로 요청하는 게 낫다.
+시작 프롬프트는 단순했다.
 
-## Hydration 에러는 Claude도 못 피한다
+> "/Users/jidong/Downloads/SPEC.md 이거 구현해줘. 구현계획을 조금 촘촘하게 일단 세워서 구현계획 md를 만들어줘"
 
-두 세션에서 동일한 에러가 반복됐다.
+SPEC.md를 읽고 `IMPLEMENTATION_PLAN.md`를 먼저 작성하게 했다. Phase 0부터 3까지 단계별 구현 계획. 그 다음:
 
-```
-A tree hydrated but some attributes of the server rendered HTML didn't match the client properties.
-This won't be patched up. This can happen if a SSR-ed Client Component used:
-- Variable input such as Date.now() or Math.random() which changes each time it's called.
-```
+> "각 phase 구현하고 구현사항에 대해 피드백 객관적으로하고, 수정하는 과정을 완벽해질때까지 최대 3번 수행해줘, 그리고 다음 Phase로 넘어가면서 구현해줘"
 
-치과 사이트의 "현재 요일 기준 운영 여부 표시" 기능이 원인이었다. 서버에서 렌더링한 시간과 클라이언트에서 hydrate되는 시간이 달라서 생기는 문제다. Claude가 처음에 `Date.now()`를 서버/클라이언트 양쪽에 그냥 쓰다가 에러가 났고, `useEffect` + 클라이언트 전용 상태로 분리해서 해결했다.
+이 프롬프트 패턴이 핵심이다. "구현 → 셀프 리뷰 → 수정 (최대 3회) → 다음 Phase"라는 루프를 명시적으로 지정했다. Claude Code가 스스로 Phase 0 셀프 리뷰를 진행하고 문제점을 리스트업했다.
 
-이런 Next.js/React 특유의 SSR 이슈는 Claude가 패턴을 알고 있어서 수정 자체는 빠르다. 문제는 처음부터 이 이슈를 피하는 코드를 생성하지 않는다는 것. 실시간 데이터를 쓰는 컴포넌트를 요청할 때 "클라이언트 전용 렌더링으로 처리해줘"를 명시하면 처음부터 깔끔하게 나온다.
+빈 레포에서 시작해서 2시간 35분 만에 70개 이상의 파일을 생성했다. Next.js 대시보드, core 패키지 (어댑터, 라우터, 워크플로우 엔진), CLI 엔트리포인트, SSE 로그 스트리밍까지.
 
-## 포트폴리오를 허브로 바꾸는 구조 설계
+중간에 `npm install`이 실패했다. 원인은 `package.json`에 `workspace:*` 프로토콜을 쓴 것. pnpm 문법인데 npm에서 지원하지 않는다. Claude Code가 의존성 선언부를 고치면서 해결했다. 빌드 오류는 에러 메시지를 그대로 붙여넣으면 대부분 바로 잡힌다.
 
-세션 3이 `portfolio-site`의 핵심이다. 기존 사이트는 AI 뉴스/블로그 중심이었고, 프로젝트 섹션은 7개만 수동으로 등록되어 있었다. 목표는 두 가지였다.
+Gemini CLI 인증 문제도 나왔다. 어댑터 테스트 중 인증 설정이 없다는 에러가 발생했고, 대응 프롬프트 하나로 해결했다.
 
-첫째, 프로젝트 레지스트리를 `scripts/project-registry.yaml`로 분리해서 로컬 git 경로와 포트폴리오 slug를 매핑한다. 둘째, 빌드 로그 생성을 자동화한다. `.claude/projects/` 디렉토리에 저장되는 JSONL 대화 로그를 파싱해서 세션 요약을 뽑고, Claude CLI로 빌드 로그 초안을 생성하는 파이프라인이다.
+> "gemini 인증되어 있는데 안되어 있으면 데시보드에서 cli 인증 할 수 있게 래핑해줘"
 
-세션 3 프롬프트 중 핵심:
+Claude Code가 인증 상태를 체크하고 미인증 시 Setup 탭으로 안내하는 UI 흐름을 만들었다. 에러를 막는 게 아니라 에러를 UI로 노출하는 방향이다.
+
+## 포트폴리오 허브 전환 + JSONL 기반 빌드 로그 자동화
+
+세 번째 세션은 이 포스트가 올라오는 `portfolio-site`. 3시간 20분, 272 tool calls.
+
+핵심 전환 방향은 AI 뉴스 사이트에서 **프로젝트 포트폴리오 허브**로 전환이었다. 구현 계획을 직접 넘겼다.
 
 ```
 Implement the following plan:
 # jidonglab 포트폴리오 허브 리뉴얼
-...
-이제 이거 claude code schedule로 프로젝트별로 6시간마다 업데이트하고,
-블로그 글 써서 jidonglab에 올리게 해줘
+## Context
+jidonglab.com을 AI 뉴스/블로그 사이트가 아니라
+프로젝트 포트폴리오 허브로 전환한다.
 ```
 
-자동화까지 요청했다. 결과로 `scripts/parse-sessions.py`, `scripts/generate-build-log.sh`, admin 페이지에 Projects + Build Logs 탭이 추가됐다.
+계획서를 프롬프트로 붙여넣고 `Implement the following plan:`으로 시작하는 방식. Claude Code가 계획서를 읽고 파일 단위로 구현한다.
 
-## Admin에서 YAML을 직접 수정하면 생기는 에러
+세션 중에 흥미로운 질문이 나왔다.
 
-세션 3에서 마지막 삽질이 여기 있었다.
+> "그리고 빌드로그 대신 프로젝트 .jsonl? 이렇게 남는거 뭐야? .claude에 로컬"
 
-```
-admin에서 링크나 project 상태 붙이면yaml 어쩌고 에러메세지 나와
-```
+Claude Code 세션은 `~/.claude/projects/` 아래에 JSONL 형식으로 저장된다. 각 대화, 도구 호출, 결과가 모두 기록된다. 이걸 파싱하면 빌드 로그를 자동으로 생성할 수 있다.
 
-admin에서 프로젝트 상태를 변경할 때 GitHub API를 통해 YAML 파일을 직접 커밋하는 방식이었는데, `403` 에러가 발생했다. 원인은 GitHub token을 클라이언트 사이드에서 직접 노출하지 않도록 처리하는 과정에서 권한 스코프가 빠진 것. `src/pages/api/admin-projects.ts` API 엔드포인트를 수정해서 해결했다.
+> "jsonl 기준으로 빌드로그를 뽑는게 좋은데"
 
-```
-github api error 403
-이거 테스트해서 완벽하게 돌아갈때까지 수정해
-```
+`parse-sessions.py`를 만들어서 JSONL을 파싱하고 `generate-build-log.sh`로 Claude에게 넘기는 파이프라인을 구성했다. 이 글 자체가 그 파이프라인의 첫 결과물이다.
 
-이 한 줄 프롬프트로 Claude가 원인을 파악하고 수정 → 테스트 → 재수정 사이클을 자동으로 돌렸다. 직접 GitHub API 문서 뒤질 필요가 없었다.
+Before: 빌드 로그를 손으로 썼다. 매 세션마다 뭘 했는지 기억해내야 했고, 쓰는 데 30~60분이 걸렸다. After: `generate-build-log.sh` 실행 한 번으로 세션 요약이 자동 추출되고, 로그 초안이 생성된다. 수정은 10~15분이면 끝난다.
 
-## JSONL 대화 로그 → 빌드 로그 파이프라인
+Admin에서 프로젝트 상태를 바꾸는 기능을 붙이다가 GitHub API 403 에러가 발생했다. API 엔드포인트가 YAML 파일을 직접 커밋하는 방식인데 토큰 스코프가 빠진 것이 원인이었다. 프롬프트:
 
-이 글 자체가 그 파이프라인의 첫 결과물이다. Claude Code는 대화 내용을 `~/.claude/projects/` 아래 JSONL 파일로 로컬에 저장한다. `scripts/parse-sessions.py`가 이 파일을 읽어 세션별로 사용자 프롬프트, tool call 횟수, 변경된 파일 목록을 추출한다. 추출된 요약을 Claude CLI에 넘기면 빌드 로그 초안이 나온다.
+> "이거 테스트해서 완벽하게 돌아갈때까지 수정해"
 
-Before: 빌드 로그를 손으로 썼다. 매 세션마다 뭘 했는지 기억해내야 했고, 쓰는 데 30~60분이 걸렸다.
+이 한 줄로 Claude가 원인 파악 → 수정 → 테스트 → 재수정 사이클을 자동으로 돌렸다.
 
-After: `generate-build-log.sh` 실행 한 번으로 세션 요약이 자동 추출되고, 로그 초안이 생성된다. 수정은 10~15분이면 끝난다.
+## 하루 3개 세션을 돌려본 패턴
 
-## 이 방식으로 작업할 때 실제로 달라지는 것
+세션을 분리하면 컨텍스트가 초기화된다. `uddental` 세션에서 작업하다 `portfolio-site`로 전환할 때 이전 작업 내용이 없으니 혼선이 없다. 단점은 반복 설정이다. 매 세션마다 프로젝트 구조를 다시 파악하는 시간이 든다.
 
-코드 작성 시간이 줄어드는 게 아니다. 의사결정 횟수가 줄어든다. 세션 3에서 생성된 파일만 27개, 수정 파일 10개인데 내가 직접 작성한 코드는 없다. 내가 한 일은 방향을 정하고 프롬프트를 구성하는 것뿐이다.
+도구 사용 비율도 세션마다 달랐다.
 
-반대로 Claude가 못 하는 것도 명확하다. UI 방향이 아직 확정되지 않은 상태에서 계속 "조금 더 트렌디하게" 같은 주관적 요청을 반복하면 tool call 낭비가 크다. 세션 1이 309 tool calls를 쓴 이유다. 레퍼런스 스크린샷 하나가 30번의 반복 수정보다 낫다.
+- uddental: Bash 36% / Edit 34% — UI 작업이 많아서 반복 수정
+- llmmixer: Bash 40% / Write 25% — 새 파일 생성이 대부분
+- portfolio-site: Bash 58% / Edit 16% — 기존 코드 수정 + 명령어 실행
 
-도구 사용 기준으로 보면, `Edit(200)`이 `Write(123)`보다 많다. 처음부터 새로 쓰는 것보다 기존 파일을 수정하는 방향이 더 효율적이라는 걸 Claude 자체적으로 선호하고 있다.
+Bash 비율이 높은 세션은 빌드/실행 확인 사이클이 많다는 뜻이다. llmmixer처럼 새 프로젝트를 처음부터 짤 때는 Write 비율이 올라간다.
+
+949 tool calls 중 Bash가 417번(44%)으로 가장 많았다. 코드를 짜는 것보다 실행하고 확인하는 사이클이 훨씬 많다는 게 실제 Claude Code 작업의 특성이다.
+
+UI 방향이 아직 확정되지 않은 상태에서 "조금 더 트렌디하게" 같은 주관적 요청을 반복하면 tool call 낭비가 크다. 세션 1이 309 tool calls를 쓴 이유다. 레퍼런스 스크린샷 하나가 30번의 반복 수정보다 낫다.
 
 > spec을 먼저 만들게 하면 Claude는 스스로 맥락을 유지한다. "어떻게"가 아니라 "무엇을"에 집중해서 프롬프트를 쓰면 더 좋은 결과가 나온다.
