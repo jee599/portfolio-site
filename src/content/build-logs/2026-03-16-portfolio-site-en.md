@@ -1,141 +1,128 @@
 ---
-title: "How Claude Code Automated a 4-Platform Blog Pipeline in One Session (324 Tool Calls)"
+title: "3 Projects, 949 Tool Calls, One Day: How Claude Code Ships at a Different Scale"
 project: "portfolio-site"
 date: 2026-03-16
 lang: en
 pair: "2026-03-16-portfolio-site-ko"
-tags: [claude-code, automation, blog, devto, hashnode]
-description: "324 tool calls. 4 platforms. One session. How Claude Code designed and shipped a multi-platform blog automation pipeline from a vague prompt."
+tags: [claude-code, astro, portfolio, automation, admin]
+description: "3 sessions, 10h 49m, 949 tool calls — a dental site redesign, an LLM router app from scratch, and a portfolio hub migration, all in one day with Claude Opus 4.6."
 ---
 
-324 tool calls. 4 platforms. One Claude Code session that ran for 26 cumulative hours. By the end, AI news was publishing automatically to DEV.to, Hashnode, Medium, and Naver Blog simultaneously.
+949 tool calls. 3 separate projects. 10 hours and 49 minutes. What would have taken a solo developer at minimum two weeks got done in a single day.
 
-**TL;DR** A vague "just fix it" prompt turned into a fully automated multi-platform publishing pipeline. Claude Code handled diagnosis, implementation, and integration across 10+ files — but none of it went smoothly.
+**TL;DR** Three Claude Opus 4.6 sessions ran in parallel on March 15, 2026: a dental clinic homepage redesign, an LLM mixer app prototype from zero, and a portfolio site migration to a project hub. The key was a prompt strategy of "hand over a big spec first, then have Claude phase it out itself."
 
-## The Prompt That Started It All
+## Can You Actually Run Three Projects in One Day?
 
-> "jidonglab and devto aren't working — fix it until it works"
+The three sessions on 2026-03-15:
 
-That was the opening prompt. No specifics. No error messages. No context about what "not working" meant.
+- **Session 1** (4h 52min, 309 tool calls): `uddental` — dental clinic UI redesign
+- **Session 2** (2h 35min, 368 tool calls): `llmmixer_claude` — LLM routing app, 0 to 1
+- **Session 3** (3h 20min, 272 tool calls): `portfolio-site` — hub migration
 
-Claude Code didn't ask for clarification. It opened `src/lib/devto.ts`, pulled up the GitHub Actions workflow files, and traced the actual failure. A vague complaint became a structured diagnosis in minutes.
+Tool usage breakdown: `Bash(417)`, `Edit(200)`, `Read(180)`, `Write(123)`, `Grep(13)`, `Agent(9)`. Nearly half the calls were `Bash` — dev server restarts, `git push`, `npm install` and other repetitive ops dominated the runtime.
 
-Two root causes surfaced: the AI news cron was generating content but failing to sync to DEV.to, and the latest-first sort order was broken on jidonglab. Both were fixable. Identifying them was the slow part.
+## Handing Off a Spec in One Line
 
-## AI News Automation: Real Sources, Not Hallucinations
-
-The original AI news automation was pure API — Claude generating news from its training data. That meant narrow coverage and occasional hallucination.
-
-One message changed the architecture:
+Session 2 had the most instructive prompt pattern.
 
 ```
-me: use google search / X, reddit, threads, global sources for news coverage
+/Users/jidong/Downloads/SPEC.md implement this.
+First write a detailed implementation plan as a markdown file.
 ```
 
-Claude Code opened `src/pages/api/generate-ai-news.ts`, mapped the existing generation logic, then added a source layer: Google Custom Search API and external feed crawling. The structural change was separating news *collection* from news *curation*. Before: Claude API generating content from nothing. After: real sources scraped first, Claude API curating and writing.
-
-Accuracy went up. Hallucinations dropped.
-
-The GitHub Actions cron schedule got updated alongside: `0 0,12 * * *` UTC — hitting 9 AM and 9 PM KST.
-
-## Adding Four Platforms: Auth Was the Real Problem
-
-Hashnode was straightforward. Get the API key, drop it in as `HASHNODE_TOKEN`, connect it in `src/lib/hashnode.ts`. The user literally pasted the token and blog URL into chat with no explanation:
+Then:
 
 ```
-user: ceef0313-ecca-456d-ab62-6a60280e6ab1
-user: https://plzai.hashnode.dev/
+For each phase: implement it, do an objective self-review,
+iterate up to 3 times until it's solid,
+then move on to the next phase.
 ```
 
-Claude Code read the context, matched the values to the right environment variables, and wired it up.
+Two prompts. Claude wrote `IMPLEMENTATION_PLAN.md` itself, then ran a sequential implement → self-review → fix cycle starting from Phase 0. No micromanagement required. Once you make Claude write the plan, it maintains its own context.
 
-Medium was different. OAuth flow instead of API key. The user supplied a Google OAuth client ID and secret, the auth flow got implemented — then hit an "Access Blocked" error. Turns out Medium's auto-publishing requires a paid membership. One payment later, it worked.
+Result: starting from an empty repo, 81 files generated in 2h 35min — Next.js + TypeScript dashboard, CLI entrypoint, SSE log streaming, Claude/Codex/Gemini adapters.
 
-What stood out in this phase was the debugging pattern. Every time implementation stalled, Claude Code switched to `Bash` and hit the API directly — call it, read the response, adjust the code, repeat. `Read` and `Edit` tools dominated file work. `Bash` took over when the code needed live validation.
+## "Roll It Back" — The Limits of Delegating Version Control
 
-The tool call distribution across 324 calls showed this clearly: Bash was the most-used tool. More time was spent running things than reading or editing.
-
-## The Korean-Only DEV.to Problem
-
-Partway through, a content audit revealed a problem: most posts on DEV.to were Korean-only. Build logs that weren't supposed to be there. AI news that had already aged out. No English versions.
-
-The prompt was multi-part and messy:
+Session 1's most time-consuming stretch. As the dental hero section's design direction kept shifting, rollback requests piled up.
 
 ```
-me: remove duplicates and low-value news, delete anything on dev.to that's a
-    jidonglab feature update or build log, delete expired Korean news,
-    generate English versions for blog posts only
+no, roll back what you just did
 ```
 
-Claude Code's execution sequence: fetch the full post list from the DEV.to API → classify each post by title and tags → unpublish posts that didn't belong → generate English translations for posts missing them → publish the new versions.
-
-Each step was an API call. Done manually, this is half a day of work. Claude Code ran through it systematically.
-
-## Admin Page: "This Is Unreadable"
-
-During operations, the visitor count in the admin dashboard didn't match Cloudflare's numbers. A screenshot went into chat. Claude Code traced the discrepancy.
-
-Cloudflare reports raw hits including bot traffic. The admin page tracked only human visitors. Different metrics, both correct. Not a bug.
-
-But the "Build Logs by Project" section actually had a real bug — no view-count sorting. That got fixed.
-
 ```
-me: sort Build Logs by Project section by view count
+no I mean just... undo back to before I asked for this
 ```
 
-One line. Claude Code opened `src/pages/admin/index.astro`, added the sort logic. Done in under a minute.
+Claude can roll back on git commit boundaries cleanly. But when changes accumulate without commits, "go back to before" becomes context-tracking, and accuracy drops. The lesson: when UI direction isn't locked in yet and you're iterating, either use feature branches per variation or explicitly ask for `git stash` before each change.
 
-## The Language Toggle That Showed Nothing
+## Hydration Errors: Claude Can't Dodge Them Either
 
-English mode button. Click it. Content disappears.
-
-The existing i18n system used `data-ko` and `data-en` attributes to show/hide elements. But AI news content renders dynamically as Astro components — no attributes, no match, blank screen.
-
-The fix combined two approaches: `navigator.language` for browser-based auto-detection, `localStorage` for explicit user preference. When the language toggles, the right content is there.
-
-During this fix, Claude Code's `Edit` tool ran in sequence across multiple files. One bug found in one file turned up the same pattern in another. Each instance got patched individually.
-
-## What "Just Do It" Actually Means
-
-Several prompts in this session were open-ended:
+The same error hit in two separate sessions:
 
 ```
-"fix jidonglab and devto, make it work no matter what, post Korean content to devto too"
-"use cowork to crawl news every 9am as a CLI subscription model"
-"convert all dev.to English posts to a clean format and publish everything to hashnode"
+A tree hydrated but some attributes of the server rendered HTML didn't match the client properties.
+This won't be patched up. This can happen if a SSR-ed Client Component used:
+- Variable input such as Date.now() or Math.random() which changes each time it's called.
 ```
 
-Each had a different level of specificity. The first was goal-oriented ("no matter what"). The second specified method ("cowork"). The third defined source and target.
+The culprit was the dental site's "is the clinic open right now?" feature. Server render time and client hydration time differ — `Date.now()` on both sides guarantees a mismatch. Claude initially generated it that way, hit the error, then fixed it by splitting into `useEffect` + client-only state.
 
-Claude Code performed best on goal-oriented prompts. "Fix it until it works" triggered multiple rounds of iteration and landed on a working result.
+Claude knows these Next.js/React SSR patterns and can fix them fast. The problem is it doesn't generate hydration-safe code by default. When requesting components that use real-time data, specifying "handle this as client-only rendering" upfront gets you clean code on the first pass.
 
-The method-specified prompt ("use cowork") ran into a problem — cowork automation wasn't functional in the current environment. Claude Code pivoted to GitHub Actions cron instead. The outcome the user wanted (automated 9 AM news) was achieved, but the method changed.
+## Redesigning the Portfolio as a Project Hub
 
-That's the practical lesson: prompt with *what*, not *how*. Claude Code will find a working path. Specifying the path locks it into methods that might not work.
+Session 3 was the structural work. The existing site was AI news and blog-centric, with a project section manually managing 7 entries. Two goals:
 
-## Session Stats
+First, extract the project registry into `scripts/project-registry.yaml` — a mapping of local git paths to portfolio slugs. Second, automate build log generation. The pipeline: parse the JSONL conversation logs stored in `.claude/projects/`, extract per-session summaries (prompts, tool call counts, changed files), and feed them to Claude CLI to draft build logs.
 
-| Metric | Value |
-|--------|-------|
-| Session duration | ~26 hours cumulative |
-| Tool calls | 324 |
-| Files changed | 10+ |
-| Platforms added | Hashnode, Medium (from 2 → 4) |
-| Bugs fixed | DEV.to English sync, admin sort, i18n toggle |
+The key prompt in session 3:
 
-The comparison point: doing this manually would mean reading API docs for each platform, mapping out OAuth flows, configuring cron schedules, and integrating with existing code. Days of work across four different platform APIs. Claude Code ran through it in one session.
+```
+Implement the following plan:
+# jidonglab portfolio hub migration
+...
+Also set up claude code schedule to auto-update each project every 6 hours
+and publish build log posts to jidonglab.
+```
 
-What required human involvement: Medium membership payment, Hashnode account creation, Google OAuth app setup. Credentials have to be created by a person. Claude Code's role was taking those credentials and wiring them into the codebase.
+Automation included. Output: `scripts/parse-sessions.py`, `scripts/generate-build-log.sh`, and new Projects + Build Logs tabs in the admin panel.
 
-## What's Still Broken
+## The GitHub 403 That Came from Patching the Wrong Layer
 
-Blogger integration stalled in the Google OAuth flow. A 404 error appeared and didn't get resolved within the session. That's the next session's first task.
+Session 3's final debug spiral.
 
-Medium auto-publishing is partially working post-membership, but not all posts have been verified as publishing correctly. More validation needed.
+```
+when I update a link or project status in admin it shows some yaml error
+```
 
-AI news quality has a duplication problem — similar topics appearing multiple times in the same day. Either a clustering layer on the collection side, or a prompt-level instruction like "skip topics already covered today" needs to be added.
+The admin was committing YAML changes directly via GitHub API. It hit `403`. The cause: while moving the GitHub token server-side to avoid client exposure, the required permission scopes were stripped out in the process. Fixed by patching `src/pages/api/admin-projects.ts`.
 
-> Automation isn't complete when it works. It's complete when you can leave it running and not worry.
+```
+github api error 403
+test and fix this until it works perfectly
+```
+
+That single-line prompt was enough. Claude identified the root cause, patched it, tested, patched again. No GitHub API docs needed.
+
+## JSONL Conversation Logs → Build Log Pipeline
+
+This post is the first output of that pipeline. Claude Code stores all conversation history as JSONL files under `~/.claude/projects/`. `scripts/parse-sessions.py` reads those files and extracts per-session user prompts, tool call counts, and the list of changed files. That summary gets passed to Claude CLI, which drafts the build log.
+
+**Before:** Build logs were hand-written. Recalling what happened each session, then writing it up — 30 to 60 minutes per session.
+
+**After:** One run of `generate-build-log.sh` extracts session summaries and generates a draft. Editing takes 10–15 minutes.
+
+## What Actually Changes When You Work This Way
+
+It's not that you write less code. You make fewer decisions. Session 3 produced 27 new files and 10 modified files, none of which I wrote by hand. My job was to set direction and structure prompts.
+
+The failure mode is equally clear. When UI direction isn't settled and you keep sending vague requests like "make it trendier," you burn tool calls fast. That's why session 1 hit 309 tool calls. One reference screenshot is worth 30 rounds of iteration.
+
+Looking at the tool usage split: `Edit(200)` outpaced `Write(123)`. Claude itself defaults to modifying existing files over rewriting from scratch — a preference that plays out across the whole session.
+
+> Make Claude write the spec first, and it maintains its own context. Focus prompts on *what*, not *how* — the output quality reflects it.
 
 ---
 
