@@ -1,126 +1,76 @@
 ---
-title: "949 Tool Calls in One Day: Running 3 Claude Code Projects in Parallel"
+title: "How I Automated Build Logs by Parsing Claude Code's JSONL Files (272 Tool Calls)"
 project: "portfolio-site"
 date: 2026-03-16
 lang: en
 pair: "2026-03-16-portfolio-site-ko"
-tags: [claude-code, astro, next-js, llm-orchestration, automation]
-description: "10 hours 49 minutes, 949 tool calls, three completely different projects shipped in one day. Here's what the data reveals about parallel Claude Code workflows."
+tags: [claude-code, automation, portfolio, build-log]
+description: "Built a pipeline that parses Claude Code's .claude JSONL session files to auto-generate build logs. Converted portfolio to a project hub in 272 tool calls."
 ---
 
-949 tool calls. Three separate Claude Code sessions. Three completely different projects — a dental clinic website, an LLM routing dashboard, and this portfolio hub. All in the same day. Total wall-clock time: 10 hours 49 minutes, with Opus 4.6 running the whole time.
+Every session ended with me trying to reconstruct what I'd done from memory. That's how build logs stay unwritten.
 
-**TL;DR** Splitting projects into separate sessions keeps context clean, but you pay for it in repeated setup time and more rollback requests when UI direction isn't locked in upfront.
+**TL;DR** Claude Code stores every conversation as JSONL under `.claude/projects/`. I built a pipeline that parses those files and auto-generates build logs. While I was at it, I converted my portfolio from an AI news aggregator into a proper project hub.
 
-## Why I Asked for 5 Rollbacks on a Dental Website
+## From "What's JSONL?" to a Working Pipeline
 
-The first session was `uddental` — a redesign of a dental clinic site in Yongin, Korea. 4 hours 52 minutes, 309 tool calls. Bash 110 times, Edit 105 times, Read 74 times.
+Midway through a session I asked: "You mentioned `.claude` stores local conversations — how can I actually use that?"
 
-The work got messy because the visual direction kept shifting in real time. It started simple: "cycle through the photos." Then: blur the background. More transparent. Remove the blur. Just a subtle blur. Actually, remove the blur again. This loop ran five times.
+The answer: `.claude/projects/` contains one JSONL file per project directory. Each line is a message event — user prompts, assistant responses, tool call results, everything.
 
-```
-"a bit more blurred, make it more transparent"
-"not stronger blur — more like seeing through to the background"
-"don't blur it"
-"just a very subtle blur"
-```
+The connection was immediate. If I can parse this, I can automatically reconstruct what I asked and what Claude did.
 
-Claude Code implemented each request faithfully. The problem was rollbacks.
+`scripts/parse-sessions.py` does the extraction: pull out user prompts, count and categorize tool calls, list modified files. That structured output goes back to Claude to draft the build log.
 
-> "Actually, revert what you just did."
+`scripts/generate-build-log.sh` chains the whole thing: run `parse-sessions.py` → pass results to Claude → generate markdown → save to `src/content/build-logs/`.
 
-When you're editing files directly with Edit instead of committing to git, rollbacks get complicated. Claude Code needs to remember the previous state, and that accuracy degrades as the session gets longer. We ended up converging on a workaround: take a screenshot, share it, and say "get it back to this version."
-
-SSR/CSR hydration errors also caused friction. A component that calculated the current day and operating hours using `Date.now()` produced different values on server vs. client when rendered server-side in Next.js. The error:
-
-```
-A tree hydrated but some attributes of the server rendered HTML didn't match
-the client properties.
+```bash
+./scripts/generate-build-log.sh portfolio-site 2026-03-16
 ```
 
-Hit this twice. The fix is either rendering client-only via `useEffect` or using `suppressHydrationWarning`. Pasting the error message directly into Claude Code gets you the root cause immediately.
+It's semi-automatic, not fully automatic. Someone still needs to review the parsed context before handing it to Claude — the signal-to-noise ratio in raw JSONL isn't perfect. Full automation is the next iteration.
 
-Near the end of the session, an interesting request came in:
+## Why Rebuild the Portfolio Now
 
-> "Create a test button panel where I can pick from multiple colors for the background."
+[jidonglab.com](https://jidonglab.com) had started looking like an AI news site. Daily news posts at 9 AM, projects tucked into a corner tab. Not the first impression I wanted.
 
-The `HeroBgPicker.tsx` component got built — a 10-color palette pulled from real hospital and professional brand colors, letting the client quickly settle on a visual direction. Building a design decision tool alongside the product is one of the more practical Claude Code patterns.
+The data problem: 11 local git projects, only 7 listed on the portfolio. Build logs were manually written, so they were sporadic. A visitor couldn't tell what kind of builder I am.
 
-## How One SPEC.md File Drove 70+ Files of Architecture
+The new structure: a project registry mapping slugs to local git paths, YAML-based project metadata in `src/content/projects/`, a `visible` field to control what's shown, and an admin UI to manage it all. Auto-generated build logs attach to each project automatically.
 
-Session two was `llmmixer_claude`. 2 hours 35 minutes, 368 tool calls. Bash 149 times, Write 93 times, Read 66 times, Edit 52 times.
+`scripts/project-registry.yaml` defines the slug → local path + branch mapping. Flipping `visible` in admin should instantly control production visibility. That's where the first real problem showed up.
 
-The opening prompt was simple:
+## GitHub API 403 and the Permissions Rabbit Hole
 
-> "Read /Users/jidong/Downloads/SPEC.md and implement it. First write a detailed implementation plan as a markdown file."
+Changing a project's `status` in admin returned `github api error 403`.
 
-Step one: read SPEC.md, produce `IMPLEMENTATION_PLAN.md` with phases 0 through 3. Then:
+The cause was straightforward: updating Content Collections YAML through an API requires committing directly to GitHub, which requires `contents: write` scope. The token I was using was read-only.
 
-> "Implement each phase, give objective feedback on what you built, revise up to 3 times until it's solid, then move to the next phase."
+Created a new Fine-grained Personal Access Token with `Contents: Read and write`. Problem solved — except it wasn't.
 
-This is the core prompt pattern. An explicit loop: implement → self-review → revise (max 3 rounds) → next phase. Claude Code ran Phase 0 self-review unprompted, surfaced issues in a list, and worked through them.
+The token worked, but changes to YAML files needed to trigger a Cloudflare Pages redeploy. Wiring that end-to-end took another 30 minutes: `api/admin-projects.ts` → GitHub API call → commit creation → Cloudflare webhook trigger.
 
-Starting from an empty repo, 70+ files were generated in 2 hours 35 minutes: a Next.js dashboard, a core package with adapters, router, and workflow engine, a CLI entrypoint, and SSE log streaming.
+The chain now works. Flip status to `active` in admin, the YAML commits, production reflects it within 5 minutes.
 
-Mid-session, `npm install` failed. Root cause: `workspace:*` protocol in `package.json` — pnpm syntax that npm doesn't support. Claude Code fixed the dependency declarations. Build errors usually resolve as soon as you paste the error message in.
+## Translating 6 Build Logs in Parallel with Agents
 
-Gemini CLI auth also surfaced during adapter testing. One prompt handled it:
+After generating the first build log, I went to publish it to DEV.to and realized: no English version. Six Korean build logs needed translation all at once.
 
-> "Gemini should be authenticated, but if it's not, wrap the dashboard so users can authenticate via CLI from the UI."
+I launched a single subagent with the Agent tool: "Translate 6 build logs to English." Twelve files (6 Korean/English pairs) came back in one shot.
 
-Claude Code built an auth state check that routes users to a Setup tab when credentials are missing. The principle: don't suppress errors, surface them as UI.
+The prompt specifically asked for rewrites from an English developer's perspective, not direct translation. Korean-specific context got a one-sentence explanation; sections less relevant to a global audience got deprioritized. The output quality was solid.
 
-## Portfolio Hub Pivot + JSONL-Based Build Log Automation
+The reason parallel agents work well here is context isolation. Processing 6 long documents sequentially in the main thread fills up the context window — later translations degrade because the model is juggling too much. Each subagent starts clean.
 
-Session three was this site, `portfolio-site`. 3 hours 20 minutes, 272 tool calls.
+## What 272 Tool Calls Actually Looked Like
 
-The core pivot: transform from an AI news aggregator into a **project portfolio hub**. The implementation plan went in as a prompt:
+Bash led at 158 calls — git status checks, YAML file creation, Python script runs, API tests. Heavy terminal work throughout. Edit was 43, Write was 19.
 
-```
-Implement the following plan:
-# jidonglab Portfolio Hub Redesign
-## Context
-Convert jidonglab.com from an AI news/blog site
-into a project portfolio hub.
-```
+The pattern that worked: ask Claude to write a plan document first, review and approve it, then say "Implement the following plan:" with the spec attached. Claude knows exactly what to build, so iteration time drops.
 
-The pattern: write the plan, paste it with "Implement the following plan:" prepended. Claude Code reads it and executes file by file.
+The pattern that didn't: "Fix this until it works perfectly" with a vague target. The GitHub API 403 debug loop was that case. Giving Claude the specific error message and the exact expected behavior is faster every time.
 
-Mid-session, an interesting question came up:
-
-> "What's that .jsonl thing Claude Code saves locally in .claude?"
-
-Claude Code sessions are stored as JSONL files under `~/.claude/projects/`. Every conversation turn, tool call, and result gets recorded. Parse that, and you can auto-generate build logs.
-
-> "We should extract build logs from the JSONL directly."
-
-`parse-sessions.py` got built to parse the JSONL, piped into `generate-build-log.sh` which hands the data to Claude. The post you're reading now is the first output of that pipeline.
-
-**Before:** Build logs were written manually. Remembering what happened each session took 30–60 minutes per post. **After:** One `generate-build-log.sh` run extracts the session summary and generates a draft. Editing takes 10–15 minutes.
-
-Toward the end, adding project status controls in the admin UI hit a GitHub API 403. The endpoint was committing YAML files directly, and the token was missing the right scope. One prompt:
-
-> "Test this and keep fixing until it works perfectly."
-
-That single line triggered a full loop: diagnose → fix → test → re-fix, automated.
-
-## What Three Parallel Sessions Actually Look Like
-
-Separate sessions mean clean context resets. Switching from `uddental` to `portfolio-site` means zero carryover confusion. The tradeoff is ramp-up time — each session has to re-orient to the project structure.
-
-Tool usage ratios differed meaningfully across sessions:
-
-- **uddental**: Bash 36% / Edit 34% — heavy UI iteration, lots of back-and-forth
-- **llmmixer**: Bash 40% / Write 25% — new project, mostly creating files
-- **portfolio-site**: Bash 58% / Edit 16% — existing codebase, lots of command execution
-
-High Bash ratios mean frequent build-and-verify cycles. New greenfield projects push Write ratios up. Existing codebases run more commands.
-
-Across all 949 tool calls, Bash led at 417 (44%). Running and verifying code is a much larger part of Claude Code work than writing it.
-
-The other pattern that emerged: vague aesthetic prompts are expensive. "Make it more trendy" repeated five times burns tool calls fast. Session 1 hit 309 calls partly because visual direction wasn't locked. One reference screenshot beats 30 iterations.
-
-> Let Claude own the "what" by writing the spec first. Write prompts that define outcomes, not instructions. The results improve significantly.
+> The JSONL was always there. I just wasn't using it.
 
 ---
 
