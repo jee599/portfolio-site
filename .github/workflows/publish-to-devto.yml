@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'src/content/ai-news/**'
+      - 'src/content/blog/**'
   workflow_dispatch: # 수동 실행
 
 permissions:
@@ -43,9 +44,10 @@ jobs:
             const existingTitles = new Set(existing.map(a => a.title));
             console.log(`Found ${existing.length} existing Dev.to articles`);
 
-            // ai-news 영어만 DEV.to에 발행 (blog, build-logs, tips는 제외)
+            // ai-news + blog → DEV.to에 발행
             const collections = [
               { dir: 'src/content/ai-news', urlPrefix: '/ai-news', type: 'ai-news' },
+              { dir: 'src/content/blog', urlPrefix: '/blog', type: 'blog' },
             ];
 
             // Dev.to 태그 변환: 하이픈 제거, 영문+숫자만, 소문자, 최대 20자
