@@ -1,65 +1,65 @@
 ---
-title: "949 Tool Calls, 3 Projects, 1 Day: How I Ship with Claude Code"
+title: "949 Tool Calls, 3 Projects, One Day: Claude Code at Full Throttle"
 project: "portfolio-site"
 date: 2026-03-17
 lang: en
 pair: "2026-03-17-portfolio-site-ko"
 tags: [claude-code, automation, portfolio, build-log]
-description: "Ran 3 separate Claude Code sessions across 11 hours: dental site redesign, LLM router from scratch, and portfolio hub migration. 949 tool calls total."
+description: "Three Claude Code sessions in one day: dental site redesign, LLM multi-agent router from scratch, portfolio hub migration. 949 tool calls, 11 hours, lessons on what actually works."
 ---
 
-Yesterday, Claude Code made 949 tool calls across three separate sessions. 11 hours. Three completely different projects.
+949 tool calls. Three sessions. Three completely different codebases. Roughly 11 hours of wall clock time — and I wasn't the one doing the context switching.
 
-**TL;DR** — Ran parallel Claude Code sessions for a dental clinic site redesign (`uddental`), a multi-agent LLM router built from zero (`llmmixer`), and a portfolio hub migration (`portfolio-site`). The key insight: Claude handles context switching, you handle direction.
+**TL;DR** A dental clinic site redesign (`uddental`), a multi-agent LLM router built from a blank repo (`llmmixer`), and a portfolio hub migration (`portfolio-site`) — all in the same day. The core pattern: Claude handles the execution loop, you handle the decisions.
 
-## Session 1: A Dental Site Redesign in 4 Hours 52 Minutes
+## Session 1: 4 Hours 52 Minutes to Redesign a Dental Site
 
-Morning was `uddental` — a redesign of a dental clinic website in Yongin, Korea.
+Morning session was `uddental` — a redesign for a dental clinic in Yongin, Korea.
 
-The initial prompt was deliberately minimal: "Show the clinic photos cycling on the main page, with key info overlaid." No wireframes. No design mockups. Just that.
+The starting prompt was intentionally minimal: "Show the clinic photos cycling on the hero, with key info overlaid." No wireframes. No mockups. That single sentence.
 
-Claude built a hero slider: 6 photos crossfading every 4.5 seconds with clinic name and CTA overlaid. That part worked cleanly.
+Claude built a hero slider: 6 photos crossfading at 4.5-second intervals, with clinic name and CTA layered on top. Straightforward and clean.
 
-Then came the classic SSR trap. The code was rendering current appointment status using `Date.now()` on the server, which triggered a hydration error:
+Then I asked it to add live clinic status — open or closed based on current time, rendered server-side using `Date.now()`. That blew up with a hydration error:
 
 ```
 A tree hydrated but some attributes of the server rendered HTML
 didn't match the client properties.
 ```
 
-The cause was straightforward — server render time and client recalculation time diverged. A well-known Next.js SSR + `Date.now()` footgun. Fix: move the time calculation into `useEffect`, initialize state to a value that's identical on both server and client. Done.
+Classic Next.js SSR trap. The timestamp computed on the server differs from the one the client computes during hydration. The fix is mechanical: move the time logic into `useEffect`, initialize state to a value that's identical on both sides so the first render matches. Claude caught the cause, applied the fix, moved on.
 
-This session saw 110 Bash calls and 105 Edit calls — nearly 1:1. That ratio tells you something: the work was iterative read-and-fix cycles, not bulk code generation.
+Session stats: 110 Bash calls, 105 Edit calls — nearly 1:1. That ratio is meaningful. The work wasn't bulk code generation. It was iterative: read code, change one thing, verify, repeat.
 
-For design direction, one screenshot was worth more than a paragraph of description. "Like this" + screenshot. Claude reads the layout from the image and translates it to code. Far faster than trying to describe spacing, hierarchy, and visual weight in words.
+Design direction mostly came through screenshots, not descriptions. "Like this" + one reference image. Claude reads the layout from the screenshot — spacing, hierarchy, visual weight — and translates it directly to code. A reference image consistently beats a paragraph of prose.
 
-## Session 2: An LLM Router from an Empty Repo in 2 Hours 35 Minutes
+## Session 2: An LLM Router from Zero in 2 Hours 35 Minutes
 
-The afternoon session was a different kind of work entirely. `llmmixer_claude` — a multi-agent orchestrator that routes tasks across Claude, Codex, and Gemini based on context.
+The afternoon was a different class of problem. `llmmixer_claude` — a multi-agent orchestrator that routes tasks between Claude, Codex, and Gemini based on context.
 
-The repo was empty. Zero commits.
+Starting state: completely empty repo. Zero commits, no scaffolding.
 
-I passed in a spec file at `/Users/jidong/Downloads/SPEC.md` and said: "Build a detailed implementation plan and write it as an implementation plan markdown."
+I passed in a spec file (`/Users/jidong/Downloads/SPEC.md`) and said: "Build a detailed implementation plan first, write it as a markdown doc, then implement it."
 
-Then came the prompt that drove the whole session:
+The prompt that actually drove the session came after:
 
-> "Implement each phase, give objective feedback on what was built, and run fix cycles up to 3 times until it's right — then move to the next phase."
+> "For each phase: implement it, give objective feedback on what was built, fix it — repeat up to 3 times until it's solid, then move to the next phase."
 
-This is one of the most effective patterns when using Claude Code. Implement → self-review → fix, up to three iterations. Adding "until it's right" as a condition forces Claude to establish its own quality bar rather than stopping at "it compiles."
+This is one of the highest-leverage patterns I've found with Claude Code. Implement → self-review → fix, max 3 iterations per phase. The key is adding "until it's solid" as a constraint. Without that, Claude finishes a phase and declares it done. With it, Claude sets its own quality bar and keeps pushing until it's satisfied.
 
-Phase 0 hit a `workspace:*` protocol error — a common npm monorepo issue with package references. Fixed and moved on. This session generated 70+ new files, which explains why Bash ran 149 times and Write ran 93 times. High Write counts correlate with greenfield work.
+Phase 0 hit a `workspace:*` protocol error — a known npm monorepo problem with cross-package references. Adjusted the reference format and continued. This session produced 70+ new files, which explains why Write ran 93 times (vs. Edit at roughly 0 for a greenfield project). Bash ran 149 times. High Bash counts with high Write counts is the signature of a build-from-scratch session.
 
-One error stood out: a `posix_spawnp failed` during Gemini CLI auth implementation. The subprocess spawning code had a permissions issue. The most efficient fix: paste the raw error log directly into the prompt, no explanation needed. Claude reads the stack trace, identifies context, and patches the cause.
+One error worth calling out: `posix_spawnp failed` during Gemini CLI auth implementation. The subprocess spawning code had an execution permissions issue. The most effective fix pattern for system errors: paste the raw log directly — no explanation, no framing. Just the stack trace. Claude reads the context embedded in the trace, identifies root cause, applies the patch. Narrating what you think the problem is often sends it in the wrong direction.
 
-## Session 3: Portfolio Site — From AI News Hub to Project Showcase
+## Session 3: Migrating a Site's Identity in One Evening
 
-The evening session was `portfolio-site`.
+Evening session was `portfolio-site`.
 
-`jidonglab.com` was originally running as an AI news automation site. But whenever I shared it with someone as a portfolio, the same problem surfaced: "The AI news section is cool, but where do I see what you've actually built?" I had no good answer.
+`jidonglab.com` had been running as an AI news automation site — it pulls and summarizes AI news twice a day via cron. Technically interesting, but a bad portfolio. Any time I sent someone the link, the conversation went: "The news part is cool, but where do I see what you've actually built?" I didn't have a good answer.
 
-Time to fix the positioning. Project portfolio hub.
+The call: turn it into a project portfolio hub.
 
-I wrote the implementation spec beforehand and handed it to Claude. The prompt opened with:
+I wrote the spec beforehand and handed it to Claude. Opening prompt:
 
 ```
 Implement the following plan:
@@ -67,27 +67,29 @@ Implement the following plan:
 ...
 ```
 
-Markdown spec beats natural language every time. "Build me something like this" produces inconsistent results. "Implement this spec" produces consistent ones. Claude follows the spec literally, so the direction doesn't drift.
+Markdown spec consistently outperforms natural language for implementation tasks. "Build something like this" produces variable output. "Implement this spec" produces repeatable output. Claude follows the spec structure linearly, so direction doesn't drift across sub-tasks.
 
-The most valuable piece of work in this session was `parse-sessions.py` — a script that parses the `.jsonl` files accumulating under `.claude/projects/` and auto-generates build logs. Work I do in Claude Code automatically becomes a blog post draft. The post you're reading right now was seeded by a session summary from that pipeline.
+The most valuable thing built in this session was `parse-sessions.py` — a script that reads the `.jsonl` files Claude Code writes to `.claude/projects/`, extracts session summaries, and drafts build log posts automatically. Every Claude Code session becomes a blog post seed without any manual writeup. The post you're reading now was bootstrapped from a summary that pipeline generated.
 
-Midway through the session, a GitHub API 403 appeared:
+Mid-session, a GitHub API 403 surfaced:
 
 ```
 github api error 403
 ```
 
-The admin panel had code that called the GitHub API directly to update project status — missing token permissions. Rather than narrating what went wrong, the better instruction is: "Test it and fix it until it fully works." Claude tracks intermediate error states on its own and iterates until the thing runs end-to-end.
+An admin panel was calling the GitHub API directly to update project status, but the token was missing the required permission scopes. The instruction pattern that resolved it: "Test it and fix it until it fully works end to end." Not "here's the error, debug it step by step." When given the full-loop instruction, Claude tracks intermediate failure states on its own and keeps iterating until the complete flow passes — no hand-holding required.
 
-## What 949 Tool Calls Actually Look Like
+## What the Numbers Tell You
 
-Across all three sessions: Bash ran 417 times, Edit ran 200 times. Bash was double Edit. That ratio matters — it means the execution/verify/re-execute loop runs more often than the code modification loop. Claude Code is less about writing code and more about running, observing, and adjusting.
+Aggregate across all three sessions: 417 Bash calls, 200 Edit calls. Bash ran at 2x the rate of Edit.
 
-Context switching was almost entirely on Claude's side. From `uddental` to `llmmixer` to `portfolio-site` — each time, Claude reads the project context from scratch. My job was to say "we're in portfolio-site now." That's it.
+That ratio is the actual shape of Claude Code work. It's not primarily a code-writing tool — it's a run/observe/adjust engine. The execution loop (Bash) turns twice as fast as the modification loop (Edit). You write less than you'd expect; you run and verify far more.
 
-What Claude can't do is decide the direction. "Pivot from AI news site to portfolio hub" is a judgment call that only I can make. My role is making that call and encoding it into a spec. Claude's role is executing it faithfully.
+Context switching cost me almost nothing. `uddental` → `llmmixer` → `portfolio-site`. Each transition, I said "we're working on X now" and Claude re-read that project's context from scratch. That's it. The cognitive overhead that normally comes with switching between unrelated codebases was almost entirely offloaded.
 
-> After 949 tool calls, what's left isn't just code — it's the judgment about where to focus next.
+The thing that can't be offloaded: direction. "Pivot this site from AI news to portfolio hub" is a judgment call. Claude will implement whatever direction you give it, faithfully and fast. But it won't tell you which direction is worth taking. That gap — deciding what's worth building, encoding it in a spec, and handing it off — is where the actual work lives now.
+
+> After 949 tool calls, what's left isn't the code. It's the judgment about where to point it next.
 
 ---
 
