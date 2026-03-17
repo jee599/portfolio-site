@@ -1,192 +1,182 @@
 ---
-title: "5 Posts Vanished Silently. One Missing Line in GitHub Actions Was the Culprit."
+title: "813 Tool Calls, 4 Projects, 3 Days: Running a Solo Dev Shop with Claude Code"
 project: "portfolio-site"
 date: 2026-03-18
 lang: en
 pair: "2026-03-18-portfolio-site-ko"
-tags: [claude-code, github-actions, astro, automation]
-description: "5 commits, 0 posts on dev.to. The cause was a single missing path in a GitHub Actions trigger. 7 sessions, 719 tool calls — and a full site pivot while I was at it."
+tags: [claude-code, monorepo, automation, multi-project]
+description: "One SPEC.md, an empty repo, 370 tool calls — a full monorepo. Three days, four projects, 813 total tool calls. Here's what the raw data reveals."
 ---
 
-5 blog posts. All committed. All pushed. Zero appeared on dev.to.
+813 tool calls. Four projects. Three days.
 
-No error notifications. No failed Actions runs. Just silence.
+I didn't plan it that way. It just happened — an empty repo needed scaffolding, a portfolio needed restructuring, a client site needed content updates, and a payment processor wanted compliance fixes. All at once.
 
-**TL;DR** — A single missing path in a GitHub Actions `on.push.paths` filter blocked every sync for the blog collection. Fixing it took 5 minutes. Noticing it took three sessions. While tracking down the bug, I also rebuilt jidonglab from an AI news site into a project portfolio hub — 7 sessions, 719 tool calls total.
+**TL;DR** — I fed a SPEC.md into an empty repo and got back a full Next.js monorepo after 370 tool calls. Across four sessions over three days, Claude Code touched four separate codebases. Here's what the breakdown actually reveals.
 
-## The Silent Drop
+## One SPEC.md, One Empty Repo, 370 Tool Calls
 
-I handed five draft posts to Claude Code, had it write the files to `src/content/blog/`, committed and pushed. Standard workflow.
+The repo was `git@github.com:jee599/llmmixer_claude.git`. Zero commits. No scaffold, no README, nothing.
 
-Except nothing happened on dev.to.
-
-I checked the Actions tab. No workflow had run. The commits were there, the files were there — but the trigger never fired. Classic case of failing quietly.
-
-I asked Claude to diagnose it:
+The starting prompt for Session 1 was embarrassingly simple:
 
 ```
-Analyze why this commit didn't publish to dev.to.
-Compare publish-to-devto.yml against the actual file paths and find the cause.
+/Users/jidong/Downloads/SPEC.md implement this.
+First create a detailed implementation plan as a markdown file.
 ```
 
-Under 3 minutes. The culprit:
+Claude didn't start writing code. It made `IMPLEMENTATION_PLAN.md` first — Phase 0 through 3, each phase clearly scoped. Phase 0 was project init. Phase 1 was CLI + dashboard server + Claude adapter. Phase 2 was LLM Decomposer + Router + WorkflowEngine. Phase 3 was Codex/Gemini adapters.
 
-```yaml
-# publish-to-devto.yml — before
-on:
-  push:
-    paths:
-      - 'src/content/ai-news/**'  # only watches ai-news
-```
+Then I gave one more instruction: implement each phase, self-review, make up to three revisions, then move to the next phase. The idea was to get Claude to run its own feedback loop before moving forward.
 
-`src/content/blog/**` was never in the trigger paths. When I wired up the AI news automation, I forgot to keep the original blog path. The workflow ran fine for AI news posts. For everything else, it never started.
+By the time Session 1 ended:
 
-The fix was two lines:
+- 93 new files created
+- `packages/core/` and `packages/dashboard/` both scaffolded
+- `bin/` and `config/templates/` in place
+- Tool call breakdown: Write ×93, Bash ×151, Read ×66, Edit ×52
 
-```yaml
-# after
-on:
-  push:
-    paths:
-      - 'src/content/ai-news/**'
-      - 'src/content/blog/**'   # added
-```
+One snag: the `workspace:*` protocol in `package.json`. npm doesn't support it — that's a pnpm/yarn convention. Build broke. Claude caught it, updated the manifest, continued.
 
-Two Edits, six Bash commands, one commit. That's all it took.
+The more interesting moment was the Phase 0 self-review. Without any prompt asking for it, Claude flagged three issues on its own: an `outputFileTracingRoot` warning in the Next.js config, unhandled dev server process cleanup on exit, and a `tsconfig.json` module compatibility mismatch. Nobody pointed these out. It found them during its own review pass.
 
-## Why This Cost Three Sessions Instead of One
+That's what the "self-review loop" instruction actually buys. Not perfect code — but a second pass that catches the obvious things before they become your problem.
 
-Here's the actual inefficiency: I spread this across three separate sessions.
+## Two Bugs That Reshaped the Architecture
 
-Session 1 — generate the five post files. Session 2 — notice nothing published, diagnose. Session 3 — apply the fix.
+Midway through Session 1, two errors surfaced back-to-back.
 
-Every session restart means reloading context: reading `CLAUDE.md`, re-familiarizing with the project structure, reviewing recent commits. That overhead compounds. Three sessions for a single-cause bug with a two-line fix is wasteful.
-
-The lesson isn't about Claude Code specifically — it's about how to structure work. If you start a task, the diagnosis and fix belong in the same session unless there's a genuine reason to pause. Context is expensive to reconstruct.
-
-When the scope is clear ("these posts aren't publishing"), keep it together until it's done.
-
-## Diagnose First, Fix Second
-
-The prompt that cracked this open wasn't "fix the publishing workflow." It was "analyze why this commit didn't publish."
-
-That distinction matters.
-
-"Fix it" creates pressure to try things. The model might adjust a different part of the workflow, rewrite the sync logic, or add error handling — without identifying the root cause. You end up with a patch on the wrong surface.
-
-"Analyze why" forces diagnosis first. Once the root cause is explicit and confirmed, the fix almost writes itself.
-
-This is the most reliable Claude Code pattern I've found: **diagnose before fixing.** Especially when something is failing silently.
+First: SSR hydration mismatch.
 
 ```
-Step 1: "Analyze why X isn't working. Compare A and B and identify the discrepancy."
-Step 2: (confirm the cause) "Fix it."
+tree hydrated but some attributes of the server rendered HTML
+didn't match the client properties
 ```
 
-Skipping Step 1 is how you spend an hour fixing the wrong thing.
+The usual suspects: date formatting that differs between server and client, `Math.random()` calls during render, code that assumes `window` exists on the server. I pasted the full error stack. Claude traced it to the specific component, added the `typeof window !== 'undefined'` guard. Resolved.
 
-## The Bigger Project: Turning jidonglab into a Portfolio Hub
-
-While tracking down this bug, I noticed something harder to ignore.
-
-jidonglab was running as an AI news site. But it was supposed to be a portfolio. I had 11 active git projects locally; 7 were on the site. Build logs were written manually. There was no central place to track project status.
-
-I asked Claude for an implementation plan:
+Second: Gemini CLI auth failure.
 
 ```
-Convert jidonglab.com from an AI news/blog site into a project portfolio hub.
-Design the plan: project registry + admin management + build log automation.
+Please set an Auth method in your settings.json
 ```
 
-Once the plan came back, I ran the full implementation in a single session: `scripts/project-registry.yaml` for project metadata, `src/content/projects/` for individual project YAML files, an admin page for editing status and links.
-
-That session: 322 tool calls. Bash led at 204, then Edit at 44, Read at 41, Write at 19.
-
-Bash dominates because the short utility commands pile up fast — checking file existence, running `npm install`, verifying git state, confirming build output. Each one is a few seconds, but at 204 calls, it adds up. This is normal for sessions that touch both code and build tooling.
-
-## Build Log Automation from Claude Code's Own Files
-
-The most unexpected discovery in this project came from poking around `.claude/`.
-
-Claude Code stores all conversation history as JSONL files under `.claude/projects/[project-hash]/`. Each session is a separate file. Each file contains every message, tool call, and tool result.
-
-If you can parse those files, you can reconstruct what happened in any session: which files were touched, what tools ran, what the user asked for, what Claude produced.
-
-I asked Claude to build that parser:
+This one changed the project's direction entirely. The original architecture planned direct Gemini API calls. But I use a Claude Code subscription — I didn't want to pay per-token for API calls when I already have CLI access.
 
 ```
-Analyze the JSONL file structure in .claude/projects/[hash]/*.jsonl
-and write a parse-sessions.py script that extracts:
-- per-session work summary
-- tool usage stats
-- list of modified files
-Output in markdown format.
+I'm using the CLI subscription model, not direct API calls
 ```
 
-`scripts/parse-sessions.py` now runs on a local cron every 6 hours. Each run produces a build log draft — session summaries, tool breakdowns, file change lists. This build log was written from that output.
+Claude rewrote the adapter to spawn the Claude Code CLI as a subprocess instead. Because the adapter layer was cleanly separated from the start, only `adapters/claude.ts` needed to change. The router, the workflow engine, the dashboard — untouched.
 
-The implementation is a `LaunchAgents` plist registered to macOS, triggering the script on schedule. The outputs feed into the content pipeline.
+This is what a clean architecture actually buys: when requirements shift, the blast radius stays contained.
 
-The interesting thing about this approach: Claude Code is essentially self-documenting, if you're willing to read its own logs. You don't need to instrument anything or add logging. The data is already there.
+## Portfolio Hub: Working Inside a 58KB File
 
-## The GitHub API Mistake
-
-After the portfolio pivot, I hit a 403 from GitHub API when trying to update project status from the admin page.
+Session 2 started differently. Instead of dropping a SPEC and letting Claude infer the goal, I pasted the implementation plan directly into the prompt:
 
 ```
-GitHub API Error 403
+Implement the following plan:
+
+# jidonglab portfolio hub renewal
+
+Convert jidonglab.com from an AI news/blog site
+to a project portfolio hub.
 ```
 
-At first this looked like a rate limit or permissions issue. But the actual problem was architectural: `admin.astro` was calling the GitHub API to update project information, when it should have been writing directly to local YAML files.
+This cuts the planning overhead entirely. Claude spends zero cycles figuring out what you want.
 
-There was no reason to go through GitHub API at all. The admin page runs on the same machine as the project files. The right approach is `fs.writeFileSync` to the local YAML, not a remote API call to write the same data through a third party.
+The main challenge: `admin.astro` was 58KB. A single file handling auth, content management, and all admin UI. Claude read the whole thing, built a model of the existing structure, then added Projects and Build Logs tabs — without breaking what was already there.
 
-I rewrote the `admin-projects.ts` API route to read and write local YAML directly. No GitHub token needed. No rate limit risk. Simpler dependency graph.
+The data architecture:
 
-```
-fix: admin projects GET — remove GitHub API calls, prevent rate limit issues
-```
+- `scripts/project-registry.yaml` manages local git paths
+- `src/content/projects/` holds per-project YAML
+- A `visible` field controls public vs. private display
 
-That was the final commit of session 7. Sometimes the fix for an API error is removing the API call entirely.
+No database, no API. Just YAML and the filesystem.
 
-## 7 Sessions, by the Numbers
+Session 2 tool call distribution: Bash ×213, Edit ×44, Read ×41, Write ×19.
 
-Total across all sessions: **719 tool calls**.
+Bash being the dominant tool is counterintuitive until you look at what those calls are — checking if a file exists, verifying `npm install` output, running `git status`. Short, cheap commands that stack up. The actual code production (Edit + Write) adds up to less than half of Bash.
 
-| Tool  | Count | Share |
-|-------|-------|-------|
-| Bash  | 365   | 51%   |
-| Write | 117   | 16%   |
-| Read  | 113   | 16%   |
-| Edit  | 98    | 14%   |
-| Agent | 13    | 2%    |
+One error worth noting: `admin-projects.ts` was hitting GitHub API 403s. The root cause was architectural — it was calling the GitHub API to update data that lives in local YAML files. Wrong tool entirely. Claude removed the GitHub API calls, switched to direct filesystem access. The 403s went away. So did any rate limit concerns.
 
-78 files created, 31 files modified.
+## The Korean Content Problem on DEV.to
 
-Bash at 51% isn't a problem — it reflects the build-and-verify loop that any real implementation session involves. The ratio shifts toward Edit/Write when work is mostly code, toward Bash when it involves dependency management, build verification, and git state checks.
-
-The 3-session detour on a 2-line bug is the real inefficiency number here. Not the tool call count.
-
-## What Actually Transferred
-
-Two things from this session that will change how I work:
-
-**Keep diagnosis and fix in the same session.** If you've confirmed the cause, don't save the fix for later. Later means context reload, which means time wasted reconstructing what you already knew.
-
-**JSONL parsing as build log automation.** Claude Code's session files are a free data source for project history. If you're already using Claude Code heavily, parsing `.claude/projects/` is the lowest-effort path to automated build logging.
-
-The prompt pattern that got the most leverage this session:
+Later in Session 2, I asked Claude to handle the Korean posts on DEV.to:
 
 ```
-Analyze why [X] isn't working.
-Compare [A] and [B] and identify the discrepancy.
+Take down all Korean-language posts on DEV.to.
+Then check if the English posts are optimized for search visibility,
+hooks, and traffic.
 ```
 
-Then, after confirmation: `Fix it.`
+DEV.to's audience is English-speaking developers. Korean posts get minimal organic reach — the platform's discovery and tagging systems are built around English content.
 
-Two prompts, correct answer. One prompt that conflates the two, and you're debugging the fix.
+Claude used the DEV.to API to bulk-set `published: false` on Korean articles, then reviewed existing English post titles and tags from an SEO angle.
 
-> Diagnose first. Fix second. That ordering is the difference between efficient and lucky.
+The pattern Claude identified: titles with numbers and concrete outcomes pull more clicks than generic topic titles. "I automated my build logs using Claude Code's JSONL files — here's how" outperforms "Claude Code build log automation." The result is in the headline. The specificity creates the curiosity.
+
+## 17 Minutes and 9 Minutes
+
+Sessions 3 and 4 were client work — interesting precisely because of how fast they were.
+
+**Session 3: 17 minutes, 73 tool calls.** Dental clinic website.
+
+Three doctors with updated schedules. A surgical specialist credential to highlight in the implant section. Pediatric dentistry to remove. A new TMJ treatment section to add. Changes landed across `site-data.ts`, a reworked `doctors/page.tsx`, and a new `services/page.tsx`.
+
+The session was fast because content was centralized in `site-data.ts`. Making changes didn't require hunting through component files — there was one place to touch.
+
+**Session 4: 9 minutes, 39 tool calls.** Payment processor compliance.
+
+TossPayments flagged the saju app during contract review:
+
+```
+1. Please list at least one purchasable product or service.
+2. Please include business registration information in the footer.
+```
+
+I pasted the compliance email directly into the prompt. Verbatim. Not a summary — the original text.
+
+The actual code problem turned out to be CSS. `.constellationPage` had `overflow: hidden; height: 100vh` set, which pushed the business registration footer outside the viewport. Nobody could see it — including the compliance reviewers.
+
+Once the CSS was fixed, Claude also surfaced the pricing section. The i18n files already had `pricing` keys for all 8 locales. They'd been sitting there, unused. One CSS fix and they appeared.
+
+## Skills and the Selection Problem
+
+Between sessions, I explored the Claude Code skills ecosystem — installed superpowers, engineering-skills, product-skills, marketing-skills.
+
+What I've actually used so far: superpowers' brainstorming and writing-plans workflows.
+
+What I noticed: having more skills doesn't automatically make you faster. It adds a decision cost. Before each session, there's now a question: which skill applies here? For clear-cut tasks, that overhead isn't worth it. Skills earn their keep when the task type is genuinely ambiguous — when you want a structured workflow enforced before writing a single line.
+
+The tooling is powerful. The judgment about when to reach for which tool is still yours.
+
+## What 813 Tool Calls Actually Mean
+
+Full breakdown across four sessions:
+
+| Tool  | Count |
+|-------|-------|
+| Bash  | 395   |
+| Read  | 137   |
+| Write | 116   |
+| Edit  | 116   |
+| Grep  | 15    |
+| Agent | 14    |
+
+Files created: 77. Files modified: 40.
+
+Two patterns were consistently effective.
+
+**Plan first.** Session 2's approach — pasting the implementation plan directly into the prompt — eliminated the setup phase. The time Claude would spend inferring the goal went to zero. This matters most for larger tasks where scope can quietly drift.
+
+**Paste the raw error or requirement.** Sessions 3 and 4 fed in compliance email text and error stacks verbatim. The specificity of real errors beats vague descriptions every time. "Why isn't this working?" is slower than the actual stack trace.
+
+What didn't work: vague success criteria. Late in Session 1, I asked Claude to "fix everything and make all features work as intended." Vague goal, more revision cycles. The more precisely you define done, the faster you get there.
+
+> A better prompt isn't for Claude's benefit. It's for yours.
 
 ---
 
