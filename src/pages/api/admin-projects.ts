@@ -48,32 +48,28 @@ export const GET: APIRoute = async ({ url, locals }) => {
     return json({ error: 'Unauthorized' }, 401);
   }
 
-  const token = getGitHubToken(locals);
-  const projects = await getAllProjectsIncludingHidden();
+  try {
+    const token = getGitHubToken(locals);
+    const projects = await getAllProjectsIncludingHidden();
+    const buildLogs = await getCollection('build-logs');
 
-  // 빌드 로그 수집
-  const buildLogs = await getCollection('build-logs');
-
-  const projectsWithMeta = await Promise.all(
-    projects.map(async (p) => {
+    const projectsWithMeta = projects.map((p) => {
       const logs = buildLogs
         .filter((l) => l.data.project === p.slug && l.data.lang === 'ko')
         .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 
-      const lastLogDate = logs.length > 0 ? logs[0].data.date.toISOString().split('T')[0] : null;
-
-      const recentCommits = await fetchRecentCommits(p.github, token, 5);
-
       return {
         ...p,
-        lastLogDate,
+        lastLogDate: logs.length > 0 ? logs[0].data.date.toISOString().split('T')[0] : null,
         logCount: logs.length,
-        recentCommits,
+        recentCommits: [],
       };
-    }),
-  );
+    });
 
-  return json({ projects: projectsWithMeta });
+    return json({ projects: projectsWithMeta });
+  } catch (e) {
+    return json({ error: String(e), projects: [] }, 500);
+  }
 };
 
 async function updateProjectYaml(
