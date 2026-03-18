@@ -1,6 +1,6 @@
 title: "HideGame"
 github: "https://github.com/jee599/HideGame"
-status: "실험중"
+status: "중단"
 stack: ["Unity", "C#"]
 one_liner: "Unity로 만들어보는 숨바꼭질 게임"
 order: 5
