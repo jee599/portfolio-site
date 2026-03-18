@@ -1,6 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
-import { getAllProjectsIncludingHidden } from '../../lib/projects';
+import type { Project } from '../../lib/projects';
 
 export const prerender = false;
 
@@ -49,8 +49,20 @@ export const GET: APIRoute = async ({ url, locals }) => {
   }
 
   try {
-    const token = getGitHubToken(locals);
-    const registeredProjects = await getAllProjectsIncludingHidden();
+    const token = url.searchParams.get('github_token') || getGitHubToken(locals);
+    // 로컬 YAML만 가져오기 (GitHub API 의존 없음)
+    const localEntries = await getCollection('projects');
+    const registeredProjects: Project[] = localEntries.map((p) => ({
+      slug: p.id.replace('.yaml', ''),
+      title: p.data.title,
+      url: p.data.url,
+      github: p.data.github,
+      status: p.data.status,
+      stack: p.data.stack,
+      one_liner: p.data.one_liner,
+      order: p.data.order ?? 99,
+      visible: p.data.visible ?? true,
+    }));
     const buildLogs = await getCollection('build-logs');
     const registeredSlugs = new Set(registeredProjects.map((p) => p.slug));
 

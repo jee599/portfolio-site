@@ -1221,7 +1221,8 @@ export const prerender = false;
         if (projectsLoaded) return;
         const wrap = document.getElementById('projects-table-wrap');
         try {
-          const res = await fetch(`/api/admin-projects?secret=${encodeURIComponent(currentSecret)}`);
+          const ghToken = sessionStorage.getItem('gh_token') || '';
+          const res = await fetch(`/api/admin-projects?secret=${encodeURIComponent(currentSecret)}&github_token=${encodeURIComponent(ghToken)}`);
           if (!res.ok) { wrap.innerHTML = '<div class="empty-state">Failed to load.</div>'; return; }
           const data = await res.json();
           const projects = data.projects || [];
