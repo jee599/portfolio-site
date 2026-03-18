@@ -50,23 +50,74 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   try {
     const token = getGitHubToken(locals);
-    const projects = await getAllProjectsIncludingHidden();
+    const registeredProjects = await getAllProjectsIncludingHidden();
     const buildLogs = await getCollection('build-logs');
+    const registeredSlugs = new Set(registeredProjects.map((p) => p.slug));
 
-    const projectsWithMeta = projects.map((p) => {
+    // GitHub 전체 리포 가져오기
+    let allRepos: any[] = [];
+    try {
+      const headers: Record<string, string> = {
+        Accept: 'application/vnd.github.v3+json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      };
+      let page = 1;
+      while (true) {
+        const res = await fetch(
+          `https://api.github.com/users/${GITHUB_USERNAME}/repos?per_page=100&sort=updated&page=${page}`,
+          { headers },
+        );
+        if (!res.ok) break;
+        const repos = await res.json();
+        if (!repos.length) break;
+        allRepos.push(...repos);
+        if (repos.length < 100) break;
+        page++;
+      }
+    } catch {}
+
+    // 등록된 프로젝트에 메타 정보 추가
+    const projectsWithMeta = registeredProjects.map((p) => {
       const logs = buildLogs
         .filter((l) => l.data.project === p.slug && l.data.lang === 'ko')
         .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+      const repo = allRepos.find((r) => p.github?.includes(r.name));
 
       return {
         ...p,
+        registered: true,
         lastLogDate: logs.length > 0 ? logs[0].data.date.toISOString().split('T')[0] : null,
         logCount: logs.length,
         recentCommits: [],
+        updatedAt: repo?.pushed_at || null,
+        stars: repo?.stargazers_count || 0,
+        language: repo?.language || null,
       };
     });
 
-    return json({ projects: projectsWithMeta });
+    // 미등록 GitHub 리포 추가
+    const unregistered = allRepos
+      .filter((r: any) => !r.fork && !registeredSlugs.has(r.name))
+      .map((r: any) => ({
+        slug: r.name,
+        title: r.name,
+        url: r.homepage || undefined,
+        github: r.html_url,
+        status: '미등록',
+        stack: [r.language].filter(Boolean),
+        one_liner: r.description || '',
+        order: 99,
+        visible: false,
+        registered: false,
+        lastLogDate: null,
+        logCount: 0,
+        recentCommits: [],
+        updatedAt: r.pushed_at,
+        stars: r.stargazers_count || 0,
+        language: r.language,
+      }));
+
+    return json({ projects: [...projectsWithMeta, ...unregistered] });
   } catch (e) {
     return json({ error: String(e), projects: [] }, 500);
   }
@@ -178,6 +229,49 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const result = await updateProjectYaml(slug, 'url', url, token);
     if (!result.ok) return json(result);
     return json({ ok: true, message: `${slug} url → ${url}` });
+  }
+
+  if (action === 'register') {
+    const { github, language, one_liner } = body;
+    const filePath = `src/content/projects/${slug}.yaml`;
+    const repo = `${GITHUB_USERNAME}/portfolio-site`;
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    };
+
+    const yamlContent = [
+      `title: "${slug}"`,
+      github ? `github: "${github}"` : `github: "https://github.com/${GITHUB_USERNAME}/${slug}"`,
+      `status: "개발중"`,
+      `stack: [${language ? `"${language}"` : ''}]`,
+      `one_liner: "${(one_liner || '').replace(/"/g, '\\"')}"`,
+      `order: 99`,
+      `visible: false`,
+      '',
+    ].join('\n');
+
+    const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(yamlContent)));
+
+    try {
+      const putRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({
+          message: `feat: register project ${slug}`,
+          content: encoded,
+        }),
+      });
+
+      if (!putRes.ok) {
+        const err = await putRes.text();
+        return json({ ok: false, error: `GitHub: ${err}` });
+      }
+      return json({ ok: true, message: `${slug} registered` });
+    } catch (e) {
+      return json({ ok: false, error: String(e) });
+    }
   }
 
   return json({ error: 'Unknown action' }, 400);

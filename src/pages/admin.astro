@@ -1230,50 +1230,77 @@ export const prerender = false;
           const statusMap = { '운영중': 'live', '개발중': 'dev', '실험중': 'beta', '중단': 'stopped' };
           const statusEn = { '운영중': 'Live', '개발중': 'Dev', '실험중': 'Beta', '중단': 'Stopped' };
 
-          let html = `<table class="project-table"><thead><tr>
-            <th>Project</th><th>Status</th><th>URL</th><th>Stack</th><th>Visible</th>
-            <th>Last Log</th><th>Commits</th><th>Build Log</th>
-          </tr></thead><tbody>`;
+          const registered = projects.filter(p => p.registered);
+          const unregistered = projects.filter(p => !p.registered);
+          const regCount = registered.length;
+          const unregCount = unregistered.length;
+          document.getElementById('projects-count').textContent = `(${regCount} registered, ${unregCount} on GitHub)`;
 
-          // 진행 중(운영중, 개발중) 프로젝트를 먼저 보여준다
           const statusOrder = { '운영중': 0, '개발중': 1, '실험중': 2, '중단': 3 };
-          projects.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.order - b.order);
+          registered.sort((a, b) => (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.order - b.order);
+          unregistered.sort((a, b) => (b.updatedAt || '').localeCompare(a.updatedAt || ''));
 
-          projects.forEach(p => {
-            const sc = statusMap[p.status] || '';
-            const recentCommit = p.recentCommits?.[0];
-            const commitHtml = recentCommit
-              ? `<span class="commit-mini"><span class="sha">${esc(recentCommit.sha)}</span> ${esc(recentCommit.message.slice(0, 40))}</span>`
-              : '<span style="color:#b0b8c1;font-size:0.7rem;">—</span>';
-            const cliCmd = `bash scripts/generate-build-log.sh --project ${p.slug}`;
+          function renderRegistered(list) {
+            let html = `<table class="project-table"><thead><tr>
+              <th>Project</th><th>Status</th><th>URL</th><th>Stack</th><th>Visible</th>
+              <th>Last Log</th><th>Actions</th>
+            </tr></thead><tbody>`;
+            list.forEach(p => {
+              const sc = statusMap[p.status] || '';
+              const siteIcon = p.url
+                ? `<a href="${esc(p.url)}" target="_blank" style="color:#00c471;margin-left:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
+                : '';
+              const urlInput = `<input class="url-input" value="${esc(p.url || '')}" data-slug="${esc(p.slug)}" placeholder="https://..." onchange="changeUrl(this)" />`;
+              const cliCmd = `bash scripts/generate-build-log.sh --project ${p.slug}`;
+              html += `<tr>
+                <td><strong>${esc(p.title)}</strong>${siteIcon}<br><span style="font-size:0.68rem;color:#8b95a1;">${esc(p.slug)}</span></td>
+                <td><select class="status-select ${sc}" data-slug="${esc(p.slug)}" onchange="changeStatus(this)">
+                  ${['운영중','개발중','실험중','중단'].map(s =>
+                    `<option value="${s}" ${s === p.status ? 'selected' : ''}>${statusEn[s] || s}</option>`
+                  ).join('')}
+                </select></td>
+                <td>${urlInput}</td>
+                <td><div class="stack-tags">${p.stack.map(s => `<span class="stack-tag">${esc(s)}</span>`).join('')}</div></td>
+                <td><button class="visible-toggle ${p.visible ? 'on' : 'off'}" data-slug="${esc(p.slug)}" data-visible="${p.visible}"
+                  onclick="toggleVisible(this)"></button></td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#6b7684;">
+                  ${p.lastLogDate || '—'} <span style="color:#b0b8c1;">(${p.logCount})</span>
+                </td>
+                <td><button class="cli-copy-btn" onclick="copyCmd(this, '${esc(cliCmd)}')">CLI</button></td>
+              </tr>`;
+            });
+            html += '</tbody></table>';
+            return html;
+          }
 
-            const siteIcon = p.url
-              ? `<a href="${esc(p.url)}" target="_blank" style="color:#00c471;margin-left:4px;" title="${esc(p.url)}"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
-              : '';
+          function renderUnregistered(list) {
+            let html = `<table class="project-table"><thead><tr>
+              <th>Repo</th><th>Language</th><th>Updated</th><th>Stars</th><th>Action</th>
+            </tr></thead><tbody>`;
+            list.forEach(p => {
+              const updated = p.updatedAt ? p.updatedAt.slice(0, 10) : '—';
+              html += `<tr style="opacity:0.7;">
+                <td>
+                  <a href="${esc(p.github)}" target="_blank" style="font-weight:600;color:#191f28;text-decoration:none;">${esc(p.slug)}</a>
+                  <br><span style="font-size:0.68rem;color:#8b95a1;">${esc(p.one_liner || '').slice(0, 50)}</span>
+                </td>
+                <td><span class="stack-tag">${esc(p.language || '—')}</span></td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#6b7684;">${updated}</td>
+                <td style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;">${p.stars || 0}</td>
+                <td><button class="action-btn primary" style="font-size:0.7rem;padding:0.25rem 0.6rem;"
+                  onclick="registerProject('${esc(p.slug)}', '${esc(p.github)}', '${esc(p.language || '')}', '${esc(p.one_liner || '')}', this)">Register</button></td>
+              </tr>`;
+            });
+            html += '</tbody></table>';
+            return html;
+          }
 
-            const urlInput = `<input class="url-input" value="${esc(p.url || '')}" data-slug="${esc(p.slug)}"
-              placeholder="https://..." onchange="changeUrl(this)" />`;
-
-            html += `<tr>
-              <td><strong>${esc(p.title)}</strong>${siteIcon}<br><span style="font-size:0.68rem;color:#8b95a1;">${esc(p.slug)}</span></td>
-              <td><select class="status-select ${sc}" data-slug="${esc(p.slug)}" onchange="changeStatus(this)">
-                ${['운영중','개발중','실험중','중단'].map(s =>
-                  `<option value="${s}" ${s === p.status ? 'selected' : ''}>${statusEn[s] || s}</option>`
-                ).join('')}
-              </select></td>
-              <td>${urlInput}</td>
-              <td><div class="stack-tags">${p.stack.map(s => `<span class="stack-tag">${esc(s)}</span>`).join('')}</div></td>
-              <td><button class="visible-toggle ${p.visible ? 'on' : 'off'}" data-slug="${esc(p.slug)}" data-visible="${p.visible}"
-                onclick="toggleVisible(this)"></button></td>
-              <td style="font-family:'JetBrains Mono',monospace;font-size:0.72rem;color:#6b7684;">
-                ${p.lastLogDate || '—'} <span style="color:#b0b8c1;">(${p.logCount})</span>
-              </td>
-              <td>${commitHtml}</td>
-              <td><button class="cli-copy-btn" onclick="copyCmd(this, '${esc(cliCmd)}')">Copy CLI</button></td>
-            </tr>`;
-          });
-
-          html += '</tbody></table>';
+          let html = '<div class="section-title" style="font-size:0.7rem;margin-bottom:0.5rem;">Registered Projects</div>';
+          html += renderRegistered(registered);
+          if (unregistered.length > 0) {
+            html += '<div class="section-title" style="font-size:0.7rem;margin-top:1.5rem;margin-bottom:0.5rem;color:#8b95a1;">GitHub Repos (Not Registered)</div>';
+            html += renderUnregistered(unregistered);
+          }
           wrap.innerHTML = html;
           projectsLoaded = true;
         } catch (e) {
@@ -1340,6 +1367,36 @@ export const prerender = false;
             alert(data.error || 'Failed');
           }
         } catch (e) { alert('Error: ' + e); }
+      };
+
+      window.registerProject = async function(slug, github, language, desc, btn) {
+        btn.disabled = true;
+        btn.textContent = '...';
+        try {
+          const data = await projectAction({
+            action: 'register',
+            slug,
+            github,
+            language,
+            one_liner: desc,
+          });
+          if (data.ok) {
+            btn.textContent = 'Done';
+            btn.style.background = '#e6f9f0';
+            btn.style.color = '#00a85e';
+            // 리로드해서 등록된 목록으로 이동
+            projectsLoaded = false;
+            setTimeout(() => loadProjects(), 1000);
+          } else {
+            alert(data.error || 'Failed');
+            btn.textContent = 'Register';
+            btn.disabled = false;
+          }
+        } catch (e) {
+          alert('Error: ' + e);
+          btn.textContent = 'Register';
+          btn.disabled = false;
+        }
       };
 
       window.toggleVisible = async function(btn) {
