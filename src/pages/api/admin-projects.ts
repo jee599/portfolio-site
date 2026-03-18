@@ -66,26 +66,11 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const buildLogs = await getCollection('build-logs');
     const registeredSlugs = new Set(registeredProjects.map((p) => p.slug));
 
-    // GitHub 전체 리포 가져오기
+    // GitHub 리포 목록 (빌드타임에 생성된 static JSON)
     let allRepos: any[] = [];
     try {
-      const headers: Record<string, string> = {
-        Accept: 'application/vnd.github.v3+json',
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      };
-      let page = 1;
-      while (true) {
-        const res = await fetch(
-          `https://api.github.com/users/${GITHUB_USERNAME}/repos?per_page=100&sort=updated&page=${page}`,
-          { headers },
-        );
-        if (!res.ok) break;
-        const repos = await res.json();
-        if (!repos.length) break;
-        allRepos.push(...repos);
-        if (repos.length < 100) break;
-        page++;
-      }
+      const reposData = await import('../../data/github-repos.json');
+      allRepos = (reposData.default || reposData) as any[];
     } catch {}
 
     // 등록된 프로젝트에 메타 정보 추가
@@ -109,7 +94,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
     // 미등록 GitHub 리포 추가
     const unregistered = allRepos
-      .filter((r: any) => !r.fork && !registeredSlugs.has(r.name))
+      .filter((r: any) => !registeredSlugs.has(r.name))
       .map((r: any) => ({
         slug: r.name,
         title: r.name,
@@ -129,15 +114,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
         language: r.language,
       }));
 
-    return json({
-      projects: [...projectsWithMeta, ...unregistered],
-      _debug: {
-        localCount: localEntries.length,
-        registeredCount: projectsWithMeta.length,
-        unregisteredCount: unregistered.length,
-        localIds: localEntries.map((p) => p.id),
-      },
-    });
+    return json({ projects: [...projectsWithMeta, ...unregistered] });
   } catch (e) {
     return json({ error: `Server error: ${String(e)}`, projects: [] }, 500);
   }
