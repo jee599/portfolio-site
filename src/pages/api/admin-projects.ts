@@ -53,7 +53,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     // 로컬 YAML만 가져오기 (GitHub API 의존 없음)
     const localEntries = await getCollection('projects');
     const registeredProjects: Project[] = localEntries.map((p) => ({
-      slug: p.id.replace('.yaml', ''),
+      slug: p.id.replace(/\.ya?ml$/, ''),
       title: p.data.title,
       url: p.data.url,
       github: p.data.github,
@@ -129,9 +129,17 @@ export const GET: APIRoute = async ({ url, locals }) => {
         language: r.language,
       }));
 
-    return json({ projects: [...projectsWithMeta, ...unregistered] });
+    return json({
+      projects: [...projectsWithMeta, ...unregistered],
+      _debug: {
+        localCount: localEntries.length,
+        registeredCount: projectsWithMeta.length,
+        unregisteredCount: unregistered.length,
+        localIds: localEntries.map((p) => p.id),
+      },
+    });
   } catch (e) {
-    return json({ error: String(e), projects: [] }, 500);
+    return json({ error: `Server error: ${String(e)}`, projects: [] }, 500);
   }
 };
 

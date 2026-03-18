@@ -1223,9 +1223,10 @@ export const prerender = false;
         try {
           const ghToken = sessionStorage.getItem('gh_token') || '';
           const res = await fetch(`/api/admin-projects?secret=${encodeURIComponent(currentSecret)}&github_token=${encodeURIComponent(ghToken)}`);
-          if (!res.ok) { wrap.innerHTML = '<div class="empty-state">Failed to load.</div>'; return; }
           const data = await res.json();
+          if (!res.ok) { wrap.innerHTML = `<div class="empty-state">Error ${res.status}: ${data.error || 'Unknown'}</div>`; return; }
           const projects = data.projects || [];
+          if (projects.length === 0) { wrap.innerHTML = '<div class="empty-state">No projects found. Check API.</div>'; return; }
           document.getElementById('projects-count').textContent = `(${projects.length})`;
 
           const statusMap = { '운영중': 'live', '개발중': 'dev', '실험중': 'beta', '중단': 'stopped' };
