@@ -23,6 +23,7 @@ async function fetchRecentCommits(repo: string, token: string, count = 5): Promi
     const repoName = repo.replace('https://github.com/', '').replace(/\/$/, '');
     const headers: Record<string, string> = {
       Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'jidonglab-admin/1.0',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     };
     const res = await fetch(
@@ -128,6 +129,7 @@ async function updateProjectYaml(
   const headers: Record<string, string> = {
     Accept: 'application/vnd.github.v3+json',
     Authorization: `Bearer ${token}`,
+    'User-Agent': 'jidonglab-admin/1.0',
   };
 
   try {
@@ -233,6 +235,7 @@ export const POST: APIRoute = async ({ request, locals }) => {
       Accept: 'application/vnd.github.v3+json',
       Authorization: `Bearer ${token}`,
       'Content-Type': 'application/json',
+      'User-Agent': 'jidonglab-admin/1.0',
     };
 
     const yamlContent = [
