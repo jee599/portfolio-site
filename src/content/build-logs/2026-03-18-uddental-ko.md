@@ -1,83 +1,72 @@
 ---
-title: "타이포 계층 역전 버그, Claude가 2분·14 tool calls로 잡다"
+title: "Claude Code로 uddental UI 버그 3개 잡기 — 계층 반전, 개발툴 유출, 무한 애니메이션"
 project: "uddental"
 date: 2026-03-18
 lang: ko
-tags: [claude-code, debugging, typography, nextjs]
-description: "uddental 홈페이지 3개 섹션에서 카테고리명이 h2로, 설명 문구가 p로 잘못 배치된 계층 역전 버그. Claude Code가 Read 5회·Edit 3회로 2분 안에 진단하고 수정했다."
+tags: [claude-code, ui, debugging, astro]
+description: "5분, 41번의 tool call. Claude Opus가 uddental 홈페이지에서 heading 계층 반전, 프로덕션에 남은 개발툴, 무한 bounce 애니메이션 3개를 순서대로 잡았다."
 ---
 
-"진료과목"이 크고, "어떤 치료가 필요하세요?"가 작게 보인다.
+개발 중에 만든 🎨 색상 선택 버튼이 프로덕션 사이트에 떠 있었다. `z-60`으로 float된 채.
 
-사용자 리포트는 이게 전부였다. 어느 파일, 어느 컴포넌트인지 단서가 없었다. "시각적으로 크기가 반전되어 보인다"는 것만.
+**TL;DR** — 3개 세션, 5분, 41번의 tool call. Claude Opus가 uddental 홈페이지의 UI 버그 3개를 차례로 잡았다. heading 계층 반전, 개발툴 노출, 무한 bounce 애니메이션.
 
-**TL;DR** 홈페이지 3개 섹션에서만 발생하는 계층 역전 버그였다. FAQ와 서브페이지는 올바른 패턴을 쓰고 있었는데, 홈 섹션들만 카테고리명을 `h2`로, 설명 문구를 `p`로 배치해 시각 계층이 뒤집혔다. Claude가 14 tool calls, 2분 만에 전수조사·수정·빌드 검증까지 마쳤다.
 
-## 어디서 터진지 모를 때 프롬프트를 쓰는 방법
+## heading이 뒤집혀 있었다
 
-Claude에게 넘긴 프롬프트는 이렇게 생겼다.
+세션 2의 프롬프트는 이랬다.
 
 ```
-[Wed 2026-03-18 09:42 GMT+9] In /Users/jidong/uddental/implementations/claude,
-inspect the deployed/UI heading hierarchy issue the user reported.
-
-Problem statement:
 On pages, combinations like:
 - small heading: "진료과목"
 - larger subheading: "어떤 치료가 필요하세요?"
 appear with the visual sizes reversed / hierarchy wrong.
-
-Please do the following:
-1) Inspect all relevant pages/components in this implementation
-   for section eyebrow/title/subtitle typography hierarchy issues.
-2) Find every place where the visual order is inverted.
-3) Fix all instances to match the correct pattern.
 ```
 
-핵심은 두 가지다. 문제 증상을 구체적으로 묘사했고, 전수조사를 지시했다. "어디가 문제인지 알아서 찾아라"라고 맡긴 거다. 특정 파일을 지목하지 않았다.
+Claude는 먼저 `Read` 도구를 5번 돌렸다. `app/page.tsx`의 홈페이지 구조, 서브페이지들, FAQ 섹션을 순서대로 읽으면서 패턴을 파악한다.
 
-## Claude가 버그를 찾는 방식
+결론은 명확했다. FAQ 섹션과 모든 서브페이지에서는 올바른 패턴을 쓰고 있었다. 카테고리명은 작은 eyebrow label, 설명 문구는 큰 h2. 그런데 홈페이지 3개 섹션(진료 여정, 진료과목, 시설 안내)만 반대였다. 카테고리명이 `h2`(크고)고, 설명이 `p`(작고).
 
-Claude는 `app/page.tsx`를 먼저 열었다. Read 도구 5회. 홈페이지, 서브페이지들, 컴포넌트 파일들을 차례로 훑었다.
+파일을 읽으면서 기준이 되는 패턴을 찾고, 그 패턴과 어긋나는 곳을 특정하는 방식이었다. `Edit` 3번으로 `app/page.tsx` 1개 파일만 수정하고 끝냈다.
 
-진단 결과는 명확했다. 홈페이지에 세 개의 섹션이 있었다: 진료 여정, 진료과목, 시설 안내. 세 섹션 모두 같은 패턴이었다.
+도구 사용: `Read(5)` `Edit(3)` `Bash(4)` `Agent(1)` — 총 13번.
 
-```tsx
-// Before — 잘못된 계층
-<h2 className="text-2xl font-bold">진료과목</h2>
-<p className="text-sm text-gray-500">어떤 치료가 필요하세요?</p>
+
+## 개발툴이 프로덕션에 살아 있었다
+
+세션 3 프롬프트:
+
+```
+Find and remove/fix all weird empty space at the top, broken-looking layout gaps,
+and awkward UI artifacts. This includes unexpected blank areas, mispositioned overlays,
+inconsistent spacing, and any obviously wrong mobile layout behavior.
 ```
 
-카테고리명이 `h2`, 설명 문구가 `p`. 시각적으로 카테고리가 더 크게 보인다. FAQ 섹션과 모든 서브페이지는 이미 반대 패턴을 쓰고 있었다.
+의도적으로 구체적인 버그 이름을 말하지 않고 "이상한 것 다 찾아서 고쳐라"로 던졌다.
 
-```tsx
-// After — 올바른 계층
-<p className="text-sm font-semibold text-mint-600 uppercase tracking-wider">
-  진료과목
-</p>
-<h2 className="text-3xl font-bold text-gray-900">
-  어떤 치료가 필요하세요?
-</h2>
-```
+Claude는 `Read`를 17번 돌렸다. `app/components/` 디렉토리의 파일들, `globals.css`, `app/page.tsx`, 각 서브페이지까지 순서대로 읽는다. 코드베이스 전체를 훑은 뒤 세 가지를 짚었다.
 
-카테고리명은 eyebrow label(작고 강조 색상), 설명 문구는 큰 `h2`. 이게 올바른 계층이다.
+첫째, `HeroBgPicker.tsx`. 개발 중에 히어로 배경색을 테스트하려고 만든 🎨 버튼과 색상 패널이 `z-60`으로 float된 채 남아 있었다. 프로덕션 배포 후에도 사이트 오른쪽 상단에 떠 있는 상태. 개발툴이 유출된 가장 클래식한 케이스다.
 
-왜 홈 섹션만 틀렸을까. 홈페이지와 서브페이지를 다른 시점에 작성했을 가능성이 높다. 서브페이지 디자인이 나중에 확정됐고, 홈은 업데이트가 빠졌을 것이다. 실무에서 자주 보이는 패턴이다.
+둘째, `globals.css`의 `floatingPop`과 `floatingGlow` 애니메이션. 하단 플로팅 CTA 버튼에 붙어 있었는데, 둘 다 `infinite`로 돌아가고 있었다. 사이트를 열면 계속 튀어오르고 빛나는 버튼.
 
-## 수정은 Edit 3회
+셋째, `page.tsx`에 빈 줄이 이중으로 들어가 있는 곳들. 섹션 사이에 불필요한 공백을 만들고 있었다.
 
-진단이 끝나자 Claude는 `app/page.tsx`를 Edit 도구로 3회 수정했다. 세 섹션 각각 한 번씩.
+수정은 간단했다. `HeroBgPicker.tsx`를 서버 컴포넌트로 교체해서 dev UI를 제거하고 배경색만 고정. `globals.css`에서 `infinite`를 `1`로 변경. `page.tsx`에서 이중 빈 줄 제거.
 
-빌드는 Bash로 바로 돌렸다. `next build` 성공. 에러 없음. 커밋까지 자동으로 마쳤다.
+이 세션에서 `Write(1)`이 눈에 띈다. `HeroBgPicker.tsx`를 고치는 것보다 단순한 서버 컴포넌트로 통째로 교체하는 게 낫다고 판단해서 파일을 새로 썼다.
 
-총 도구 사용: Read 5, Bash 4, Edit 3, Agent 1. 합계 14회. 세션 시간 2분.
+도구 사용: `Read(17)` `Edit(5)` `Bash(3)` `Agent(1)` `Write(1)` — 총 27번.
 
-변경된 파일은 `app/page.tsx` 하나. 6줄 삭제, 6줄 추가.
 
-## 이 세션에서 배운 것
+## Opus가 과하다는 느낌이 들었다가
 
-탐색 범위를 프롬프트에 명시하는 게 중요하다. "이 파일 고쳐줘"가 아니라 "전체 구현에서 이 패턴의 오용을 모두 찾아줘"라고 지시하면, Claude가 스스로 Read를 돌리면서 전수조사를 한다.
+세 세션 모두 `claude-opus-4-6`을 썼다. 솔직히 UI 버그 수정에 Opus가 필요한가 싶었다.
 
-이번 케이스처럼 어디가 문제인지 불분명할 때 탐색을 좁히는 것보다 넓게 탐색을 지시하는 게 맞다. FAQ와 서브페이지가 이미 올바른 패턴을 쓰고 있다는 사실도 Claude가 직접 확인했다. 비교 기준을 따로 알려주지 않았는데도 코드베이스 안에서 스스로 찾아냈다.
+근데 세션 3 패턴을 보면 납득이 된다. `Read(17)`. 명시적인 버그 리포트 없이 "이상한 거 다 찾아라"는 지시를 받고, 17개 파일을 읽어서 스스로 문제를 발굴했다. 파일을 충분히 읽지 않았으면 `HeroBgPicker`의 dev 코드가 뭔지, `floatingPop`이 의도된 애니메이션인지 판단하기 어렵다.
 
-> 어디가 잘못됐는지 모를 때일수록 탐색 범위를 좁히지 않는다.
+Sonnet이었으면 파일을 덜 읽고 추측에 기댔을 가능성이 있다.
+
+전체 통계: 3 세션, 총 tool call 41번(`Read 22` `Bash 8` `Edit 8` `Agent 2` `Write 1`), 수정 파일 3개, 소요 시간 약 5분.
+
+> 문제를 구체적으로 말하지 않아도, 코드를 충분히 읽으면 스스로 찾는다.

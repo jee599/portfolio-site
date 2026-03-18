@@ -1,95 +1,84 @@
 ---
-title: "827 Tool Calls, 6 Sessions: What Claude Code Looks Like at Scale"
+title: "854 Claude Code Tool Calls in One Day: Building a Portfolio Hub and Automating Build Logs"
 project: "portfolio-site"
 date: 2026-03-18
 lang: en
 pair: "2026-03-18-portfolio-site-ko"
 tags: [claude-code, portfolio, automation, astro]
-description: "6 sessions, 827 tool calls, 117 files touched. Plus the accidental discovery: Claude Code already logs everything as JSONL — build logs can write themselves."
+description: "854 tool calls, 7 sessions, 4 projects in a single day. How I converted jidonglab from an AI news site to a portfolio hub and built a JSONL-based build log automation pipeline."
 ---
 
-827 tool calls. 117 files. 6 sessions.
+854. That's how many times Claude Code called a tool in a single workday.
 
-One week of Claude Code, measured in raw numbers. The work: build a monorepo from an empty repo, convert a portfolio site, fix a payment compliance issue, and ship dental clinic content updates. Nearly all of it delegated to Claude Code.
+Bash: 403. Read: 159. Edit: 124. Write: 117. Seven sessions. Four different projects.
 
-Along the way, one discovery changed how I think about build logs.
+The number sounds impressive. The day wasn't extraordinary. When you run multiple projects with Claude Code as your primary development loop, this is just what a normal Thursday looks like.
 
-**TL;DR** Claude Code stores every session as JSONL under `~/.claude/projects/`. Parse those files and you get a full record: every prompt sent, every tool called, every file created or modified. Feed that into Claude API and build logs write themselves. That pipeline generated this post.
+**TL;DR** I converted `jidonglab.com` from an AI news aggregator to a project portfolio hub, built a JSONL-based pipeline that auto-generates build logs from Claude Code session data, and hit a GitHub API 403 that was entirely avoidable.
 
-## One SPEC.md, Zero Commits, 370 Tool Calls
+## The Site That Forgot What It Was For
 
-Session 1 started with a single prompt:
+`jidonglab.com` started as an automated AI news publisher. Every day at 9 AM and 9 PM KST, Claude crawls the latest AI news and posts summaries automatically. It runs fine.
 
-```
-/Users/jidong/Downloads/SPEC.md implement this.
-Create a detailed implementation plan first, as a markdown file.
-```
+But I'd been ignoring a problem. I have 11 git projects running locally. The portfolio only listed 7. Build logs had to be written manually. The thing that was supposed to represent my work was the most neglected part of the stack.
 
-The repo was completely empty. No commits, no scaffold, nothing. `git@github.com:jee599/llmmixer_claude.git`.
+So I made a call: AI news becomes a side feature. The main thing becomes a project hub.
 
-Claude made `IMPLEMENTATION_PLAN.md` before writing a single line of code — Phase 0 through 3: project setup, CLI + dashboard, LLM Decomposer + Router, then Codex/Gemini adapters. Once the plan existed, I gave one more instruction to drive the entire session:
+The reasoning was simple. If someone lands on `jidonglab.com`, I want them to see what I'm actually building — not a curated feed of AI news articles I didn't write.
 
-```
-Implement each phase, objectively review the implementation,
-fix issues up to 3 times per phase until solid,
-then move to the next phase
-```
+## One Prompt to Drive 331 Tool Calls
 
-"Build → self-review → fix → next phase." One prompt. The whole loop.
-
-The Phase 0 self-review caught three issues before I had to point them out: an `outputFileTracingRoot` warning in the Next.js config, unhandled dev server process cleanup, and a `tsconfig.json` module compatibility mismatch. Claude found them unprompted during its own review pass.
-
-370 tool calls later: `packages/core/`, `packages/dashboard/`, `bin/`, `config/templates/` — 69 new files total, the full monorepo skeleton in place.
-
-One snag mid-session: the `workspace:*` protocol in `package.json`. npm doesn't support that format — it's a pnpm/yarn convention. Build broke. Claude updated the manifest and kept going.
-
-## When Your Own Blog Isn't Your Blog
-
-jidonglab.com started as an AI news aggregator. GPT, Claude, Gemini news twice a day, automated. The pipeline ran fine.
-
-Looked at honestly: this wasn't a blog. It was a content farm I happened to operate.
-
-I'm running LLM Mixer, a saju fortune-telling app, a dental clinic site, a trading bot — all at the same time. I needed somewhere to show what I'm actually building. "What am I making with AI" should be the center of the portfolio, not a curated news feed.
-
-Session 2 opened with the implementation plan pasted directly:
+The conversion plan was written as a markdown spec and handed to Claude as a single prompt:
 
 ```
 Implement the following plan:
-
 # jidonglab Portfolio Hub Renewal
-
-Convert jidonglab.com from AI news/blog site to
-project portfolio hub.
+## Context
+Convert jidonglab.com from an AI news/blog site
+to a project portfolio hub...
 ```
 
-`admin.astro` was 58KB — a single file handling auth, content management, and all admin UI. Claude read it, built a model of the existing structure, then added a Projects tab and Build Logs tab without breaking what was already there.
+That prompt drove Session 2 in its entirety. 331 tool calls. Bash: 213, Edit: 44, Read: 41.
 
-The data model: `scripts/project-registry.yaml` maps local git paths, `src/content/projects/` holds per-project YAML, and a `visible` field controls what's publicly shown.
+Claude handled it autonomously: added a `visible` field to the `src/content/config.ts` schema, generated `scripts/project-registry.yaml`, built Projects and Build Logs tabs into the admin panel, wired up `src/pages/projects/index.astro` and `[slug].astro` routing.
 
-Then came a `github api error 403`.
+This is the pattern I've settled into for large-scope work. Write a thorough spec in markdown. Hand it over as one prompt. Context-switch to something else. Come back and review the diff.
 
-The admin projects GET endpoint was calling the GitHub API unnecessarily. The project data was already in local YAML files — no reason to burn API rate limits fetching it remotely.
+The tradeoff: Claude optimizes for "make it work first." Edge cases get missed. Session 2 introduced one immediately.
+
+## The GitHub API 403 That Shouldn't Have Existed
+
+After deploying the admin panel changes, updating a project's status returned this:
+
+```
+github api error 403
+```
+
+I dug into `admin-projects.ts`. The GET route was calling the GitHub API to fetch project metadata — without authentication. Rate limit exceeded.
+
+The fix was trivial: read project data from the local YAML file instead. The GitHub API was never needed here.
 
 ```typescript
-// Before: GitHub API call (burns rate limit)
-const repos = await fetch(`https://api.github.com/user/repos`, { ... });
+// Before: unnecessary external call
+const repos = await fetch(`https://api.github.com/user/repos`, { headers });
 
-// After: Read local YAML directly
+// After: read local YAML directly
 const registry = yaml.load(fs.readFileSync('scripts/project-registry.yaml'));
 ```
 
-GitHub API calls removed entirely. Commit `bccb9c9`.
+Commit: `fix: admin projects GET — remove GitHub API call, prevent rate limit`
+
+This class of bug has a frustrating pattern. It doesn't surface during development. You test locally, everything passes. You ship it, real traffic hits the rate limit, and your admin panel breaks in production.
+
+The root cause: Claude, when implementing from a spec, tends to reach for external data sources when local ones would do. If I'd added `"minimize external API calls"` as an explicit constraint in the original spec prompt, this wouldn't have happened. Prompts that describe *what* to build need to also describe *how not* to build it.
 
 ## The Build Logs Were Already Being Written
 
-During one of the sessions, I asked:
+Mid-session, a different question came up:
 
-```
-How can we use the JSONL logs to document what happened in each project —
-prompts, tool usage, what actually got built?
-```
+> "Instead of writing build logs manually, what if we used the project `.jsonl` files? What even is in those?"
 
-Claude Code saves every session to `~/.claude/projects/` as JSONL. Each line is one event:
+Claude Code stores every session conversation under `~/.claude/projects/` as a `.jsonl` file. One file per session. Each line is a JSON object — the message content, tool calls, timestamps, everything.
 
 ```json
 {"type":"user","message":"..."}
@@ -97,56 +86,58 @@ Claude Code saves every session to `~/.claude/projects/` as JSONL. Each line is 
 {"type":"tool_result","content":"..."}
 ```
 
-Parse this file and you get everything: every prompt, every tool called, every file created or modified. `scripts/parse-sessions.py` handles the extraction. `generate-build-log.sh` feeds the parsed output to Claude API and gets back a draft build log.
+That means the raw material for a build log already exists. It just needs to be extracted.
+
+```
+How do we parse the jsonl to get per-project logs,
+prompt content, and a summary of what was done?
+```
+
+Claude wrote `scripts/parse-sessions.py`. It reads `.jsonl` files and extracts user prompts, tool usage stats, and lists of files created or modified. `generate-build-log.sh` then feeds that output to Claude API and gets back a draft build log.
 
 This post came through that pipeline.
 
-It's not fully automated — reviewing and editing the draft still takes time. But "start from nothing and write a build log by hand" versus "review and refine a generated draft" are very different starting points. The data is already there. It just needs to be read.
+Writing a build log manually used to take 30 minutes. Now it's one script execution. The automation pays for itself in days — and more importantly, it removes the psychological friction that makes you skip documentation entirely.
 
-## 9 Minutes, 39 Tool Calls, Payment Compliance Done
+If you use Claude Code, your `~/.claude/projects/` directory already contains a complete history of everything you've built. Worth knowing.
 
-Session 4: 9 minutes, 39 tool calls. Task: handle TossPayments contract audit requirements for the saju app.
+## Four Projects in One Day
 
-TossPayments is Korea's dominant payment gateway. Before activation they do a manual compliance review. I pasted the email from their review team directly into the prompt:
+The projects I touched that Thursday: `portfolio-site`, `LLMMixer` (new), `uddental` (dental clinic), `saju_global` (Korean fortune app).
 
+The scope was completely different across each. LLMMixer was a full architecture design for a greenfield project — normally weeks of planning, handled in one session, 78 new files created. `uddental` was a two-minute session to fix an inverted heading hierarchy. `saju_global` needed compliance changes for a payment processor review: add business registration info to the footer, add a product section.
+
+Without Claude Code, this combination is effectively impossible in a single day. Every time you switch to a different codebase, you're spending mental energy re-orienting — remembering conventions, understanding structure, recalling where you left off.
+
+Claude absorbs that cost. For short tasks, the prompt is literally: "go into this project and fix X." Claude reads the codebase, diagnoses the problem, makes the change, commits. My job is to review the diff.
+
+## Installing a Skill Ecosystem
+
+Something else happened during this session: I installed `superpowers`, `engineering-skills`, `product-skills`, and `marketing-skills` back-to-back.
+
+Claude Code's skill system lets you pre-define workflows for specific task types — TDD, debugging, code review, PRD writing. Once a skill is installed, saying "implement this with TDD" means the entire test-first cycle without having to specify each step.
+
+There was a small hitch during installation. Pasting two commands on one line caused a URL parsing error:
+
+```bash
+# This broke
+/plugin marketplace add coreyhaines31/marketingskills
+/plugin install marketing-skills
+
+# These needed to run separately
 ```
-1. Please list at least one purchasable product or service on your homepage.
-2. Please include business registration information in the footer.
-```
 
-Four requirements total. Two needed code changes. Two were outside the codebase.
+Trivial, but it burned 15 minutes I wasn't expecting to spend.
 
-The CSS was the culprit. `.constellationPage` had `overflow: hidden; height: 100vh` set — the business registration footer was sitting outside the viewport. Nobody could see it, including the compliance reviewers checking the live site.
+## What the Numbers Actually Tell You
 
-The pricing section was already in the i18n files, all 8 locales ready. It just wasn't being rendered anywhere. One template change and it appeared.
+Bash at 403 is the top tool by a wide margin. Build runs, git commits, script executions — short commands that stack up fast. Read at 159 before Edit at 124 is a healthy ratio: Claude reads before it modifies. When that ratio inverts, side effects from poorly-understood changes start showing up.
 
-The reason "paste the original email" beats "explain what needs to change": Claude gets exact context without translation loss. The compliance email took 9 minutes. Any paraphrase would have taken longer.
+Write at 117 is high because of LLMMixer: 78 new files created in one day for a greenfield project.
 
-## What 827 Tool Calls Actually Look Like
+The number I watch most is the Read-to-Edit ratio. When Bash dominates Read, Claude was executing more than exploring. Fine for well-defined tasks — a problem if surprises keep appearing mid-session.
 
-Full breakdown across all 6 sessions:
-
-| Tool  | Calls |
-|-------|-------|
-| Bash  | 400   |
-| Read  | 142   |
-| Edit  | 119   |
-| Write | 116   |
-| Grep  | 15    |
-| Agent | 15    |
-| Glob  | 10    |
-
-Bash is nearly half. Build checks, server restarts, git status, process management — short commands that stack up fast. Edit + Write combined (actual code production) is still only half of Bash usage.
-
-The 15 Agent calls are worth noting separately. Tasks like "translate 6 build logs to English" got delegated to sub-agents. They run in parallel without consuming the main session's context window. The longer a session runs, the more valuable this pattern becomes.
-
-Two things showed up consistently across all 6 sessions.
-
-Front-loading SPEC or a plan cuts exploration cost sharply. When the plan is in the prompt, Claude skips the "what are we building" phase and executes immediately. Session 2 — plan pasted, execution starts — is the clearest example.
-
-Vague success criteria increased iteration count. "Fix everything and make all features work as intended" from late session 1 generated more back-and-forth than prompts with specific expected behavior. Same model, same codebase — the difference was how precisely "done" was defined.
-
-> Better prompts aren't for Claude's benefit. They save your own time.
+> Break large tasks into smaller ones and the quality of each step goes up. If you don't break them down, Claude will — but its criteria and yours may not match.
 
 ---
 
