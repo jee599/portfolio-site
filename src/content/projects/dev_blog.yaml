@@ -1,0 +1,7 @@
+title: "dev_blog"
+github: "https://github.com/jee599/dev_blog"
+status: "개발중"
+stack: ["Shell"]
+one_liner: "deb blogging"
+order: 99
+visible: false
