@@ -1,6 +1,7 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import type { Project } from '../../lib/projects';
+import githubRepos from '../../data/github-repos.json';
 
 export const prerender = false;
 
@@ -67,11 +68,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const registeredSlugs = new Set(registeredProjects.map((p) => p.slug));
 
     // GitHub 리포 목록 (빌드타임에 생성된 static JSON)
-    let allRepos: any[] = [];
-    try {
-      const reposData = await import('../../data/github-repos.json');
-      allRepos = (reposData.default || reposData) as any[];
-    } catch {}
+    const allRepos = githubRepos as any[];
 
     // 등록된 프로젝트에 메타 정보 추가
     const projectsWithMeta = registeredProjects.map((p) => {
