@@ -1221,7 +1221,7 @@ export const prerender = false;
         if (projectsLoaded) return;
         const wrap = document.getElementById('projects-table-wrap');
         try {
-          const ghToken = sessionStorage.getItem('gh_token') || '';
+          const ghToken = localStorage.getItem('gh_token') || '';
           const res = await fetch(`/api/admin-projects?secret=${encodeURIComponent(currentSecret)}&github_token=${encodeURIComponent(ghToken)}`);
           const data = await res.json();
           if (!res.ok) { wrap.innerHTML = `<div class="empty-state">Error ${res.status}: ${data.error || 'Unknown'}</div>`; return; }
@@ -1311,10 +1311,10 @@ export const prerender = false;
       }
 
       function getGhToken() {
-        var t = sessionStorage.getItem('gh_token');
+        var t = localStorage.getItem('gh_token');
         if (!t) {
           t = prompt('GitHub Personal Access Token (repo 권한 필요):');
-          if (t) sessionStorage.setItem('gh_token', t);
+          if (t) localStorage.setItem('gh_token', t);
         }
         return t || '';
       }
@@ -1330,7 +1330,7 @@ export const prerender = false;
         });
         const data = await res.json();
         if (data.need_token) {
-          sessionStorage.removeItem('gh_token');
+          localStorage.removeItem('gh_token');
           payload.github_token = getGhToken();
           if (!payload.github_token) return { error: 'Token required' };
           const res2 = await fetch('/api/admin-projects', {
