@@ -1,100 +1,123 @@
 ---
-title: "AgentCrow 실전 테스트 — 6개 에이전트가 피카츄 배구 게임을 하루 만에 만든 과정"
+title: "Claude Code 584번 — jidonglab을 포트폴리오 허브로 바꾸는 데 걸린 비용"
 project: "portfolio-site"
 date: 2026-03-20
 lang: ko
-tags: [claude-code, multi-agent, agentcrow, ai-automation]
-description: "AgentCrow 멀티에이전트 시스템으로 피카츄 배구 멀티플레이어 게임을 만들었다. 79세션, 90개 테스트 전부 통과. 브레인스토밍 스킬이 에이전트를 막는 문제와 해결 과정."
+tags: [claude-code, astro, parallel-agents, automation]
+description: "584번의 tool call, 98시간. jidonglab.com을 AI 뉴스 사이트에서 프로젝트 포트폴리오 허브로 전환했다. GitHub API 3연타 에러, DevTo 한글 버그, 병렬 에이전트 리디자인까지."
 ---
 
-79개 세션. 그 중 처음 9개는 전부 "Invalid API key"였다.
+584번의 도구 호출. 98시간 38분. Bash 352번, Edit 92번, Read 86번.
 
-**TL;DR** AgentCrow의 멀티에이전트 오케스트레이션을 실제로 써봤다. "피카츄 배구 멀티로 만들어줘" 한 문장이 6개 에이전트로 분해됐고, PRD부터 90개 테스트 통과까지 하루 만에 끝났다.
+단순한 리디자인이 아니었다. jidonglab.com의 정체성을 바꾸는 작업이었다. "AI 뉴스 블로그"에서 "1인 개발자 프로젝트 포트폴리오 허브"로.
 
-## API key 오류부터 시작하는 게 AgentCrow 실전이다
+**TL;DR** 한 세션에서 GitHub API 연동, 빌드 로그 자동화, 사이트 리디자인, 플러그인 생태계 확장을 병렬 에이전트로 처리했다. 삽질이 많았다. 그 과정이 더 배울 게 많았다.
 
-AgentCrow는 자연어 프롬프트를 에이전트 태스크로 분해하고, 최대 5개 에이전트를 병렬로 실행하는 시스템이다. `.claude/agents/` 에 144개 에이전트 정의가 있다.
+## 왜 지금, 왜 리디자인인가
 
-첫 번째 테스트는 처참했다. "ai 뉴스 크롤링해서 이메일로 보내주는 웹 만들어줘" — 세션 4개가 전부 같은 오류로 끝났다.
+로컬에 11개 git 프로젝트가 있는데 포트폴리오에는 7개만 등록되어 있었다. 빌드 로그는 수동으로 썼다. 사이트가 AI 뉴스를 자동으로 올리는 기계처럼 돌아가는 동안, 실제 내가 만들고 있는 것들은 제대로 보이지 않았다.
 
-```
-Invalid API key · Fix external API key
-```
-
-Tool call이 0개. 에이전트가 뜨기도 전에 죽었다. 환경변수 설정 문제였고, 고치는 데 10분도 안 걸렸다. 근데 이게 오히려 흥미로웠다. 설정이 잘못되면 에이전트가 아무것도 안 하고 즉시 실패한다는 게 확인됐다. 조용히 틀린 결과를 내놓는 것보다 낫다.
-
-## "피카츄 배구 멀티로 만들어줘" 한 줄이 6개 태스크로
-
-API key를 고친 뒤 진짜 테스트가 시작됐다. 사용자 입력:
+프롬프트를 이렇게 던졌다.
 
 ```
-피카츄 배구 리소스 받아와서 멀티로 만들어줘. 기획서부터 작성하고 구현해줘
+jidonglab.com을 AI 뉴스/블로그 사이트가 아니라 프로젝트 포트폴리오 허브로 전환한다.
+로컬에 11개 git 프로젝트가 있지만 포트폴리오에는 7개만 등록되어 있고, 빌드 로그는 수동 생성이다.
+
+원하는 흐름:
+1. CLI로 빌드 로그 생성
+2. Admin에서 프로젝트 관리 + 빌드 로그 발행
 ```
 
-Task Decomposer가 이 문장을 6개로 쪼갰다.
+Claude는 6개 단계로 구현 계획을 잡았다. `project-registry.yaml` 생성, 스키마 변경, CLI 스크립트, API 엔드포인트, Admin 탭, DevTo 연동. Bash 350번 이상을 실행하면서 하나씩 구현했다.
 
-PM이 PRD를 쓰고, Data Pipeline이 에셋을 크롤링하고, Game Designer가 물리엔진을 설계하고, Frontend Developer가 Canvas 클라이언트를 구현하고, Backend Architect가 WebSocket 서버를 잡고, QA Engineer가 테스트를 짜는 구조다. 이론상 병렬 실행이 가능한 배분이다.
+## GitHub API 3연타 에러
 
-근데 실제로 실행하니 문제가 생겼다.
+가장 많이 막힌 지점은 GitHub API였다. Admin에서 project 설정을 바꾸면 YAML 파일을 GitHub에 직접 저장하는 구조를 만들려 했는데, 에러가 연쇄적으로 나왔다.
 
-## 브레인스토밍 스킬이 에이전트를 9번 막았다
+첫 번째는 403. GitHub Personal Access Token에 `repo` 스코프가 없었다. 토큰 재발급.
 
-에이전트들이 계속 질문을 했다.
-
-Game Designer 에이전트:
-
-> 설계에 들어가기 전에 한 가지 질문부터 하겠습니다. **어떤 종류의 멀티플레이어 게임인가요?**
-
-Backend Architect 에이전트:
-
-> 브라우저에서 목업이나 다이어그램을 보여주면 설명이 더 쉬울 수 있는데, 이 기능은 아직 새롭고 토큰을 많이 씁니다. 사용해볼까요?
-
-`brainstorming` 스킬이 에이전트마다 로딩되면서 구현 전에 반드시 질문하도록 강제하고 있었다. 스킬 코드에 `<HARD-GATE>: Do NOT invoke any implementation skill` 블록이 있었다.
-
-브레인스토밍 스킬은 사람과 대화할 때는 좋다. 하지만 멀티에이전트 파이프라인에서는 독이다. 에이전트가 질문을 하면 파이프라인이 멈춘다. 승인을 기다리는 에이전트는 아무것도 하지 않는다.
-
-해결책은 간단했다. AgentCrow가 에이전트를 디스패치할 때 프롬프트 앞에 CRITICAL RULES를 붙이도록 수정했다.
+두 번째는 409.
 
 ```
-[CRITICAL RULES]
-- Do NOT ask questions. Make decisions yourself and proceed.
-- Do NOT ask for confirmation. Just do the work.
-- If you need to choose between options, pick the best one and explain why.
-- Create actual files and write actual code. Do not just describe what to do.
+src/content/projects/news4ai.yaml does not match 7cc02a8819f7f2704cbcdf17f10e0035c78abb6e
 ```
 
-이 4줄을 붙인 이후부터 에이전트들이 실제로 파일을 만들기 시작했다.
+파일을 업데이트할 때 현재 SHA를 함께 보내야 하는데 오래된 SHA를 쓰고 있었다.
 
-## 병렬 6에이전트가 실제로 만든 것들
-
-**PM 에이전트** (5 tool calls): `docs/pikachu-volleyball-prd.md` 생성. 코트 크기(432×304px), 서브/리시브/스파이크 메커닉, Authoritative Server 모델 + WebSocket 프로토콜, 15점 선취 규칙까지.
-
-**Data Pipeline 에이전트** (28 tool calls): `gorisanson/pikachu-volleyball` 레포에서 스프라이트시트, 사운드 16개(WAV+M4A 듀얼), 애니메이션 프레임 데이터를 수집하고 `public/assets/manifest.json`과 `animations.json`을 생성했다. 8bit PCM WAV를 M4A로 변환할 때 `afconvert` 16bit 중간 변환이 필요했다.
-
-**Game Designer 에이전트** (20 tool calls): `src/game/` 에 8개 파일. `physics.ts`, `collision.ts`, `animation.ts`, `scoring.ts`, `sync.ts`, `engine.ts`, `types.ts`, `constants.ts`. TypeScript 타입 체크 전부 통과.
-
-**Frontend 에이전트** (43 tool calls): `src/game/client/` 에 렌더링 레이어. `sprite-loader.ts`, `sound-manager.ts`, `renderer.ts`, `input-manager.ts`, `network-client.ts`, `game-client.ts`, `GameCanvas.tsx`, `app/game/page.tsx`. 빌드 에러는 게임 코드가 아니라 `/_global-error` 사전 렌더링 문제(Next.js 16 기존 이슈)였다.
-
-**QA 에이전트** (21 tool calls): 이게 가장 인상적이었다.
+세 번째는 422.
 
 ```
-Test Files  4 passed (4)
-Tests       90 passed (90)
-Duration    330ms
+"sha" wasn't supplied.
 ```
 
-90개 테스트가 전부 통과했다. `tests/physics/collision.test.ts` (충돌/반사/중력), `tests/network/websocket.test.ts` (연결/재접속/방 관리), `tests/performance/input-latency.test.ts` (200ms 이하 검증), `tests/e2e/two-player.test.ts` (2인 동시 플레이 시뮬레이션).
+신규 파일을 등록할 때는 SHA를 보내면 안 되는데 보내고 있었다. 생성과 수정을 구분하는 분기가 빠져 있었다.
 
-PRD 스펙 기반으로 구현 전에 테스트를 먼저 작성했다. 코드가 없어도 스펙이 있으면 테스트를 쓸 수 있다는 걸 QA 에이전트가 보여줬다.
+Claude는 에러 메시지를 보고 매번 코드를 수정했다. 근데 에러가 바뀌는 걸 보면서 "다음 에러가 뭔지 예측 가능한 상황"이라는 걸 알 수 있었다. 처음부터 GitHub API docs를 읽고 스펙대로 구현했으면 한 번에 됐을 작업이다. "테스트해서 완벽하게 돌아갈때까지 수정해" 프롬프트 하나로 이걸 넘겼지만, 문서 기반 구현이 더 빨랐을 것이다.
 
-## 삽질 정리: 같은 태스크가 6번 반복됐다
+## DEV.to에 계속 올라가는 한글 글
 
-Task Decomposer 세션이 로그에 10번 넘게 찍혀 있다. 같은 "피카츄 배구" 태스크를 분해하는 세션이 반복됐다. AgentCrow의 오케스트레이션 로직이 태스크 상태를 제대로 추적하지 못하면, 이미 완료된 태스크를 다시 디스패치하는 문제가 생긴다.
+예상하지 못한 삽질이 따로 있었다. DEV.to에 한글 글이 계속 올라가는 문제였다.
 
-멀티에이전트 시스템에서 "이 태스크는 이미 완료됐다"는 상태 관리가 얼마나 중요한지 이 삽질에서 다시 확인했다.
+"devto에는 한글로 된 거 다 내려줘"라고 했더니 내렸다. 다음 날 다시 올라가 있었다. "devto에 한글 올라가는 로직 빼라고 했잖아 왜 또 올라가"라고 하니 또 수정했다. 또 올라갔다.
 
-## portfolio-site도 리디자인했다
+문제는 로직이 두 군데 흩어져 있었다는 것이다. `publish-to-devto.yml` GitHub Actions에서 언어 필터가 제대로 동작하지 않았고, `sync-devto.ts` API 레이어에도 별도 로직이 있었다. 한 곳만 고치면 다른 곳에서 올렸다.
 
-AgentCrow 테스트와 별개로 jidonglab.com 자체도 손을 봤다. 프로젝트 중심 홈페이지로 구조를 바꾸고, 프로젝트 정렬을 운영중 → 베타 → 개발중 → 중단 순으로 정리했다. AgentCrow와 ContextZip 상태를 운영중으로 업데이트.
+이 문제는 "이제 절대 안올라가지? devto에는? 빌드 로그는 jidonglab 전용이야"라는 명확한 확인 후에 두 파일을 동시에 수정하면서 해결됐다.
 
-> 에이전트가 질문을 하면 파이프라인이 멈춘다. 멀티에이전트 시스템에서 자율성은 기능이 아니라 요구사항이다.
+이런 상황에서 Claude Code는 고친 파일에만 집중하는 경향이 있다. 비슷한 로직이 다른 파일에 있는지 능동적으로 확인하지 않는다. 중요한 제약 조건은 관련 파일을 직접 지정하거나, 반복해서 명시하는 것이 낫다.
+
+## 병렬 에이전트 4명으로 리디자인
+
+"전체적으로 사이트 리디자인 해줘. 트렌디하고 테크 느낌으로. 프로젝트가 제일 메인이야."
+
+이 프롬프트에 AgentCrow가 4명의 에이전트를 병렬로 dispatch했다.
+
+```
+🐦 AgentCrow — dispatching 4 agents:
+1. @frontend_developer → "홈페이지 레이아웃 재설계 — 프로젝트 중심 구성"
+2. @ui_designer → "Base 레이아웃 nav + footer 리디자인"
+3. @ux_architect → "projects/index.astro 개선"
+4. @critique → "현재 디자인 UX 크리틱"
+```
+
+`index.astro`, `Base.astro`, `projects/index.astro`가 서로 다른 에이전트에 의해 병렬로 수정됐다. 메인 스레드는 각 완료 알림을 받으면서 다음 단계를 조율했다.
+
+결과적으로 홈페이지는 프로젝트 카드를 메인에 배치하는 구조로 바뀌었다. 상태별 소팅(운영중 → 베타 → 개발중 → 중단)이 적용됐는데, 이 순서는 나중에 "beta는 베타 운영 중이란 뜻인데, 그래서 2번째여야 할 것 같아"라는 한 마디로 조정됐다.
+
+병렬 에이전트의 장점은 속도다. 단점은 에이전트마다 컨텍스트가 분리돼 있어서, 한 에이전트가 바꾼 Tailwind 클래스를 다른 에이전트가 모르는 상태로 수정하면 충돌이 날 수 있다. 이번에는 파일 단위로 작업을 분리했기 때문에 충돌 없이 넘어갔다.
+
+## 빌드 로그 자동화 파이프라인
+
+"jsonl 기준으로 빌드로그를 뽑는게 좋은데" — 이 질문에서 시작됐다.
+
+Claude Code는 로컬 `~/.claude/projects/` 아래에 세션별 JSONL 파일을 남긴다. 이걸 파싱해서 프로젝트별 작업 요약을 자동 생성하는 파이프라인을 만들었다. `parse-sessions.py`가 JSONL을 읽고, `generate-build-log.sh`가 Claude API를 호출해서 마크다운 빌드 로그를 생성한다.
+
+GitHub Actions에 등록해서 6시간마다 새 세션이 있으면 자동으로 빌드 로그를 생성하도록 했다. 이 글 자체가 그 파이프라인에서 나온 세션 데이터를 소재로 하고 있다.
+
+"로컬 cron이랑 croncreate가 뭐가 다른데?" — 이 질문도 나왔다. 로컬 cron은 컴퓨터가 켜져 있을 때만 돈다. GitHub Actions는 클라우드에서 스케줄대로 돌아간다. 안정성을 위해 GitHub Actions를 선택했다.
+
+## 플러그인 생태계를 확장했다
+
+이 세션에서 플러그인 설치도 병행됐다.
+
+```
+/plugin install product-skills@claude-code-skills
+/plugin install engineering-skills@claude-code-skills
+/plugin install marketing-skills
+```
+
+`product-skills`, `engineering-skills`, `marketing-skills` 세 팩이 추가됐다. 설치 직후엔 `/reload-plugins`를 해야 활성화된다는 걸 두 번 실수했다.
+
+이후 "지금 내 상황에서 추가하면 좋은 스킬/플러그인 다 찾아줘"라고 했더니 Claude가 웹 검색까지 해서 비교 리포트를 만들었다. 설치된 스킬들 중 중복되거나 더 좋은 대안이 있는 게 있는지도 분석했다.
+
+도구를 쌓는 것보다 도구를 잘 쓰는 게 중요하다. 하지만 어떤 도구가 있는지 알아야 쓸 수 있다. 이 탐색 자체를 Claude한테 위임한 셈이다.
+
+## 이번 세션에서 배운 패턴 3가지
+
+첫째, 명확한 제약은 파일 단위로 명시한다. "DEV.to에 한글 올리지 마"는 한 번 말해서 끝나지 않았다. 관련 파일이 여러 개면 어디에 적용되는지 구체적으로 지정해야 한다.
+
+둘째, 에러가 연쇄적이면 스펙부터 읽는다. GitHub API 403→409→422 삼연타는 처음부터 docs를 참고했으면 피할 수 있었다. Claude가 에러를 보고 수정하는 루프보다, 스펙 전달 후 한 번에 구현하는 것이 더 빠르다.
+
+셋째, 병렬 에이전트는 파일 단위로 분리해서 쓴다. 같은 파일을 두 에이전트가 동시에 건드리면 충돌이 난다. dispatch 전에 작업 범위를 파일 수준으로 나누는 것이 핵심이다.
+
+> 포트폴리오는 만드는 게 아니라 보여주는 것이다. 자동화는 보여주는 과정 자체를 만드는 일이었다.

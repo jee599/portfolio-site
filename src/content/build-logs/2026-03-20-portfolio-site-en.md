@@ -1,156 +1,116 @@
 ---
-title: "I Gave 6 Claude Code Agents One Prompt. They Built a Multiplayer Game in a Day."
+title: "584 Tool Calls to Rebuild a Portfolio Site with Claude Code and Parallel Agents"
 project: "portfolio-site"
 date: 2026-03-20
 lang: en
 pair: "2026-03-20-portfolio-site-ko"
-tags: [claude-code, multi-agent, agentcrow, ai-automation]
-description: "AgentCrow orchestrated 6 Claude Code agents from a single prompt — PRD to 90 passing tests in one day. The brainstorming skill nearly killed it."
+tags: [claude-code, astro, parallel-agents, automation]
+description: "584 tool calls, 98 hours. How I rebuilt jidonglab.com from an AI news site into a project portfolio hub — and what three GitHub API errors taught me about spec-first development."
 ---
 
-Nine sessions. All nine ended with the same error:
+584 tool calls. 98 hours and 38 minutes. Bash 352 times, Edit 92, Read 86.
+
+This wasn't a redesign. It was an identity change. jidonglab.com went from "AI news blog" to "solo dev project portfolio hub" — and the process surfaced three lessons I keep coming back to.
+
+**TL;DR** — In a single session, I handled GitHub API integration, build log automation, site redesign, and plugin ecosystem expansion using parallel agents. There were plenty of mistakes. The mistakes were the most educational part.
+
+## The Problem With an Invisible Portfolio
+
+I had 11 git projects running locally. Only 7 were on the portfolio. Build logs were written by hand. The site was on autopilot — auto-generating AI news every few hours — while the actual work I was doing stayed invisible.
+
+The prompt I used:
 
 ```
-Invalid API key · Fix external API key
+Convert jidonglab.com from an AI news/blog site to a project portfolio hub.
+I have 11 git projects locally but only 7 are registered in the portfolio.
+Build logs are generated manually.
+
+Desired workflow:
+1. Generate build logs via CLI
+2. Manage projects + publish build logs from an Admin panel
 ```
 
-Zero tool calls per session. That's how real multi-agent testing starts — not with a clean handoff, but with a broken environment variable and a lot of nothing happening.
+Claude broke it into 6 implementation steps: create `project-registry.yaml`, update schemas, write CLI scripts, build API endpoints, add Admin tabs, wire up DEV.to sync. It ran through 350+ Bash calls, one step at a time.
 
-**TL;DR** I stress-tested AgentCrow, a multi-agent orchestration system built on Claude Code, with a single prompt: "Get the Pikachu Volleyball assets and build a multiplayer version — PRD first." One Task Decomposer split that into 6 parallel agents. 79 sessions total, 90 tests passing. The biggest blocker wasn't the code. It was a brainstorming skill that turned every agent into a question-asker.
+## Three GitHub API Errors, Back to Back
 
-## Nine Failures Before Anything Ran
+The most painful stretch was GitHub API integration. The goal: when a project's settings change in the Admin panel, write the updated YAML directly to GitHub. Simple concept. Three consecutive errors.
 
-AgentCrow decomposes natural language prompts into discrete agent tasks and dispatches up to 5 agents in parallel. 144 agent definitions live in `.claude/agents/`, covering roles from PM to QA to Data Pipeline Engineer.
+**Error 1: 403.** The Personal Access Token was missing the `repo` scope. Regenerated the token.
 
-My first real test prompt: "Build me a web app that crawls AI news and sends it by email." Four agents launched. Four agents died immediately, all with the same error.
-
-It took less than 10 minutes to fix the environment variable. But those 9 failed sessions were useful data.
-
-When a misconfigured environment kills an agent immediately and loudly, that's a good failure mode. It's far better than an agent that silently produces wrong output and passes it downstream. Loud failures are debuggable. Silent ones compound.
-
-After fixing the key, the actual test began.
-
-## One Line Becomes Six Parallel Workstreams
-
-The prompt that kicked off the real test:
+**Error 2: 409.**
 
 ```
-Get the Pikachu Volleyball assets and make it multiplayer.
-Write the PRD first, then implement.
+src/content/projects/news4ai.yaml does not match 7cc02a8819f7f2704cbcdf17f10e0035c78abb6e
 ```
 
-The Task Decomposer split this into 6 parallel workstreams:
+Updating a file via the GitHub API requires sending the current file's SHA. We were sending a stale one.
 
-A **PM agent** to write the product spec. A **Data Pipeline agent** to scrape assets from the source repo. A **Game Designer agent** to design the physics and collision engine. A **Frontend Developer agent** to build the Canvas-based client. A **Backend Architect agent** to handle WebSocket infrastructure and game state. A **QA Engineer agent** to write the test suite.
-
-In theory: parallel-safe, no hard state dependencies, clean handoffs through shared files. Each agent works in its own lane.
-
-In practice: every agent stopped and asked a question before doing anything.
-
-## The Skill That Froze the Pipeline
-
-The Game Designer agent, first response:
-
-> "Before I start designing, I have one question. **What kind of multiplayer experience are you targeting?** Real-time competitive? Turn-based? Local co-op?"
-
-The Backend Architect agent:
-
-> "I could show you a mockup or diagram in the browser — though this feature is new and uses significant tokens. Want me to try?"
-
-This happened nine separate times across different agents, different roles, different questions. The pattern was identical: launch → ask for confirmation → stop.
-
-The root cause was the `brainstorming` skill, which was being loaded for every agent. That skill contains a hard gate:
+**Error 3: 422.**
 
 ```
-<HARD-GATE>: Do NOT invoke any implementation skill
-until the brainstorming phase is complete.
+"sha" wasn't supplied.
 ```
 
-The brainstorming skill exists for good reasons. When you're working with a person, running a clarification phase before implementation prevents you from building the wrong thing. It's a useful discipline.
+Creating a *new* file means you must not send a SHA. The code was sending one anyway. The create/update branching logic was missing entirely.
 
-But in a multi-agent pipeline, an agent that asks a question is an agent that has stopped working. A pipeline where five agents are all waiting for human confirmation isn't running — it's just waiting. The assumption baked into the brainstorming skill ("there is a human available to answer questions") breaks completely when agents are running autonomously.
+Claude fixed the code after each error. Watching the errors change in sequence made something clear: this was a predictable cascade. If we'd read the GitHub API docs first and implemented to spec, it would have worked on the first try. Asking Claude to "fix it and keep iterating until it works" got there eventually — but spec-first would have been twice as fast.
 
-The fix was four lines prepended to every agent dispatch:
+## The Korean Posts That Kept Coming Back
 
-```
-[CRITICAL RULES]
-- Do NOT ask questions. Make decisions yourself and proceed.
-- Do NOT ask for confirmation. Just do the work.
-- If you need to choose between options, pick the best one and explain why.
-- Create actual files and write actual code. Do not just describe what to do.
-```
+There was a separate, unexpected bug. Korean build logs kept appearing on DEV.to.
 
-After adding this context override, agents started creating files.
+I said "take down all the Korean posts from DEV.to." They came down. Next day, they were back. I said "I told you to remove that logic — why is it uploading again?" Fixed again. Back again.
 
-## What Each Agent Actually Produced
+The root cause: the filtering logic was split across two files. `publish-to-devto.yml` in GitHub Actions had a language filter that wasn't working correctly. And `sync-devto.ts` in the API layer had its own separate logic. Fix one, the other still fires.
 
-**PM agent** — 5 tool calls, one file: `docs/pikachu-volleyball-prd.md`.
+It only resolved after I explicitly said "build logs are jidonglab-only — confirm this is never going to DEV.to" and both files were updated simultaneously.
 
-The spec was genuinely usable: court dimensions at 432×304px, service/receive/spike mechanics with specific timing windows, Authoritative Server model with WebSocket protocol, first-to-15-points win condition. Not a vague outline — a buildable spec.
+Claude Code tends to focus on the file it just edited. It doesn't proactively scan for duplicate logic elsewhere in the codebase. For constraints that matter — "never publish X to platform Y" — name the specific files, or repeat the constraint until every path is closed.
 
-**Data Pipeline agent** — 28 tool calls, pulling from `gorisanson/pikachu-volleyball`.
+## Four Agents, One Redesign
 
-Spritesheet extracted, 16 audio files captured in dual WAV+M4A format, animation frame data parsed. Generated `public/assets/manifest.json` and `animations.json`. One non-obvious detail that came up: converting 8-bit PCM WAV files to M4A required a 16-bit intermediate conversion step via `afconvert`. The agent figured this out without being told.
+"Redesign the whole site. Trendy and techy. Projects should be the main focus."
 
-**Game Designer agent** — 20 tool calls, 8 TypeScript files in `src/game/`:
-
-`physics.ts`, `collision.ts`, `animation.ts`, `scoring.ts`, `sync.ts`, `engine.ts`, `types.ts`, `constants.ts`. All TypeScript checks passed on the first pass.
-
-**Frontend agent** — 43 tool calls, the full rendering layer in `src/game/client/`:
-
-`sprite-loader.ts`, `sound-manager.ts`, `renderer.ts`, `input-manager.ts`, `network-client.ts`, `game-client.ts`, `GameCanvas.tsx`, and the page route at `app/game/page.tsx`.
-
-One build error appeared — but it wasn't in the game code. The `/_global-error` pre-rendering failure is a known Next.js 16 issue, not something the agent introduced.
-
-**Backend Architect agent** — WebSocket server implementing the Authoritative Server model defined in the PRD. Game state managed server-side, synchronized to clients on each tick.
-
-**QA agent** — 21 tool calls, and the most interesting result of the batch:
+AgentCrow dispatched four agents in parallel:
 
 ```
-Test Files  4 passed (4)
-Tests       90 passed (90)
-Duration    330ms
+🐦 AgentCrow — dispatching 4 agents:
+1. @frontend_developer → "Redesign homepage layout — project-first structure"
+2. @ui_designer       → "Redesign nav + footer in Base layout"
+3. @ux_architect      → "Improve projects/index.astro"
+4. @critique          → "UX critique of current design"
 ```
 
-Four test files, 90 tests, all passing. The suite covers `tests/physics/collision.test.ts` (collision detection, reflection, gravity), `tests/network/websocket.test.ts` (connection, reconnection, room management), `tests/performance/input-latency.test.ts` (sub-200ms validation), and `tests/e2e/two-player.test.ts` (simulated 2-player concurrent gameplay).
+`index.astro`, `Base.astro`, and `projects/index.astro` were each assigned to a separate agent. The main thread received completion signals from each and coordinated the next steps.
 
-The QA agent wrote all 90 tests before any implementation code existed, working entirely from the PRD. No running code to test against — just a specification. If the spec is clear enough to build from, it's clear enough to test against.
+The homepage ended up with project cards as the primary content. Status-based sorting was applied: running → beta → in development → discontinued. That ordering got a one-line adjustment afterward: "beta means it's already live, so it should be second."
 
-## The Failure Mode Worth Talking About
+The advantage of parallel agents is speed. The risk is context isolation — if one agent changes a Tailwind class and another agent doesn't know about it, conflicts happen. Dividing work at the file level prevents collisions. That's the key thing to get right before dispatching.
 
-The 79-session count includes something worth being honest about.
+## Building a Build Log Pipeline From JSONL
 
-The Task Decomposer session appears more than 10 times in the logs. The same "Pikachu Volleyball" task was decomposed repeatedly — same input, same output, multiple times.
+It started with a question: "Is there a better way to generate build logs from JSONL?"
 
-AgentCrow's orchestration logic wasn't tracking task completion state properly. Already-completed tasks were getting re-dispatched. No state persistence between orchestrator runs meant no way to say "this workstream is done, don't start it again."
+Claude Code writes session data to `~/.claude/projects/` as JSONL files — one per session. I built a pipeline to parse these and auto-generate build logs: `parse-sessions.py` reads the JSONL, `generate-build-log.sh` calls the Claude API and produces a markdown build log.
 
-This is the kind of failure that doesn't appear in demos. Demos show the happy path — one prompt, clean decomposition, parallel execution, done. Production usage surfaces the edge cases: what happens when the orchestrator restarts mid-task? What happens when a task completes but the completion isn't recorded? What happens when the same task decomposition runs twice because the first run's result wasn't persisted?
+Registered in GitHub Actions to run every 6 hours. If a new session exists, a build log is generated automatically.
 
-Multi-agent systems live or die on state management. "Track which tasks are complete" sounds trivial. Failing to do it means burning sessions on redundant work, and in a token-billed environment, redundancy has a direct cost.
+This post is sourced from the same session data that pipeline processes.
 
-## Skills Designed for Humans Break in Autonomous Pipelines
+There was also a question about the difference between local cron and GitHub Actions. Local cron only runs while the machine is on. GitHub Actions runs on a schedule in the cloud regardless. For anything that needs to be reliable, GitHub Actions wins.
 
-The brainstorming skill problem generalizes to a broader pattern.
+## What This Session Was Actually About
 
-Every skill makes assumptions about its execution environment. The brainstorming skill assumes: there is a human available, the human has context about the task, and asking the human a question will produce a useful answer. These assumptions are correct when a developer is actively working with Claude Code.
+Three things became clear by the end.
 
-In a multi-agent pipeline, none of these assumptions hold. There's no human in the loop. The agent's question goes unanswered. The pipeline stalls.
+**Name constraints at the file level.** "Don't publish Korean to DEV.to" said once wasn't enough. When a constraint applies to multiple files, name the files. Repeat the constraint until all paths are covered.
 
-This isn't an argument against brainstorming skills — it's an argument for being explicit about execution context. The four-line CRITICAL RULES block that fixed the issue is essentially a context declaration: "you are operating autonomously, without human supervision, make decisions and proceed."
+**When errors cascade, read the spec first.** The GitHub API 403 → 409 → 422 sequence was avoidable. Giving Claude an API error and asking it to fix-and-retry works. Giving it the docs first and asking for a spec-compliant implementation is faster.
 
-Skills built for interactive use need an explicit "autonomous mode" or need to check their execution context before applying their defaults. Otherwise composing human-in-the-loop skills into autonomous pipelines will keep producing the same class of failure.
+**Split parallel agent work by file, not by feature.** Two agents touching the same file concurrently creates conflicts. Before dispatching, divide the work at the file level. Everything else follows from that.
 
-The same principle shows up in other domains. Stripe's Radar doesn't block a transaction to ask a human "is this fraudulent?" — it makes a decision and acts. Human review happens after the fact, asynchronously, for edge cases that the automated system flags. Autonomous systems and human-in-the-loop systems have different decision architectures. Mixing them without being explicit about which context you're in creates exactly the kind of pipeline stall that happened here.
-
-## One More Thing: Portfolio Site Redesign
-
-Separate from the AgentCrow testing, jidonglab.com got a structural update this week.
-
-The homepage is now project-centered rather than post-centered. Projects are sorted by status: live → beta → in development → discontinued. AgentCrow and ContextZip updated to live status.
-
-The redesign was a single focused session — no agents, direct edits, one commit. Some tasks don't need orchestration. Knowing which tasks benefit from multi-agent parallelism and which don't is its own skill.
-
-> When an agent asks a question, the pipeline stops. In multi-agent systems, autonomy isn't a feature — it's a requirement.
+> A portfolio isn't built — it's shown. Automation was the work of making the showing happen automatically.
 
 ---
 
