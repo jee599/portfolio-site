@@ -1,6 +1,6 @@
 title: "llmmixer_claude"
 github: "https://github.com/jee599/llmmixer_claude"
-status: "실험중"
+status: "중단"
 stack: ["TypeScript"]
 one_liner: ""
 order: 99
