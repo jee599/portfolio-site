@@ -1,10 +1,28 @@
 [
   {
-    "name": "agentochester",
-    "html_url": "https://github.com/jee599/agentochester",
+    "name": "agentcrow",
+    "html_url": "https://github.com/jee599/agentcrow",
+    "description": "🐦 The missing piece for Claude Code Agent Teams — auto-decompose prompts and dispatch 144 specialized agents. npx agentcrow init",
+    "language": "TypeScript",
+    "pushed_at": "2026-03-19T14:15:05Z",
+    "stargazers_count": 1,
+    "homepage": "https://www.npmjs.com/package/agentcrow"
+  },
+  {
+    "name": "pikachu",
+    "html_url": "https://github.com/jee599/pikachu",
     "description": "",
     "language": "TypeScript",
-    "pushed_at": "2026-03-18T10:45:03Z",
+    "pushed_at": "2026-03-19T14:16:24Z",
+    "stargazers_count": 0,
+    "homepage": ""
+  },
+  {
+    "name": "dev_blog",
+    "html_url": "https://github.com/jee599/dev_blog",
+    "description": "deb blogging",
+    "language": "Shell",
+    "pushed_at": "2026-03-19T13:48:49Z",
     "stargazers_count": 0,
     "homepage": ""
   },
@@ -13,16 +31,52 @@
     "html_url": "https://github.com/jee599/portfolio-site",
     "description": "",
     "language": "Astro",
-    "pushed_at": "2026-03-18T10:40:39Z",
+    "pushed_at": "2026-03-19T14:18:57Z",
     "stargazers_count": 0,
     "homepage": "https://portfolio-site-swart-nu.vercel.app"
+  },
+  {
+    "name": "contextzip",
+    "html_url": "https://github.com/jee599/contextzip",
+    "description": "⚡ Compress Claude Code context by 60-90%. Six noise filters RTK doesn't have.",
+    "language": "Rust",
+    "pushed_at": "2026-03-19T13:01:08Z",
+    "stargazers_count": 1,
+    "homepage": ""
+  },
+  {
+    "name": "trading",
+    "html_url": "https://github.com/jee599/trading",
+    "description": "",
+    "language": "TypeScript",
+    "pushed_at": "2026-03-19T12:32:04Z",
+    "stargazers_count": 0,
+    "homepage": ""
+  },
+  {
+    "name": "homebrew-tap",
+    "html_url": "https://github.com/jee599/homebrew-tap",
+    "description": "Homebrew tap for tokenzip",
+    "language": "Ruby",
+    "pushed_at": "2026-03-19T10:30:47Z",
+    "stargazers_count": 0,
+    "homepage": ""
+  },
+  {
+    "name": "aidesiner",
+    "html_url": "https://github.com/jee599/aidesiner",
+    "description": "",
+    "language": null,
+    "pushed_at": "2026-03-19T09:23:59Z",
+    "stargazers_count": 0,
+    "homepage": ""
   },
   {
     "name": "uddental",
     "html_url": "https://github.com/jee599/uddental",
     "description": "",
     "language": "TypeScript",
-    "pushed_at": "2026-03-18T10:36:08Z",
+    "pushed_at": "2026-03-18T15:55:30Z",
     "stargazers_count": 0,
     "homepage": ""
   },
@@ -32,24 +86,6 @@
     "description": "",
     "language": null,
     "pushed_at": "2026-03-18T10:22:46Z",
-    "stargazers_count": 0,
-    "homepage": ""
-  },
-  {
-    "name": "tokenzip",
-    "html_url": "https://github.com/jee599/tokenzip",
-    "description": "",
-    "language": null,
-    "pushed_at": "2026-03-18T10:22:00Z",
-    "stargazers_count": 0,
-    "homepage": ""
-  },
-  {
-    "name": "dev_blog",
-    "html_url": "https://github.com/jee599/dev_blog",
-    "description": "deb blogging",
-    "language": "Shell",
-    "pushed_at": "2026-03-18T09:50:20Z",
     "stargazers_count": 0,
     "homepage": ""
   },
@@ -95,15 +131,6 @@
     "description": "",
     "language": "JavaScript",
     "pushed_at": "2026-03-15T09:38:16Z",
-    "stargazers_count": 0,
-    "homepage": ""
-  },
-  {
-    "name": "trading",
-    "html_url": "https://github.com/jee599/trading",
-    "description": "",
-    "language": "TypeScript",
-    "pushed_at": "2026-03-14T08:20:27Z",
     "stargazers_count": 0,
     "homepage": ""
   },
