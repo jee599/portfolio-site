@@ -1,15 +1,9 @@
 name: Generate Build Log
 
 on:
-  push:
-    branches:
-      - main
-    paths-ignore:
-      - 'src/content/build-logs/**'
-      - '.github/workflows/**'
-  schedule:
-    # Run daily at 21:00 UTC (6:00 AM KST next day) to batch accumulated commits
-    - cron: '0 21 * * *'
+  workflow_dispatch:
+  # push 트리거 제거 — 로컬 launchd cron으로 관리
+  # schedule도 제거 — GitHub Actions에서 빌드 로그 자동 생성 중단
 
 permissions:
   contents: write
@@ -426,39 +420,7 @@ jobs:
                 });
                 console.log(`[${slug}] Created build log: ${finalLogPath} (${relevantCommits.length} commits)`);
 
-                // Cross-post to Dev.to
-                const devtoKey = process.env.DEVTO_API_KEY;
-                if (devtoKey && body) {
-                  try {
-                    const canonicalUrl = `https://jidonglab.com/posts/${today}-${logSlug}`;
-                    const devtoTags = tags.slice(0, 4).map(t => t.replace(/[^a-zA-Z0-9]/g, ''));
-                    const devtoRes = await fetch('https://dev.to/api/articles', {
-                      method: 'POST',
-                      headers: {
-                        'Content-Type': 'application/json',
-                        'api-key': devtoKey,
-                      },
-                      body: JSON.stringify({
-                        article: {
-                          title: logTitle,
-                          body_markdown: body,
-                          published: true,
-                          tags: devtoTags,
-                          canonical_url: canonicalUrl,
-                          series: 'AI Development Log',
-                        },
-                      }),
-                    });
-                    if (devtoRes.ok) {
-                      const devtoData = await devtoRes.json();
-                      console.log(`[${slug}] Published to Dev.to: ${devtoData.url}`);
-                    } else {
-                      console.log(`[${slug}] Dev.to publish failed: ${devtoRes.status} ${await devtoRes.text()}`);
-                    }
-                  } catch (e) {
-                    console.log(`[${slug}] Dev.to publish error: ${e.message}`);
-                  }
-                }
+                // DEV.to 자동 발행 제거 — 빌드 로그는 jidonglab.com에만 게시
               } catch (e) {
                 console.log(`[${slug}] Failed to create build log: ${e.message}`);
               }
