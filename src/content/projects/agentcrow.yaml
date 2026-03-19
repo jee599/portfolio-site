@@ -4,4 +4,4 @@ status: "개발중"
 stack: ["TypeScript"]
 one_liner: "🐦 The missing piece for Claude Code Agent Teams — auto-decompose prompts and dispatch 144 specialized agents. npx agentcrow init"
 order: 99
-visible: false
+visible: true
