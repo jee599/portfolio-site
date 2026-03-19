@@ -4,7 +4,10 @@ import PostCard from '../components/PostCard.astro';
 import { getCollection } from 'astro:content';
 import { getAllProjects } from '../lib/projects';
 
-const projects = await getAllProjects();
+const statusOrder: Record<string, number> = { '운영중': 0, '실험중': 1, '개발중': 2, '중단': 3 };
+const projects = (await getAllProjects()).sort((a, b) =>
+  (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.order - b.order
+);
 const allBuildLogs = (await getCollection('build-logs'))
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
 const buildLogs = allBuildLogs.filter((p) => p.data.lang === 'ko');
