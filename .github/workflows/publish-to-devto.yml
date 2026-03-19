@@ -113,7 +113,8 @@ jobs:
 
                 // Skip Korean posts — DEV.to는 영어만
                 const lang = langMatch ? langMatch[1].trim() : '';
-                if (lang === 'ko' || file.endsWith('-ko.md')) {
+                const hasKorean = /[\uac00-\ud7a3]/.test(title);
+                if (lang === 'ko' || file.endsWith('-ko.md') || hasKorean) {
                   skipped++;
                   continue;
                 }
