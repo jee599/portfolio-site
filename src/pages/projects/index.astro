@@ -19,212 +19,82 @@ const experiments = projects.filter(p => p.status === '실험중' || p.status ==
 ---
 
 <Base title="Projects" description="AI 프로젝트 포트폴리오">
-  <div class="projects-page fade-in">
+  <div class="fade-in" style="max-width:920px;margin:0 auto;">
 
-    {/* Hero header */}
-    <header class="projects-header">
-      <h1 class="projects-h1">Projects</h1>
-      <p class="projects-sub" data-ko="AI로 만들고, 자동화하고, 실험한다." data-en="Build with AI. Automate everything. Ship fast.">
-        AI로 만들고, 자동화하고, 실험한다.
-      </p>
-      <div class="projects-stats">
-        <div class="projects-stat-item">
-          <span class="projects-stat-num">{projects.length}</span>
-          <span class="projects-stat-label" data-ko="프로젝트" data-en="Projects">프로젝트</span>
-        </div>
-        <div class="projects-stat-divider"></div>
-        <div class="projects-stat-item">
-          <span class="projects-stat-num">{activeCount}</span>
-          <span class="projects-stat-label" data-ko="진행중" data-en="Active">진행중</span>
-        </div>
-        <div class="projects-stat-divider"></div>
-        <div class="projects-stat-item">
-          <span class="projects-stat-num">{totalLogs}</span>
-          <span class="projects-stat-label" data-ko="빌드 로그" data-en="Build Logs">빌드 로그</span>
-        </div>
+    <h1 style="font-size:2.1rem;font-weight:900;color:#191f28;letter-spacing:-0.04em;margin-bottom:0.25rem;">
+      Projects
+    </h1>
+    <p style="font-size:0.95rem;color:#6b7684;margin-bottom:1.25rem;"
+      data-ko="AI로 만들고, 자동화하고, 실험한다." data-en="Build with AI. Automate everything. Ship fast.">
+      AI로 만들고, 자동화하고, 실험한다.
+    </p>
+    <div style="display:flex;align-items:center;gap:1.25rem;padding:0.8rem 1.2rem;background:#f9fafb;border-radius:12px;border:1px solid #f2f4f6;width:fit-content;margin-bottom:2.5rem;">
+      <div style="display:flex;align-items:baseline;gap:0.35rem;">
+        <span style="font-size:1.3rem;font-weight:800;color:#191f28;font-family:'JetBrains Mono',monospace;">{projects.length}</span>
+        <span style="font-size:0.7rem;color:#8b95a1;" data-ko="프로젝트" data-en="projects">프로젝트</span>
       </div>
-    </header>
+      <div style="width:1px;height:18px;background:#e5e8eb;"></div>
+      <div style="display:flex;align-items:baseline;gap:0.35rem;">
+        <span style="font-size:1.3rem;font-weight:800;color:#191f28;font-family:'JetBrains Mono',monospace;">{activeCount}</span>
+        <span style="font-size:0.7rem;color:#8b95a1;" data-ko="진행중" data-en="active">진행중</span>
+      </div>
+      <div style="width:1px;height:18px;background:#e5e8eb;"></div>
+      <div style="display:flex;align-items:baseline;gap:0.35rem;">
+        <span style="font-size:1.3rem;font-weight:800;color:#191f28;font-family:'JetBrains Mono',monospace;">{totalLogs}</span>
+        <span style="font-size:0.7rem;color:#8b95a1;" data-ko="빌드 로그" data-en="build logs">빌드 로그</span>
+      </div>
+    </div>
 
-    {/* Featured — Live projects get hero treatment */}
     {featured.length > 0 && (
-      <section class="projects-section">
-        <div class="section-header">
-          <span class="section-dot" style="background:#00c471;"></span>
-          <h2 class="section-label" data-ko="운영중" data-en="Live">운영중</h2>
+      <section style="margin-bottom:2.5rem;">
+        <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#00c471;"></span>
+          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#333d4b;margin:0;"
+            data-ko="운영중" data-en="Live">운영중</h2>
         </div>
-        <div class="grid-featured">
+        <div style="display:grid;gap:0.85rem;grid-template-columns:repeat(2,1fr);">
           {featured.map((p) => (
-            <ProjectCard
-              slug={p.slug}
-              title={p.title}
-              one_liner={p.one_liner}
-              status={p.status}
-              stack={p.stack}
-              url={p.url}
-              github={p.github}
-              featured={true}
-            />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} featured={true} />
           ))}
         </div>
       </section>
     )}
 
-    {/* In Development */}
     {inDev.length > 0 && (
-      <section class="projects-section">
-        <div class="section-header">
-          <span class="section-dot" style="background:#6c63ff;"></span>
-          <h2 class="section-label" data-ko="개발중" data-en="In Development">개발중</h2>
+      <section style="margin-bottom:2.5rem;">
+        <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#6c63ff;"></span>
+          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#333d4b;margin:0;"
+            data-ko="개발중" data-en="In Development">개발중</h2>
         </div>
-        <div class="grid-compact">
+        <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(2,1fr);">
           {inDev.map((p) => (
-            <ProjectCard
-              slug={p.slug}
-              title={p.title}
-              one_liner={p.one_liner}
-              status={p.status}
-              stack={p.stack}
-              url={p.url}
-              github={p.github}
-            />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} />
           ))}
         </div>
       </section>
     )}
 
-    {/* Experiments & Archived */}
     {experiments.length > 0 && (
-      <section class="projects-section">
-        <div class="section-header">
-          <span class="section-dot" style="background:#d1d5db;"></span>
-          <h2 class="section-label" style="color:#8b95a1;" data-ko="실험 / 아카이브" data-en="Experiments / Archive">실험 / 아카이브</h2>
+      <section style="margin-bottom:2rem;">
+        <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#d1d5db;"></span>
+          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#8b95a1;margin:0;"
+            data-ko="실험 / 아카이브" data-en="Experiments / Archive">실험 / 아카이브</h2>
         </div>
-        <div class="grid-compact grid-3">
+        <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(3,1fr);">
           {experiments.map((p) => (
-            <ProjectCard
-              slug={p.slug}
-              title={p.title}
-              one_liner={p.one_liner}
-              status={p.status}
-              stack={p.stack}
-              url={p.url}
-              github={p.github}
-            />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} />
           ))}
         </div>
       </section>
     )}
-
   </div>
 </Base>
 
-<style is:inline>
-  .projects-page {
-    max-width: 920px;
-    margin: 0 auto;
-  }
-
-  /* Header */
-  .projects-header {
-    margin-bottom: 2.5rem;
-  }
-  .projects-h1 {
-    font-size: 2.2rem;
-    font-weight: 900;
-    color: #191f28;
-    letter-spacing: -0.04em;
-    margin-bottom: 0.3rem;
-  }
-  .projects-sub {
-    font-size: 1rem;
-    color: #6b7684;
-    margin-bottom: 1.25rem;
-    line-height: 1.5;
-  }
-  .projects-stats {
-    display: flex;
-    align-items: center;
-    gap: 1.25rem;
-    padding: 0.85rem 1.25rem;
-    background: #f9fafb;
-    border-radius: 12px;
-    border: 1px solid #f2f4f6;
-    width: fit-content;
-  }
-  .projects-stat-item {
-    display: flex;
-    align-items: baseline;
-    gap: 0.4rem;
-  }
-  .projects-stat-num {
-    font-size: 1.3rem;
-    font-weight: 800;
-    color: #191f28;
-    font-family: 'JetBrains Mono', monospace;
-  }
-  .projects-stat-label {
-    font-size: 0.72rem;
-    color: #8b95a1;
-    font-weight: 500;
-  }
-  .projects-stat-divider {
-    width: 1px;
-    height: 20px;
-    background: #e5e8eb;
-  }
-
-  /* Sections */
-  .projects-section {
-    margin-bottom: 2.5rem;
-  }
-  .section-header {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-bottom: 1rem;
-  }
-  .section-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    flex-shrink: 0;
-  }
-  .section-label {
-    font-size: 0.72rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.1em;
-    color: #333d4b;
-    margin: 0;
-  }
-
-  /* Grids */
-  .grid-featured {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .grid-compact {
-    display: grid;
-    gap: 0.75rem;
-    grid-template-columns: repeat(2, 1fr);
-  }
-  .grid-3 {
-    grid-template-columns: repeat(3, 1fr);
-  }
-
+<style>
   @media (max-width: 768px) {
-    .grid-featured,
-    .grid-compact,
-    .grid-3 {
-      grid-template-columns: 1fr;
-    }
-    .projects-h1 {
-      font-size: 1.6rem;
-    }
-    .projects-stats {
-      width: 100%;
-      justify-content: center;
-    }
+    div[style*="grid-template-columns:repeat(2"] { grid-template-columns: 1fr !important; }
+    div[style*="grid-template-columns:repeat(3"] { grid-template-columns: 1fr !important; }
   }
 </style>
