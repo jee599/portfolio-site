@@ -35,6 +35,7 @@ PROJECT_MAP = {
     'news4ai': [],  # 아직 세션 없음
     'koreamcp': [],  # 아직 세션 없음
     'tokenzip': [],  # 아직 세션 없음
+    'contextzip': [],  # 아직 세션 없음
 }
 
 
