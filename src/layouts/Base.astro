@@ -112,6 +112,56 @@ const navItems = [
       .prose .section-break{height:1px;background:#f2f4f6;border:none;margin:3rem 0}
       .prose .tip{background:#e6f9f0;border-left:3px solid #00c471;border-radius:0 8px 8px 0;padding:1rem 1.25rem;margin:1.5rem 0;color:#333d4b;font-size:.95rem;line-height:1.7}
     </style>
+    <style is:inline>
+      /* ═══ Header ═══ */
+      .site-header{position:sticky;top:0;z-index:50;background:rgba(255,255,255,0.85);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border-bottom:1px solid #f2f4f6}
+      .site-nav{max-width:1080px;margin:0 auto;padding:0 1.5rem;display:flex;align-items:center;justify-content:space-between;height:64px}
+      .site-logo{display:inline-flex;align-items:center;gap:0.5rem;text-decoration:none;transition:opacity 0.15s}
+      .site-logo:hover{opacity:0.7}
+      .logo-icon{flex-shrink:0}
+      .logo-text{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1.1rem;color:#191f28;letter-spacing:-0.03em}
+      .nav-right{display:flex;align-items:center;gap:1rem;height:100%}
+      .nav-tabs{display:flex;align-items:center;height:100%;gap:0}
+      .nav-tab{display:flex;align-items:center;height:100%;padding:0 1rem;font-size:0.875rem;font-weight:500;color:#6b7684;text-decoration:none;border-bottom:2px solid transparent;transition:all 0.2s}
+      .nav-tab:hover{color:#191f28}
+      .nav-tab.active{color:#00c471;border-bottom-color:#00c471;font-weight:600}
+      .nav-utils{display:flex;align-items:center;gap:0.5rem;margin-left:0.5rem;padding-left:1rem;border-left:1px solid #f2f4f6}
+      .nav-icon{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;color:#8b95a1;text-decoration:none;transition:all 0.15s}
+      .nav-icon:hover{background:#f2f4f6;color:#333d4b}
+      .lang-btn{display:flex;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:1px solid #e5e8eb;background:#fff;color:#6b7684;font-size:0.7rem;font-weight:600;font-family:'JetBrains Mono',monospace;cursor:pointer;transition:all 0.15s}
+      .lang-btn:hover{border-color:#00c471;color:#00c471;background:#e6f9f0}
+      /* Mobile menu button */
+      .mobile-menu-btn{display:none;align-items:center;justify-content:center;width:36px;height:36px;border-radius:8px;border:none;background:transparent;color:#333d4b;cursor:pointer;transition:all 0.15s;padding:0}
+      .mobile-menu-btn:hover{background:#f2f4f6}
+      .mobile-menu-btn svg{width:20px;height:20px}
+      /* Mobile drawer */
+      .mobile-drawer{display:none;position:fixed;top:64px;left:0;right:0;bottom:0;z-index:49;background:rgba(0,0,0,0.3);opacity:0;transition:opacity 0.2s}
+      .mobile-drawer.open{opacity:1}
+      .mobile-drawer-content{background:#fff;border-bottom:1px solid #f2f4f6;padding:0.5rem 1.5rem 1.5rem;box-shadow:0 8px 32px rgba(0,0,0,0.08)}
+      .mobile-nav-link{display:block;padding:0.75rem 0;font-size:0.95rem;font-weight:500;color:#333d4b;text-decoration:none;border-bottom:1px solid #f2f4f6;transition:color 0.15s}
+      .mobile-nav-link:last-child{border-bottom:none}
+      .mobile-nav-link:hover,.mobile-nav-link.active{color:#00c471}
+      /* ═══ Main ═══ */
+      .site-main{max-width:1080px;margin:0 auto;padding:0 1.5rem}
+      /* ═══ Footer ═══ */
+      .site-footer{margin-top:6rem;background:#f9fafb;border-top:1px solid #f2f4f6}
+      .footer-inner{max-width:1080px;margin:0 auto;padding:3.5rem 1.5rem 2rem}
+      .footer-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:3rem;margin-bottom:2.5rem}
+      .footer-logo{display:inline-flex;align-items:center;gap:0.4rem;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:1rem;color:#191f28;margin-bottom:0.5rem;letter-spacing:-0.03em}
+      .footer-desc{font-size:0.875rem;color:#8b95a1;line-height:1.6}
+      .footer-heading{font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.08em;color:#8b95a1;margin-bottom:0.75rem}
+      .footer-link{display:block;font-size:0.875rem;color:#6b7684;text-decoration:none;padding:0.25rem 0;transition:color 0.15s}
+      .footer-link:hover{color:#00c471}
+      .footer-bottom{padding-top:1.5rem;border-top:1px solid #e5e8eb;font-size:0.8rem;color:#8b95a1}
+      @media(max-width:768px){
+        .footer-grid{grid-template-columns:1fr;gap:2rem}
+        .nav-tabs{display:none}
+        .nav-utils{border-left:none;padding-left:0;margin-left:0}
+        .mobile-menu-btn{display:flex}
+        .mobile-drawer{display:block;pointer-events:none}
+        .mobile-drawer.open{pointer-events:auto}
+      }
+    </style>
   </head>
   <body class="min-h-screen" style="background: #fff;">
     <!-- Header -->
@@ -139,10 +189,26 @@ const navItems = [
             <button id="lang-toggle" class="lang-btn" title="Switch language">
               EN
             </button>
+            <button id="mobile-menu-btn" class="mobile-menu-btn" aria-label="Menu">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+            </button>
           </div>
         </div>
       </nav>
     </header>
+    <!-- Mobile drawer -->
+    <div id="mobile-drawer" class="mobile-drawer">
+      <div class="mobile-drawer-content">
+        {navItems.map(item => (
+          <a
+            href={item.href}
+            class:list={['mobile-nav-link', { active: currentPath.startsWith(item.href) }]}
+          >
+            {item.label}
+          </a>
+        ))}
+      </div>
+    </div>
 
     <main class="site-main">
       <slot />
@@ -179,6 +245,20 @@ const navItems = [
     </footer>
 
     <script is:inline>
+      // Mobile menu toggle
+      (function() {
+        var btn = document.getElementById('mobile-menu-btn');
+        var drawer = document.getElementById('mobile-drawer');
+        if (btn && drawer) {
+          btn.addEventListener('click', function() {
+            drawer.classList.toggle('open');
+          });
+          drawer.addEventListener('click', function(e) {
+            if (e.target === drawer) drawer.classList.remove('open');
+          });
+        }
+      })();
+
       // Visitor tracking (once per session)
       if (!sessionStorage.getItem('v_tracked')) {
         fetch('/api/visitors', { method: 'POST' }).catch(function(){});
@@ -261,220 +341,3 @@ const navItems = [
     <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "CF_ANALYTICS_TOKEN"}'></script>
   </body>
 </html>
-
-<style>
-  /* ═══ Header ═══ */
-  .site-header {
-    position: sticky;
-    top: 0;
-    z-index: 50;
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid #f2f4f6;
-  }
-
-  .site-nav {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 0 1.5rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    height: 64px;
-  }
-
-  .site-logo {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    transition: opacity 0.15s;
-  }
-
-  .site-logo:hover {
-    opacity: 0.7;
-  }
-
-  .logo-icon {
-    flex-shrink: 0;
-  }
-
-  .logo-text {
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 700;
-    font-size: 1.1rem;
-    color: #191f28;
-    letter-spacing: -0.03em;
-  }
-
-  .nav-right {
-    display: flex;
-    align-items: center;
-    gap: 1rem;
-    height: 100%;
-  }
-
-  .nav-tabs {
-    display: flex;
-    align-items: center;
-    height: 100%;
-    gap: 0;
-  }
-
-  .nav-tab {
-    display: flex;
-    align-items: center;
-    height: 100%;
-    padding: 0 1rem;
-    font-size: 0.9rem;
-    font-weight: 500;
-    color: #6b7684;
-    text-decoration: none;
-    border-bottom: 2px solid transparent;
-    transition: all 0.2s;
-  }
-
-  .nav-tab:hover {
-    color: #333d4b;
-  }
-
-  .nav-tab.active {
-    color: #00c471;
-    border-bottom-color: #00c471;
-    font-weight: 600;
-  }
-
-  .nav-utils {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin-left: 0.5rem;
-    padding-left: 1rem;
-    border-left: 1px solid #f2f4f6;
-  }
-
-  .nav-icon {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    color: #8b95a1;
-    text-decoration: none;
-    transition: all 0.15s;
-  }
-
-  .nav-icon:hover {
-    background: #f2f4f6;
-    color: #333d4b;
-  }
-
-  .lang-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 36px;
-    height: 36px;
-    border-radius: 8px;
-    border: 1px solid #e5e8eb;
-    background: #fff;
-    color: #6b7684;
-    font-size: 0.7rem;
-    font-weight: 600;
-    font-family: 'JetBrains Mono', monospace;
-    cursor: pointer;
-    transition: all 0.15s;
-  }
-
-  .lang-btn:hover {
-    border-color: #00c471;
-    color: #00c471;
-    background: #e6f9f0;
-  }
-
-  /* ═══ Main ═══ */
-  .site-main {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 0 1.5rem;
-  }
-
-  /* ═══ Footer ═══ */
-  .site-footer {
-    margin-top: 6rem;
-    background: #f9fafb;
-    border-top: 1px solid #f2f4f6;
-  }
-
-  .footer-inner {
-    max-width: 1080px;
-    margin: 0 auto;
-    padding: 3.5rem 1.5rem 2rem;
-  }
-
-  .footer-grid {
-    display: grid;
-    grid-template-columns: 2fr 1fr 1fr;
-    gap: 3rem;
-    margin-bottom: 2.5rem;
-  }
-
-  .footer-logo {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.4rem;
-    font-family: 'JetBrains Mono', monospace;
-    font-weight: 700;
-    font-size: 1rem;
-    color: #191f28;
-    margin-bottom: 0.5rem;
-    letter-spacing: -0.03em;
-  }
-
-  .footer-desc {
-    font-size: 0.875rem;
-    color: #8b95a1;
-    line-height: 1.6;
-  }
-
-  .footer-heading {
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: #8b95a1;
-    margin-bottom: 0.75rem;
-  }
-
-  .footer-link {
-    display: block;
-    font-size: 0.875rem;
-    color: #6b7684;
-    text-decoration: none;
-    padding: 0.25rem 0;
-    transition: color 0.15s;
-  }
-
-  .footer-link:hover {
-    color: #00c471;
-  }
-
-  .footer-bottom {
-    padding-top: 1.5rem;
-    border-top: 1px solid #e5e8eb;
-    font-size: 0.8rem;
-    color: #8b95a1;
-  }
-
-  @media (max-width: 768px) {
-    .footer-grid {
-      grid-template-columns: 1fr;
-      gap: 2rem;
-    }
-    .nav-tabs {
-      display: none;
-    }
-  }
-</style>
