@@ -252,13 +252,24 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(yamlContent)));
 
     try {
+      // 기존 파일이 있으면 SHA 가져오기
+      const checkRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, { headers: { Accept: 'application/vnd.github.v3+json', Authorization: `Bearer ${token}`, 'User-Agent': 'jidonglab-admin/1.0' } });
+      let existingSha: string | undefined;
+      if (checkRes.ok) {
+        const existing = await checkRes.json();
+        existingSha = existing.sha;
+      }
+
+      const putBody: any = {
+        message: `feat: register project ${slug}`,
+        content: encoded,
+      };
+      if (existingSha) putBody.sha = existingSha;
+
       const putRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, {
         method: 'PUT',
         headers,
-        body: JSON.stringify({
-          message: `feat: register project ${slug}`,
-          content: encoded,
-        }),
+        body: JSON.stringify(putBody),
       });
 
       if (!putRes.ok) {
