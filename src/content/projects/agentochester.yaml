@@ -4,4 +4,4 @@ status: "중단"
 stack: ["TypeScript"]
 one_liner: ""
 order: 99
-visible: true
+visible: false
