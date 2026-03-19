@@ -4,5 +4,5 @@ status: "개발중"
 stack: []
 one_liner: ""
 order: 99
-visible: false
+visible: true
 url: "spoonai.com"
