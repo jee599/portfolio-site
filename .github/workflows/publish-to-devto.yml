@@ -111,6 +111,13 @@ jobs:
                   continue;
                 }
 
+                // Skip Korean posts — DEV.to는 영어만
+                const lang = langMatch ? langMatch[1].trim() : '';
+                if (lang === 'ko' || file.endsWith('-ko.md')) {
+                  skipped++;
+                  continue;
+                }
+
                 // ai-news 컬렉션: placeholder 파일 스킵
                 if (col.type === 'ai-news' && file === 'placeholder.md') {
                   skipped++;
