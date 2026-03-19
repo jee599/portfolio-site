@@ -1,7 +1,7 @@
 title: "UD Dental"
 url: "https://uddental.com"
 github: "https://github.com/jee599/uddental"
-status: "실험중"
+status: "운영중"
 stack: ["Next.js", "Tailwind", "Vercel"]
 one_liner: "치과 병원 웹사이트"
 order: 7
