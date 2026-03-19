@@ -5,3 +5,4 @@ stack: ["Shell"]
 one_liner: "deb blogging"
 order: 99
 visible: true
+url: "dev.to/ji_ai"
