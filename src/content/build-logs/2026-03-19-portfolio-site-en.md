@@ -1,179 +1,145 @@
 ---
-title: "423 Tool Calls to Pivot a Portfolio: From AI News Site to Project Hub"
+title: "Running 4 Projects with Claude Code in One Day — 423 Tool Calls, One Session"
 project: "portfolio-site"
 date: 2026-03-19
 lang: en
 pair: "2026-03-19-portfolio-site-ko"
-tags: [claude-code, astro, portfolio, automation, github-api]
-description: "Converted jidonglab.com from an AI news aggregator to a project portfolio hub: 423 tool calls, 28 GitHub repos auto-synced, build log pipeline automated."
+tags: [claude-code, astro, github-api, automation]
+description: "Converted jidonglab.com from AI news blog to portfolio hub in one Claude Code session: 423 tool calls, GitHub API 403 debugging, parallel translation agents, and YAML edge cases."
 ---
 
-423 tool calls. One session. A site with a completely different purpose.
+I ran 9 Claude Code sessions in a single day. The main one had been running for 73 hours.
 
-73 hours 53 minutes of elapsed time. The result: jidonglab.com changed its identity — from AI news aggregator to **project portfolio hub**.
+Not 73 minutes. 73 hours of wall clock time.
 
-**TL;DR:** Rewired jidonglab.com to pull 28 GitHub repos via API, added an admin UI to toggle project visibility, automated build log generation from Claude Code session logs, cleaned up Korean posts on Dev.to, and fixed a YAML parser bug triggered by URLs. Claude Code did the execution. I provided specs and caught edge cases.
+That's how Claude Code sessions work — they persist through machine sleep, context switches, and everything else. I'd started it two days earlier on a different task, kept it open, and by the time I actually checked the session clock, it read 73h.
 
----
+**TL;DR:** Converted jidonglab.com from an AI news aggregator to a full project portfolio hub using Claude Code. GitHub API 403 debugging, parallel agent translation (6 files at once), automated build log generation, and enough YAML edge cases to last a while. Total tool calls: 423.
 
-## Why the Pivot
+## A Plan Document Isn't Optional at This Scale
 
-jidonglab.com started as an AI news curation site. Every day at 9 AM KST, a pipeline scraped news, summarized it with Claude, and published to Dev.to. Fully automated, no maintenance.
-
-The problem: it wasn't working as a portfolio.
-
-I had 11 git projects running locally — a saju (Korean astrology) app, a coffee chat tool, a dental clinic site, a trading bot, an AI news platform. Only 7 appeared in the portfolio. Build logs were written manually. Work existed, but wasn't visible anywhere in an organized way.
-
-The fix was directional. Move the site's center of gravity from news to projects.
-
-The prompt that kicked things off:
+The first thing in the prompt wasn't a feature request. It was a full implementation plan:
 
 ```
 Implement the following plan:
-Convert jidonglab from an AI news/blog site into a project portfolio hub.
-11 local git projects exist, but only 7 are registered in the portfolio.
-Build logs are generated manually.
+
+# jidonglab Portfolio Hub Renewal
+
+I have 11 git projects locally but only 7 are registered in the portfolio,
+and build logs are generated manually.
 ```
 
-I pass Claude Code a structured plan rather than a loose request. When it receives a spec document, it determines execution order by file, batches parallelizable tasks together, and works through them. "Here's the spec" consistently outperforms "can you help me with."
+Then the full spec followed — Steps 1 through 5, each with specific files to create or modify.
 
----
+This is the thing that separates productive Claude Code sessions from expensive ones. If you start with "improve the admin page," Claude will make reasonable-sounding decisions with no shared direction. You end up reviewing changes you didn't ask for.
 
-## Encountering the 58KB `admin.astro`
+The plan specified a precise implementation order: add a `visible` field to `src/content/config.ts` schema → create `project-registry.yaml` → write `generate-build-log.sh` → add API endpoints → add Admin tab. Claude followed this sequence exactly. I could pause between steps, review, and decide whether to continue before the next piece ran.
 
-The first blocker was `admin.astro`.
+With a plan, Claude is a precise executor. Without one, it's a well-intentioned guesser.
 
-58KB. One Astro component. That's a smell — Projects, Build Logs, Stats, and Dev.to tabs all crammed into a single file, UI and logic interleaved.
+Tool calls by the end of the session: Bash 248, Edit 72, Read 63, Write 19. Total: 423.
 
-Claude Code read the file in chunks using the Read tool, mapped the tab structure, identified where JavaScript event bindings lived, then determined where to splice in the new Projects and Build Logs tabs without breaking existing behavior.
+## The GitHub API 403 That Took Two Minutes to Fix
 
-Manual navigation through that file would have taken 30 minutes just to get oriented.
+The admin feature goal was simple: pull all my GitHub repos, let me toggle which ones appear in the portfolio. One UI, one source of truth, no more manually editing YAML files.
 
-Lesson learned on prompting large files: "edit this file" fails on 58KB components. "Read this file's tab structure, add a Projects tab and Build Logs tab, and preserve the existing JS event binding pattern" works. File complexity requires proportional context. The more specific the instruction, the fewer correction rounds.
-
----
-
-## GitHub API: 9 Repos → 28
-
-The old portfolio used a static YAML list. Adding a project meant editing a file, committing, deploying. Functional but manual.
-
-New approach: pull repos directly from the GitHub API and control visibility through the admin UI.
-
-Building the API endpoint (`admin-projects.ts`) went smoothly — until `403 Forbidden` hit.
-
-Token scope. The GitHub Personal Access Token was missing the `repo` permission. Claude Code can't generate tokens; that's a manual step. Paused, updated the token, restarted.
-
-Next call returned: **9 registered, 28 on GitHub**.
-
-All 28 repos, one request. From that point, toggling a project's `visible` state in the admin panel is all it takes to show or hide it on the portfolio. No YAML edits, no deploys for data changes. That was the goal.
-
----
-
-## Automating Build Logs
-
-Writing build logs was the most time-consuming recurring task on this site. Build something, then spend additional time turning it into a readable post. Sometimes the writing took longer than the coding.
-
-Two scripts:
-
-- `scripts/generate-build-log.sh` — orchestrates the pipeline
-- `scripts/parse-sessions.py` — parses Claude Code's `.jsonl` session logs
-
-The parser extracts raw material from session files: which files were modified, what prompts were entered, how many tool calls ran, which tools dominated. That data feeds into Claude, which produces a draft.
-
-A LaunchAgent at `~/Library/LaunchAgents/com.jidong.build-log.plist` runs the parser every 6 hours automatically.
-
-Not fully hands-off. Drafts are generated automatically; publishing is manual after review. Quality requires a human pass. Current state: auto-generate + manual publish.
-
-The constraint: output quality is proportional to session quality. Clear prompts and deliberate context during sessions lead to usable drafts. Sloppy sessions produce sloppy drafts. The automation is a forcing function for better session hygiene.
-
----
-
-## When Parallel Agents Actually Help
-
-The agentochester project (session 7, 327 tool calls) used the `subagent-driven-development` skill — take a spec, decompose it into independent tasks, dispatch each to a separate agent.
-
-Agents that ran:
-- `adapter.ts` implementation
-- 8 builtin YAML agents
-- `catalog` + `agent-manager` implementation
-- `assembler.ts` implementation
-- TypeScript type safety audit
-- Security review
-- Test coverage analysis
-- Dashboard QA
-- Spec compliance review
-
-9 agents, each with an isolated context window.
-
-The caveat: parallel agents only help when tasks are actually independent. If task B can't start until task A completes, spinning up B in parallel just means it waits. `catalog.ts` couldn't be built until `adapter.ts` was done — that's a serial dependency regardless of how many agents are running.
-
-Dependency mapping is a prerequisite for effective parallelism. Write the spec with explicit dependency annotations, or you'll spin up agents that immediately start blocking each other.
-
----
-
-## Dev.to Cleanup and SEO
-
-Mid-session, a problem surfaced: Korean-language posts were live on Dev.to.
-
-Dev.to is an English-first platform. Korean posts don't surface in search, don't reach the intended audience, and dilute account focus.
+Implementation went smoothly until the first test:
 
 ```
-Unpublish all Korean posts from Dev.to.
-Check whether the remaining English posts are optimized
-for search, hooks, and traffic.
+github api error 403
 ```
 
-Claude Code called the Dev.to API, fetched the post list, detected language, and unpublished the Korean posts. Then it rewrote titles and tags on the remaining English posts from an SEO perspective.
+Claude had written the `admin-projects.ts` endpoint to read `process.env.GITHUB_TOKEN`. The problem: I had a token in the account but hadn't added it to my local `.env`. Worse, the token existed with read-only access — I hadn't checked the `repo` scope when creating it.
 
-The logic is straightforward: identify search intent, front-load the primary keyword in the title, select 4 tags strategically. Applied uniformly across all existing posts in one pass.
-
----
-
-## The YAML Colon Bug
+Fixed the scope, added the token to `.env`, ran again:
 
 ```
-when I add a link or project status in admin, I get some yaml error
+9 registered, 28 on GitHub
 ```
 
-Entering a URL in the admin UI broke YAML parsing. The cause: colons in URLs. In YAML, `:` is the key-value separator. An unquoted URL like `https://example.com` confuses the parser — `https` looks like a key.
+Before: manually editing a YAML file every time I started or finished a project. After: a toggle in the admin UI. 28 repos visible, I check the ones I want surfaced in the portfolio, done.
 
-Fix: automatically quote string values on serialization. Trivial change, but one that only surfaces when you actually use the feature with real data.
+One thing worth noting about this error class: GitHub's API returns 403 for both "token missing" and "token lacks scope." The response body gives more detail, but at a glance you can't tell which you're hitting. Claude flagged both possibilities — I checked scope first, which turned out to be the issue.
 
-This is the real cycle for solo development: build fast with Claude Code, use the feature, fix what breaks. Anticipating every edge case before shipping is slower than shipping and iterating. The YAML bug took 30 seconds to find in use; it would have taken much longer to predict in design.
+## Parallel Agents: Not Just Delegation, Actual Parallelism
 
----
+I had 6 Korean build logs that needed English versions. Sequential processing would've consumed the rest of the session.
 
-## What the Tool Stats Tell You
+Instead, Claude spun up an agent:
 
-Session 1 (portfolio-site pivot):
 ```
-Bash(248), Edit(72), Read(63), Write(19), Grep(10)
-```
-
-Bash at 248 covers deployments, build checks, API tests, and git operations. Edit at 72 means existing files were modified far more than replaced. Read at 63 reflects the upfront cost of understanding large files before touching them. Write at 19: new file creation is rarer than it seems.
-
-This ratio reflects sound working patterns: understand existing code → modify only what's necessary → create new files only when required.
-
-Session 7 (agentochester):
-```
-Bash(107), Edit(59), Read(49), Write(43), TaskUpdate(29)
+Agent "Translate 6 build logs to English" completed
+All 12 files created successfully.
 ```
 
-Write jumps to 43 because this was a new repository being built from scratch. `TaskUpdate` at 29 is agent orchestration overhead — the coordination cost of running 9 parallel agents, made visible as a number.
+One agent call, 6 files in, 12 files out (original + translation each). While the agent was working, I kept building out the portfolio admin features.
 
----
+This is what the Agent tool in Claude Code actually does — it's not just task offloading, it's concurrent execution within a session. The agent runs its task, the main session runs another, results come back when the agent finishes.
 
-## What's Still Incomplete
+The translated drafts needed tone editing afterward. English developer readers expect different framing than Korean readers — more context on unfamiliar concepts, different structural emphasis. But the raw translation gave me accurate technical content to work from. Starting from scratch would've taken significantly longer.
 
-The automation is in place, but not finished.
+The practical rule I've settled on: if a task involves 3+ similar items that don't depend on each other, it's a parallel agent job.
 
-**Build log quality**: Draft quality scales with session quality. This isn't a problem to solve in the pipeline — it's a discipline to maintain during sessions.
+## Long Sessions and Context Compression
 
-**Project curation**: 28 repos synced, but not all belong in the portfolio. Going through each one and toggling `visible` is still pending.
+The session log for this day touched portfolio-site, uddental, agentochester, and tokenzip — four separate projects. My concern going in was that context would bleed across projects.
 
-**Projects page redesign**: The current layout doesn't distinguish active from completed projects at a glance. A redesign that makes that distinction visual is next.
+It didn't.
 
-> When a site is clear about what it shows, the work that happens there becomes clearer too.
+Claude targeted the right project directory for each task without confusion. Switching from `~/portfolio/portfolio-site/` to "check the dental project" moved to `~/uddental/` cleanly. Any context-switching problems were mine, not Claude's.
+
+The real risk with long sessions is different: context compression.
+
+When a session runs long enough, older messages get compressed into summaries. Claude starts working from a compressed version of earlier context, not the original. The longer the session, the more information gets approximated.
+
+I saw this directly: late in the 73-hour session, a display bug in the admin projects tab came up again — the same bug I'd already fixed hours earlier. Claude flagged it as new. That earlier fix had been compressed out of accessible context.
+
+The practical ceiling I've landed on: **200–300 tool calls per session** is about where context degradation becomes noticeable. Beyond that, a fresh session is faster than compensating for what's been forgotten. Starting fresh costs you a context reload. Working through degraded context costs you debugging time on problems you already solved.
+
+300 tool calls is a rough threshold, not a hard rule. But if you're at 400+ and things feel off, it's probably the session, not the code.
+
+## DEV.to: The Korean Posts That Shouldn't Have Been There
+
+After the admin work, I checked DEV.to. Several posts had gone up in Korean — not intentional. English-language platform, Korean content.
+
+```
+pull down anything in Korean,
+check if current English posts are set up for search/traffic
+```
+
+Claude used the DEV.to API to flip those posts to `published: false`. Then it analyzed the existing English posts for patterns.
+
+The SEO signal was clear: posts with numbers in the title consistently outperform descriptive ones. "88% cost reduction" beats "cost optimization approach" in click-through. Tags matter too — `ai` and `webdev` carry significantly more traffic than specific technical tags like `astro` or `yaml`. The right move is to anchor every post with at least one high-traffic tag, then fill remaining slots with specific ones.
+
+Not surprising findings. But having them grounded in actual data from existing posts is more actionable than general SEO advice.
+
+## Build Log Automation: What "Automatic" Actually Means Here
+
+I built two scripts: `scripts/generate-build-log.sh` and `scripts/parse-sessions.py`.
+
+The pipeline: Claude Code stores session data as `.jsonl` files under `.claude/projects/`. The parser extracts which files were modified, what prompts were entered, and how many tool calls happened per session. That structured data gets passed to Claude, which generates a build log draft from it.
+
+A `LaunchAgent` at `~/Library/LaunchAgents/com.jidong.build-log.plist` runs the parser every 6 hours.
+
+What "automatic" doesn't mean: the post publishes itself. The draft is auto-generated, I review it, I publish it. Auto-generate + manual publish is the right split. Fully automatic means publishing things I haven't read.
+
+The actual time saving: from "session happened" to "post published" dropped from around 90 minutes to about 20. The parser handles data extraction and structure. Claude fills in narrative from the data. I clean up tone and add context the parser can't infer. That's the right division of labor.
+
+## YAML and the URL Colon Problem
+
+Near the end of the session, the admin UI started throwing errors when I added a project URL:
+
+```
+adding a link or project status in admin shows some yaml error
+```
+
+The cause: URLs contain colons. YAML uses colons as key-value separators. An unquoted URL like `https://github.com/user/repo` looks to the YAML parser like two things: a key `https` and a value `//github.com/user/repo`. Parser fails.
+
+The fix: when writing string values to YAML, automatically wrap them in quotes. One utility function change.
+
+The broader pattern here is familiar: edge cases like this only surface when you actually use the feature with real data. Claude Code helps you build fast, which means you hit these issues at the "testing it out" stage rather than the "planning it out" stage. The feedback loop becomes: build fast → break on real input → fix immediately. For solo development, that's the right loop to be in.
+
+> Write the plan first. Run parallel agents. Cut sessions at 200–300 tool calls. Claude Code's efficiency comes from workflow, not from the tool itself.
 
 ---
 
