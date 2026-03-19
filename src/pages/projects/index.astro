@@ -4,18 +4,19 @@ import ProjectCard from '../../components/ProjectCard.astro';
 import { getAllProjects } from '../../lib/projects';
 import { getCollection } from 'astro:content';
 
-const statusOrder: Record<string, number> = { '운영중': 0, '개발중': 1, '실험중': 2, '중단': 3 };
+const statusOrder: Record<string, number> = { '운영중': 0, '실험중': 1, '개발중': 2, '중단': 3 };
 const projects = (await getAllProjects()).sort((a, b) =>
   (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.order - b.order
 );
 
 const buildLogs = await getCollection('build-logs');
 const totalLogs = buildLogs.filter(l => l.data.lang === 'ko').length;
-const activeCount = projects.filter(p => p.status === '운영중' || p.status === '개발중').length;
+const activeCount = projects.filter(p => p.status === '운영중' || p.status === '실험중').length;
 
 const featured = projects.filter(p => p.status === '운영중');
+const beta = projects.filter(p => p.status === '실험중');
 const inDev = projects.filter(p => p.status === '개발중');
-const experiments = projects.filter(p => p.status === '실험중' || p.status === '중단');
+const archived = projects.filter(p => p.status === '중단');
 ---
 
 <Base title="Projects" description="AI 프로젝트 포트폴리오">
@@ -60,6 +61,21 @@ const experiments = projects.filter(p => p.status === '실험중' || p.status ==
       </section>
     )}
 
+    {beta.length > 0 && (
+      <section style="margin-bottom:2.5rem;">
+        <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
+          <span style="width:8px;height:8px;border-radius:50%;background:#f59e0b;"></span>
+          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#333d4b;margin:0;"
+            data-ko="베타" data-en="Beta">베타</h2>
+        </div>
+        <div style="display:grid;gap:0.85rem;grid-template-columns:repeat(2,1fr);">
+          {beta.map((p) => (
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} featured={true} />
+          ))}
+        </div>
+      </section>
+    )}
+
     {inDev.length > 0 && (
       <section style="margin-bottom:2.5rem;">
         <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
@@ -75,15 +91,15 @@ const experiments = projects.filter(p => p.status === '실험중' || p.status ==
       </section>
     )}
 
-    {experiments.length > 0 && (
+    {archived.length > 0 && (
       <section style="margin-bottom:2rem;">
         <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
           <span style="width:8px;height:8px;border-radius:50%;background:#d1d5db;"></span>
           <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#8b95a1;margin:0;"
-            data-ko="실험 / 아카이브" data-en="Experiments / Archive">실험 / 아카이브</h2>
+            data-ko="아카이브" data-en="Archive">아카이브</h2>
         </div>
         <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(3,1fr);">
-          {experiments.map((p) => (
+          {archived.map((p) => (
             <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} />
           ))}
         </div>
