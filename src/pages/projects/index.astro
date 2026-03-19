@@ -9,9 +9,22 @@ const projects = (await getAllProjects()).sort((a, b) =>
   (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.order - b.order
 );
 
-const buildLogs = await getCollection('build-logs');
-const totalLogs = buildLogs.filter(l => l.data.lang === 'ko').length;
+const buildLogs = (await getCollection('build-logs'))
+  .filter(l => l.data.lang === 'ko')
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
+const totalLogs = buildLogs.length;
 const activeCount = projects.filter(p => p.status === '운영중' || p.status === '실험중').length;
+
+// 프로젝트별 빌드 로그 메타 (한 번만 계산)
+const logMeta: Record<string, { count: number; latestTitle?: string; latestSlug?: string }> = {};
+for (const p of projects) {
+  const logs = buildLogs.filter(l => l.data.project === p.slug);
+  logMeta[p.slug] = {
+    count: logs.length,
+    latestTitle: logs[0]?.data.title,
+    latestSlug: logs[0]?.slug,
+  };
+}
 
 const featured = projects.filter(p => p.status === '운영중');
 const beta = projects.filter(p => p.status === '실험중');
@@ -55,7 +68,7 @@ const archived = projects.filter(p => p.status === '중단');
         </div>
         <div style="display:grid;gap:0.85rem;grid-template-columns:repeat(2,1fr);">
           {featured.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} featured={true} />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} featured={true} logCount={logMeta[p.slug]?.count || 0} latestLogTitle={logMeta[p.slug]?.latestTitle} latestLogSlug={logMeta[p.slug]?.latestSlug} />
           ))}
         </div>
       </section>
@@ -70,7 +83,7 @@ const archived = projects.filter(p => p.status === '중단');
         </div>
         <div style="display:grid;gap:0.85rem;grid-template-columns:repeat(2,1fr);">
           {beta.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} featured={true} />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} featured={true} logCount={logMeta[p.slug]?.count || 0} latestLogTitle={logMeta[p.slug]?.latestTitle} latestLogSlug={logMeta[p.slug]?.latestSlug} />
           ))}
         </div>
       </section>
@@ -85,7 +98,7 @@ const archived = projects.filter(p => p.status === '중단');
         </div>
         <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(2,1fr);">
           {inDev.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} />
           ))}
         </div>
       </section>
@@ -100,7 +113,7 @@ const archived = projects.filter(p => p.status === '중단');
         </div>
         <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(3,1fr);">
           {archived.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} />
           ))}
         </div>
       </section>

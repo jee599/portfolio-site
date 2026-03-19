@@ -1,6 +1,4 @@
 ---
-import { getCollection } from 'astro:content';
-
 interface Props {
   slug: string;
   title: string;
@@ -10,9 +8,12 @@ interface Props {
   url?: string;
   github: string;
   featured?: boolean;
+  logCount?: number;
+  latestLogTitle?: string;
+  latestLogSlug?: string;
 }
 
-const { slug, title, one_liner, status, stack, url, github, featured = false } = Astro.props;
+const { slug, title, one_liner, status, stack, url, github, featured = false, logCount = 0, latestLogTitle, latestLogSlug } = Astro.props;
 
 const statusConfig: Record<string, { bg: string; color: string; border: string; en: string }> = {
   '운영중': { bg: '#e6f9f0', color: '#00a85e', border: '#00c471', en: 'Live' },
@@ -22,11 +23,6 @@ const statusConfig: Record<string, { bg: string; color: string; border: string; 
 };
 
 const sc = statusConfig[status] || statusConfig['중단'];
-
-const buildLogs = (await getCollection('build-logs'))
-  .filter((l) => l.data.project === slug && l.data.lang === 'ko');
-const logCount = buildLogs.length;
-const latestLog = buildLogs.sort((a, b) => b.data.date.getTime() - a.data.date.getTime())[0];
 
 const cardPadding = featured ? '1.5rem' : '1.25rem 1.35rem';
 const titleSize = featured ? '1.2rem' : '1rem';
@@ -85,12 +81,12 @@ const titleSize = featured ? '1.2rem' : '1rem';
   </div>
 
   {/* Row 5: Latest build log (featured only) */}
-  {featured && latestLog && (
+  {featured && latestLogTitle && latestLogSlug && (
     <div style="margin-top:0.75rem;padding-top:0.65rem;border-top:1px solid #f2f4f6;display:flex;align-items:center;gap:0.4rem;">
       <span style="font-size:0.52rem;font-family:'JetBrains Mono',monospace;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:#00c471;background:#e6f9f0;padding:0.1rem 0.35rem;border-radius:3px;">Latest</span>
-      <a href={`/posts/${latestLog.slug}`}
+      <a href={`/posts/${latestLogSlug}`}
         style="font-size:0.72rem;color:#333d4b;font-weight:500;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
-        {latestLog.data.title}
+        {latestLogTitle}
       </a>
     </div>
   )}
