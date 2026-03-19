@@ -23,13 +23,18 @@ CLAUDE_PROJECTS_DIR = os.path.expanduser('~/.claude/projects')
 # 디렉토리명은 경로를 하이픈으로 치환한 형태
 PROJECT_MAP = {
     'saju_global': ['-Users-jidong-saju-global'],
-    'portfolio-site': ['-Users-jidong'],
+    'portfolio-site': ['-Users-jidong-portfolio-portfolio-site', '-Users-jidong'],
     'coffee-chat': ['-Users-jidong-projects-coffeechat'],
     'trading-bot': ['-Users-jidong-xrp-trading-bot'],
     'claudebook': ['-Users-jidong-Downloads-claudebook'],
     'LLMTrio': ['-Users-jidong-LLMTrio'],
     'uddental': ['-Users-jidong-uddental'],
     'shortsmaker': ['-Users-jidong-ShortsMaker'],
+    'agentochester': ['-Users-jidong-agentochester'],
+    'dev_blog': ['-Users-jidong-dev-blog'],
+    'news4ai': [],  # 아직 세션 없음
+    'koreamcp': [],  # 아직 세션 없음
+    'tokenzip': [],  # 아직 세션 없음
 }
 
 
