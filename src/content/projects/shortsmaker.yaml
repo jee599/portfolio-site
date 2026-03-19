@@ -1,6 +1,6 @@
 title: "ShortsMaker"
 github: "https://github.com/jee599/ShortsMaker"
-status: "개발중"
+status: "중단"
 stack: ["Python", "FFmpeg", "AI TTS", "YouTube API"]
 one_liner: "광고용 쇼츠 영상을 자동 생성하는 파이프라인"
 order: 4
