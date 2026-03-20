@@ -1,137 +1,100 @@
 ---
-title: "605 Tool Calls: How I Rebuilt My Portfolio Into a Project Hub with Claude Code"
+title: "539 Tool Calls in 37 Hours: What Multi-Agent AI Dispatch Actually Looks Like"
 project: "portfolio-site"
 date: 2026-03-20
 lang: en
 pair: "2026-03-20-portfolio-site-ko"
-tags: [claude-code, astro, multi-agent, automation, github-api]
-description: "605 tool calls, 355 Bash commands, one session. How I turned jidonglab.com from an AI news blog into a project portfolio hub — and three bugs that made it messy."
+tags: [claude-code, agentcrow, multi-agent, ai-automation]
+description: "23 sessions, 900+ tool calls. One session ran 37h with 539 calls and built SpoonAI from zero. Exact breakdown of parallel agent dispatch — where it wins, where it breaks."
 ---
 
-605 tool calls. 355 Bash. 99 Edit. 91 Read.
+The session ran for 37 hours and 13 minutes. 539 tool calls. 60+ files generated from scratch. By the end of it, SpoonAI had a working skeleton.
 
-That's not a success metric. That's a record of what it looks like when a session doesn't run clean. I fixed the same bug three times. Hit a build timeout I didn't see coming. Spent three iterations on GitHub API errors that were all predictable from the docs. The number just reflects that honestly.
+**TL;DR** I deployed AgentCrow — a multi-agent dispatch system built into my Claude Code setup — across real projects. Pikachu volleyball multiplayer took 1h 53m and 197 tool calls. SpoonAI, an AI news aggregation platform, went from zero code to full skeleton in one session. Here's what parallel agent dispatch actually looks like in practice, where it breaks down, and the exact lessons from 23 sessions and 900+ tool calls.
 
-**TL;DR** — Converted jidonglab.com from an AI news aggregator into a project portfolio hub. One session: JSONL-based build log automation, a GitHub API-connected admin panel, a parallel-agent site redesign, and a build timeout caused by a component doing data fetching it had no business doing.
+## "Build Me Pikachu Volleyball Multiplayer"
 
-## The Problem: 11 Projects, 7 Visible
+That was the entire prompt.
 
-I had 11 git repos running locally. The portfolio showed 7. Build logs were written by hand, one at a time. The site was publishing AI news automatically every few hours — while everything I was actually building stayed invisible.
+AgentCrow dispatched four agents immediately: `game_designer`, `frontend_developer`, `backend_architect`, `qa_engineer`. The first three ran in parallel — design doc, Next.js client, WebSocket server, all simultaneously. Once those three finished, `qa_engineer` wrote the tests.
 
-A visitor couldn't tell what I was working on. That was the problem.
+Result: 1 hour 53 minutes. 197 tool calls. Build passed. Type checks clean. 92 tests, all green.
 
-I opened with a structured prompt:
+The user's response: "Are you serious?"
 
-```
-Convert jidonglab.com from an AI news/blog site into a project portfolio hub.
-I have 11 git projects locally, but only 7 are in the portfolio.
-Build logs are generated manually.
+The sprites were wrong. The physics were off. The 8-directional spike was missing. Jump-then-dive input was broken. Agents had built something that ran — but it wasn't Pikachu volleyball. It was a functional multiplayer game wearing the name as a costume.
 
-Target flow:
-1. Generate build logs via CLI
-2. Manage projects + publish build logs from Admin
-```
+The second round gave agents explicit instructions: find the original source repository, reverse-engineer the physics engine and sprite logic. Ball initial y-coordinate. Dive deactivation mid-jump state. Enter + directional key combo for spike. Exact constants from the original code, restored.
 
-The site's `admin.astro` was a 58KB file. Claude read it and laid out a 6-step plan: create `project-registry.yaml`, update Content Collection schemas, write CLI scripts, add API endpoints, extend the Admin panel, wire up DEV.to sync. Then it ran 355 Bash commands to implement each step.
+The lesson is blunt. "Build Pikachu volleyball" is too abstract. "Find the original pikachu-volleyball repo and implement the physics identically" is the right prompt. Output quality scales directly with prompt specificity.
 
-## The JSONL Pipeline That Writes Blog Posts From Code
+## From Spec to Skeleton in 37 Hours
 
-It started with one line: "It'd be nice to generate build logs from JSONL sessions."
+SpoonAI is an AI news auto-aggregation → email newsletter → web platform. The spec was already written. Phase 1 through 3, fully documented. Zero lines of code.
 
-Claude Code stores every conversation locally at `~/.claude/projects/` as JSONL files — user prompts, tool calls, and results, all of it. Parse those files and you can reconstruct what happened in any session.
+Session 6 started here. 37h 13m. 539 tool calls. Write 84 times. Bash 242 times. Read 74 times. Edit 49 times.
 
-`parse-sessions.py` reads the JSONL, filters by project directory, and produces a structured summary. `generate-build-log.sh` sends that summary to the Claude API and gets back a markdown draft. Hook it into GitHub Actions and every `git push` can trigger an auto-generated build log.
+Before writing any code, agents scaffolded the directory structure, locked down config files, then generated components in parallel. Page files simultaneously. Three pieces of test content auto-populated.
 
-This post is sourced from the same session data that pipeline processes.
+60+ files created in a single session. `app/`, `components/`, `lib/`, `content/` — the full project structure, one shot.
 
-One question came up: what's the difference between local cron and GitHub Actions? Local cron only runs when your machine is on. For anything that needs to run reliably on a schedule, GitHub Actions is the obvious choice.
+It wasn't smooth the entire 37 hours. The user kept changing the design. "Make it trendier overall." "Images cannot break, period." "Use this logo instead." Each change triggered a fresh dispatch: UI/UX designer, frontend implementer, typography + color specialist. Three agents redesigning simultaneously, build success verified at the end of each round.
 
-## GitHub API Fails — Three Times in a Row
+SpoonAI triggered AgentCrow dispatch 10+ times across the session. Each dispatch handled independent tasks in parallel. The only sequential work: cases where two agents would've touched the same file.
 
-The Admin panel needed to commit project YAML directly to GitHub when settings changed. The GitHub Contents API handles this. The errors came in sequence, each predictable from the previous.
+## Three Sessions That Got Stuck on One Bug
 
-**403 first.** The Personal Access Token didn't have the `repo` scope. Generated a new token.
+The remark-gfm strikethrough bug was the most frustrating stretch.
 
-**Then 409.**
+The problem: remark-gfm v4 ships with `singleTilde: true` by default. In Korean, `~` is used constantly for ranges — `2~3년` (2–3 years), `~32억` (~3.2B KRW). When two tildes appear in the same markdown document, everything between them gets strikethrough formatting applied.
 
-```
-src/content/projects/news4ai.yaml does not match 7cc02a8819f7f2704cbcdf17f10e0035c78abb6e
-```
+Session 10: dispatched 3 agents in parallel to fix `lib/content.ts` and replace tildes across existing markdown files. Deployed.
 
-Updating a file via the GitHub Contents API requires sending the current file's SHA. The code was sending a stale one. Fixed: `GET /contents/{path}` to fetch the current SHA first, then include it in the `PUT`.
+Then the session got stuck. Whether the deploy actually completed was unclear.
 
-**Then 422.**
+Session 11: "Previous session was stuck, starting fresh." Same work, again.
 
-```
-"sha" wasn't supplied.
-```
+Session 12: same again.
 
-Creating a new file means no SHA field at all — but the code was sending an empty string. Added a branch: if the file doesn't exist yet, omit the SHA field entirely.
+Tool call breakdown: Session 10 was Bash 11 + Agent 3. Session 11 was Bash 17 + Edit 5. Session 12 was Bash 19 + Edit 5. Nearly identical patterns across all three sessions.
 
-I used a "keep fixing until it works" prompt and Claude iterated through each error. Looking back, all three failure modes were visible in the GitHub API docs. Reading the spec first and implementing to it would have cut the tool calls in half.
+The fix itself was straightforward: `remarkGfm({ singleTilde: false })` in `lib/content.ts`, then replace all `A~B` range patterns with en-dash `A–B` across existing markdown files. Added a writing rule to the skill file so future AI-generated posts don't use `~` for ranges at all.
 
-## The Same Bug Fixed Three Times
+The lesson for stuck-session recovery: explicitly state current state in the restart prompt. "You may have already added `singleTilde: false` — check the current file state before making any changes." Without that, agents redo completed work and you burn three sessions on a single bug.
 
-DEV.to is for English content. Korean build logs kept appearing there anyway.
+## Turning Off Vercel Auto-Deploy
 
-First time: asked to take them down. Done. Next day they were back. Asked why. Got a fix. They reappeared again.
+Every `git push` was triggering a Vercel build attempt and sending error emails.
 
-The filtering logic was split across two places. The `publish-to-devto.yml` GitHub Actions workflow had a `lang` filter that wasn't working. The `sync-devto.ts` API layer had its own separate publish logic. Fix one, the other fires independently.
+The cause was account mismatch. The account connected in the Vercel dashboard didn't match the account doing actual pushes, so auto-build failed structurally every time. The only deploy path that actually worked was:
 
-It only stopped after I said: "Build logs are jidonglab-only — confirm this is never going to DEV.to again." Both files were updated simultaneously, and it stayed fixed.
-
-Claude Code focuses on the file it just changed. It won't proactively scan for duplicate logic in other files. For constraints that actually matter, name the specific files involved. Repeat the constraint until all paths are confirmed closed.
-
-## The Build Timeout I Didn't See Coming
-
-After deploying, Cloudflare Pages killed the build mid-way:
-
-```
-Failed: build exceeded the time limit and was terminated
+```bash
+vercel build --prod && vercel deploy --prebuilt --prod --archive=tgz
 ```
 
-The culprit was `ProjectCard.astro`. The component was calling `getCollection('build-logs')` directly:
+The fix was one line in `vercel.json`:
 
-- 9 project cards
-- Each calls `getCollection` at build time
-- 24 build log files per collection read
-- 9 × 24 = 216 file reads happening inside component renders
-
-The fix was straightforward: remove `getCollection` from `ProjectCard`, pass the build log data down from the parent as props.
-
-```
-fix: ProjectCard에서 getCollection 제거 → 빌드 타임아웃 해결
+```json
+{
+  "git": {
+    "deploymentEnabled": false
+  }
+}
 ```
 
-It's a basic rule — components shouldn't fetch their own data, data flows down from parents. This worked fine locally and only exploded in the Cloudflare build environment. That gap between "works locally" and "fails in CI" is the most frustrating class of bug, and the hardest to anticipate.
+No more error emails. Push-triggered auto-deploy is cleaner when it works — but with a tangled account configuration, it's pure noise. Prebuilt deploy is slower but reliable.
 
-## Two Agents, Zero Conflicts
+## When Parallel Agent Dispatch Actually Works
 
-"Redesign the whole site. Projects should be front and center."
+The pattern clarified after 23 sessions.
 
-AgentCrow dispatched two agents in parallel:
+It works when tasks touch different files. "Server code changes" and "client UI changes" live in completely separate parts of the tree — zero conflict, full parallel. The SpoonAI typography agent and layout agent running simultaneously worked for exactly the same reason.
 
-```
-🐦 AgentCrow — dispatching 2 agents:
-1. @frontend_developer → "Homepage redesign — project-first layout"
-2. @frontend_developer → "Base layout nav + footer improvements"
-```
+It doesn't work when two agents need to modify the same file. If both are editing `lib/content.ts`, whichever finishes second overwrites the first.
 
-`index.astro` and `Base.astro` were edited simultaneously by separate agents. No conflicts — because they were working in different files.
+The 37-hour session was productive because most tasks were file-independent by nature. Next.js routing, component implementation, content generation — all happening in different directories simultaneously.
 
-One ordering question came up after the redesign shipped: "beta means it's already running, so it should probably be second." The final sort order: live → beta → in development → discontinued.
-
-The rule for parallel agents is file-level separation. Two agents editing the same file concurrently will conflict. Before dispatching, split the scope at the file boundary. Everything else follows from that.
-
-## What 605 Actually Measures
-
-36 files changed. 18 new files created. 9 projects updated.
-
-A large portion of the 355 Bash calls were `npm run build` and `tsc --noEmit` — verifying each code change before moving on. That loop is tedious but it catches problems before they compound into something harder to untangle.
-
-The GitHub API triple-fail was the opposite: iterating against runtime errors instead of reading the spec upfront. That pattern doubled the work. The lesson isn't "don't iterate" — it's "give Claude the docs, not just the error message."
-
-> Automation is the process of turning "how I built things" into a record that writes itself. While you're shipping, the blog catches up.
+> Parallel agent dispatch is fundamentally a question of file scope. Non-overlapping scopes: parallel wins. Overlapping scopes: sequential is the answer.
 
 ---
 

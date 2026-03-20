@@ -1,119 +1,126 @@
 ---
-title: "4 Parallel Agents, 197 Tool Calls: Rebuilding Pikachu Volleyball's Physics with Claude Code"
+title: "12 AI Agents, 197 Tool Calls: What 'Build It Like the Original' Actually Means"
 project: "agentochester"
 date: 2026-03-20
 lang: en
 pair: "2026-03-20-agentochester-ko"
-tags: [claude-code, multi-agent, game-dev, agentochester]
-description: "A 6-word prompt, 4 parallel agents, 197 tool calls, 1h53m — and one complete physics engine rewrite when the first attempt missed the point entirely."
+tags: [claude-code, multi-agent, agentochester, game-dev]
+description: "One prompt, 12 agents, 197 tool calls, 1h53m. Built a Pikachu Volleyball clone — then spent the rest rewriting it when agents had no reference for the original."
 ---
 
-Six words. That's all I typed.
+The prompt was one line.
 
-"피카츄 배구 멀티로 만들어줘." Make Pikachu Volleyball multiplayer.
-
-One hour and fifty-three minutes later, I had a working multiplayer Pikachu Volleyball game — with the original 1997 physics intact. It took 197 tool calls, 4 parallel agents, one completely wrong first attempt, and reverse-engineering the original source to fix it.
-
-**TL;DR** I used agentochester to dispatch 4 parallel agents simultaneously — game designer, frontend developer, backend architect, QA engineer — to build a multiplayer version of the classic game. The first output passed all tests but missed the point: the agents built a volleyball game with a Pikachu theme, not the actual 1997 Pikachu Volleyball. Fixing it meant sourcing the original open-source code, extracting the physics constants, and rewriting the engine. Total: 197 tool calls, 1h53m.
-
-
-## "You Call This Pikachu Volleyball?"
-
-The initial dispatch was clean. Three agents went out in parallel:
-
-- `game_designer` — write the mechanics document
-- `frontend_developer` — build the Next.js + Canvas client
-- `backend_architect` — set up the WebSocket server
-
-By the time `qa_engineer` finished, the output looked solid. Build passing. 92 tests passing. Server type-check clean.
-
-Then I opened the game.
-
-The problem was obvious in the first 10 seconds. Wrong physics. Wrong sprites. Wrong feel. What the agents built was a volleyball game starring Pikachu — not Pikachu Volleyball. There's a meaningful difference.
-
-The original Pikachu Volleyball shipped in 1997. It has a very specific physics model: the ball arc, the spike detection window, the jump curve. Players who grew up with it have muscle memory for exactly how the ball behaves. None of that existed in the first attempt. The agents had never been told about it, so they built what "volleyball game" means from first principles.
-
-This is the core failure mode of parallel multi-agent dispatch: each agent optimized for its own interpretation of the task. `game_designer` wrote a generic volleyball ruleset. `frontend_developer` built to that spec. The shared context — "this must match the 1997 original" — was never defined because I never said it.
-
-Fast output with misaligned direction is still wasted work.
-
-
-## Finding the Original Source
-
-The approach changed here. Instead of patching the existing implementation, I told the agent to find the original Pikachu Volleyball source and extract the physics.
-
-The original game is open source. The agent pulled the source, analyzed it, and returned a comparison: our implementation vs. the original, constant by constant. Ball initial Y position. Spike detection threshold. Jump curve parameters. Every one of them was off.
-
-The diffs weren't large — a few magic numbers, a couple of state flags — but those numbers *are* the game. Change the ball arc by 10% and the feel is completely different.
-
-Two new agents went out in parallel:
-
-- `Rewrite server` — implement original physics
-- `Rewrite client` — sync sprites + physics
-
-Both finished with TypeScript strict mode passing and a clean build.
-
-After that, I moved the code to its own repo. Files in `~/agentochester/pikachu-volleyball/` transferred to `git@github.com:jee599/pikachu.git`. The prompt: "create a workspace and move all Pikachu Volleyball code there." The agent handled it without needing more direction.
-
-
-## Reverse-Engineering the Controls
-
-Once the base physics were right, edge-case bugs surfaced. Aerial diving was triggering when it shouldn't. Enter key wasn't registering as a spike. Frame rate was dropping below 60.
-
-I asked: "Does the original source handle this? Jump state shouldn't allow aerial dive. Enter + direction should spike toward that direction."
-
-The agent read the full original source and produced a side-by-side comparison: our code vs. the original, for every relevant piece of logic. The original implements 8-directional spiking via arrow key state at the moment of contact. Jump state was tracked with a separate flag that blocked the dive input. Neither existed in our version.
-
-One prompt: "verify against all source files and implement correctly."
-
-The agent rewrote `engine.ts`, `input.ts`, and `game.ts`.
-
-
-## What 197 Tool Calls Looks Like
-
-The distribution reads as a record of what actually happened:
-
-Bash 84 calls. Read 48 calls. Edit 36 calls. Write 17 calls. Agent 12 calls.
-
-Bash dominated because of environment churn. Port 3001 kept getting held by previous processes — killing and restarting the server accounted for a significant chunk. That's invisible when you're moving fast but shows up clearly in the numbers.
-
-Read at 48 reflects the original source analysis phase. The agent read every relevant file in the original codebase before touching ours. That's the right approach for reverse-engineering — understand first, change second.
-
-Edit at 36 means the bug-fix loop ran more times than expected. Physics bugs often require multiple small adjustments to get the feel right. Each iteration was a read → test → edit cycle.
-
-Agent at 12 looks small, but each Agent call is itself a session with its own internal tool calls. The 197 total represents the orchestration layer. The agents' own calls run underneath, uncounted here.
-
-
-## What agentochester Is Actually Building
-
-The project is an agent dispatch CLI. The core loop: take a prompt, decompose it into roles, dispatch agents in parallel.
-
-The task decomposer takes natural language and returns structured JSON:
-
-```json
-[
-  {"role": "frontend_developer", "action": "Implement blog site with Next.js + Tailwind CSS"},
-  {"role": "seo_specialist", "action": "Optimize meta tags, Open Graph, sitemap.xml"},
-  {"role": "ui_designer", "action": "Review layout, typography, responsive design"}
-]
+```
+Make Pikachu Volleyball multiplayer
 ```
 
-Roles like `frontend_developer`, `backend_architect`, `qa_engineer`, `security_engineer` are predefined. Complex requests get decomposed into these roles and dispatched. The parallel execution is real — the skeleton for a project comes together faster than sequential work allows.
+agentochester parsed that and dispatched three agents in parallel — `game_designer`, `frontend_developer`, `backend_architect`. One hour and 53 minutes later, the tool call counter read 197.
 
-This session was the first time I tested that dispatch system on a game development task with a known reference. The parallel execution worked. The failure was in the shared context layer. The dispatcher can split work efficiently, but if the context passed to each agent is incomplete, each one optimizes for a different interpretation of the same task.
+**TL;DR** Parallel agents move fast. But "build something like X" without giving X as a reference means agents fill the gap with reasonable assumptions. Reasonable assumptions produce reasonable output — not the original. For domain-specific work like replicating a game's physics engine, you need the actual source, not a description of it.
 
-"Implement multiplayer Pikachu Volleyball" is ambiguous. "Implement multiplayer Pikachu Volleyball — physics must match the 1997 original, reference `/docs/physics-spec.md`" is not.
+## What agentochester does
 
+agentochester is a CLI that decomposes user prompts into structured tasks and dispatches them to role-specific sub-agents. Internally, `claude-opus-4-6` acts as the task decomposer. It reads the prompt, breaks it into independent or sequential tasks, assigns agent roles, and executes them — parallel where possible, sequential where dependencies require it.
 
-## The Lesson That Changes the Next Session
+Sessions 1 through 3 were all zero-minute runs. No code output — just validating the decomposer against typical prompts: a to-do app, a REST API, a blog site. The JSON decomposition into roles and tasks worked cleanly each time. Giving the decomposer a natural-language description of a project and getting back structured role assignments felt immediately useful.
 
-Before dispatching agents on any task with a known reference — a game, an existing product, a spec — create the shared context document first. Pass it to every agent alongside the role assignment.
+Session 4 was the first real build.
 
-The 1h53m would have been shorter. The first attempt wouldn't have needed a full rewrite. The original source analysis would have happened before implementation, not after.
+## Parallel x3 → QA → port conflict
 
-The agentochester CLI needs a context layer: a place to define constraints that every agent in a dispatch receives. Without it, parallel speed just means parallel divergence.
+The dispatch plan came out as:
 
-> Build shared context before parallel dispatch. Fast without direction isn't fast — it's expensive redirection.
+```
+1. game_designer      → game mechanics design document
+2. frontend_developer → Next.js + Canvas client
+3. backend_architect  → WebSocket multiplayer server
+```
+
+All three started simultaneously. Completion order: `game_designer` finished first, then `backend_architect`, then `frontend_developer`. Once the last agent completed, `qa_engineer` was dispatched. 92 tests. All passing.
+
+Then I ran it manually. Port 3001 was already occupied.
+
+Each agent had launched a dev server during its work — to verify a build, test an endpoint, check a render. When the agent's task finished, the agent exited. The OS process didn't.
+
+This is the standard parallel agent environment problem. Each agent sees only its own task, not the shared environment. Agent A binds port 3001, finishes, exits — but the port stays open. Agent B either conflicts or silently grabs a different port. By the time QA runs, the environment is in a state none of the individual agents intended, and test suites that pass in isolation don't guarantee a clean integrated system.
+
+## "That's not the original game"
+
+After killing the orphaned process and getting things running, the feedback came:
+
+```
+Are you serious? The assets and physics are completely wrong.
+This isn't Pikachu Volleyball. Find the original and copy it exactly.
+```
+
+Functionally, the agents had built a working game. Ball exchange, scoring, WebSocket multiplayer sync — all working. But the characters were solid-colored rectangles. The ball arc was wrong. No sprite animation, no dive animation, no visual feedback for spikes.
+
+The problem wasn't the agents. It was the prompt.
+
+"Make Pikachu Volleyball multiplayer" contains no reference to the original. From the agents' perspective, the request was: build a multiplayer volleyball game in the style of Pikachu Volleyball. They had no access to the original codebase, no sprite sheets, no physics specification. So they built what "volleyball game" means from first principles. Competent, functional, completely wrong.
+
+An agent doesn't know what it doesn't know. It won't say "I'm not sure what the original physics felt like" — it'll implement physics that make sense for volleyball. The output is confident, reasonable, and misaligned.
+
+## Original source analysis → physics rewrite
+
+The original Pikachu Volleyball source (`git@github.com:jee599/pikachu.git`) was cloned into the workspace. Two agents were dispatched for targeted rewrites:
+
+```
+1. "Rewrite server — original physics"
+2. "Rewrite client — sprites + physics"
+```
+
+With the actual source available, there was a lot to extract. The agents read the original directly and reimplemented from what they found:
+
+Ball initial y-coordinate and spawn position. No-dive-while-airborne constraint — the player must be grounded to initiate a dive. Eight-direction spike detection based on arrow key state at moment of contact. Simultaneous Enter + directional key input handling. Frame-by-frame sprite animation sequencing.
+
+Those 84 Bash calls were mostly environmental — build checks, port cleanup, TypeScript compilation, server restarts. The 48 Read calls were heavily concentrated on the original source files. The agents read every relevant file before touching the implementation. Understand first, change second.
+
+After the rewrite, smaller bugs surfaced one at a time. 60fps frame timing was off. The airborne dive was still triggering under certain conditions:
+
+```typescript
+// Before: dive allowed mid-air
+if (input.dive) {
+  /* dive logic */
+}
+
+// After: ground-only dive
+if (input.dive && player.onGround) {
+  /* dive logic */
+}
+```
+
+SSR hydration was mismatching on the game canvas — needed `useEffect` to defer canvas initialization to the client. Ghost trail artifacts remained in the renderer because the frame buffer wasn't clearing between animation frames.
+
+Each fix was isolated. One bug at a time, verify, move to the next.
+
+## What 197 tool calls looks like
+
+```
+Bash(84), Read(48), Edit(36), Write(17), Agent(12)
+```
+
+Bash dominated because most of the work was environmental, not code authoring. Every "does this work" question is a Bash call — build verification, server restart, port cleanup, type check.
+
+Read at 48 was the original source analysis phase. Physics constants, collision detection, animation state machines — all read before any code changed.
+
+Edit at 36 was the actual implementation: physics engine corrections, renderer changes, bug fixes. Write at 17 created new files — server modules, client components, test files.
+
+Agent at 12 tracks the full dispatch history. Initial parallel: `game_designer`, `frontend_developer`, `backend_architect` (3). QA pass (1). Physics rewrite: client + server agents (2). Source analysis (1). Deployment config (1). Targeted bug fixes (4). Twelve total.
+
+The session ran 1 hour 53 minutes. Most of that time was in the two parallel rewrite agents working through the original physics implementation.
+
+## When parallel dispatch helps, and when it doesn't
+
+Initial implementation was the ideal parallel case. Game design doc, frontend client, backend server — independent work, no shared mutable state, parallelism is free. This is where agentochester's dispatch model earned its keep.
+
+Physics bug fixes were sequential by necessity. Fix the airborne dive, test the game, find the next issue. You can't know what the third bug is until you've fixed the second. Single agent, one at a time.
+
+The pattern: parallelize when tasks are independent and don't share environment state. Serialize when each step depends on the previous result, or when concurrent writes to shared resources create conflicts.
+
+Domain-specific work — replicating a specific game's physics — needs explicit reference material regardless of agent count. The number of agents doesn't change whether the input was precise enough to produce the right output.
+
+> Telling an agent "make it feel like the original" without giving the original is a vague prompt. The agent will do its best with what it has. Its best won't match yours.
 
 ---
 
