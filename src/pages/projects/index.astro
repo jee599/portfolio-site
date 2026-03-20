@@ -68,7 +68,7 @@ const archived = projects.filter(p => p.status === '중단');
         </div>
         <div style="display:grid;gap:0.85rem;grid-template-columns:repeat(2,1fr);">
           {featured.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} featured={true} logCount={logMeta[p.slug]?.count || 0} latestLogTitle={logMeta[p.slug]?.latestTitle} latestLogSlug={logMeta[p.slug]?.latestSlug} />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} latestLogTitle={logMeta[p.slug]?.latestTitle} latestLogSlug={logMeta[p.slug]?.latestSlug} />
           ))}
         </div>
       </section>
@@ -83,7 +83,7 @@ const archived = projects.filter(p => p.status === '중단');
         </div>
         <div style="display:grid;gap:0.85rem;grid-template-columns:repeat(2,1fr);">
           {beta.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} featured={true} logCount={logMeta[p.slug]?.count || 0} latestLogTitle={logMeta[p.slug]?.latestTitle} latestLogSlug={logMeta[p.slug]?.latestSlug} />
+            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} latestLogTitle={logMeta[p.slug]?.latestTitle} latestLogSlug={logMeta[p.slug]?.latestSlug} />
           ))}
         </div>
       </section>

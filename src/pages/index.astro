@@ -128,35 +128,8 @@ const latestPosts = allPosts.slice(0, 4);
     </div>
   </section>
 
-  <!-- Projects Section -->
-  <section class="fade-in stagger-1" style="padding: 0 0 3.5rem; max-width: 1080px; margin: 0 auto;">
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
-      <h2 style="font-size: 1.25rem; font-weight: 700; color: #191f28; letter-spacing: -0.02em; margin: 0;"
-        data-ko="프로젝트" data-en="Projects">프로젝트</h2>
-      <a href="/projects"
-        style="font-size: 0.8rem; font-weight: 500; color: #6b7684; text-decoration: none; transition: color 0.15s;"
-        onmouseover="this.style.color='#00c471'"
-        onmouseout="this.style.color='#6b7684'"
-        data-ko="전체 보기 →" data-en="View all →">전체 보기 →</a>
-    </div>
-    <div class="project-grid">
-      {topProjects.map((p, i) => (
-        <ProjectCard
-          slug={p.slug}
-          title={p.title}
-          one_liner={p.one_liner}
-          status={p.status}
-          stack={p.stack}
-          url={p.url}
-          github={p.github}
-          featured={i === 0}
-          logCount={logMeta[p.slug]?.count || 0}
-          latestLogTitle={logMeta[p.slug]?.latestTitle}
-          latestLogSlug={logMeta[p.slug]?.latestSlug}
-        />
-      ))}
-    </div>
-  </section>
+  <!-- Divider -->
+  <div style="max-width:1080px;margin:0 auto;"></div>
 
   <!-- Divider -->
   <div style="max-width: 1080px; margin: 0 auto; height: 1px; background: #f2f4f6;"></div>
