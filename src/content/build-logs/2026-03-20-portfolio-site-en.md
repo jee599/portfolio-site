@@ -1,116 +1,137 @@
 ---
-title: "584 Tool Calls to Rebuild a Portfolio Site with Claude Code and Parallel Agents"
+title: "605 Tool Calls: How I Rebuilt My Portfolio Into a Project Hub with Claude Code"
 project: "portfolio-site"
 date: 2026-03-20
 lang: en
 pair: "2026-03-20-portfolio-site-ko"
-tags: [claude-code, astro, parallel-agents, automation]
-description: "584 tool calls, 98 hours. How I rebuilt jidonglab.com from an AI news site into a project portfolio hub — and what three GitHub API errors taught me about spec-first development."
+tags: [claude-code, astro, multi-agent, automation, github-api]
+description: "605 tool calls, 355 Bash commands, one session. How I turned jidonglab.com from an AI news blog into a project portfolio hub — and three bugs that made it messy."
 ---
 
-584 tool calls. 98 hours and 38 minutes. Bash 352 times, Edit 92, Read 86.
+605 tool calls. 355 Bash. 99 Edit. 91 Read.
 
-This wasn't a redesign. It was an identity change. jidonglab.com went from "AI news blog" to "solo dev project portfolio hub" — and the process surfaced three lessons I keep coming back to.
+That's not a success metric. That's a record of what it looks like when a session doesn't run clean. I fixed the same bug three times. Hit a build timeout I didn't see coming. Spent three iterations on GitHub API errors that were all predictable from the docs. The number just reflects that honestly.
 
-**TL;DR** — In a single session, I handled GitHub API integration, build log automation, site redesign, and plugin ecosystem expansion using parallel agents. There were plenty of mistakes. The mistakes were the most educational part.
+**TL;DR** — Converted jidonglab.com from an AI news aggregator into a project portfolio hub. One session: JSONL-based build log automation, a GitHub API-connected admin panel, a parallel-agent site redesign, and a build timeout caused by a component doing data fetching it had no business doing.
 
-## The Problem With an Invisible Portfolio
+## The Problem: 11 Projects, 7 Visible
 
-I had 11 git projects running locally. Only 7 were on the portfolio. Build logs were written by hand. The site was on autopilot — auto-generating AI news every few hours — while the actual work I was doing stayed invisible.
+I had 11 git repos running locally. The portfolio showed 7. Build logs were written by hand, one at a time. The site was publishing AI news automatically every few hours — while everything I was actually building stayed invisible.
 
-The prompt I used:
+A visitor couldn't tell what I was working on. That was the problem.
+
+I opened with a structured prompt:
 
 ```
-Convert jidonglab.com from an AI news/blog site to a project portfolio hub.
-I have 11 git projects locally but only 7 are registered in the portfolio.
+Convert jidonglab.com from an AI news/blog site into a project portfolio hub.
+I have 11 git projects locally, but only 7 are in the portfolio.
 Build logs are generated manually.
 
-Desired workflow:
+Target flow:
 1. Generate build logs via CLI
-2. Manage projects + publish build logs from an Admin panel
+2. Manage projects + publish build logs from Admin
 ```
 
-Claude broke it into 6 implementation steps: create `project-registry.yaml`, update schemas, write CLI scripts, build API endpoints, add Admin tabs, wire up DEV.to sync. It ran through 350+ Bash calls, one step at a time.
+The site's `admin.astro` was a 58KB file. Claude read it and laid out a 6-step plan: create `project-registry.yaml`, update Content Collection schemas, write CLI scripts, add API endpoints, extend the Admin panel, wire up DEV.to sync. Then it ran 355 Bash commands to implement each step.
 
-## Three GitHub API Errors, Back to Back
+## The JSONL Pipeline That Writes Blog Posts From Code
 
-The most painful stretch was GitHub API integration. The goal: when a project's settings change in the Admin panel, write the updated YAML directly to GitHub. Simple concept. Three consecutive errors.
+It started with one line: "It'd be nice to generate build logs from JSONL sessions."
 
-**Error 1: 403.** The Personal Access Token was missing the `repo` scope. Regenerated the token.
+Claude Code stores every conversation locally at `~/.claude/projects/` as JSONL files — user prompts, tool calls, and results, all of it. Parse those files and you can reconstruct what happened in any session.
 
-**Error 2: 409.**
+`parse-sessions.py` reads the JSONL, filters by project directory, and produces a structured summary. `generate-build-log.sh` sends that summary to the Claude API and gets back a markdown draft. Hook it into GitHub Actions and every `git push` can trigger an auto-generated build log.
+
+This post is sourced from the same session data that pipeline processes.
+
+One question came up: what's the difference between local cron and GitHub Actions? Local cron only runs when your machine is on. For anything that needs to run reliably on a schedule, GitHub Actions is the obvious choice.
+
+## GitHub API Fails — Three Times in a Row
+
+The Admin panel needed to commit project YAML directly to GitHub when settings changed. The GitHub Contents API handles this. The errors came in sequence, each predictable from the previous.
+
+**403 first.** The Personal Access Token didn't have the `repo` scope. Generated a new token.
+
+**Then 409.**
 
 ```
 src/content/projects/news4ai.yaml does not match 7cc02a8819f7f2704cbcdf17f10e0035c78abb6e
 ```
 
-Updating a file via the GitHub API requires sending the current file's SHA. We were sending a stale one.
+Updating a file via the GitHub Contents API requires sending the current file's SHA. The code was sending a stale one. Fixed: `GET /contents/{path}` to fetch the current SHA first, then include it in the `PUT`.
 
-**Error 3: 422.**
+**Then 422.**
 
 ```
 "sha" wasn't supplied.
 ```
 
-Creating a *new* file means you must not send a SHA. The code was sending one anyway. The create/update branching logic was missing entirely.
+Creating a new file means no SHA field at all — but the code was sending an empty string. Added a branch: if the file doesn't exist yet, omit the SHA field entirely.
 
-Claude fixed the code after each error. Watching the errors change in sequence made something clear: this was a predictable cascade. If we'd read the GitHub API docs first and implemented to spec, it would have worked on the first try. Asking Claude to "fix it and keep iterating until it works" got there eventually — but spec-first would have been twice as fast.
+I used a "keep fixing until it works" prompt and Claude iterated through each error. Looking back, all three failure modes were visible in the GitHub API docs. Reading the spec first and implementing to it would have cut the tool calls in half.
 
-## The Korean Posts That Kept Coming Back
+## The Same Bug Fixed Three Times
 
-There was a separate, unexpected bug. Korean build logs kept appearing on DEV.to.
+DEV.to is for English content. Korean build logs kept appearing there anyway.
 
-I said "take down all the Korean posts from DEV.to." They came down. Next day, they were back. I said "I told you to remove that logic — why is it uploading again?" Fixed again. Back again.
+First time: asked to take them down. Done. Next day they were back. Asked why. Got a fix. They reappeared again.
 
-The root cause: the filtering logic was split across two files. `publish-to-devto.yml` in GitHub Actions had a language filter that wasn't working correctly. And `sync-devto.ts` in the API layer had its own separate logic. Fix one, the other still fires.
+The filtering logic was split across two places. The `publish-to-devto.yml` GitHub Actions workflow had a `lang` filter that wasn't working. The `sync-devto.ts` API layer had its own separate publish logic. Fix one, the other fires independently.
 
-It only resolved after I explicitly said "build logs are jidonglab-only — confirm this is never going to DEV.to" and both files were updated simultaneously.
+It only stopped after I said: "Build logs are jidonglab-only — confirm this is never going to DEV.to again." Both files were updated simultaneously, and it stayed fixed.
 
-Claude Code tends to focus on the file it just edited. It doesn't proactively scan for duplicate logic elsewhere in the codebase. For constraints that matter — "never publish X to platform Y" — name the specific files, or repeat the constraint until every path is closed.
+Claude Code focuses on the file it just changed. It won't proactively scan for duplicate logic in other files. For constraints that actually matter, name the specific files involved. Repeat the constraint until all paths are confirmed closed.
 
-## Four Agents, One Redesign
+## The Build Timeout I Didn't See Coming
 
-"Redesign the whole site. Trendy and techy. Projects should be the main focus."
-
-AgentCrow dispatched four agents in parallel:
+After deploying, Cloudflare Pages killed the build mid-way:
 
 ```
-🐦 AgentCrow — dispatching 4 agents:
-1. @frontend_developer → "Redesign homepage layout — project-first structure"
-2. @ui_designer       → "Redesign nav + footer in Base layout"
-3. @ux_architect      → "Improve projects/index.astro"
-4. @critique          → "UX critique of current design"
+Failed: build exceeded the time limit and was terminated
 ```
 
-`index.astro`, `Base.astro`, and `projects/index.astro` were each assigned to a separate agent. The main thread received completion signals from each and coordinated the next steps.
+The culprit was `ProjectCard.astro`. The component was calling `getCollection('build-logs')` directly:
 
-The homepage ended up with project cards as the primary content. Status-based sorting was applied: running → beta → in development → discontinued. That ordering got a one-line adjustment afterward: "beta means it's already live, so it should be second."
+- 9 project cards
+- Each calls `getCollection` at build time
+- 24 build log files per collection read
+- 9 × 24 = 216 file reads happening inside component renders
 
-The advantage of parallel agents is speed. The risk is context isolation — if one agent changes a Tailwind class and another agent doesn't know about it, conflicts happen. Dividing work at the file level prevents collisions. That's the key thing to get right before dispatching.
+The fix was straightforward: remove `getCollection` from `ProjectCard`, pass the build log data down from the parent as props.
 
-## Building a Build Log Pipeline From JSONL
+```
+fix: ProjectCard에서 getCollection 제거 → 빌드 타임아웃 해결
+```
 
-It started with a question: "Is there a better way to generate build logs from JSONL?"
+It's a basic rule — components shouldn't fetch their own data, data flows down from parents. This worked fine locally and only exploded in the Cloudflare build environment. That gap between "works locally" and "fails in CI" is the most frustrating class of bug, and the hardest to anticipate.
 
-Claude Code writes session data to `~/.claude/projects/` as JSONL files — one per session. I built a pipeline to parse these and auto-generate build logs: `parse-sessions.py` reads the JSONL, `generate-build-log.sh` calls the Claude API and produces a markdown build log.
+## Two Agents, Zero Conflicts
 
-Registered in GitHub Actions to run every 6 hours. If a new session exists, a build log is generated automatically.
+"Redesign the whole site. Projects should be front and center."
 
-This post is sourced from the same session data that pipeline processes.
+AgentCrow dispatched two agents in parallel:
 
-There was also a question about the difference between local cron and GitHub Actions. Local cron only runs while the machine is on. GitHub Actions runs on a schedule in the cloud regardless. For anything that needs to be reliable, GitHub Actions wins.
+```
+🐦 AgentCrow — dispatching 2 agents:
+1. @frontend_developer → "Homepage redesign — project-first layout"
+2. @frontend_developer → "Base layout nav + footer improvements"
+```
 
-## What This Session Was Actually About
+`index.astro` and `Base.astro` were edited simultaneously by separate agents. No conflicts — because they were working in different files.
 
-Three things became clear by the end.
+One ordering question came up after the redesign shipped: "beta means it's already running, so it should probably be second." The final sort order: live → beta → in development → discontinued.
 
-**Name constraints at the file level.** "Don't publish Korean to DEV.to" said once wasn't enough. When a constraint applies to multiple files, name the files. Repeat the constraint until all paths are covered.
+The rule for parallel agents is file-level separation. Two agents editing the same file concurrently will conflict. Before dispatching, split the scope at the file boundary. Everything else follows from that.
 
-**When errors cascade, read the spec first.** The GitHub API 403 → 409 → 422 sequence was avoidable. Giving Claude an API error and asking it to fix-and-retry works. Giving it the docs first and asking for a spec-compliant implementation is faster.
+## What 605 Actually Measures
 
-**Split parallel agent work by file, not by feature.** Two agents touching the same file concurrently creates conflicts. Before dispatching, divide the work at the file level. Everything else follows from that.
+36 files changed. 18 new files created. 9 projects updated.
 
-> A portfolio isn't built — it's shown. Automation was the work of making the showing happen automatically.
+A large portion of the 355 Bash calls were `npm run build` and `tsc --noEmit` — verifying each code change before moving on. That loop is tedious but it catches problems before they compound into something harder to untangle.
+
+The GitHub API triple-fail was the opposite: iterating against runtime errors instead of reading the spec upfront. That pattern doubled the work. The lesson isn't "don't iterate" — it's "give Claude the docs, not just the error message."
+
+> Automation is the process of turning "how I built things" into a record that writes itself. While you're shipping, the blog catches up.
 
 ---
 
