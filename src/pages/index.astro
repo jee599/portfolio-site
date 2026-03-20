@@ -155,8 +155,8 @@ const latestPosts = allPosts.slice(0, 4);
   <section class="fade-in stagger-1" style="padding: 0 0 3rem; max-width: 1080px; margin: 0 auto;">
     <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #8b95a1; margin: 0 0 1rem 0;"
       data-ko="오픈소스 / 개발중" data-en="Open Source / In Development">오픈소스 / 개발중</h2>
-    <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem;">
-      {projects.filter(p => !p.url && p.github).map(p => (
+    <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem;">
+      {projects.filter(p => !p.url && p.github && ['contextzip', 'agentcrow'].includes(p.slug)).map(p => (
         <a href={p.github} target="_blank" rel="noopener"
           style="display:flex;align-items:center;gap:0.6rem;padding:0.7rem 0.85rem;background:#f9fafb;border:1px solid #f2f4f6;border-radius:8px;text-decoration:none;transition:all 0.2s;"
           onmouseover="this.style.borderColor='#e5e8eb';this.style.background='#fff'"
