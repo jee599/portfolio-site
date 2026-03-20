@@ -4,20 +4,32 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #09090b;
+  --bg-surface: #18181b;
+  --border: #27272a;
+  --text: #fafafa;
+  --text-muted: #a1a1aa;
+  --accent: #10b981;
+  --accent-dim: rgba(16, 185, 129, 0.08);
+  --accent-border: rgba(16, 185, 129, 0.2);
+}
+
 @layer base {
   html {
     @apply text-text font-body;
     scroll-behavior: smooth;
     font-size: 16px;
     line-height: 1.8;
-    background: #fff;
+    background: var(--bg);
+    color: var(--text);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
 
   ::selection {
-    background: #e6f9f0;
-    color: #00a85e;
+    background: rgba(16, 185, 129, 0.25);
+    color: #10b981;
   }
 
   h1, h2, h3 {
@@ -38,21 +50,14 @@
 
 @layer components {
   /* ═══════════════════════════════════════
-     PROSE — Toss Tech style
-     Pure typography. No decoration.
-
-     [Code Display Rule]
-     All inline code (variable names, CSS values, file paths, class names)
-     uses JetBrains Mono + accent-tinted bg + subtle border.
-     e.g. `--bg-card`, `globals.css`, `.glassCard`, `rgba(13,11,20,0.72)`
-     are all rendered with this distinctive treatment.
+     PROSE — Dark developer theme
      ═══════════════════════════════════════ */
 
   .prose {
     font-family: 'IBM Plex Sans KR', sans-serif;
     font-size: 1.0625rem;
     line-height: 1.9;
-    color: #333d4b;
+    color: #d4d4d8;
     word-break: keep-all;
     overflow-wrap: break-word;
   }
@@ -61,7 +66,7 @@
   .prose h2 {
     font-size: 1.5rem;
     font-weight: 700;
-    color: #191f28;
+    color: #fafafa;
     margin-top: 4rem;
     margin-bottom: 1.25rem;
     letter-spacing: -0.02em;
@@ -71,7 +76,7 @@
   .prose h3 {
     font-size: 1.2rem;
     font-weight: 600;
-    color: #191f28;
+    color: #fafafa;
     margin-top: 3rem;
     margin-bottom: 1rem;
     letter-spacing: -0.01em;
@@ -81,14 +86,14 @@
   /* ─── Paragraphs ─── */
   .prose p {
     margin-bottom: 1.8rem;
-    color: #333d4b;
+    color: #d4d4d8;
     line-height: 1.9;
   }
 
   /* ─── Bold ─── */
   .prose strong {
     font-weight: 600;
-    color: #191f28;
+    color: #fafafa;
   }
 
   /* ─── Lists ─── */
@@ -107,33 +112,30 @@
 
   .prose li {
     margin-bottom: 0.5rem;
-    color: #333d4b;
+    color: #d4d4d8;
     line-height: 1.85;
   }
 
-  /* ─── Inline code ───
-     Rule: code references like variable names (`--bg-card`),
-     file paths (`globals.css`), CSS values (`opacity: 0.12`),
-     class names (`.glassCard`) get accent-tinted mono treatment.
-     ─── */
+  /* ─── Inline code ─── */
   .prose code {
     font-family: 'JetBrains Mono', monospace;
     font-size: 0.82em;
-    background: #e6f9f0;
-    color: #00a85e;
+    background: var(--accent-dim);
+    color: #10b981;
     padding: 0.2rem 0.5rem;
     border-radius: 5px;
-    border: 1px solid #c3edda;
+    border: 1px solid var(--accent-border);
     font-weight: 400;
     white-space: nowrap;
   }
 
   /* ─── Code blocks ─── */
   .prose pre {
-    background: #191f28;
+    background: #0f0f13;
     color: #e4e9f0;
     padding: 1.5rem 1.75rem;
     border-radius: 10px;
+    border: 1px solid #27272a;
     margin: 2rem 0;
     overflow-x: auto;
     font-size: 0.875rem;
@@ -152,15 +154,15 @@
 
   /* ─── Blockquote ─── */
   .prose blockquote {
-    border-left: 3px solid #d1d6db;
+    border-left: 3px solid #27272a;
     padding: 0.25rem 0 0.25rem 1.25rem;
     margin: 2rem 0;
-    color: #6b7684;
+    color: #a1a1aa;
   }
 
   .prose blockquote p {
     margin-bottom: 0;
-    color: #6b7684;
+    color: #a1a1aa;
   }
 
   /* ─── Tables ─── */
@@ -172,31 +174,31 @@
   }
 
   .prose thead {
-    border-bottom: 2px solid #e5e8eb;
+    border-bottom: 2px solid #27272a;
   }
 
   .prose th {
     text-align: left;
     font-weight: 600;
-    color: #191f28;
+    color: #fafafa;
     padding: 0.75rem 1rem;
     font-size: 0.85rem;
   }
 
   .prose td {
     padding: 0.75rem 1rem;
-    border-bottom: 1px solid #f2f4f6;
-    color: #333d4b;
+    border-bottom: 1px solid #27272a;
+    color: #d4d4d8;
   }
 
   .prose tr:hover td {
-    background: #f9fafb;
+    background: rgba(16, 185, 129, 0.04);
   }
 
   /* ─── HR ─── */
   .prose hr {
     border: none;
-    border-top: 1px solid #e5e8eb;
+    border-top: 1px solid #27272a;
     margin: 3.5rem 0;
   }
 
@@ -209,7 +211,7 @@
 
   /* ─── Links ─── */
   .prose a {
-    color: #00c471;
+    color: #10b981;
     text-decoration: none;
   }
 
@@ -217,6 +219,49 @@
     text-decoration: underline;
   }
 
+}
+
+/* ─── Grid pattern background ─── */
+.grid-pattern {
+  background-image:
+    linear-gradient(rgba(16, 185, 129, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(16, 185, 129, 0.04) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* ─── Pulse dot animation ─── */
+.pulse-dot {
+  position: relative;
+}
+
+.pulse-dot::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -12px;
+  transform: translateY(-50%);
+  width: 6px;
+  height: 6px;
+  background: #10b981;
+  border-radius: 50%;
+  animation: pulseDot 2s ease-in-out infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { opacity: 1; box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+  50% { opacity: 0.7; box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+}
+
+/* ─── Fade up animation (scroll reveal) ─── */
+.fade-up {
+  opacity: 0;
+  transform: translateY(20px);
+  transition: opacity 0.6s ease-out, transform 0.6s ease-out;
+}
+
+.fade-up.visible {
+  opacity: 1;
+  transform: translateY(0);
 }
 
 /* ─── Animations ─── */
