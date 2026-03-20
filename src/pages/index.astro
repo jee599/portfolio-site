@@ -128,8 +128,28 @@ const latestPosts = allPosts.slice(0, 4);
     </div>
   </section>
 
-  <!-- Divider -->
-  <div style="max-width:1080px;margin:0 auto;"></div>
+  <!-- Sites I Built -->
+  <section class="fade-in stagger-1" style="padding: 0 0 3rem; max-width: 1080px; margin: 0 auto;">
+    <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #8b95a1; margin: 0 0 1rem 0;"
+      data-ko="만든 것들" data-en="What I Built">만든 것들</h2>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
+      {projects.filter(p => p.url).map(p => (
+        <a href={p.url} target="_blank" rel="noopener"
+          style="display:flex;align-items:center;gap:0.75rem;padding:0.85rem 1rem;background:#fff;border:1px solid #e5e8eb;border-radius:10px;text-decoration:none;transition:all 0.2s;"
+          onmouseover="this.style.borderColor='#00c471';this.style.boxShadow='0 4px 16px rgba(0,0,0,0.04)';this.style.transform='translateY(-1px)'"
+          onmouseout="this.style.borderColor='#e5e8eb';this.style.boxShadow='none';this.style.transform='none'">
+          <div style={`width:36px;height:36px;border-radius:8px;background:${p.status === '운영중' ? '#e6f9f0' : '#f2f4f6'};display:flex;align-items:center;justify-content:center;flex-shrink:0;`}>
+            <span style={`font-size:1rem;font-weight:800;color:${p.status === '운영중' ? '#00c471' : '#8b95a1'};font-family:'JetBrains Mono',monospace;`}>{p.title.charAt(0).toUpperCase()}</span>
+          </div>
+          <div style="min-width:0;flex:1;">
+            <div style="font-size:0.85rem;font-weight:700;color:#191f28;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{p.title}</div>
+            <div style="font-size:0.68rem;color:#8b95a1;font-family:'JetBrains Mono',monospace;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{p.url?.replace('https://','')}</div>
+          </div>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#b0b8c1" stroke-width="2" style="flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+        </a>
+      ))}
+    </div>
+  </section>
 
   <!-- Divider -->
   <div style="max-width: 1080px; margin: 0 auto; height: 1px; background: #f2f4f6;"></div>
@@ -197,5 +217,11 @@ const latestPosts = allPosts.slice(0, 4);
   @keyframes pulse {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.4; }
+  }
+
+  @media (max-width: 768px) {
+    div[style*="grid-template-columns: repeat(3"] {
+      grid-template-columns: 1fr !important;
+    }
   }
 </style>
