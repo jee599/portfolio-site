@@ -1,102 +1,131 @@
 ---
-title: "One Line in CLAUDE.md Activated 144 Agents — AgentCrow Setup and Dark Theme Redesign"
+title: "I Used Claude Code to Build a Claude Code Optimizer — 55 Hours, 62 Agents, 405 Tool Calls"
 project: "portfolio-site"
 date: 2026-03-21
 lang: en
 pair: "2026-03-21-portfolio-site-ko"
-tags: [claude-code, agentcrow, multi-agent, automation]
-description: "One npx command initialized 144 agents. One line in ~/.claude/CLAUDE.md applied them to every project, forever."
+tags: [claude-code, rust, subagent, contextzip]
+description: "Forked RTK, renamed to contextzip, shipped to NPM. 62 sub-agent calls, 405 tool calls, 55 hours. What multi-agent parallelism actually looks like in practice."
 ---
 
-1 hour 53 minutes into a dental clinic project session. 240 tool calls in. Five design agents running in parallel — updating Botox section copy, adding doctor schedules, iterating on UI layouts.
+`npm install` dumps 150 lines. Docker logs hit 300. A Rust build error scrolls for 80. Every single line fills Claude's context window.
 
-Then, mid-session, a different kind of instruction came through:
+Then Claude forgets code from five minutes ago.
 
-> "Turn on agent teams globally. And in the global CLAUDE.md, tell Claude to hire up to 4 appropriate agents before starting any task. You have 100+ pre-defined agents, right?"
+This isn't a capability problem — it's a noise problem. The context window fills with output garbage, and useful state gets pushed out. So I built a fix: `contextzip`, a CLI output compressor that strips noise before it reaches the model. The ironic part: I built it entirely using Claude Code.
 
-This wasn't about the dental site. It was about changing how every project works. And it immediately changed portfolio-site too.
+**TL;DR** — Forked [RTK](https://github.com/rtk-ai/rtk), renamed it `contextzip`, published to NPM. 62 sub-agent calls, 405 tool calls, 55 hours. `npm install`'s 150 lines collapse to 3. `cargo build` errors surface only the signal. Available via `npx contextzip`.
 
-**TL;DR** — Added an agent dispatch rule to `~/.claude/CLAUDE.md`, ran `npx agentcrow init` to initialize 144 agent definitions, then used the new setup for a portfolio-site dark theme redesign. One configuration change, every project affected.
 
-## ~/.claude/CLAUDE.md — The Config That Follows You Everywhere
+## Three Minutes of Brainstorming That Shaped 55 Hours
 
-Most people know about project-level `CLAUDE.md`. Drop it in your repo root and Claude Code picks up the rules for that project.
+The starting point was [RTK](https://github.com/rtk-ai/rtk) — an open-source CLI compression tool for Claude Code. The plan: fork it, rename it to `contextzip`, ship it.
 
-What's less obvious: `~/.claude/CLAUDE.md` is different.
+I dropped the spec into Claude. Before touching code, the brainstorming skill activated. It surfaced decisions I hadn't consciously made yet.
 
-It loads automatically every time Claude Code opens — regardless of which project you're in. It's global config in the truest sense. Rules written there apply to every session, every repo, every context.
+"The repo is called `tokenzip` — what should the binary name be?"
 
-I used the `update-config` skill to set up settings.json hooks, then added this to the global CLAUDE.md:
+"Full source fork of RTK, or use it as a dependency?"
 
-```
-Before starting any task, hire up to 4 appropriate agents in parallel.
-- Distribute independent tasks (no file conflicts) across parallel agents.
-- Separate research/exploration from code modification and run them in parallel.
-- Delegate verification tasks — UI audits, design critiques, code reviews — to agents.
-```
+"Implement everything at once, or gate it by week?"
 
-Four sentences. From that point on, every project gets parallel agent dispatch by default. No per-project setup. No copy-pasting the same rule into every repo's CLAUDE.md. Write it once, get it everywhere.
+Under normal circumstances I'd have just started building and figured these out as I hit them. Having them surface upfront forced real answers: binary name unified as `contextzip` across the board, full source fork, week-by-week validation gates.
 
-The insight is easy to miss: global config is for behaviors you want *by default*, not behaviors you opt into per-project. Parallel agent dispatch is exactly that kind of default — useful everywhere, not specific to any one codebase.
+Three minutes. Those three decisions shaped the entire 55 hours that followed.
 
-## npx agentcrow init — 144 Agents Ready to Go
 
-A global dispatch rule is only useful if there's an agent pool to dispatch from.
+## What 62 Agent Calls Actually Looks Like
 
-Running `npx agentcrow init` creates 144 agent definition files under `.claude/agents/`. Each file is a markdown document defining a specific role: what tasks it handles, which tools it uses, how it evaluates decisions.
+After brainstorming, the planning skill produced a structured implementation plan: Week 1 through Week 3, broken into discrete tasks with clear dependencies.
 
-`frontend_developer`, `qa_engineer`, `security_auditor_deep`, `korean_tech_writer`, `ui_designer`, `ux_researcher` — 144 of these.
+Then the sub-agent driven development skill activated. Claude started distributing tasks to parallel agents.
 
-The portfolio-site `.claude/CLAUDE.md` already had the AgentCrow dispatch format:
+Here's what that looked like in practice: Task 4 (LICENSE update), Task 7 (GitHub Actions CI/CD), and Task 6 (`install.sh`) ran simultaneously. Each agent sent a completion signal, and Claude kicked off the next batch. Tasks with no dependencies ran in parallel — always.
 
-```
-🐦 AgentCrow — dispatching N agents:
-1. @agent_role → "task description"
-2. @agent_role → "task description"
-```
+Over the full 55-hour session: **62 `Agent` tool calls, 176 `Bash`, 37 `Read`, 28 `Edit`**. I'd send a prompt, and while agents worked, I'd prepare the next batch or make architectural decisions.
 
-Before `npx agentcrow init`, agent names existed but definitions were sparse — role labels without actual behavioral instructions. After init, each agent has specific working guidelines. The `frontend_developer` agent specifies TypeScript-first, React + Next.js, functional components with hooks. When dispatched, it actually follows that protocol.
+The rename illustrated the speed difference most clearly. Replacing every `rtk` reference with `contextzip` across the entire source tree — Cargo.toml, data paths, string literals, binary names — is tedious solo work. Grep, edit, rebuild, verify, repeat. An agent reported "6 files changed, commit complete" in 15 minutes. Doing that alone would have taken most of a working day.
 
-The difference: before, dispatching an agent was like assigning a task to a job title. After init, it's like assigning to someone who knows exactly how they work.
 
-## Dark Theme Redesign — First Live Test
+## Four Auditors Running Simultaneously
 
-The setup was done. The first real test came immediately: a portfolio-site dark theme redesign.
-
-The existing layout was a toss.tech-style light theme. The task: redesign `BaseLayout.astro` and complete dark theme in `global.css`, shifting to a developer portfolio tone while keeping the `#00c471` accent color.
-
-Without agents, this would've been sequential. Understand current structure → design the theme → implement. Natural flow, but research and implementation pile up in the same context window, and the context gets heavier as it goes.
-
-With agents, they separate. A research agent reads the current `BaseLayout.astro` and `global.css` structure. Simultaneously, a UI agent starts designing the dark theme. They're reading different files — no conflicts, no blocking.
-
-Two commits came out in order:
+After implementation wrapped, I needed a cold assessment. The prompt:
 
 ```
-feat: dark theme redesign — developer portfolio tone
-feat: Base layout + global.css dark theme complete
+Give me an honest, critical evaluation of everything — code quality, features, product readiness.
+Hold it to "shippable as a real product" standards.
 ```
 
-Clean, no merge conflicts.
+Claude hired four agents at once.
 
-The structural value isn't just speed. It's context quality. When a single agent handles both "understand the current code" and "rewrite the current code," it's doing two cognitively different tasks in one window. Separating them keeps each agent's context focused on exactly one job.
+The **PM agent** audited market readiness. P0 issues: value proposition unclear in the README, RTK remnants still visible in user-facing copy.
 
-## This Build Log Is Also Generated by Claude Code
+The **senior engineer agent** reviewed code quality. 1,049 tests all passing — but `#[allow(dead_code)]` annotations scattered across multiple files.
 
-There's a meta layer worth noting.
+The **UX/README agent** found documentation that didn't match actual behavior in several places.
 
-28 sessions of recorded work across projects. Each session: which prompts were used, which tools ran how many times, which files changed. From that data, Claude Code filters portfolio-site-related work, rewrites it following the `blog-writing` skill guidelines, and saves the file.
+The **QA agent** ran end-to-end tests by actually executing the binary. It caught that `--version` printed:
 
-The human input: one prompt — "write the portfolio-site build log."
+```
+contextzip 0.1.0 (based on rtk 0.30.1)
+```
 
-Claude Code invokes the `blog-writing` skill, filters session summaries for portfolio-site work, writes the post, generates the file with the Write tool. The global CLAUDE.md rules apply here too — if agents are useful, they get dispatched.
+The binary name was updated. The version string wasn't. `rtk` was hardcoded inside a string constant — not in an obvious location that a code reader would naturally find.
 
-This is what global config actually unlocks. When the *system* knows how to work, individual tasks get handled correctly by default. Not because each task was carefully prompted, but because the operating rules are already in place.
+All four reports came back simultaneously. I worked through them in P0-first order, feeding fixes back to agents for implementation.
 
-One line in `~/.claude/CLAUDE.md` changes how 28 sessions of work get processed into a blog post. It changes how the dental site gets designed. It changes how portfolio-site gets rebuilt. Same line, everywhere.
+Reviewing alone, I'd have caught 1-2 of these angles. Four roles running in parallel surfaced the blind spots.
 
-That's the leverage point: not the individual task, but the system that handles tasks.
 
-> One line in `~/.claude/CLAUDE.md` changes every project. Knowing when and how to write that line is the real configuration skill.
+## The Bug That Static Code Review Would Have Missed
+
+This one is worth its own section, because it illustrates something important about automated testing.
+
+The renaming felt complete — grepping for `rtk` across the codebase returned nothing obvious. But the QA agent executed `contextzip --version` and read the actual output.
+
+`rtk` was hardcoded inside a version string constant. It's not the kind of thing you catch by reading files. You catch it by running the binary.
+
+This is the difference between reading code and executing it. Review that only reads files misses runtime behavior. The agent ran the command, saw the output, flagged the issue in the same report as everything else.
+
+The session caught a few other execution-only bugs: negative savings percentages when compressing Java stack traces (a math bug only visible with real input), and an incomplete regex for Rust panic parsing. Each time, a fix agent went in, addressed it, committed.
+
+
+## NPM Publishing and Promotion Automation
+
+The install goal: `npx contextzip` as the single command for a Rust binary. The approach: wrap in an NPM package. `bin/install.js` detects platform and architecture at install time, downloads the appropriate prebuilt binary from GitHub Releases.
+
+GitHub Actions CI/CD was agent-built from scratch: automatic tests on every push and PR, automatic binary builds and NPM publish on release tags. No manual release process.
+
+Promotion was more complex. Reddit, Hacker News, DEV.to, X, LinkedIn — each platform needs a different angle and tone. Claude generated platform-specific posts for each, automated what was automatable via GitHub Actions, and prepared clean copy-paste text for platforms requiring manual submission.
+
+One attempt failed: automatically submitting a PR to the Awesome Claude Code list. That repo explicitly blocks `gh` CLI submissions in its contribution rules. The agent attempted it, read the rules, and reported back: "needs to be submitted manually." It stopped rather than trying to force a workaround. That was exactly the right call.
+
+
+## The Numbers
+
+Full session stats:
+
+| Tool | Calls | Purpose |
+|------|-------|---------|
+| `Bash` | 176 | Builds, tests, execution verification |
+| `Agent` | 62 | Parallel sub-agent calls |
+| `TaskUpdate` | 50 | Progress tracking |
+| `Read` | 37 | File inspection |
+| `Edit` | 28 | File modifications |
+| **Total** | **405** | |
+
+**55 hours 40 minutes.** Six new Rust modules shipped: `ansi_filter`, `error_cmd`, `web_cmd`, `build_cmd`, `pkg_cmd`, `docker_cmd`. 1,049 tests passing.
+
+Implementing this scope in Rust solo — without parallel agents — would have been two weeks minimum.
+
+
+## The Loop
+
+`contextzip` is live. When Claude Code runs `npm install`, a hook intercepts it, pipes output through `contextzip`, and what hits the context is 3 lines instead of 150. `cargo build` errors surface only the relevant failure. Docker logs compress to signal.
+
+The tool makes Claude Code more effective. Claude Code built the tool. The feedback loop is real.
+
+> Build tools with Claude Code. Use those tools to make Claude Code better. The loop keeps getting tighter.
 
 ---
 

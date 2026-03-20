@@ -1,88 +1,103 @@
 ---
-title: "CLAUDE.md 한 줄로 144명 에이전트 활성화 — AgentCrow 세팅과 다크 테마 리디자인"
+title: "Claude Code로 Claude Code 효율화 도구를 만든 55시간 — contextzip 빌드 리포트"
 project: "portfolio-site"
 date: 2026-03-21
 lang: ko
-tags: [claude-code, agentcrow, agents, dark-theme, automation]
-description: "치과 프로젝트 작업 중 에이전트 글로벌 규칙을 CLAUDE.md에 박았다. npx agentcrow init 한 번으로 144개 에이전트가 생겼고, 이후 모든 프로젝트 작업 방식이 바뀌었다."
+tags: [claude-code, rust, subagent, contextzip]
+description: "RTK 포크부터 NPM 배포까지. 서브에이전트 62번 호출, 405 tool call, 55시간. Claude Code로 Claude Code를 더 잘 쓰는 도구를 만드는 아이러니한 빌드 기록."
 ---
 
-치과 프로젝트 세션이 1시간 53분째 이어지고 있었다. 보톡스 섹션 업데이트, 의료진 진료 일정 추가, 디자인 에이전트 5명 병렬 dispatch로 UI를 개선하는 240번의 tool call이 쌓이고 있었다.
+Claude Code를 쓰면서 가장 자주 드는 생각이 있다. `npm install` 출력이 150줄이고, Docker 로그가 300줄이고, Rust 빌드 에러가 80줄이다. 이게 다 컨텍스트를 채운다.
 
-그 중간에 이 한 마디가 나왔다.
+Claude가 이전 코드를 까먹는다. 컨텍스트 윈도우가 노이즈로 가득 차 있으니까.
 
-"global로 agent teams 켜줘. 그리고 global md에 작업하기 전에 작업에 알맞는 에이전트 최대 4명 고용해서 작업하라고 해줘. agent 미리 정의 해놓은거 100개 넘게 있지?"
+그래서 만들었다. CLI 출력을 자동으로 압축하는 도구, `contextzip`. 아이러니하게도 Claude Code로.
 
-치과 프로젝트 얘기가 아니었다. 작업 방식 자체를 바꾸겠다는 얘기였다. 그리고 이 변화는 portfolio-site에 곧바로 영향을 미쳤다.
+**TL;DR** — RTK를 포크해서 contextzip을 만들었다. 서브에이전트 62번 호출, 405 tool call, 55시간. `npm install` 150줄이 3줄로, `cargo build` 에러가 핵심만 남는다. NPM까지 배포했다.
 
-**TL;DR** — `~/.claude/CLAUDE.md`에 에이전트 투입 규칙을 박고, `npx agentcrow init`으로 144개 에이전트를 초기화했다. 이후 portfolio-site 다크 테마 리디자인이 첫 실전 투입이었다.
+## 아이러니한 시작 — Claude Code로 Claude Code 효율화 도구를
 
-## ~/.claude/CLAUDE.md — 글로벌 설정이란 게 있다
+프로젝트 소재는 [RTK](https://github.com/rtk-ai/rtk)였다. Claude Code용 CLI 압축 도구. 오픈소스라 포크 후 리네이밍해서 `contextzip`으로 만들면 됐다.
 
-Claude Code에서 CLAUDE.md는 두 종류다. 프로젝트 루트의 CLAUDE.md는 그 프로젝트에만 적용된다. 그런데 `~/.claude/CLAUDE.md`는 다르다. Claude Code를 열 때마다 자동으로 로드된다. 어떤 프로젝트를 열든 상관없이.
+스펙 파일을 Claude에 던졌다. 그런데 브레인스토밍 스킬이 먼저 발동됐다. 스킬이 질문을 던진다.
 
-`update-config` 스킬을 호출해서 settings.json 훅을 설정하고, 글로벌 CLAUDE.md에 규칙을 추가했다:
+"레포 이름이 `tokenzip`인데 바이너리는 뭐로 할 건가요?"
 
-```
-작업을 시작하기 전에, 해당 작업에 적합한 에이전트를 최대 4명까지 병렬로 고용해서 동시에 작업한다.
-- 파일 수정이 겹치지 않는 독립적인 작업은 반드시 병렬 에이전트로 분배한다.
-- 리서치/탐색 작업과 코드 수정 작업을 분리해서 병렬로 돌린다.
-- UI 감사, 디자인 비평, 코드 리뷰 같은 검증 작업도 에이전트에 위임한다.
-```
+"RTK를 소스 포크할 건가요, dependency로 쓸 건가요?"
 
-이 규칙은 글로벌이다. portfolio-site든, spoonai든, 치과 프로젝트든 Claude Code를 쓰는 모든 프로젝트에 적용된다. 매번 프로젝트마다 따로 설정할 필요가 없다. 한 번 박으면 어디서나 작동한다.
+"한 번에 전체를 구현할 건가요, 주 단위로 끊을 건가요?"
 
-## npx agentcrow init — 144명이 대기 중이다
+평소 같으면 그냥 달려들었을 텐데, 스킬이 이 결정들을 앞에 꺼내놓으니 생각이 정리됐다. 결론: 이름은 `contextzip` 전부 통일, RTK 소스 풀 포크, Week 단위 검증 게이트.
 
-글로벌 규칙을 세웠으면, 에이전트 풀이 있어야 한다.
+이 3분짜리 브레인스토밍이 이후 55시간의 방향을 잡았다.
 
-`npx agentcrow init`을 실행하면 `.claude/agents/` 디렉토리에 에이전트 정의 파일들이 생성된다. 144개. 각 파일은 특정 역할의 에이전트를 정의한 마크다운이다. 어떤 작업을 어떻게 처리하는지, 어떤 도구를 쓰는지, 어떤 관점에서 판단하는지가 담겨 있다.
+## 에이전트 62번 — 병렬 구현의 실제 모습
 
-`frontend_developer`, `qa_engineer`, `security_auditor_deep`, `korean_tech_writer`, `ui_designer`, `ux_researcher`. 이런 이름들이 144개 있다.
+플랜 스킬이 구현 계획을 만들었다. Week 1부터 Week 3까지, 태스크 단위로 쪼개진 계획.
 
-portfolio-site의 `.claude/CLAUDE.md`에는 이미 AgentCrow dispatch 규칙이 있었다:
+그 다음이 흥미로웠다. 서브에이전트 드리븐 개발 스킬이 발동됐고, Claude가 태스크를 병렬로 에이전트에 나눠 분배하기 시작했다.
 
-```
-🐦 AgentCrow — dispatching N agents:
-1. @agent_role → "task description"
-2. @agent_role → "task description"
-```
+실제 이런 식이었다. Task 4(LICENSE 업데이트)와 Task 7(GitHub Actions CI/CD), Task 6(install.sh)가 동시에 돌아간다. 각 에이전트가 완료 알림을 보내면 Claude가 다음 배치를 시작한다. 의존성이 없는 태스크는 전부 병렬.
 
-이 포맷으로 에이전트가 병렬 실행된다. `npx agentcrow init` 이전에는 에이전트 이름만 있고 실제 행동 방식이 정의되어 있지 않았다. init 이후엔 각자가 어떻게 작업하는지가 명확해진다.
+55시간 세션에서 `Agent` 도구 호출이 62번이었다. `Bash`가 176번, `Read`가 37번, `Edit`이 28번. 내가 프롬프트를 던지고 에이전트들이 일하는 동안 다른 결정을 내리거나 다음 배치를 준비하는 구조.
 
-주목할 점은 이 에이전트 파일들이 단순한 역할 이름이 아니라는 것이다. 실제 작업 지침이 담겨 있다. `frontend_developer`에는 TypeScript 우선, React + Next.js, 함수형 컴포넌트 같은 구체적인 코딩 방식이 정의되어 있다. 에이전트를 dispatch하면 그 지침대로 작업이 진행된다.
+혼자 코딩했다면 RTK 리네이밍만 하루 종일 걸렸을 거다. 소스 전체에 흩어진 `rtk` 문자열을 `contextzip`으로 바꾸고, Cargo.toml 수정하고, 데이터 경로 바꾸고. 에이전트가 "변경된 파일 6개, 커밋 완료"라고 보고하는 데 걸린 시간은 15분이었다.
 
-## 다크 테마 리디자인 — 에이전트 첫 실전 투입
+## 4개 역할 에이전트 동시 감사
 
-세팅이 끝나고 바로 portfolio-site 다크 테마 작업이 들어왔다.
-
-기존 레이아웃은 toss.tech 스타일 라이트 테마 기반이었다. `BaseLayout.astro`를 리디자인하고 `global.css`에 다크 테마를 완성하는 작업이었다. developer portfolio 톤으로, 액센트 색상 `#00c471`을 유지하면서 전체적인 분위기를 바꾸는 것이다.
-
-에이전트 없이 혼자 작업하면 순차적으로 진행했을 것이다. 현재 구조 파악 → 디자인 설계 → 구현. 이 흐름이 자연스럽지만, 탐색과 구현이 같은 컨텍스트에 쌓이면 길어진다.
-
-에이전트를 쓰면 분리된다. 리서치 에이전트가 현재 `BaseLayout.astro`와 `global.css` 구조를 파악하는 동시에, UI 에이전트가 다크 테마 설계를 시작한다. 서로 다른 파일을 읽는 작업이라 충돌이 없다.
-
-결과적으로 커밋 2개가 순서대로 나왔다:
+구현이 끝난 뒤 냉정한 평가가 필요했다. 프롬프트는 이랬다.
 
 ```
-feat: 다크 테마 리디자인 — developer portfolio 톤
-feat: Base layout + global.css 다크 테마 완성
+지금 작업에 대해 객관적으로 평가해주고 모든 코드 모든 기능에 대해 냉정하게 피드백해줘.
+상품화를 할 수 있는 레벨 기준으로
 ```
 
-단계별로, 충돌 없이.
+Claude가 에이전트 4개를 동시에 고용했다.
 
-## 이 빌드 로그도 Claude Code가 쓴다
+PM 에이전트는 시장 준비도를 감사했다. "Value proposition이 불명확하다", "RTK 잔재가 남아있다"는 P0 이슈를 꺼냈다.
 
-지금 이 글 자체가 한 가지 사실을 보여준다.
+시니어 엔지니어 에이전트는 코드 품질을 봤다. 1,049개 테스트 전부 통과, 하지만 `#[allow(dead_code)]` 어노테이션이 여러 곳에 남아있다고 지적했다.
 
-28세션에 걸친 작업 기록이 있다. 세션마다 어떤 프롬프트를 던졌는지, 어떤 도구를 몇 번 사용했는지, 어떤 파일이 바뀌었는지. 이 데이터에서 portfolio-site 관련 작업만 추려내고, `blog-writing` 스킬 가이드라인에 맞게 변환하고, 파일로 저장하는 것까지 Claude Code가 한다.
+UX/README 에이전트는 문서가 실제 기능과 불일치하는 부분을 찾아냈다.
 
-사람이 하는 일은 "portfolio-site 빌드 로그 작성해라"는 프롬프트 하나다.
+QA 에이전트는 end-to-end 테스트를 직접 돌렸다. `--version` 출력에 `based on rtk 0.30.1`이 남아있다는 걸 잡아냈다.
 
-`blog-writing` 스킬을 호출하고, 세션 요약에서 portfolio-site 관련 작업을 추려내고, 글을 쓰고, Write 도구로 파일을 생성하는 흐름이 자동으로 이어진다. CLAUDE.md 글로벌 규칙에 따라 필요하면 에이전트도 투입된다.
+이 4개 리포트가 동시에 올라왔다. 나는 P0부터 순서대로 고쳤다. 에이전트에 다시 던지는 식으로.
 
-이게 가능한 이유는 작업 방식 자체를 설계했기 때문이다. 글로벌 규칙, 에이전트 풀, 스킬 라이브러리. 이 세 가지가 갖춰지면 Claude Code는 단순 코드 에디터가 아니라 작업 파이프라인이 된다.
+혼자 리뷰했다면 1~2개 관점에서 봤을 거다. 4개 역할로 동시에 보니 사각지대가 드러났다.
 
-프롬프트 한 줄이 28세션 분량의 작업 기록을 블로그 포스트 하나로 만들어낸다. 걸리는 시간은 몇 분이다.
+## 삽질 — 이름 통일은 생각보다 깊은 곳에 있었다
 
-> CLAUDE.md 한 줄이 모든 프로젝트를 바꾼다. 그 한 줄을 언제 어떻게 넣느냐가 진짜 세팅이다.
+RTK → contextzip 리네이밍이 완벽하게 됐다고 생각했다. QA 에이전트가 찾아냈다.
+
+`--version`이 `contextzip 0.1.0 (based on rtk 0.30.1)`을 출력했다. 바이너리 이름은 바꿨지만, 버전 문자열 안에 `rtk`가 하드코딩되어 있었다. 쉽게 검색되는 위치가 아니었다.
+
+에이전트가 실제로 명령을 실행해서 출력을 봤기 때문에 잡을 수 있었다. 코드만 읽는 리뷰로는 놓쳤을 이슈다.
+
+그 외에도 Java 스택트레이스 압축 시 음수 savings가 나오는 버그, Rust panic 파싱 정규식 미완성 같은 것들을 각 에이전트가 잡아서 수정 에이전트를 다시 투입했다.
+
+## NPM 배포와 홍보 자동화
+
+Rust 바이너리를 `npx contextzip` 한 줄로 설치하는 게 목표였다. NPM 패키지로 래핑하는 방식을 썼다. `bin/install.js`가 플랫폼을 감지해서 맞는 바이너리를 받아온다.
+
+GitHub Actions CI/CD는 에이전트가 처음부터 만들었다. push/PR 시 자동 테스트, 릴리스 태그 시 자동 바이너리 빌드 및 배포.
+
+홍보는 더 복잡했다. Reddit, HN, DEV.to, X, LinkedIn 각각 접근 방식이 달랐다. Claude가 각 플랫폼용 포스트를 만들고, 자동화 가능한 건 GitHub Actions로 묶었다. 직접 올려야 하는 플랫폼은 복붙할 텍스트를 준비해뒀다.
+
+Awesome Claude Code 리스트에 PR을 자동으로 올리려다 실패했다. 해당 레포가 `gh` CLI 제출을 명시적으로 막아놨다. 에이전트가 시도했고, 규칙을 읽고 "수동으로 올려야 한다"고 보고했다. 브루트포스를 시도하지 않고 멈춘 게 맞는 판단이었다.
+
+## 도구 사용 통계
+
+세션 1 기준:
+
+- 총 tool call: 405
+- `Bash`: 176 — 빌드, 테스트, 실행 검증
+- `Agent`: 62 — 병렬 서브에이전트 호출
+- `TaskUpdate`: 50 — 진행 상황 추적
+- `Read`: 37, `Edit`: 28 — 파일 수정
+
+55시간 40분. 에이전트 수십 번. 1,049개 테스트, 6개 신규 모듈(`ansi_filter`, `error_cmd`, `web_cmd`, `build_cmd`, `pkg_cmd`, `docker_cmd`).
+
+나 혼자 Rust로 이 스코프를 구현했다면 2주는 걸렸을 거다.
+
+> Claude Code로 도구를 만들고, 그 도구로 Claude Code를 더 잘 쓴다. 이 루프가 계속 작아지는 중이다.
