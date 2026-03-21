@@ -91,10 +91,24 @@ const projectData = projects.map(p => {
 
       {/* Right: Detail Panel */}
       <div style="flex:1;min-width:0;position:sticky;top:80px;" id="detail-panel">
-        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:1.5rem;min-height:400px;">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;overflow:hidden;min-height:400px;">
+
+          {/* Site preview */}
+          <div id="detail-preview" style="display:none;">
+            <div style="display:flex;align-items:center;gap:6px;padding:0.4rem 0.75rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
+              <span style="width:7px;height:7px;border-radius:50%;background:#ef4444;"></span>
+              <span style="width:7px;height:7px;border-radius:50%;background:#eab308;"></span>
+              <span style="width:7px;height:7px;border-radius:50%;background:#22c55e;"></span>
+              <span id="detail-preview-url" style="flex:1;margin-left:4px;font-size:0.58rem;font-family:'JetBrains Mono',monospace;color:#94a3b8;"></span>
+            </div>
+            <div style="height:200px;overflow:hidden;background:#f8fafc;position:relative;">
+              <img id="detail-preview-img" src="" alt="" loading="lazy" class="detail-scroll-img"
+                style="width:100%;display:block;position:absolute;top:0;left:0;transition:transform 6s ease-in-out;" />
+            </div>
+          </div>
 
           {/* Project header */}
-          <div id="detail-header">
+          <div id="detail-header" style="padding:1.25rem 1.5rem 0;">
             <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
               <span id="detail-status" style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.15rem 0.55rem;border-radius:100px;font-size:0.6rem;font-weight:700;font-family:'JetBrains Mono',monospace;"></span>
               <div style="display:flex;gap:0.4rem;margin-left:auto;" id="detail-links"></div>
@@ -105,10 +119,10 @@ const projectData = projects.map(p => {
           </div>
 
           {/* Divider */}
-          <div style="height:1px;background:#e2e8f0;margin-bottom:1rem;"></div>
+          <div style="height:1px;background:#e2e8f0;margin:0 1.5rem 1rem;"></div>
 
           {/* Build logs list */}
-          <div>
+          <div style="padding:0 1.5rem 1.5rem;">
             <h3 style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;margin:0 0 0.75rem;"
               data-ko="빌드 로그" data-en="Build Logs">빌드 로그</h3>
             <div id="detail-logs"></div>
@@ -117,6 +131,7 @@ const projectData = projects.map(p => {
       </div>
     </div>
   </div>
+  <script type="application/json" id="project-data" set:html={JSON.stringify(projectData)} />
 </Base>
 
 <style>
@@ -129,6 +144,12 @@ const projectData = projects.map(p => {
   }
   .proj-item:hover .proj-bar {
     opacity: 0.7 !important;
+  }
+  .detail-scroll-img {
+    transition: transform 6s ease-in-out;
+  }
+  #detail-preview:hover .detail-scroll-img {
+    transform: translateY(calc(-100% + 200px)) !important;
   }
   @media (max-width: 768px) {
     div[style*="display:flex;gap:1.5rem"] {
@@ -143,9 +164,18 @@ const projectData = projects.map(p => {
   }
 </style>
 
-<script is:inline define:vars={{ projectData: JSON.stringify(projectData) }}>
+<script is:inline>
   (function() {
-    var data = JSON.parse(projectData);
+    var dataEl = document.getElementById('project-data');
+    var data = JSON.parse(dataEl ? dataEl.textContent : '[]');
+    var screenshots = {
+      'portfolio-site': '/images/projects/jidonglab.png',
+      'saju_global': '/images/projects/fortunelab.png',
+      'coffee-chat': '/images/projects/coffeechat.png',
+      'uddental': '/images/projects/uddental.png',
+      'news4ai': '/images/projects/spoonai.png',
+      'dev_blog': '/images/projects/devto.png'
+    };
     var items = document.querySelectorAll('.proj-item');
     var detailTitle = document.getElementById('detail-title');
     var detailDesc = document.getElementById('detail-desc');
@@ -153,6 +183,9 @@ const projectData = projects.map(p => {
     var detailStack = document.getElementById('detail-stack');
     var detailLinks = document.getElementById('detail-links');
     var detailLogs = document.getElementById('detail-logs');
+    var detailPreview = document.getElementById('detail-preview');
+    var detailPreviewImg = document.getElementById('detail-preview-img');
+    var detailPreviewUrl = document.getElementById('detail-preview-url');
 
     function showProject(slug) {
       var p = data.find(function(d) { return d.slug === slug; });
@@ -161,6 +194,18 @@ const projectData = projects.map(p => {
       // Update active state
       items.forEach(function(el) { el.classList.remove('active'); });
       document.querySelector('[data-slug="' + slug + '"]').classList.add('active');
+
+      // Preview
+      var screenshot = screenshots[p.slug];
+      if (screenshot && p.url) {
+        detailPreview.style.display = 'block';
+        detailPreviewImg.src = screenshot;
+        detailPreviewImg.alt = p.title;
+        detailPreviewImg.style.transform = 'translateY(0)';
+        detailPreviewUrl.textContent = p.url.replace('https://','');
+      } else {
+        detailPreview.style.display = 'none';
+      }
 
       // Status
       detailStatus.style.background = p.statusColor + '15';
