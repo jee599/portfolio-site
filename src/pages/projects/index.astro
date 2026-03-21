@@ -35,35 +35,35 @@ const archived = projects.filter(p => p.status === '중단');
 <Base title="Projects" description="AI 프로젝트 포트폴리오">
   <div class="fade-in" style="max-width:920px;margin:0 auto;">
 
-    <h1 style="font-size:2.1rem;font-weight:900;color:#fafafa;letter-spacing:-0.04em;margin-bottom:0.25rem;">
+    <h1 style="font-size:2.1rem;font-weight:900;color:#0f172a;letter-spacing:-0.04em;margin-bottom:0.25rem;">
       Projects
     </h1>
-    <p style="font-size:0.95rem;color:#a1a1aa;margin-bottom:1.25rem;"
+    <p style="font-size:0.95rem;color:#64748b;margin-bottom:1.25rem;"
       data-ko="AI로 만들고, 자동화하고, 실험한다." data-en="Build with AI. Automate everything. Ship fast.">
       AI로 만들고, 자동화하고, 실험한다.
     </p>
-    <div style="display:flex;align-items:center;gap:1.25rem;padding:0.8rem 1.2rem;background:#18181b;border-radius:12px;border:1px solid #27272a;width:fit-content;margin-bottom:2.5rem;">
+    <div style="display:flex;align-items:center;gap:1.25rem;padding:0.8rem 1.2rem;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;width:fit-content;margin-bottom:2.5rem;">
       <div style="display:flex;align-items:baseline;gap:0.35rem;">
-        <span style="font-size:1.3rem;font-weight:800;color:#fafafa;font-family:'JetBrains Mono',monospace;">{projects.length}</span>
-        <span style="font-size:0.7rem;color:#a1a1aa;" data-ko="프로젝트" data-en="projects">프로젝트</span>
+        <span style="font-size:1.3rem;font-weight:800;color:#0f172a;font-family:'JetBrains Mono',monospace;">{projects.length}</span>
+        <span style="font-size:0.7rem;color:#64748b;" data-ko="프로젝트" data-en="projects">프로젝트</span>
       </div>
-      <div style="width:1px;height:18px;background:#27272a;"></div>
+      <div style="width:1px;height:18px;background:#e2e8f0;"></div>
       <div style="display:flex;align-items:baseline;gap:0.35rem;">
-        <span style="font-size:1.3rem;font-weight:800;color:#fafafa;font-family:'JetBrains Mono',monospace;">{activeCount}</span>
-        <span style="font-size:0.7rem;color:#a1a1aa;" data-ko="진행중" data-en="active">진행중</span>
+        <span style="font-size:1.3rem;font-weight:800;color:#0f172a;font-family:'JetBrains Mono',monospace;">{activeCount}</span>
+        <span style="font-size:0.7rem;color:#64748b;" data-ko="진행중" data-en="active">진행중</span>
       </div>
-      <div style="width:1px;height:18px;background:#27272a;"></div>
+      <div style="width:1px;height:18px;background:#e2e8f0;"></div>
       <div style="display:flex;align-items:baseline;gap:0.35rem;">
-        <span style="font-size:1.3rem;font-weight:800;color:#fafafa;font-family:'JetBrains Mono',monospace;">{totalLogs}</span>
-        <span style="font-size:0.7rem;color:#a1a1aa;" data-ko="빌드 로그" data-en="build logs">빌드 로그</span>
+        <span style="font-size:1.3rem;font-weight:800;color:#0f172a;font-family:'JetBrains Mono',monospace;">{totalLogs}</span>
+        <span style="font-size:0.7rem;color:#64748b;" data-ko="빌드 로그" data-en="build logs">빌드 로그</span>
       </div>
     </div>
 
     {featured.length > 0 && (
       <section style="margin-bottom:2.5rem;">
         <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#10b981;"></span>
-          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#fafafa;margin:0;"
+          <span style="width:8px;height:8px;border-radius:50%;background:#2563eb;"></span>
+          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#0f172a;margin:0;"
             data-ko="운영중" data-en="Live">운영중</h2>
         </div>
         <div style="display:grid;gap:0.85rem;grid-template-columns:repeat(2,1fr);">
@@ -77,8 +77,8 @@ const archived = projects.filter(p => p.status === '중단');
     {beta.length > 0 && (
       <section style="margin-bottom:2.5rem;">
         <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#fbbf24;"></span>
-          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#fafafa;margin:0;"
+          <span style="width:8px;height:8px;border-radius:50%;background:#d97706;"></span>
+          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#0f172a;margin:0;"
             data-ko="베타" data-en="Beta">베타</h2>
         </div>
         <div style="display:grid;gap:0.85rem;grid-template-columns:repeat(2,1fr);">
@@ -92,8 +92,8 @@ const archived = projects.filter(p => p.status === '중단');
     {inDev.length > 0 && (
       <section style="margin-bottom:2.5rem;">
         <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#818cf8;"></span>
-          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#fafafa;margin:0;"
+          <span style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></span>
+          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#0f172a;margin:0;"
             data-ko="개발중" data-en="In Development">개발중</h2>
         </div>
         <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(2,1fr);">
@@ -107,8 +107,8 @@ const archived = projects.filter(p => p.status === '중단');
     {archived.length > 0 && (
       <section style="margin-bottom:2rem;">
         <div style="display:flex;align-items:center;gap:0.45rem;margin-bottom:0.85rem;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#71717a;"></span>
-          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#71717a;margin:0;"
+          <span style="width:8px;height:8px;border-radius:50%;background:#6b7280;"></span>
+          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#6b7280;margin:0;"
             data-ko="아카이브" data-en="Archive">아카이브</h2>
         </div>
         <div style="display:grid;gap:0.75rem;grid-template-columns:repeat(3,1fr);">
