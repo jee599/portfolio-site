@@ -9,6 +9,7 @@ export interface Project {
   status: string;
   stack: string[];
   one_liner: string;
+  demo?: string;
   order: number;
   visible: boolean;
 }
@@ -27,6 +28,7 @@ export async function getAllProjects(): Promise<Project[]> {
     status: p.data.status,
     stack: p.data.stack,
     one_liner: p.data.one_liner,
+    demo: p.data.demo,
     order: p.data.order ?? 99,
     visible: p.data.visible ?? true,
   }));
@@ -58,6 +60,7 @@ export async function getAllProjectsIncludingHidden(): Promise<Project[]> {
     status: p.data.status,
     stack: p.data.stack,
     one_liner: p.data.one_liner,
+    demo: p.data.demo,
     order: p.data.order ?? 99,
     visible: p.data.visible ?? true,
   }));

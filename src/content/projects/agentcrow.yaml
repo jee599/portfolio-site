@@ -3,5 +3,6 @@ github: "https://github.com/jee599/agentcrow"
 status: "운영중"
 stack: ["TypeScript"]
 one_liner: "Claude Code 에이전트 자동 디스패처. 144개 전문 에이전트 오케스트레이션"
+demo: "https://raw.githubusercontent.com/jee599/agentcrow/main/assets/demo.gif"
 order: 99
 visible: true

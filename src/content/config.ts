@@ -9,6 +9,7 @@ const projects = defineCollection({
     status: z.enum(['운영중', '개발중', '실험중', '중단']),
     stack: z.array(z.string()),
     one_liner: z.string(),
+    demo: z.string().url().optional(),
     order: z.number().optional(),
     visible: z.boolean().default(true),
   }),
