@@ -1,6 +1,5 @@
 ---
 import Base from '../../layouts/Base.astro';
-import ProjectCard from '../../components/ProjectCard.astro';
 import { getAllProjects } from '../../lib/projects';
 import { getCollection } from 'astro:content';
 
@@ -12,161 +11,203 @@ const projects = (await getAllProjects()).sort((a, b) =>
 const buildLogs = (await getCollection('build-logs'))
   .filter(l => l.data.lang === 'ko')
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-const totalLogs = buildLogs.length;
-const activeCount = projects.filter(p => p.status === '운영중' || p.status === '실험중').length;
 
-const logMeta: Record<string, { count: number; latestTitle?: string; latestSlug?: string }> = {};
-for (const p of projects) {
-  const logs = buildLogs.filter(l => l.data.project === p.slug);
-  logMeta[p.slug] = {
-    count: logs.length,
-    latestTitle: logs[0]?.data.title,
-    latestSlug: logs[0]?.slug,
-  };
-}
-
-const featured = projects.filter(p => p.status === '운영중');
-const beta = projects.filter(p => p.status === '실험중');
-const inDev = projects.filter(p => p.status === '개발중');
-const archived = projects.filter(p => p.status === '중단');
-
-const screenshotMap: Record<string, string> = {
-  'portfolio-site': '/images/projects/jidonglab.png',
-  'saju_global': '/images/projects/fortunelab.png',
-  'coffee-chat': '/images/projects/coffeechat.png',
-  'uddental': '/images/projects/uddental.png',
-  'news4ai': '/images/projects/spoonai.png',
-  'dev_blog': '/images/projects/devto.png',
+const statusConfig: Record<string, { color: string; en: string }> = {
+  '운영중': { color: '#2563eb', en: 'Live' },
+  '개발중': { color: '#7c3aed', en: 'In Dev' },
+  '실험중': { color: '#d97706', en: 'Beta' },
+  '중단': { color: '#9ca3af', en: 'Stopped' },
 };
+
+// 프로젝트별 빌드 로그 데이터 (JSON으로 클라이언트에 전달)
+const projectData = projects.map(p => {
+  const logs = buildLogs.filter(l => l.data.project === p.slug).slice(0, 8);
+  const sc = statusConfig[p.status] || statusConfig['중단'];
+  return {
+    slug: p.slug,
+    title: p.title,
+    one_liner: p.one_liner,
+    status: p.status,
+    statusEn: sc.en,
+    statusColor: sc.color,
+    stack: p.stack,
+    url: p.url || '',
+    github: p.github,
+    logCount: logs.length,
+    logs: logs.map(l => ({
+      title: l.data.title,
+      slug: l.slug,
+      date: l.data.date.toISOString().split('T')[0],
+    })),
+  };
+});
 ---
 
 <Base title="Projects" description="AI 프로젝트 포트폴리오">
-  <div class="fade-in" style="max-width:1080px;margin:0 auto;">
+  <div class="fade-in" style="max-width:1080px;margin:0 auto;padding:2.5rem 0 4rem;">
 
-    {/* Hero */}
-    <div style="padding:3.5rem 0 2.5rem;text-align:center;">
-      <span style="display:inline-block;font-family:'JetBrains Mono',monospace;font-size:0.7rem;font-weight:600;color:#2563eb;letter-spacing:0.05em;padding:0.25rem 0.7rem;background:#eff6ff;border:1px solid #bfdbfe;border-radius:999px;margin-bottom:1rem;"
-        data-ko="포트폴리오" data-en="Portfolio">포트폴리오</span>
-      <h1 style="font-size:2.5rem;font-weight:900;color:#0f172a;letter-spacing:-0.03em;margin:0 0 0.5rem 0;">
+    {/* Header */}
+    <div style="margin-bottom:2rem;">
+      <h1 style="font-size:2rem;font-weight:900;color:#0f172a;letter-spacing:-0.03em;margin:0 0 0.3rem;">
         Projects
       </h1>
-      <p style="font-size:1rem;color:#64748b;max-width:480px;margin:0 auto 1.5rem;"
-        data-ko="AI로 만들고, 자동화하고, 실험한다." data-en="Build with AI. Automate everything. Ship fast.">
-        AI로 만들고, 자동화하고, 실험한다.
+      <p style="font-size:0.9rem;color:#64748b;" data-ko="프로젝트를 선택하면 빌드 로그를 볼 수 있다." data-en="Select a project to see build logs.">
+        프로젝트를 선택하면 빌드 로그를 볼 수 있다.
       </p>
+    </div>
 
-      {/* Stats */}
-      <div style="display:inline-flex;align-items:center;gap:2rem;padding:0.75rem 1.5rem;background:#f8fafc;border-radius:12px;border:1px solid #e2e8f0;">
-        <div style="text-align:center;">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:800;color:#2563eb;">{projects.length}</div>
-          <div style="font-size:0.65rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;" data-ko="프로젝트" data-en="Projects">프로젝트</div>
-        </div>
-        <div style="width:1px;height:28px;background:#e2e8f0;"></div>
-        <div style="text-align:center;">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:800;color:#0f172a;">{activeCount}</div>
-          <div style="font-size:0.65rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;" data-ko="운영중" data-en="Active">운영중</div>
-        </div>
-        <div style="width:1px;height:28px;background:#e2e8f0;"></div>
-        <div style="text-align:center;">
-          <div style="font-family:'JetBrains Mono',monospace;font-size:1.5rem;font-weight:800;color:#2563eb;">{totalLogs}</div>
-          <div style="font-size:0.65rem;color:#64748b;text-transform:uppercase;letter-spacing:0.05em;" data-ko="빌드 로그" data-en="Build Logs">빌드 로그</div>
+    {/* Split Layout: Left list + Right detail */}
+    <div style="display:flex;gap:1.5rem;align-items:flex-start;">
+
+      {/* Left: Project List */}
+      <div style="width:340px;flex-shrink:0;" id="project-list">
+        {projects.map((p, i) => {
+          const sc = statusConfig[p.status] || statusConfig['중단'];
+          const logs = buildLogs.filter(l => l.data.project === p.slug);
+          return (
+            <div class={`proj-item ${i === 0 ? 'active' : ''}`} data-slug={p.slug}
+              style={`display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-radius:10px;cursor:pointer;transition:all 0.15s;border:1px solid transparent;margin-bottom:0.25rem;`}>
+              <div style={`width:4px;height:32px;border-radius:2px;background:${sc.color};flex-shrink:0;opacity:0.4;transition:opacity 0.15s;`} class="proj-bar"></div>
+              <div style="flex:1;min-width:0;">
+                <div style="display:flex;align-items:center;gap:0.4rem;">
+                  <span style="font-size:0.88rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{p.title}</span>
+                  <span style={`font-size:0.55rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:${sc.color};`} data-ko={p.status} data-en={sc.en}>{p.status}</span>
+                </div>
+                <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.15rem;">
+                  {p.stack.slice(0, 3).map(t => (
+                    <span style="font-size:0.55rem;font-family:'JetBrains Mono',monospace;color:#94a3b8;">{t}</span>
+                  ))}
+                  {logs.length > 0 && (
+                    <span style="font-size:0.55rem;font-family:'JetBrains Mono',monospace;color:#2563eb;margin-left:auto;">
+                      {logs.length} logs
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Right: Detail Panel */}
+      <div style="flex:1;min-width:0;position:sticky;top:80px;" id="detail-panel">
+        <div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:14px;padding:1.5rem;min-height:400px;">
+
+          {/* Project header */}
+          <div id="detail-header">
+            <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:0.75rem;">
+              <span id="detail-status" style="display:inline-flex;align-items:center;gap:0.25rem;padding:0.15rem 0.55rem;border-radius:100px;font-size:0.6rem;font-weight:700;font-family:'JetBrains Mono',monospace;"></span>
+              <div style="display:flex;gap:0.4rem;margin-left:auto;" id="detail-links"></div>
+            </div>
+            <h2 id="detail-title" style="font-size:1.35rem;font-weight:900;color:#0f172a;letter-spacing:-0.02em;margin:0 0 0.4rem;"></h2>
+            <p id="detail-desc" style="font-size:0.88rem;color:#64748b;line-height:1.6;margin:0 0 1rem;"></p>
+            <div id="detail-stack" style="display:flex;flex-wrap:wrap;gap:0.3rem;margin-bottom:1.25rem;"></div>
+          </div>
+
+          {/* Divider */}
+          <div style="height:1px;background:#e2e8f0;margin-bottom:1rem;"></div>
+
+          {/* Build logs list */}
+          <div>
+            <h3 style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;margin:0 0 0.75rem;"
+              data-ko="빌드 로그" data-en="Build Logs">빌드 로그</h3>
+            <div id="detail-logs"></div>
+          </div>
         </div>
       </div>
     </div>
-
-    {/* Live Projects */}
-    {featured.length > 0 && (
-      <section style="margin-bottom:3rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#2563eb;"></span>
-          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#0f172a;margin:0;"
-            data-ko="운영중" data-en="Live">운영중</h2>
-          <span style="font-size:0.65rem;color:#64748b;margin-left:0.25rem;">({featured.length})</span>
-        </div>
-        <div class="proj-grid-2">
-          {featured.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} latestLogTitle={logMeta[p.slug]?.latestTitle} latestLogSlug={logMeta[p.slug]?.latestSlug} />
-          ))}
-        </div>
-      </section>
-    )}
-
-    {/* Beta */}
-    {beta.length > 0 && (
-      <section style="margin-bottom:2.5rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#d97706;"></span>
-          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#0f172a;margin:0;"
-            data-ko="베타" data-en="Beta">베타</h2>
-          <span style="font-size:0.65rem;color:#64748b;">({beta.length})</span>
-        </div>
-        <div class="proj-grid-2">
-          {beta.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} latestLogTitle={logMeta[p.slug]?.latestTitle} latestLogSlug={logMeta[p.slug]?.latestSlug} />
-          ))}
-        </div>
-      </section>
-    )}
-
-    {/* In Development */}
-    {inDev.length > 0 && (
-      <section style="margin-bottom:2.5rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#7c3aed;"></span>
-          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#0f172a;margin:0;"
-            data-ko="개발중" data-en="In Development">개발중</h2>
-          <span style="font-size:0.65rem;color:#64748b;">({inDev.length})</span>
-        </div>
-        <div class="proj-grid-3">
-          {inDev.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} />
-          ))}
-        </div>
-      </section>
-    )}
-
-    {/* Archive */}
-    {archived.length > 0 && (
-      <section style="margin-bottom:2rem;">
-        <div style="display:flex;align-items:center;gap:0.5rem;margin-bottom:1rem;">
-          <span style="width:8px;height:8px;border-radius:50%;background:#9ca3af;"></span>
-          <h2 style="font-size:0.72rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#9ca3af;margin:0;"
-            data-ko="아카이브" data-en="Archive">아카이브</h2>
-          <span style="font-size:0.65rem;color:#9ca3af;">({archived.length})</span>
-        </div>
-        <div class="proj-grid-3">
-          {archived.map((p) => (
-            <ProjectCard slug={p.slug} title={p.title} one_liner={p.one_liner} status={p.status} stack={p.stack} url={p.url} github={p.github} logCount={logMeta[p.slug]?.count || 0} />
-          ))}
-        </div>
-      </section>
-    )}
   </div>
 </Base>
 
 <style>
-  .proj-grid-2 {
-    display: grid;
-    gap: 1rem;
-    grid-template-columns: repeat(2, 1fr);
+  .proj-item:hover, .proj-item.active {
+    background: #f8fafc !important;
+    border-color: #e2e8f0 !important;
   }
-  .proj-grid-3 {
-    display: grid;
-    gap: 0.85rem;
-    grid-template-columns: repeat(3, 1fr);
+  .proj-item.active .proj-bar {
+    opacity: 1 !important;
   }
-  .proj-screenshot {
-    position: relative;
-  }
-  .proj-scroll-img {
-    transform: translateY(0);
-    transition: transform 6s ease-in-out;
-  }
-  .proj-screenshot:hover .proj-scroll-img {
-    transform: translateY(calc(-100% + 200px));
+  .proj-item:hover .proj-bar {
+    opacity: 0.7 !important;
   }
   @media (max-width: 768px) {
-    .proj-grid-2 { grid-template-columns: 1fr; }
-    .proj-grid-3 { grid-template-columns: 1fr; }
+    div[style*="display:flex;gap:1.5rem"] {
+      flex-direction: column !important;
+    }
+    div[style*="width:340px"] {
+      width: 100% !important;
+    }
+    #detail-panel {
+      position: static !important;
+    }
   }
 </style>
+
+<script is:inline define:vars={{ projectData: JSON.stringify(projectData) }}>
+  (function() {
+    var data = JSON.parse(projectData);
+    var items = document.querySelectorAll('.proj-item');
+    var detailTitle = document.getElementById('detail-title');
+    var detailDesc = document.getElementById('detail-desc');
+    var detailStatus = document.getElementById('detail-status');
+    var detailStack = document.getElementById('detail-stack');
+    var detailLinks = document.getElementById('detail-links');
+    var detailLogs = document.getElementById('detail-logs');
+
+    function showProject(slug) {
+      var p = data.find(function(d) { return d.slug === slug; });
+      if (!p) return;
+
+      // Update active state
+      items.forEach(function(el) { el.classList.remove('active'); });
+      document.querySelector('[data-slug="' + slug + '"]').classList.add('active');
+
+      // Status
+      detailStatus.style.background = p.statusColor + '15';
+      detailStatus.style.color = p.statusColor;
+      detailStatus.innerHTML = '<span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + p.statusColor + ';"></span> ' + p.status;
+
+      // Title & desc
+      detailTitle.textContent = p.title;
+      detailDesc.textContent = p.one_liner || '';
+
+      // Stack
+      detailStack.innerHTML = p.stack.map(function(t) {
+        return '<span style="font-size:0.62rem;font-family:\'JetBrains Mono\',monospace;padding:0.12rem 0.5rem;border-radius:5px;background:#f1f5f9;color:#475569;">' + t + '</span>';
+      }).join('');
+
+      // Links
+      var links = '';
+      if (p.url) {
+        links += '<a href="' + p.url + '" target="_blank" rel="noopener" style="font-size:0.72rem;font-weight:600;color:#2563eb;text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;padding:0.3rem 0.65rem;background:#eff6ff;border-radius:6px;">사이트 ↗</a>';
+      }
+      links += '<a href="' + p.github + '" target="_blank" rel="noopener" style="font-size:0.72rem;font-weight:600;color:#64748b;text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;padding:0.3rem 0.65rem;background:#f1f5f9;border-radius:6px;">GitHub ↗</a>';
+      links += '<a href="/projects/' + p.slug + '" style="font-size:0.72rem;font-weight:600;color:#64748b;text-decoration:none;display:inline-flex;align-items:center;gap:0.25rem;padding:0.3rem 0.65rem;background:#f1f5f9;border-radius:6px;">상세 →</a>';
+      detailLinks.innerHTML = links;
+
+      // Build logs
+      if (p.logs.length === 0) {
+        detailLogs.innerHTML = '<p style="font-size:0.8rem;color:#94a3b8;padding:1rem 0;">빌드 로그가 아직 없다.</p>';
+        return;
+      }
+      detailLogs.innerHTML = p.logs.map(function(log) {
+        return '<a href="/posts/' + log.slug + '" style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0;border-bottom:1px solid #f1f5f9;text-decoration:none;transition:all 0.15s;" onmouseover="this.style.paddingLeft=\'0.5rem\'" onmouseout="this.style.paddingLeft=\'0\'">' +
+          '<span style="font-size:0.68rem;font-family:\'JetBrains Mono\',monospace;color:#94a3b8;flex-shrink:0;width:70px;">' + log.date + '</span>' +
+          '<span style="font-size:0.82rem;color:#0f172a;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + log.title + '</span>' +
+        '</a>';
+      }).join('');
+    }
+
+    // Click handlers
+    items.forEach(function(el) {
+      el.addEventListener('click', function() {
+        showProject(el.dataset.slug);
+      });
+    });
+
+    // Show first project by default
+    if (data.length > 0) {
+      showProject(data[0].slug);
+    }
+  })();
+</script>
