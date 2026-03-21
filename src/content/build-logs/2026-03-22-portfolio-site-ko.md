@@ -1,107 +1,90 @@
 ---
-title: "포트폴리오 Projects 페이지, 하루에 4번 갈아엎은 이야기"
+title: "블로그 자동발행 파이프라인 + Vercel 배포 2시간 삽질기"
 project: "portfolio-site"
 date: 2026-03-22
 lang: ko
-tags: [claude-code, astro, ui-ux, portfolio]
-description: "한 페이지를 하루 만에 4번 리디자인했다. 스크린샷 카드 → hover 오버레이 → 좌우 분할 패널 → iframe 미리보기까지. Claude Code로 빠른 이터레이션이 가능할 때 생기는 일."
+tags: [claude-code, automation, devto, vercel, blog]
+description: "소재 하나를 spoonai·DEV.to·네이버에 동시 발행하는 파이프라인을 만들었다. 그리고 git 이메일 하나 때문에 Vercel 배포가 2시간 동안 막혔다."
 ---
 
-포트폴리오 Projects 페이지를 3월 21일 하루에 4번 갈아엎었다.
+하루에 Claude Code 세션을 6개 돌렸다. 프로젝트는 5개 — designmaker, agentcrow, saju_global, spoonai, portfolio-site.
 
-**TL;DR** Claude Code와 함께하면 이터레이션 속도가 너무 빨라져서, 오히려 "이게 맞는 방향인가"를 더 자주 물어봐야 한다는 걸 배웠다.
+**TL;DR** `auto-publish` 스킬로 블로그 3플랫폼 동시 발행 파이프라인을 만들었다. 그리고 git author 이메일 불일치로 Vercel 배포가 2시간 동안 Blocked 됐다. 원인은 이메일 한 줄이었다.
 
-## 시작: 스크린샷 카드가 멋있어 보였다
+총 289 tool calls, Bash(127), Agent(38), Read(26), Edit(26).
 
-처음 시도한 건 브라우저 모킹 스크린샷 카드였다. Notion, Linear, Vercel 같은 회사들이 랜딩 페이지에서 쓰는 그 패턴 — 브라우저 프레임 안에 제품 스크린샷을 넣고, 마우스를 올리면 천천히 스크롤되는 효과.
 
-프롬프트는 이랬다:
+## DEV.to에 글 4편을 한 번에 올리는 법
+
+포트폴리오 레포 `src/content/`에 글이 4개 쌓여 있었다. Claude Code channels 아키텍처 2편, dispatch & cowork 2편. 발행을 안 하고 있었던 것뿐이다.
+
+파일 경로 4개를 Claude Code에 던지고 "DEV.to에 발행해줘"라고 했다.
+
+Claude가 한 일은 순서대로다. 파일을 읽고 → `dev_blog` 레포 구조에 맞게 md 파일을 배치하고 → git push하면 GitHub Actions가 DEV.to API를 호출한다. 4편이 draft로 올라갔다.
+
+여기까지는 5분도 안 걸렸다.
+
+문제는 그 다음에 발견됐다. 올라간 글들을 보니 SEO가 없었다. 외부에서 작성된 글이라 블로그 스킬의 후킹 로직이 전혀 안 들어가 있었던 것이다. "SEO랑 후킹, 조회수 높이는 기술 모두 적용해줘"라고 추가 요청했다.
+
+Claude가 뭐가 빠졌는지 분석해서 보여줬다.
+
+제목에 숫자나 결과가 없어서 클릭률이 낮다. description이 설명형이라 후킹이 없다. 불릿 포인트를 남발해서 스킬 금지 사항에 걸린다. 개인 경험 톤이 없어서 교과서 느낌이 난다. 섹션 제목이 평이해서 질문·행동형이 아니다.
+
+병렬 에이전트 4개를 붙였다. 파일마다 하나씩 동시에 리라이팅.
+
+
+## auto-publish 스킬을 만든 이유
+
+"소재를 주면 여러 플랫폼에 자동 발행하게 하고 싶다"는 막연한 요청이었다.
+
+Claude가 brainstorming 스킬을 먼저 돌렸다. 옵션을 펼쳐놓고 뭘 원하는지 좁혀나갔다. 텔레그램으로 받을지, 웹으로 받을지, CLI로 받을지. 플랫폼은 어디까지 자동화할지.
+
+결론이 나왔다. URL/키워드/파일 하나를 던지면 spoonai.me(한국어) + DEV.to(영어) + 네이버(한국어 HTML)를 동시에 만들어서 발행한다.
+
+플랫폼별 차이가 있다. DEV.to는 git push → GitHub Actions. spoonai.me도 git 기반. 네이버는 Cowork + Chrome 자동화로 하루에 한 편씩 `~/blog-factory/naver-queue/` 폴더를 보고 발행한다.
+
+이미지 생성은 별도 스킬로 분리했다. `dental-blog-image-pipeline` 스킬이 Gemini로 일러스트를 만들고 Playwright로 캡처한다. `auto-publish`가 이 스킬을 호출하는 구조다.
+
+writing-plans 스킬로 태스크를 분해하고 → subagent-driven-development로 실행했다. 에이전트 1개당 파일 1개를 맡아서 병렬로 구현했다.
+
+
+## Vercel 배포가 2시간 동안 막혔다
+
+spoonai.me에 기사가 올라가지 않았다. 404.
+
+배포 로그를 열었다.
 
 ```
-운영중 프로젝트: 브라우저 모킹 + 스크롤 애니메이션 스크린샷
-히어로: 가운데 정렬 + 배지 + 스탯
-개발중: 3열 그리드
+Deployment Blocked
+Git author jidongs45@gmail.com must have access to the team
+jee599's projects on Vercel to create deployments.
 ```
 
-Claude Code가 `02076c1` 커밋으로 한 번에 105줄을 추가했다. 결과는 그럴듯했다. 근데 스크롤 애니메이션이 문제였다.
+git 커밋의 author 이메일이 `jidongs45@gmail.com`인데, Vercel 프로젝트 오너는 `jee599` 계정이었다.
 
-`object-fit: cover`와 `translateY`가 충돌했다. 이미지가 제자리에서 잘려나가는 게 아니라 박스 밖으로 튀어나왔다. 두 커밋(`ef7d70a`, `57f5d09`)을 써서 수정했는데, 이 시점에서 든 생각이 있었다.
+처음엔 원인을 몰라서 그냥 다시 push했다. 여전히 Blocked.
 
-"스크롤 애니메이션 고치는 데 왜 이렇게 신경 쓰이지? 스크린샷 자체가 없는 프로젝트들은 어떻게 할 건데?"
+Redeploy 버튼을 눌렀다. "This deployment can not be redeployed." Vercel 설정에서 멤버를 추가했다. `jidonggg` 계정으로 push했다. 전부 Blocked.
 
-## 첫 번째 피벗: hover 오버레이
+한참 돌아서 해결책을 찾았다. 맥에 설정된 git global config 이메일이 문제였다.
 
-스크린샷 방식을 버리고 카드 기반으로 갔다. 기본 상태에서는 컴팩트하게 제목 + 상태 + 스택만 보여주고, hover 시 풀 설명 + 빌드 로그 + 링크가 펼쳐지는 구조.
-
-`ProjectCard.astro`에 161줄 변경. 핵심은 CSS `opacity` 전환 — 0.25초로 부드럽게.
-
-Claude Code 도구 사용: Edit 위주로, Bash는 빌드 확인용.
-
-근데 이것도 한 30분 보다가 문제를 발견했다. hover 상태에서 정보가 너무 많아서 오히려 읽기 어려웠다. 카드 hover는 "힌트"를 주는 패턴이지, "전체 정보"를 담는 패턴이 아니다.
-
-두 번째 방향 전환.
-
-## 두 번째 피벗: 좌우 분할 레이아웃
-
-Finder, Linear, GitHub처럼 왼쪽에 리스트, 오른쪽에 상세 패널을 두는 패턴으로 갔다.
-
-```
-왼쪽: 프로젝트 리스트 (상태별 컬러 바 + 이름 + 스택 + 로그 수)
-오른쪽: 선택한 프로젝트 상세 (설명 + 스택 + 사이트/GitHub 링크 + 빌드 로그 목록)
-클릭으로 전환, sticky 패널
-모바일: 세로 배치
+```bash
+git config --global user.email "jee599-account-email@gmail.com"
 ```
 
-`e831e42` — `index.astro` 단일 파일에 315줄. 178줄 추가, 137줄 삭제.
+이 한 줄이 2시간짜리 삽질의 정답이었다.
 
-이건 느낌이 달랐다. 리스트에서 프로젝트를 클릭하면 오른쪽 패널이 교체된다. 정보 밀도가 높지만 스캔하기 쉽다. 상태별 컬러 바(초록 = 운영중, 노란 = 개발중, 회색 = 완료)로 한눈에 파악된다.
+메모리 파일 `feedback_vercel_deploy.md`에 기록해뒀다. 앞으로 새 레포를 Vercel에 연결할 때는 `git config user.email`부터 확인한다.
 
-문제는 "이 사람이 실제로 무슨 걸 만들었지?"에 대한 답이 여전히 텍스트뿐이라는 것. 링크 클릭해서 새 탭 열기 전까지는 제품이 어떻게 생겼는지 알 수 없다.
 
-## 세 번째 피벗: iframe 미리보기
+## 여러 세션을 동시에 돌릴 때 생기는 일
 
-오른쪽 상세 패널에 `<iframe>`을 넣었다. 클릭하면 해당 사이트를 패널 안에서 바로 볼 수 있다.
+이날 세션 6개의 총 규모를 보면, Bash 호출이 127번으로 가장 많았다. Agent 호출이 38번. 이 비율이 의미하는 건 Claude가 직접 하기보다 에이전트에 위임하는 일이 많았다는 뜻이다.
 
-```astro
-<iframe
-  src={project.siteUrl}
-  class="preview-iframe"
-  loading="lazy"
-  sandbox="allow-scripts allow-same-origin"
-/>
-```
+세션이 22시간 39분까지 늘어난 건 Vercel 삽질 + auto-publish 스킬 설계 + 즉석 수정들이 겹쳤기 때문이다. 단일 세션이 길어지면 컨텍스트 압축이 일어난다. 앞쪽 결정 사항이 날아가서 나중에 "이거 왜 이렇게 됐지?"가 생긴다. 중요한 결정은 메모리에 저장해두는 게 맞다.
 
-처음엔 높이를 200px로 잡았다. 너무 좁았다. 400px로 두 배 늘렸다 — `7587f7c`.
+이날 생긴 메모리 파일 3개: `project_auto_publish.md`, `project_spoonai_admin.md`, `feedback_vercel_deploy.md`.
 
-hover 시 iframe 내부가 천천히 스크롤되는 효과도 추가했다. CSS `transform: translateY`를 transition으로 컨트롤하는 방식. JavaScript 없이 CSS만으로 구현했다.
+스킬 없이 바로 "만들어줘"로 시작했다면 방향이 여러 번 바뀌었을 것이다. brainstorming 단계에서 "네이버 자동화는 Cowork로 처리한다"는 결정이 났고, 그게 전체 구조를 확정시켰다. 설계 먼저, 구현은 나중이 맞다.
 
-이 시점에서 도구 사용 패턴을 보면: Edit 위주에 Bash는 `astro build` 확인용만. `index.astro` 단일 파일이 계속 변경되다 보니 Edit 충돌 없이 깔끔하게 처리됐다.
-
-## 오픈소스는 다르게: GIF 미리보기
-
-agentcrow, contextzip 같은 오픈소스 프로젝트는 `siteUrl`이 없다. GitHub 레포가 전부다. 여기에 `demo.gif`를 추가했다.
-
-`config.ts`에 `demoGif` 필드를 추가하고, 각 yaml에 경로를 넣었다:
-
-```yaml
-# agentcrow.yaml
-demoGif: /demos/agentcrow.gif
-```
-
-홈페이지 오픈소스 카드에서 GIF를 보여준다. 다크 배경 + 16:9 컨테이너, `loading="lazy"`.
-
-변경 파일이 5개(`config.ts`, `agentcrow.yaml`, `contextzip.yaml`, `projects.ts`, `index.astro`)라 Claude Code가 병렬로 처리하지 않고 순서대로 갔다 — 스키마를 먼저 바꿔야 나머지가 맞기 때문이다.
-
-## nav 정리
-
-`AI Posts`, `AI News` 링크를 nav에서 제거했다 — `a6fc486`. 포트폴리오 사이트의 핵심은 내가 만든 것들이지, 자동 생성되는 뉴스 피드가 아니다. nav가 단순해질수록 방문자가 중요한 것에 집중한다.
-
-## 하루에 4번 갈아엎는 게 가능한 이유
-
-예전 방식이었다면 이 작업은 4일이다. 각 이터레이션마다 코드 짜고, 스타일 맞추고, 모바일 테스트하는 데 하루씩. 근데 Claude Code로 하니 각 이터레이션이 20~40분 안에 끝났다. 아이디어를 프롬프트로 던지면 구현이 나오고, 보고 판단하고, 다음 방향을 정한다.
-
-이 속도의 부작용이 있다. "빠르게 만들 수 있으니 일단 만들어보자"는 마인드셋이 생긴다. 덕분에 네 가지 방향을 실험해볼 수 있었는데, 반대로 말하면 방향 결정 없이 계속 만들 수도 있다는 뜻이다.
-
-오늘 이 작업에서 배운 건 결국 이거다.
-
-> Claude Code는 이터레이션 비용을 거의 0으로 만든다. 그래서 방향을 정하는 판단력이 더 중요해진다.
+> 파이프라인 하나가 완성되면, 다음 글은 더 이상 수동이 아니다.
