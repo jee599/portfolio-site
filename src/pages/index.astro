@@ -309,22 +309,13 @@ const screenshotMap: Record<string, string> = {
   }
 
   /* Animations */
-  /* Auto-scrolling screenshot animation — translateY moves image up */
-  @keyframes scrollPreview {
-    0%, 15% { transform: translateY(0); }
-    45%, 55% { transform: translateY(calc(-100% + 180px)); }
-    85%, 100% { transform: translateY(0); }
-  }
+  /* Screenshot scroll — only on hover, slow and smooth */
   .scroll-img {
-    animation: scrollPreview 8s ease-in-out infinite;
+    transform: translateY(0);
+    transition: transform 6s ease-in-out;
   }
-  .site-card:nth-child(2) .scroll-img { animation-delay: 1.5s; }
-  .site-card:nth-child(3) .scroll-img { animation-delay: 3s; }
-  .site-card:nth-child(4) .scroll-img { animation-delay: 0.8s; }
-  .site-card:nth-child(5) .scroll-img { animation-delay: 2.2s; }
-  .site-card:nth-child(6) .scroll-img { animation-delay: 4s; }
   .site-card:hover .scroll-img {
-    animation-play-state: paused;
+    transform: translateY(calc(-100% + 180px));
   }
 
   /* Hero mockup hidden on mobile */
