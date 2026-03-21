@@ -1,5 +1,5 @@
 title: "UD Dental"
-url: "https://claude-old.vercel.app/"
+url: "https://uddental.com"
 github: "https://github.com/jee599/uddental"
 status: "운영중"
 stack: ["Next.js", "Tailwind", "Vercel"]
