@@ -309,13 +309,23 @@ const screenshotMap: Record<string, string> = {
   }
 
   /* Animations */
-  /* Scroll animation on hover — image scrolls from top to bottom */
-  .scroll-img {
-    transition: object-position 3s ease-in-out;
-    object-position: top;
+  /* Auto-scrolling screenshot animation */
+  @keyframes scrollPreview {
+    0%, 10% { object-position: top; }
+    45%, 55% { object-position: bottom; }
+    90%, 100% { object-position: top; }
   }
+  .scroll-img {
+    object-position: top;
+    animation: scrollPreview 8s ease-in-out infinite;
+  }
+  .site-card:nth-child(2) .scroll-img { animation-delay: 1.5s; }
+  .site-card:nth-child(3) .scroll-img { animation-delay: 3s; }
+  .site-card:nth-child(4) .scroll-img { animation-delay: 0.8s; }
+  .site-card:nth-child(5) .scroll-img { animation-delay: 2.2s; }
+  .site-card:nth-child(6) .scroll-img { animation-delay: 4s; }
   .site-card:hover .scroll-img {
-    object-position: bottom;
+    animation-play-state: paused;
   }
 
   /* Hero mockup hidden on mobile */
