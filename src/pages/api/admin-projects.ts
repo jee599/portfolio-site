@@ -269,8 +269,8 @@ export const POST: APIRoute = async ({ request, locals }) => {
     const encoded = btoa(String.fromCharCode(...new TextEncoder().encode(yamlContent)));
 
     try {
-      // 기존 파일이 있으면 SHA 가져오기
-      const checkRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, { headers: { Accept: 'application/vnd.github.v3+json', Authorization: `Bearer ${token}`, 'User-Agent': 'jidonglab-admin/1.0' } });
+      // 기존 파일이 있으면 SHA 가져오기 (캐시 방지)
+      const checkRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}?t=${Date.now()}`, { headers: { Accept: 'application/vnd.github.v3+json', Authorization: `Bearer ${token}`, 'User-Agent': 'jidonglab-admin/1.0', 'If-None-Match': '' } });
       let existingSha: string | undefined;
       if (checkRes.ok) {
         const existing = await checkRes.json();
