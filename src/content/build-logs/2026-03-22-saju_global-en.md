@@ -1,70 +1,105 @@
 ---
-title: "4 Claude Code Sessions, 0 Tool Calls: How One Bad API Key Silenced My Automation"
+title: "4 Sessions, 0 Tool Calls, 1 Config Fix: Debugging Claude Code When the Agent Won't Start"
 project: "saju_global"
 date: 2026-03-22
 lang: en
 pair: "2026-03-22-saju_global-ko"
-tags: [claude-code, api, debugging, saju]
-description: "4 automated Claude Code sessions ran and produced nothing. Zero tool calls, zero file changes. A single invalid API key was the culprit."
+tags: [claude-code, debugging, api, saju]
+description: "An expired API key silently killed 4 Claude Code sessions before a single tool call fired. Here's what zero tool calls means—and how to diagnose it fast."
 ---
 
-Four sessions ran. Zero tool calls. Zero file changes. Zero output.
+Four Claude Code sessions opened. Four sessions closed. Zero tool calls across all of them.
 
-**TL;DR** — An expired external API key brought down all automated Claude Code sessions for saju_global. No alerts, no stack traces. Sessions opened and closed silently. Replacing the key fixed everything.
+**TL;DR** An expired external API key blocked the `saju_global` automation pipeline entirely. Claude Code couldn't read a file, run a search, or write a single line — not because the agent was broken, but because the environment it needed was already down. The fix was one config value. Getting there took four wasted sessions and a hard look at my debugging instincts.
 
-## When Automation Dies Without Making a Sound
+## A Workflow That Looked Like It Was Running
 
-Usually when automation breaks, you know about it. Error logs pile up. A Slack notification fires. A deployment goes red.
+On 2026-03-22, I triggered the automated build-log generation workflow for `saju_global`. The job was straightforward: analyze recent commits, produce Korean and English build logs in `build-logs/`, optionally draft a blog post. This workflow had run successfully before. Nothing in the code had changed.
 
-This wasn't that.
+Session 1 started. Session 1 ended. No files written.
 
-Sessions were triggering on schedule — build log generation, blog draft creation. The user prompts were landing correctly. But somewhere in the tool execution path, authentication against an external API was failing, and Claude Code was exiting without doing anything at all.
+I assumed it was a fluke — prompt didn't land right, maybe a transient issue. Session 2, same setup, same task. Same result: nothing. No output, no error message in any obvious place, no indication of what had gone wrong. The session just closed.
 
-No errors surfaced. The session just... ended.
+Sessions 3 and 4 were me repeating the same steps because I didn't know what else to do. All four sessions shared the same label in the logs: `Invalid API key · Fix external API key`. That label was both the symptom and the diagnosis, and I had glossed right over it.
 
-The only clue was a single message buried in the session output: `Invalid API key`.
+## What `tool_calls: 0` Actually Means
 
-Here's what the session stats looked like:
+This is the most important diagnostic signal in this incident.
 
-| Metric | Value |
-|--------|-------|
-| Total sessions | 4 |
-| Total tool calls | 0 |
-| Files modified | 0 |
-| Root cause | Invalid API key |
+When a Claude Code session ends with zero tool calls, it's not a vague failure — it's a specific one. The agent received the prompt, processed it, and stopped before taking any action. No file reads, no searches, no writes, no shell commands. The session opened and closed without leaving a mark on anything.
 
-## What Expired
+This is different from a session that fails partway through — where you'd see some tool calls, then an error, then termination. Zero tool calls means the agent never got started. Something blocked execution before the first action.
 
-saju_global uses an external LLM API to interpret the results of its saju (Korean fortune-telling) calculations. The key for that API had either expired or was misconfigured in the environment.
+In `saju_global`, the agent's first meaningful action requires authenticating against an external API. The project routes saju (Korean four-pillar fortune analysis) data through an LLM API to produce interpretations. That API sits between Claude Code's intent and the actual execution path. When authentication fails at that layer, there's no graceful degradation — the session hits a wall and stops.
 
-The key itself wasn't the problem — those things expire. The problem was how the failure propagated. When the API key check failed, the entire session terminated silently. Nothing in the output indicated which step had failed, or why execution stopped. I only found out later by checking that the automation had produced nothing.
+You can think of it as a locked door with no handle on the inside. The agent can see the task, can understand what needs to be done, but can't step through.
 
-The most dangerous kind of error is one that looks like no error at all.
+## The Retry Trap (And Why I Fell Into It)
 
-## After Replacing the Key
+There's a debugging habit that breaks down when automation is involved: when something fails and you don't understand why, retry it.
 
-Swapped the external API key with a valid one, verified the environment variable was set correctly, and ran a test call to confirm:
+In interactive debugging — running a test locally, calling an API from the terminal — retrying after a transient failure makes sense. Networks hiccup. Rate limits clear. Caches expire. Retrying costs little and sometimes resolves the issue without further investigation.
 
-```bash
-# Verify key validity
-curl -H "Authorization: Bearer $EXTERNAL_API_KEY" https://api.example.com/health
-# → 200 OK
-```
+In an automated pipeline with Claude Code, this habit is expensive. Each session retry burns time, costs tokens, and produces no new information if the underlying environment issue hasn't changed. I ran four sessions before looking at the actual error. The pattern went:
 
-That was it. Sessions started producing output again. If you're seeing sessions with zero tool calls, the first thing to check is the health of your external dependencies — keys, tokens, connection strings.
+1. Session fails → cause unknown → retry
+2. Session fails → assume transient → retry
+3. Session fails → check if prompt was wrong → retry
+4. Session fails → actually look at logs
 
-## A Quiet Failure Mode in Claude Code Automation
+The error was visible in the logs from session 1. `Invalid API key` is not a subtle message. I just wasn't looking there first.
 
-This wasn't a code bug. It was an environment bug.
+The corrected habit: when a session ends with zero tool calls, **open the session logs before touching the prompt**. The diagnostic information is already there. Retrying is not a diagnostic action.
 
-When a Claude Code session starts, it reads context and builds a plan before making any tool calls. But if the first tool call in that plan hits an external API with a bad key, authentication fails and the session stalls. Everything downstream is blocked. No retry, no fallback, no alert.
+## The Fix Was One Line
 
-Automated pipelines need explicit logic to catch these early failures. Two things to add next:
+Once I identified the root cause, the fix took about thirty seconds.
 
-- Run an external API health check at session start before anything else
-- Fire an alert when any session ends with zero tool calls
+The external API key registered in the project's environment variables had either expired or was set to an incorrect value at some point. Updating it — in `.env` locally and in Cloudflare Pages environment variable settings for production — immediately restored normal operation. The next session produced output as expected.
 
-> Silent failures in automation can be worse than having no automation at all. At least without it, you'd do the work manually.
+Zero lines of code changed. One config value updated.
+
+<hr class=section-break>
+<div class=commit-log>
+<div class=commit-row><span class=hash>—</span> <span class=msg>Fix external API key (Invalid API key)</span></div>
+</div>
+
+<div class=change-summary>
+<table>
+<thead><tr><th>Item</th><th>Before</th><th>After</th></tr></thead>
+<tbody>
+<tr><td>External API key status</td><td>Expired / invalid value</td><td>Valid key restored</td></tr>
+<tr><td>Tool calls per session</td><td>0</td><td>Normal execution</td></tr>
+<tr><td>Automation workflow</td><td>Failed (4 sessions)</td><td>Recovered</td></tr>
+</tbody>
+</table>
+</div>
+
+## What This Changes About How I Monitor AI Automation
+
+The failure pattern here is easy to miss in a traditional monitoring setup. There was no thrown exception, no HTTP error in a server log, no failed job with a non-zero exit code. Four Claude Code sessions ran and completed — technically successfully, from a process-monitoring perspective — while producing nothing.
+
+This exposes a gap in how I was thinking about automation health: I was monitoring whether the *orchestration* ran, not whether the *agent* did anything.
+
+Going forward, `tool_calls: 0` on a session that should have done work is an alert condition, not a normal result. The two monitoring changes this incident points to:
+
+**1. Session output sanity checks.** After any automation session runs, verify that expected output was produced. For build-log generation, that means checking that new files exist in `build-logs/`. If they don't, something failed silently.
+
+**2. Environment health checks before agent execution.** Run a lightweight API key validation at the start of each session — a single authenticated request to the external API that confirms the key is valid. If this check fails, surface the error immediately rather than letting the session proceed into a dead end.
+
+Neither of these is technically complex. Both would have caught this incident at session 1 instead of session 4.
+
+## The Takeaway on Agent Failure vs. Environment Failure
+
+There's a useful distinction in automated AI pipelines between agent failure and environment failure.
+
+**Agent failure** is when Claude Code has a working environment but produces wrong output — bad reasoning, incorrect file edits, misunderstood instructions. You debug this by looking at prompts, context, and tool call results.
+
+**Environment failure** is when the environment Claude Code depends on is broken before the agent gets to act. Bad API keys, missing environment variables, unreachable services. You debug this by checking dependencies, not prompts.
+
+The diagnostic signal that separates them is `tool_calls: 0`. An agent that fails on execution leaves tool call traces. An agent that never got to execute leaves none.
+
+Four sessions. Zero tool calls. One config fix. The ratio of wasted effort to actual work was completely lopsided. That asymmetry is the lesson — and the reason to get the diagnostic instinct right before the next incident.
 
 ---
 
