@@ -1,7 +1,6 @@
 import type { APIRoute } from 'astro';
 import { getCollection } from 'astro:content';
 import type { Project } from '../../lib/projects';
-import githubRepos from '../../data/github-repos.json';
 
 export const prerender = false;
 
@@ -16,6 +15,24 @@ function json(data: unknown, status = 200) {
 
 function getGitHubToken(locals: any): string {
   return import.meta.env.GITHUB_TOKEN || (locals as any).runtime?.env?.GITHUB_TOKEN || '';
+}
+
+async function fetchGitHubRepos(token: string): Promise<any[]> {
+  try {
+    const headers: Record<string, string> = {
+      Accept: 'application/vnd.github.v3+json',
+      'User-Agent': 'jidonglab-admin/1.0',
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    };
+    const res = await fetch(
+      `https://api.github.com/users/${GITHUB_USERNAME}/repos?per_page=100&sort=updated`,
+      { headers },
+    );
+    if (!res.ok) return [];
+    return res.json();
+  } catch {
+    return [];
+  }
 }
 
 async function fetchRecentCommits(repo: string, token: string, count = 5): Promise<any[]> {
@@ -52,7 +69,7 @@ export const GET: APIRoute = async ({ url, locals }) => {
 
   try {
     const token = url.searchParams.get('github_token') || getGitHubToken(locals);
-    // 로컬 YAML만 가져오기 (GitHub API 의존 없음)
+    // 로컬 YAML만 가져오기
     const localEntries = await getCollection('projects');
     const registeredProjects: Project[] = localEntries.map((p) => ({
       slug: p.id.replace(/\.ya?ml$/, ''),
@@ -68,8 +85,8 @@ export const GET: APIRoute = async ({ url, locals }) => {
     const buildLogs = await getCollection('build-logs');
     const registeredSlugs = new Set(registeredProjects.map((p) => p.slug));
 
-    // GitHub 리포 목록 (빌드타임에 생성된 static JSON)
-    const allRepos = githubRepos as any[];
+    // GitHub 리포 목록 (런타임에 API로 가져오기)
+    const allRepos = await fetchGitHubRepos(token);
 
     // 등록된 프로젝트에 메타 정보 추가
     const projectsWithMeta = registeredProjects.map((p) => {
