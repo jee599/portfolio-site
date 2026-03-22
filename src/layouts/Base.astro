@@ -263,6 +263,14 @@ const navItems = [
         sessionStorage.setItem('v_tracked', '1');
       }
 
+      // Unified admin tracking
+      fetch('https://admin.jidonglab.com/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project: 'jidonglab', path: location.pathname, referrer: document.referrer }),
+        keepalive: true,
+      }).catch(function(){});
+
       // Language toggle
       function applyLang(lang) {
         document.documentElement.lang = lang;
