@@ -4,3 +4,4 @@ status: "중단"
 stack: ["Python", "Binance API", "pandas", "backtrader"]
 one_liner: "암호화폐 자동 매매 봇. 백테스트 → 시뮬레이션 → 실거래"
 order: 2
+visible: false
