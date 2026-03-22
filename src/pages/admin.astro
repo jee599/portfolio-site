@@ -378,13 +378,28 @@ export const prerender = false;
         font-size: 0.6rem; font-family: 'JetBrains Mono', monospace;
         padding: 0.1rem 0.35rem; border-radius: 3px; background: #f2f4f6; color: #6b7684;
       }
+      .url-cell { display: flex; flex-direction: column; gap: 6px; }
+      .url-row { display: flex; gap: 4px; align-items: center; }
       .url-input {
-        width: 100%; min-width: 120px; padding: 0.2rem 0.4rem; border: 1px solid #e5e8eb;
+        flex: 1; min-width: 100px; padding: 0.2rem 0.4rem; border: 1px solid #e5e8eb;
         border-radius: 5px; font-size: 0.68rem; font-family: 'JetBrains Mono', monospace;
         color: #333d4b; outline: none;
       }
       .url-input:focus { border-color: #00c471; }
       .url-input.saved { border-color: #00c471; background: #e6f9f0; }
+      .url-save-btn {
+        padding: 0.2rem 0.5rem; border: 1px solid #00c471; border-radius: 5px;
+        background: #fff; color: #00c471; font-size: 0.65rem; cursor: pointer;
+        font-family: 'IBM Plex Sans KR', sans-serif; white-space: nowrap;
+        transition: all 0.15s;
+      }
+      .url-save-btn:hover { background: #00c471; color: #fff; }
+      .url-save-btn:disabled { opacity: 0.5; cursor: default; }
+      .url-save-btn.saved { background: #00c471; color: #fff; border-color: #00c471; }
+      .site-preview {
+        width: 100%; max-width: 200px; height: auto; border-radius: 4px;
+        border: 1px solid #e5e8eb; background: #f8f9fa;
+      }
       .cli-copy-btn {
         padding: 0.25rem 0.5rem; border: 1px solid #e5e8eb; border-radius: 5px;
         background: #fff; color: #333d4b; font-size: 0.7rem; cursor: pointer;
@@ -1252,7 +1267,13 @@ export const prerender = false;
               const siteIcon = p.url
                 ? `<a href="${esc(p.url)}" target="_blank" style="color:#00c471;margin-left:4px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg></a>`
                 : '';
-              const urlInput = `<input class="url-input" value="${esc(p.url || '')}" data-slug="${esc(p.slug)}" placeholder="https://..." onchange="changeUrl(this)" />`;
+              const urlInput = `<div class="url-cell">
+                <div class="url-row">
+                  <input class="url-input" value="${esc(p.url || '')}" data-slug="${esc(p.slug)}" placeholder="https://..." />
+                  <button class="url-save-btn" onclick="saveUrl(this)">Save</button>
+                </div>
+                ${p.url ? `<img class="site-preview" src="https://image.thum.io/get/width/400/${esc(p.url)}" alt="preview" loading="lazy" />` : ''}
+              </div>`;
               const cliCmd = `bash scripts/generate-build-log.sh --project ${p.slug}`;
               html += `<tr>
                 <td><strong>${esc(p.title)}</strong>${siteIcon}<br><span style="font-size:0.68rem;color:#8b95a1;">${esc(p.slug)}</span></td>
@@ -1357,18 +1378,42 @@ export const prerender = false;
         } catch (e) { alert('Error: ' + e); }
       };
 
-      window.changeUrl = async function(input) {
+      window.saveUrl = async function(btn) {
+        const row = btn.closest('.url-row');
+        const input = row.querySelector('.url-input');
+        const cell = btn.closest('.url-cell');
         const slug = input.dataset.slug;
         const url = input.value.trim();
+        btn.disabled = true;
+        btn.textContent = '...';
         try {
           const data = await projectAction({ action: 'change-url', slug, url });
           if (data.ok) {
             input.classList.add('saved');
-            setTimeout(() => input.classList.remove('saved'), 2000);
+            btn.classList.add('saved');
+            btn.textContent = 'Saved';
+            setTimeout(() => { input.classList.remove('saved'); btn.classList.remove('saved'); btn.textContent = 'Save'; }, 2000);
+            // 미리보기 갱신
+            let img = cell.querySelector('.site-preview');
+            if (url) {
+              const newSrc = `https://image.thum.io/get/width/400/${url}?t=${Date.now()}`;
+              if (img) {
+                img.src = newSrc;
+              } else {
+                img = document.createElement('img');
+                img.className = 'site-preview';
+                img.alt = 'preview';
+                img.src = newSrc;
+                cell.appendChild(img);
+              }
+            } else if (img) {
+              img.remove();
+            }
           } else {
             alert(data.error || 'Failed');
           }
         } catch (e) { alert('Error: ' + e); }
+        btn.disabled = false;
       };
 
       window.registerProject = async function(slug, github, language, desc, btn) {
