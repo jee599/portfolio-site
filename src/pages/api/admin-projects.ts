@@ -150,8 +150,8 @@ async function updateProjectYaml(
   };
 
   try {
-    // 현재 파일 내용 + SHA 가져오기
-    const getRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}`, { headers });
+    // 현재 파일 내용 + SHA 가져오기 (캐시 방지)
+    const getRes = await fetch(`https://api.github.com/repos/${repo}/contents/${filePath}?t=${Date.now()}`, { headers: { ...headers, 'If-None-Match': '' } });
 
     let content: string;
     let sha: string | undefined;
