@@ -5,4 +5,4 @@ stack: ["TypeScript"]
 one_liner: "Clean Tech Korea - B2B Air Filter Company Website | Next.js 16 + TypeScript + Tailwind + i18n (한/영)"
 order: 99
 visible: true
-url: "https://cleantech-ten.vercel.app/en"
+url: "https://cleantech-ten.vercel.app"
