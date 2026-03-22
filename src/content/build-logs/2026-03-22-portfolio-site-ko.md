@@ -3,6 +3,7 @@ title: "블로그 자동발행 파이프라인 + Vercel 배포 2시간 삽질기
 project: "portfolio-site"
 date: 2026-03-22
 lang: ko
+pair: "2026-03-22-portfolio-site-en"
 tags: [claude-code, automation, devto, vercel, blog]
 description: "소재 하나를 spoonai·DEV.to·네이버에 동시 발행하는 파이프라인을 만들었다. 그리고 git 이메일 하나 때문에 Vercel 배포가 2시간 동안 막혔다."
 ---
