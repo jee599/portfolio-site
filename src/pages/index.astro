@@ -174,7 +174,7 @@ const screenshotMap: Record<string, string> = {
         data-ko="만든 것들" data-en="What I Built">만든 것들</h2>
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
         {projects.filter(p => p.url).map(p => {
-          const img = screenshotMap[p.slug];
+          const img = screenshotMap[p.slug] || (p.url ? `https://image.thum.io/get/width/800/${p.url}` : null);
           return (
             <a href={p.url} target="_blank" rel="noopener" class="site-card"
               style="display:block;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;text-decoration:none;overflow:hidden;transition:all 0.25s;"
