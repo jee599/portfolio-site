@@ -153,15 +153,15 @@ const screenshotMap: Record<string, string> = {
   <section class="fade-in" style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 1.5rem 0;">
     <div style="max-width: 1080px; margin: 0 auto; display: flex; justify-content: center; gap: 4rem;">
       <div style="text-align: center;">
-        <div class="gsap-stat-num" style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #2563eb;">{projects.length}</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #2563eb;">{projects.length}</div>
         <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="프로젝트" data-en="Projects">프로젝트</div>
       </div>
       <div style="text-align: center;">
-        <div class="gsap-stat-num" style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #0f172a;">{projects.filter(p => p.status === '운영중' || p.status === '실험중').length}</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #0f172a;">{projects.filter(p => p.status === '운영중' || p.status === '실험중').length}</div>
         <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="운영중" data-en="Active">운영중</div>
       </div>
       <div style="text-align: center;">
-        <div class="gsap-stat-num" style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #2563eb;">{buildLogs.length}</div>
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #2563eb;">{buildLogs.length}</div>
         <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="빌드 로그" data-en="Build Logs">빌드 로그</div>
       </div>
     </div>
@@ -172,11 +172,11 @@ const screenshotMap: Record<string, string> = {
     <div style="max-width: 1080px; margin: 0 auto;">
       <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin: 0 0 1.5rem 0;"
         data-ko="만든 것들" data-en="What I Built">만든 것들</h2>
-      <div class="bento-grid" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
         {projects.filter(p => p.url).map(p => {
           const img = screenshotMap[p.slug];
           return (
-            <a href={p.url} target="_blank" rel="noopener" class="site-card tilt-card scroll-reveal"
+            <a href={p.url} target="_blank" rel="noopener" class="site-card"
               style="display:block;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;text-decoration:none;overflow:hidden;transition:all 0.25s;"
               onmouseover="this.style.borderColor='#93c5fd';this.style.boxShadow='0 12px 32px rgba(37,99,235,0.1)';this.style.transform='translateY(-3px)'"
               onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow='none';this.style.transform='none'">
@@ -189,7 +189,7 @@ const screenshotMap: Record<string, string> = {
               </div>
               {/* Screenshot with scroll animation on hover */}
               {img && (
-                <div class="scroll-img-wrap" style="width:100%;height:180px;overflow:hidden;background:#f8fafc;position:relative;">
+                <div style="width:100%;height:180px;overflow:hidden;background:#f8fafc;position:relative;">
                   <img src={img} alt={p.title} loading="lazy" class="scroll-img"
                     style="width:100%;display:block;position:absolute;top:0;left:0;" />
                 </div>
@@ -213,7 +213,6 @@ const screenshotMap: Record<string, string> = {
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
         {projects.filter(p => !p.url && p.github && ['contextzip', 'agentcrow'].includes(p.slug)).map(p => (
           <a href={p.github} target="_blank" rel="noopener"
-            class="tilt-card scroll-reveal"
             style="display:flex;flex-direction:column;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;text-decoration:none;transition:all 0.2s;overflow:hidden;"
             onmouseover="this.style.borderColor='#93c5fd';this.style.boxShadow='0 4px 16px rgba(37,99,235,0.06)'"
             onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
@@ -267,7 +266,7 @@ const screenshotMap: Record<string, string> = {
 
   <!-- CTA Section -->
   <section class="fade-in stagger-2" style="background: linear-gradient(to bottom, #111827, #030712); padding: 5rem 0;">
-    <div class="gsap-cta" style="max-width: 1080px; margin: 0 auto; text-align: center;">
+    <div style="max-width: 1080px; margin: 0 auto; text-align: center;">
       <h2 style="font-size: 1.75rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin: 0 0 1rem 0;"
         data-ko="더 많은 프로젝트 보기" data-en="Explore More Projects">더 많은 프로젝트 보기</h2>
       <p style="font-size: 1rem; color: #94a3b8; line-height: 1.7; max-width: 480px; margin: 0 auto 2rem auto;"
