@@ -1,4 +1,12 @@
 ---
+import { ViewTransitions } from 'astro:transitions';
+import FeatureToggle from '../components/FeatureToggle.tsx';
+import CursorEffect from '../components/CursorEffect.tsx';
+import GsapAnimations from '../components/GsapAnimations.tsx';
+import '../styles/aurora.css';
+import '../styles/scroll-animations.css';
+import '../styles/bento.css';
+
 interface HreflangLink {
   lang: string;
   url: string;
@@ -47,6 +55,7 @@ const navItems = [
     ))}
     <link rel="sitemap" href="/sitemap-index.xml" />
     <link rel="alternate" type="application/rss+xml" title="jidonglab" href="/rss.xml" />
+    <ViewTransitions />
 
     <script
       type="application/ld+json"
@@ -162,6 +171,12 @@ const navItems = [
     </style>
   </head>
   <body class="min-h-screen" style="background: #ffffff;">
+    <!-- Scroll Progress Bar -->
+    <div class="scroll-progress"></div>
+    <!-- Feature Toggle Panel -->
+    <FeatureToggle client:load />
+    <CursorEffect client:load />
+    <GsapAnimations client:load />
     <!-- Header -->
     <header class="site-header">
       <nav class="site-nav">
@@ -342,6 +357,20 @@ const navItems = [
           applyLang(lang);
         });
       }
+    </script>
+    <!-- Feature toggle: initialize data attributes before first paint -->
+    <script is:inline>
+      (function() {
+        try {
+          var raw = localStorage.getItem('feature-toggles');
+          var defaults = { vt: true, gsap: true, cursor: true, bento: true, scroll: true, aurora: true };
+          var state = raw ? Object.assign(defaults, JSON.parse(raw)) : defaults;
+          var keys = Object.keys(state);
+          for (var i = 0; i < keys.length; i++) {
+            document.documentElement.setAttribute('data-ft-' + keys[i], state[keys[i]] ? 'on' : 'off');
+          }
+        } catch(e) {}
+      })();
     </script>
     <!-- Cloudflare Web Analytics -->
     <script defer src='https://static.cloudflareinsights.com/beacon.min.js' data-cf-beacon='{"token": "CF_ANALYTICS_TOKEN"}'></script>
