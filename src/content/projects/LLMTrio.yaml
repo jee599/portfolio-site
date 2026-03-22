@@ -4,4 +4,4 @@ status: "중단"
 stack: ["Node.js", "Claude", "GPT", "Gemini"]
 one_liner: "3개 LLM을 병렬로 돌리는 멀티에이전트 오케스트레이터"
 order: 5
-visible: false
+visible: true
