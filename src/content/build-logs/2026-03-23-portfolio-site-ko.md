@@ -1,74 +1,78 @@
 ---
-title: "Claude Code 병렬 에이전트 4개로 6개 피처 동시 구현, 그리고 전부 롤백"
+title: "AgentCrow 4개 병렬 배포 → 전부 롤백: 포트폴리오 사이트 실험 기록"
 project: "portfolio-site"
 date: 2026-03-23
 lang: ko
-tags: [claude-code, agentcrow, portfolio, build-log, parallel-agents]
-description: "jidonglab.com admin 개선과 최신 웹 기술 6가지 동시 구현 시도. 병렬 에이전트 4개로 Aurora CSS, 커서 이펙트, 스크롤 애니메이션을 동시에 만들었지만 배포 실패 후 전부 롤백했다. 총 223 tool calls."
+tags: [claude-code, agentcrow, parallel-agents, rollback, astro]
+description: "AgentCrow로 aurora, cursor effect, bento grid, scroll animation을 병렬 구현했다가 전부 롤백한 이야기. 155 tool calls, 68 tool calls, 두 세션의 삽질 기록."
 ---
 
-4개 에이전트가 동시에 돌아가고 있었다. Aurora 배경 CSS, 커서 이펙트 컴포넌트, 스크롤 애니메이션, FeatureToggle 패널. 에이전트들이 작업하는 동안 나는 GSAP 설치와 Bento Grid CSS를 준비했다. 39분 후, 6개 기능이 전부 `index.astro`에 통합됐다. 그리고 바로 롤백했다.
+어제 포트폴리오 사이트에서 두 번의 큰 세션을 돌렸다. 하나는 admin 대시보드 GitHub 연동, 다른 하나는 최신 웹 기술 6가지를 한 번에 때려넣는 실험. 결과는 롤백이었다.
 
-**TL;DR** AgentCrow로 4개 에이전트를 병렬 디스패치해 최신 웹 기술 6개를 추가했다. 근데 실제로 보니 사이트 컨셉과 안 맞았다. 롤백 결정까지 포함해서 2개 세션, 223 tool calls.
+**TL;DR** GitHub API 409 충돌, thum.io 실시간 캡처 발견, AgentCrow 4개 에이전트 병렬 → 전체 롤백까지. 295 tool calls로 돌아온 자리.
 
-## 세션 1: 155번의 도구 호출, admin 페이지 디버깅
+## Admin 패널: GitHub 리포 목록이 왜 최신이 아닐까
 
-`jidonglab.com/admin`의 Projects 탭에서 GitHub 프로젝트 목록이 최신화가 안 됐다.
+첫 번째 세션(1h 41min, 155 tool calls)은 `jidonglab.com/admin`에서 시작했다. 프로젝트 목록이 최신 리포를 반영하지 않는다는 문제였다.
+
+원인은 단순했다. `github-repos.json`은 **빌드타임 정적 파일**이라 마지막 빌드 이후 추가된 리포가 반영이 안 됐다. 당연한 거였는데 한참 헤맸다.
+
+리포 등록 과정에서 GitHub API 409 에러도 터졌다.
 
 ```
-아니 그게 아니라 지금 이미 jidonglab project 목록 받아오는 로직이 있지않아?
+GitHub API error: {"message":"src/content/projects/cleantech.yaml does not match
+7a85c7d8e4e3f27db8fc39d836a457bc0b98ef49","documentation_url":"...","status":"409"}
 ```
 
-Claude가 `src/pages/admin.astro`, `src/pages/api/admin-projects.ts`, `src/lib/projects.ts`를 차례로 뒤졌다. 결국 찾은 건 `github-repos.json` — 빌드타임에 생성되는 static 파일이라, 마지막 빌드 이후 추가된 리포는 반영이 안 됐다. 문제가 코드가 아니라 아키텍처에 있었다.
+파일 sha 불일치였다. PUT 요청에 현재 파일의 sha를 같이 보내야 하는데, 캐시된 값을 쓰다가 충돌이 났다. GET으로 최신 sha를 먼저 가져오는 로직을 추가해서 해결했다.
 
-URL 입력 이슈도 있었다. 저장 버튼이 없어서 포커스 아웃 시에만 업데이트되는 구조였다. "저장 버튼을 만들던지 해줘 제대로 바로 적용이 안돼. 그리고 저기서 저장 버튼 누르면 사이트들 전부 다 미리보기 화면 캡쳐 다시 떠줘"라고 했더니 Save 버튼 추가 + 저장 시 스크린샷 재캡처 트리거까지 한 번에 붙었다.
+프로젝트 미리보기 이미지 문제도 있었다. 로컬 스크린샷이 없는 프로젝트는 그냥 빈 공간이었다. 여기서 thum.io를 발견했다.
 
-미리보기 이미지는 `thum.io` 실시간 캡처를 붙였다. "응 그래야 스크롤도 되지 다른 프로젝트들처럼"이라는 말 한 마디로 방향이 바뀌었다. 각 사이트마다 이미지 높이가 달라 스크롤 속도가 상대적으로 계산되는 문제도 잡았다. 최종적으로 스크롤 속도는 2초로 고정.
+```
+thum.io/get/width/400/https://refmade.com
+```
 
-이 세션에서 Bash를 78번, Read를 35번, Edit을 15번 썼다. Bash가 압도적으로 많다. 실행 → 확인 → 재실행 사이클이 코드 수정보다 훨씬 자주 돌았다는 뜻이다. 155 tool calls 중 절반이 Bash였다.
+URL 하나만 넘기면 실시간으로 사이트 스크린샷을 캡처해준다. 정적 이미지를 직접 관리할 필요가 없어졌다. `screenshotMap`에 없는 프로젝트는 자동으로 thum.io URL로 폴백하도록 수정했다.
 
-## 세션 2: AgentCrow 4개 병렬, 6개 기능 39분 만에 완성
+스크롤 속도 조정 프롬프트가 세 번 반복됐다. "동일하게", "2배 빠르게", "2배 더 빠르게", "2초로". 결국 `animation-duration: 2s`로 고정했다. 수치를 미리 제안했으면 왕복을 줄일 수 있었을 텐데.
 
-다음 세션은 brainstorming 스킬로 시작했다. "jidonglab.com에 최신 웹 기술을 많이 사용하고 싶어"라는 요청에 Claude가 현재 사이트 상태를 파악하고 6가지를 제안했다 — View Transitions, CSS Scroll-Driven Animations, Aurora 배경 효과, 커서 트래킹 + 카드 틸트, GSAP 애니메이션, Bento Grid 레이아웃.
+## AgentCrow 실험: 6가지 최신 기술을 하루에
 
-"일단 다 해줘 버튼 하나 6개 만들어서 각각의 기능을 껐다 켰다 할 수 있게 + 내가 각각 롤백할 수도 있게"라고 했더니 AgentCrow가 디스패치 계획을 세웠다.
+두 번째 세션(39min, 68 tool calls)은 "최신 웹 기술을 많이 사용하고 싶어"로 시작했다.
+
+현재 사이트를 분석하니 인라인 스타일이 많고 애니메이션은 기본 `fadeIn`뿐이었다. 적용 가능한 기술 목록을 뽑았다: Astro View Transitions, CSS Scroll-Driven Animations, Aurora/Mesh Gradient 배경, 커스텀 커서 + 카드 틸트, Bento Grid 레이아웃, GSAP 애니메이션.
+
+"일단 다 해줘 버튼 하나 6개 만들어서 각각의 기능을 껐다 켰다 할 수 있게"라는 요청이 왔다. AgentCrow로 4개 에이전트를 병렬 디스패치했다.
 
 ```
 ━━━ 🐦 AgentCrow ━━━━━━━━━━━━━━━━━━━━━
 Dispatching 4 agents:
 
-🖥️ @toggle-panel → FeatureToggle.tsx 컨트롤 패널 컴포넌트 생성
+🖥️ @toggle-panel  → FeatureToggle.tsx 컨트롤 패널 컴포넌트 생성
 🖥️ @cursor-effect → CursorEffect.tsx 커서 추적 + 카드 틸트 컴포넌트 생성
-🎨 @aurora-css → aurora 배경 CSS 생성
-🎨 @scroll-css → CSS Scroll-Driven Animations CSS 생성
+🎨 @aurora-css    → aurora 배경 CSS 생성
+🎨 @scroll-css    → CSS Scroll-Driven Animations CSS 생성
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-4개 에이전트가 동시에 돌았다. 각 에이전트는 독립적인 파일을 만들기 때문에 충돌이 없다. 에이전트들이 작업하는 동안 메인 Claude는 GSAP 설치와 Bento Grid CSS를 준비했다. 에이전트 결과물은 `src/styles/aurora.css`, `src/components/FeatureToggle.tsx`, `src/components/CursorEffect.tsx`, `src/styles/scroll-animations.css`. 각 기능은 `[data-ft-aurora="on"]` 같은 HTML attribute로 on/off 했다.
+4개 에이전트가 병렬로 돌아가는 동안 메인 스레드에서는 GSAP 설치와 Bento Grid CSS를 준비했다. 에이전트들은 10분 안에 전부 완료했다. `aurora.css`는 `[data-ft-aurora="on"]` data attribute로 토글 제어, `CursorEffect.tsx`는 40px 커서 글로우 + 카드 mousemove 틸트, `FeatureToggle.tsx`는 우측 하단 고정 6개 토글 버튼 구조였다.
 
-모두 완료되면 통합 단계가 온다. `Base.astro`에 CSS 임포트, `index.astro`에 컴포넌트 마운트. TaskUpdate로 각 에이전트 완료를 추적하면서 순서를 맞췄다. 이 세션에서 TaskUpdate를 12번, TaskCreate를 6번 사용했다. 에이전트 관리용 오버헤드만 18번이다.
+통합까지 마쳤다. 그런데 배포 시도에서 막혔다.
 
-## 롤백을 결정한 순간
+> "그냥 너가 배포까지 하면 되잖아"
 
-통합까지 다 됐다. 배포해도 됐다. 그런데 "그냥 다 롤백해줘"라고 했다.
+Cloudflare Pages는 git push가 트리거다. 로컬 wrangler로 직접 배포할 수 없는 구조라 그냥 push했다. 그리고 결정적인 한 마디.
 
-이유는 단순했다. `jidonglab.com`은 1인 개발자가 만든 것들을 투명하게 공개하는 사이트다. Aurora 글로우 효과와 커서 트래킹은 그 분위기가 아니었다. 기술적으로는 잘 됐지만, 맥락과 안 맞으면 필요 없다.
+> "그냥 다 롤백해줘"
 
-```
-c0bb51e Revert "feat: add 6 modern web features with toggle control panel"
-71bf179 feat: add 6 modern web features with toggle control panel
-```
+시각적으로 흥미롭긴 했지만 사이트의 toss.tech 클린 톤과 안 맞았다. 롤백 커밋 하나로 정리됐다.
 
-커밋 두 개가 나란히 붙어 있다. 구현 39분, 롤백 결정 몇 초.
+## 병렬 에이전트가 빠른 이유
 
-## 병렬 에이전트 패턴에서 배운 것
+AgentCrow의 핵심은 파일 충돌이 없는 작업의 병렬 처리다. `aurora.css`, `CursorEffect.tsx`, `FeatureToggle.tsx`, `scroll-animations.css`는 각각 독립적인 파일이라 동시 진행이 가능했다. 4개를 순차로 처리했으면 각 에이전트 시간이 직렬로 쌓였을 텐데, 병렬이면 가장 오래 걸리는 에이전트 시간만큼만 기다리면 된다.
 
-병렬 에이전트는 파일이 겹치지 않는 독립 작업에 효과적이다. CSS 파일 2개 + 컴포넌트 2개를 순차적으로 만들었으면 39분보다 훨씬 걸렸을 것이다.
+롤백했지만 시도 자체는 의미 있었다. 4개 컴포넌트가 제대로 동작하는 걸 확인했고, 나중에 필요할 때 꺼내 쓸 수 있는 레퍼런스가 생겼다.
 
-근데 병렬 속도가 빠를수록 검토 타이밍을 놓친다. 에이전트들이 만드는 동안 "이게 정말 필요한가"를 생각할 틈이 없었다. 다 만들어놓고 보고 나서야 아니다 싶었다.
+## 도구 사용 통계
 
-> 파일 수정이 겹치지 않는 독립적인 작업은 병렬 에이전트로 분배한다. 단, 방향 확인은 먼저 한다.
-
-이번 실수는 브레인스토밍 단계에서 "이게 우리 사이트에 맞는가"를 충분히 검토하지 않고 구현으로 넘어간 것이다. Claude가 6가지를 제안하면 전부 해보고 싶어진다. 그게 함정이다.
-
-총 2개 세션, 223 tool calls. 남은 건 스크린샷 스크롤 2초 고정과 롤백 커밋 두 개다.
+세션 1 (Admin 연동): 1h 41min, 155 tool calls — Bash 78회, Read 35회, Edit 15회. 세션 2 (최신 기술 실험): 39min, 68 tool calls — Bash 18회, Read 14회, TaskCreate 6회. 두 세션 합계 295 tool calls. 롤백으로 net change는 admin 패널 개선과 thum.io 연동이 전부다. 실험 비용이라고 생각하면 나쁘지 않다.
