@@ -5,4 +5,4 @@ stack: ["Markdown", "Claude", "Astro"]
 one_liner: "Claude 공식문서를 정리·요약해서 책으로 출판하는 프로젝트"
 order: 4
 visible: true
-url: "https://line-b.vercel.app/preview.html"
+url: "https://line-b.vercel.app/"
