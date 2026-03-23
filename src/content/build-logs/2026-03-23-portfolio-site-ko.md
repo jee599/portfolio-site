@@ -1,122 +1,88 @@
 ---
-title: "289 tool calls로 블로그 자동 발행 파이프라인을 하루 만에 만들었다"
+title: "AgentCrow 4개 병렬 디스패치, 39분 만에 6개 기능 추가하고 롤백한 이유"
 project: "portfolio-site"
 date: 2026-03-23
 lang: ko
-pair: "2026-03-23-portfolio-site-en"
-tags: [claude-code, automation, skills, agentcrow]
-description: "소재 하나를 던지면 spoonai·DEV.to·네이버에 동시 발행하는 auto-publish 스킬을 22시간 39분, 289 tool calls 만에 구축했다. Vercel 배포 블록 삽질 포함."
+tags: [claude-code, agentcrow, parallel-agents, portfolio, build-log]
+description: "AgentCrow로 4개 에이전트를 병렬 디스패치해 최신 웹 기술 6개를 추가했다. 총 223 tool calls, 2개 세션. 그리고 전부 롤백했다."
 ---
 
-22시간 39분, 289번의 tool call. 그리고 Vercel 배포가 두 시간 동안 막혔다.
+4개 에이전트가 동시에 돌아가고 있었다. Aurora 배경 CSS, 커서 이펙트 컴포넌트, 스크롤 애니메이션, FeatureToggle 패널. 에이전트들이 작업하는 동안 나는 GSAP 설치와 Bento Grid CSS를 준비했다. 39분 후, 6개 기능이 전부 `index.astro`에 통합됐다. 그리고 바로 롤백했다.
 
-**TL;DR** 소재(URL·키워드·파일)를 던지면 spoonai.me, DEV.to, 네이버 블로그 세 곳에 동시 발행하는 `auto-publish` 스킬을 만들었다. 중간에 git author 불일치로 Vercel 배포가 막히는 삽질이 있었다.
+**TL;DR** AgentCrow로 4개 에이전트를 병렬 디스패치해 최신 웹 기술 6개를 추가했다. 근데 실제로 보니 사이트 컨셉과 안 맞았다. 롤백 결정까지 포함해서 2개 세션, 223 tool calls.
 
-## 발단: "글 줄테니까 dev.to에 업데이트 해줘"
+## 세션 1: 155번의 도구 호출, admin 페이지 디버깅
 
-텔레그램으로 메시지가 왔다. "포트폴리오 사이트에 글 줄테니까 dev.to에 업데이트 해줘."
-
-파일 4개를 던졌다. `channels-en-part1.md`, `channels-en-part2.md`, `dispatch-en-part1.md`, `dispatch-en-part2.md`. Claude Code Channels와 Dispatch에 관한 영어 글이었다.
-
-Claude는 파일을 확인하고 push했다. GitHub Actions가 DEV.to API로 4편을 자동 발행했다. 여기까지는 15분이면 충분했다.
-
-문제는 그 다음에 생겼다. "올라간 저 글들에 SEO나 후킹, 광고 기술이나 조회수 높이는 기술 모두 적용해줘."
-
-외부 작성 글이라 blog-writing 스킬 기준이 적용되지 않은 상태였다. 제목에 숫자가 없고, description이 설명형이고, 불릿 포인트가 남발됐다. 4개 글을 모두 리라이팅하기로 했다. 병렬 에이전트 4개를 동시에 돌렸다. SEO 최적화 버전으로 재작성 후 다시 push.
-
-그러다가 자연스럽게 다음 질문이 나왔다. "사이트를 하나 만들어서 내가 소스나 주제, 사이트나 문서를 주면 자동으로 발행하게 하고 싶어."
-
-## auto-publish 스킬을 설계하다
-
-브레인스토밍 스킬을 먼저 돌렸다. 요구사항은 명확했다.
-
-- URL, 키워드, md 파일 중 어떤 걸 던져도 처리할 것
-- spoonai.me(한국어), DEV.to(영어), 네이버 블로그(한국어 HTML) 동시 발행
-- 나만 쓸 것 — 복잡한 UI 불필요, CLI로 충분
-- 각 플랫폼 SEO·후킹 로직을 모두 녹일 것
-
-웹/텔레그램/CLI 중에 CLI를 골랐다. 결국 Claude Code 스킬로 구현하는 게 가장 빠르다는 결론.
-
-스킬 구조는 세 단계로 잡았다. Phase 1 Ingest — 소재를 받아서 타입을 판별한다. URL이면 WebFetch, 키워드면 WebSearch, 파일이면 Read. Phase 2 Generate — 각 플랫폼 규칙에 맞게 콘텐츠 생성. Phase 3 Publish — git push 또는 queue 폴더에 저장.
-
-`auto-publish/SKILL.md`를 처음부터 작성했다. 스킬 파일은 단순한 설명서가 아니다. Claude가 실행 중에 참조하는 런타임 명세서다. 어떤 분기를 만나면 어떻게 처리하라는 것까지 써넣어야 Claude가 판단 없이 실행한다.
-
-## Vercel 배포가 두 시간 동안 막혔다
-
-글 발행 후 spoonai.me 확인. `404 — This page could not be found.`
-
-Vercel 배포 로그를 열었다.
+`jidonglab.com/admin`의 Projects 탭에서 GitHub 프로젝트 목록이 최신화가 안 됐다.
 
 ```
-Deployment Blocked
-Git author jidongs45@gmail.com must have access to the team
-jee599's projects on Vercel to create deployments.
+아니 그게 아니라 지금 이미 jidonglab project 목록 받아오는 로직이 있지않아?
 ```
 
-맥 git config의 `user.email`이 `jidongs45@gmail.com`으로 설정돼 있었다. spoonai-site 레포는 `jee599` Vercel 팀 소속인데, 커밋 author가 팀 멤버가 아닌 이메일로 잡혀 있었다.
+Claude가 `src/pages/admin.astro`, `src/pages/api/admin-projects.ts`, `src/lib/projects.ts`를 차례로 뒤졌다. 결국 찾은 건 `github-repos.json` — 빌드타임에 생성되는 static 파일이라, 마지막 빌드 이후 추가된 리포는 반영이 안 됐다. 문제가 코드가 아니라 아키텍처에 있었다.
 
-해결 시도를 순서대로 적으면:
+URL 입력 이슈도 있었다. 저장 버튼이 없어서 포커스 아웃 시에만 업데이트되는 구조였다. "저장 버튼을 만들던지 해줘 제대로 바로 적용이 안돼. 그리고 저기서 저장 버튼 누르면 사이트들 전부 다 미리보기 화면 캡쳐 다시 떠줘"라고 했더니 Save 버튼 추가 + 저장 시 스크린샷 재캡처 트리거까지 한 번에 붙었다.
 
-1. git config `user.email`을 `jee599` 계정 이메일로 변경
-2. 빈 커밋 push → 여전히 Blocked
-3. Vercel에서 `jidonggg` 계정을 팀 멤버로 추가 시도 → "delete가 없어"
-4. jee599 계정으로 직접 빈 커밋 push → 이건 됐다
-5. 기존 blocked 배포들은 redeploy 불가 — "This deployment can not be redeployed"
-6. 결국 새 커밋을 jee599 계정으로 만들어서 해결
+미리보기 이미지는 `thum.io` 실시간 캡처를 붙였다. 그러다가 "응 그래야 스크롤도 되지 다른 프로젝트들처럼"이라는 말 한 마디로 방향이 바뀌었다. 각 사이트마다 이미지 높이가 달라 스크롤 속도가 상대적으로 계산되는 문제도 잡았다. 최종적으로 스크롤 속도는 2초로 고정.
 
-이 삽질에서 쓴 tool call이 이 세션 289개의 상당 부분을 차지한다. Bash만 127번. 같은 에러 메시지를 붙여넣고 다른 해결책을 시도하는 사이클이 반복됐다.
+이 세션에서 Bash를 78번, Read를 35번, Edit을 15번 썼다. Bash가 압도적으로 많다. 실행 → 확인 → 재실행 사이클이 코드 수정보다 훨씬 자주 돌았다는 뜻이다. 155 tool calls 중 절반이 Bash였다.
 
-배포 문제는 Claude가 완전히 해결하지 못하는 영역이다. Vercel 대시보드 조작, 계정 권한 설정은 사람이 직접 해야 한다. Claude는 무엇을 해야 하는지는 알려주지만, 실제로 클릭하는 건 내 손이다.
+## 세션 2: AgentCrow 4개 병렬, 6개 기능 39분 만에 완성
 
-## agentcrow를 npm에 올리고 홍보하다
+다음 세션은 brainstorming 스킬로 시작했다. "jidonglab.com에 최신 웹 기술을 많이 사용하고 싶어"라는 요청에 Claude가 현재 사이트 상태를 파악하고 6가지를 제안했다.
 
-세 번째 세션은 `agentcrow` 프로젝트였다. Claude Code 멀티에이전트 라우팅 도구. v3.3.0에서 테스트 3개가 실패 중이었다.
+1. Astro View Transitions
+2. CSS Scroll-Driven Animations
+3. Aurora 배경 효과
+4. 커서 트래킹 + 카드 틸트
+5. GSAP 애니메이션
+6. Bento Grid 레이아웃
 
-원인은 `hasSubmodule` 체크 로직이었다. `existsSync`가 빈 디렉토리에도 `true`를 반환하는 문제. `agents/external/agency-agents/` 서브모듈이 비어있는데, 내부 파일 존재 여부를 확인하지 않아서 `describe.skipIf`가 동작하지 않았다.
-
-수정 목록 10개를 분석하고 "진짜 필요한 건지" 재검증했다. 결과는 4개만 진짜였다. 나머지 6개는 있으면 좋지만 당장 필요하지 않거나, 잘못된 진단이었다. Claude가 제안한 개선안을 모두 적용하는 것보다 걸러내는 과정이 더 중요했다.
-
-수정 후 테스트.
+"일단 다 해줘 버튼 하나 6개 만들어서 각각의 기능을 껐다 켰다 할 수 있게 + 내가 각각 롤백할 수도 있게"라고 했더니 AgentCrow가 디스패치 계획을 세웠다.
 
 ```
-6 passed, 0 failed, 2 skipped
+━━━ 🐦 AgentCrow ━━━━━━━━━━━━━━━━━━━━━
+Dispatching 4 agents:
+
+🖥️ @toggle-panel → FeatureToggle.tsx 컨트롤 패널 컴포넌트 생성
+🖥️ @cursor-effect → CursorEffect.tsx 커서 추적 + 카드 틸트 컴포넌트 생성
+🎨 @aurora-css → aurora 배경 CSS 생성
+🎨 @scroll-css → CSS Scroll-Driven Animations CSS 생성
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-빌드도 통과. npm publish로 올렸다.
+4개 에이전트가 동시에 돌았다. 각 에이전트는 독립적인 파일을 만들기 때문에 충돌이 없다. 에이전트들이 작업하는 동안 메인 Claude는 GSAP 설치와 Bento Grid CSS를 준비했다.
 
-그런데 처음에 `npm publish`를 홈 디렉토리에서 실행했다.
+에이전트 결과물:
 
-```
-npm error code ENOENT
-npm error path /Users/jidong/package.json
-```
+- `src/styles/aurora.css` — `[data-ft-aurora="on"]` 속성으로 on/off
+- `src/components/FeatureToggle.tsx` — 우하단 고정 토글 패널, z-index 관리
+- `src/components/CursorEffect.tsx` — 커서 글로우 40px + 카드 틸트 효과
+- `src/styles/scroll-animations.css` — 스크롤 진행 바 + 요소 등장 애니메이션
 
-`/Users/jidong/agentcrow`로 이동해서 다시 실행해야 했다. 그 다음엔 npm 인증 토큰이 `.npmrc`에 저장되지 않은 상태였다. 토큰을 직접 붙여넣어서 해결했다.
+모두 완료되면 통합 단계가 온다. `Base.astro`에 CSS 임포트, `index.astro`에 컴포넌트 마운트. TaskUpdate로 각 에이전트 완료를 추적하면서 순서를 맞췄다. 이 세션에서 TaskUpdate를 12번, TaskCreate를 6번 사용했다. 에이전트 관리용 오버헤드만 18번이다.
 
-발행 후 "이거 Hackernews나 어디에 홍보할 수 없어?"라는 질문이 나왔다. 먼저 데모 영상부터 다시 찍기로 했다. `asciinema`로 설치부터 에이전트 분기까지 녹화. AgentCrow 동작 부분은 색깔과 이모티콘으로 눈에 띄게 만들었다. 기존 DEV.to 홍보 글에 데모를 추가해서 업데이트했다.
+## 롤백을 결정한 순간
 
-## Claude Code 스킬 시스템으로 반복을 없애다
+통합까지 다 됐다. 배포해도 됐다. 그런데 "그냥 다 롤백해줘"라고 했다.
 
-이번 세션들에서 가장 효과적이었던 건 스킬 파일을 런타임 명세서로 쓰는 방식이다.
-
-일반적으로 "이렇게 해줘"를 매번 프롬프트로 넣는다. 그러면 세션마다 다시 설명해야 한다. 스킬 파일에 한 번 정의해두면 `/auto-publish`로 호출할 때마다 동일한 규칙이 적용된다.
-
-예를 들어 `auto-publish` 스킬은 이렇게 동작한다.
+이유는 단순했다. `jidonglab.com`은 1인 개발자가 만든 것들을 투명하게 공개하는 사이트다. Aurora 글로우 효과와 커서 트래킹은 그 분위기가 아니었다. 기술적으로는 잘 됐지만, 맥락과 안 맞으면 필요 없다.
 
 ```
-/auto-publish claude code channels에 대해서 글 써줘
+c0bb51e Revert "feat: add 6 modern web features with toggle control panel"
+71bf179 feat: add 6 modern web features with toggle control panel
 ```
 
-이 한 줄이면 키워드를 검색하고, spoonai용 한국어 글과 DEV.to용 영어 글을 생성하고, 네이버 HTML 큐에 저장까지 한다. 내가 할 일은 큐 폴더의 HTML을 cowork로 네이버에 올리는 것뿐.
+커밋 두 개가 나란히 붙어 있다. 구현 39분, 롤백 결정 몇 초.
 
-스킬은 코드가 아니다. 마크다운 파일이다. 수정도 빠르고, 버전 관리도 된다. Claude Code 스킬 시스템이 강력한 이유는 복잡한 워크플로우를 한 줄 명령어로 추상화할 수 있기 때문이다.
+## 병렬 에이전트 패턴에서 배운 것
 
-## 도구 사용 통계
+병렬 에이전트는 파일이 겹치지 않는 독립 작업에 효과적이다. CSS 파일 2개 + 컴포넌트 2개를 순차적으로 만들었으면 39분보다 훨씬 걸렸을 것이다.
 
-세션 2 기준: Bash 127회, Agent 38회, Read 26회, Edit 26회. Bash가 압도적으로 많다. 배포 확인, 빌드 로그 확인, git 조작이 반복됐기 때문이다.
+근데 병렬 속도가 빠를수록 검토 타이밍을 놓친다. 에이전트들이 만드는 동안 "이게 정말 필요한가"를 생각할 틈이 없었다. 다 만들어놓고 보고 나서야 아니다 싶었다.
 
-세션 3 기준: Bash 68회, Edit 25회, Read 19회, Agent 7회. 코드 수정 비중이 상대적으로 높다. 테스트 실패 수정 → 재실행 사이클이 반복됐다.
+> 파일 수정이 겹치지 않는 독립적인 작업은 병렬 에이전트로 분배한다. 단, 방향 확인은 먼저 한다.
 
-Agent 도구를 적극적으로 쓴 점이 이번 세션의 특징이다. SEO 리라이팅에서 4개 파일을 병렬 에이전트로 처리하고, agentcrow 수정에서도 파일 충돌 없는 태스크를 3개 에이전트로 동시에 돌렸다. 순차 처리 대비 체감 속도가 2~3배 빠르다.
+이번 실수는 브레인스토밍 단계에서 "이게 우리 사이트에 맞는가"를 충분히 검토하지 않고 구현으로 넘어간 것이다. Claude가 6가지를 제안하면 전부 해보고 싶어진다. 그게 함정이다.
 
-> 반복 작업은 스킬로 추상화하고, 병렬 가능한 작업은 에이전트로 쪼갠다. 그게 Claude Code를 효율적으로 쓰는 방법이다.
+총 2개 세션, 223 tool calls. 남은 건 스크린샷 스크롤 2초 고정과 롤백 커밋 두 개다.

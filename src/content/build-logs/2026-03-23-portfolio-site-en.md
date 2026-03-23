@@ -1,143 +1,123 @@
 ---
-title: "I Built a 3-Platform Auto-Publishing Pipeline in One Day — 289 Tool Calls Later"
+title: "4 Parallel Claude Code Agents, 6 Features in 39 Minutes, and Why I Rolled It All Back"
 project: "portfolio-site"
 date: 2026-03-23
 lang: en
 pair: "2026-03-23-portfolio-site-ko"
-tags: [claude-code, automation, skills, agentcrow]
-description: "Built an auto-publish Claude Code skill that simultaneously posts to spoonai, DEV.to, and Naver Blog — then spent 2 hours debugging a Vercel git author mismatch."
+tags: [claude-code, agentcrow, parallel-agents, portfolio, build-log]
+description: "Dispatched 4 parallel AI agents with AgentCrow to add 6 modern web features. 223 tool calls, 2 sessions. Then reverted everything."
 ---
 
-289 tool calls. 22 hours and 39 minutes. And a Vercel deployment that sat blocked for two hours because of a git config I hadn't touched in months.
+Four agents were running simultaneously. Aurora background CSS, cursor effect component, scroll animations, FeatureToggle panel. While they worked, I was installing GSAP and writing Bento Grid CSS. Thirty-nine minutes later, all 6 features were integrated into `index.astro`. Then I reverted everything.
 
-**TL;DR** — Built a Claude Code skill called `auto-publish` that takes any URL, keyword, or markdown file and simultaneously publishes to spoonai.me (Korean), DEV.to (English), and Naver Blog (Korean HTML). Hit a Vercel git author mismatch midway through that burned most of session 2's 127 Bash calls to resolve.
+**TL;DR** Used AgentCrow to dispatch 4 parallel Claude Code agents, added 6 modern web features, discovered they didn't fit the site, and rolled it all back. 2 sessions, 223 tool calls total. What remained: a 2-second scroll speed fix and two adjacent git commits that tell the whole story.
 
-## It Started With Four Markdown Files and a Telegram Message
+## Session 1: 155 Tool Calls to Debug One Stale JSON File
 
-Someone pinged me on Telegram: "Got some articles — can you push them to DEV.to?"
+The Projects tab on `jidonglab.com/admin` wasn't showing recent GitHub repositories. The logical assumption was a bug in the data-fetching code.
 
-They dropped four files. `channels-en-part1.md`, `channels-en-part2.md`, `dispatch-en-part1.md`, `dispatch-en-part2.md`. English posts about Claude Code Channels and Dispatch.
+It wasn't.
 
-Claude checked the files, pushed to GitHub, and GitHub Actions hit the DEV.to API. All four posts live in 15 minutes.
+Claude traced through `src/pages/admin.astro`, `src/pages/api/admin-projects.ts`, and `src/lib/projects.ts` in sequence. The actual culprit was `github-repos.json` — a static file generated at build time. Any repo added after the last deployment simply wasn't in there. The bug wasn't in the code; it was in the architecture. The fix required rethinking how the admin page sourced its data, not patching a function.
 
-Then: "Can you apply SEO and hooking techniques to the published articles? Improve the titles, optimize descriptions, fix the bullet points."
+There was a second issue in the same session: the URL input field had no Save button. Updates only applied on focus-out, which meant the UX was quietly broken in a non-obvious way. One prompt fixed both:
 
-These articles were written externally — they hadn't gone through the blog-writing skill, so none of the usual quality filters had applied. No numbers in headlines. Descriptions were too generic. Bullet points everywhere. All four needed a full rewrite.
+> "Make a save button and trigger screenshot recapture for all sites when it's pressed."
 
-Rather than doing them one at a time, I dispatched 4 parallel agents simultaneously — one per article. Each agent rewrote its assigned post with SEO-optimized title, revised description, better hooks, and pushed the updated version back. Parallel execution felt 2–3x faster than sequential.
+That landed as: Save button added, plus an automatic screenshot recapture call on every save. Preview images use `thum.io` for real-time capture. Another edge case came up mid-session — scroll speed for the preview images was inconsistent because each site's image had a different height, making relative scroll speed feel wrong. The fix was to set a fixed scroll duration of 2 seconds regardless of image height.
 
-That's when the obvious question surfaced: why am I doing this manually every time? What if I could just give Claude a URL, a keyword, or a file — and it handles everything?
+The tool call breakdown for this session tells a clear story: Bash 78x, Read 35x, Edit 15x. Bash dominated because the cycle was execute → verify → re-execute far more than it was write code. Half of the 155 tool calls were just running commands to observe what was actually happening. This is typical of debugging sessions where the root cause isn't obvious — the AI spends more time probing than editing.
 
-## Designing the auto-publish Skill
+## Session 2: 4 Parallel Agents, 6 Features, 39 Minutes
 
-I ran a brainstorming skill first before writing any code. Requirements were clear from the start:
+The second session started with a brainstorming skill invocation. The prompt was open-ended:
 
-- Accept three input types: URL (WebFetch), keyword (WebSearch), or markdown file (Read)
-- Publish to three platforms simultaneously: spoonai.me (Korean), DEV.to (English), Naver Blog (Korean HTML via queue folder)
-- Single-user tool — no need for a web UI or Telegram bot, CLI is enough
-- SEO and hooking logic baked into the generation step per platform
+> "I want to use more modern web technologies on jidonglab.com."
 
-Between web app, Telegram bot, and CLI, CLI won immediately. Fastest to build, no infrastructure to maintain, runs directly in Claude Code.
+Claude analyzed the current codebase and proposed 6 concrete features:
 
-The skill breaks into three phases:
+1. Astro View Transitions
+2. CSS Scroll-Driven Animations
+3. Aurora background effect
+4. Cursor tracking + card tilt
+5. GSAP animations
+6. Bento Grid layout
 
-**Phase 1 — Ingest.** Detect input type. URL → WebFetch the page content. Keyword → WebSearch and pull relevant sources. File → Read and parse the markdown.
+The natural next step would have been to pick one or two and iterate. Instead:
 
-**Phase 2 — Generate.** Platform-specific content generation. spoonai.me needs Korean body text with front matter. DEV.to needs English with tags and series metadata. Naver Blog needs Korean HTML that matches their editor format — this goes to a queue folder since Naver doesn't have a public publish API.
+> "Just do all of them. Add a toggle panel so each feature can be turned on and off independently."
 
-**Phase 3 — Publish.** Git push for spoonai.me and DEV.to (GitHub Actions handles the actual API calls). Queue folder for Naver — manual copy-paste into their editor via a separate cowork step.
-
-The key piece is `auto-publish/SKILL.md`. This file is not documentation. It's a runtime spec — Claude reads it during execution to make decisions without prompting. Every branch condition is spelled out: what to do when the URL returns a 403, how to handle keyword ambiguity, which SEO rules apply to which platform. If the spec is vague, Claude will ask. If it's precise, Claude just executes.
-
-```
-/auto-publish write about Claude Code Channels
-```
-
-That one line triggers the full pipeline: WebSearch for sources, generate Korean post for spoonai, generate English post for DEV.to, write Naver HTML to queue. The only manual step left is uploading the queue file to Naver's editor.
-
-## The Vercel Deployment Block That Cost Two Hours
-
-After publishing, I checked spoonai.me. `404 — This page could not be found.`
-
-Opened the Vercel deployment log:
+AgentCrow dispatched immediately:
 
 ```
-Deployment Blocked
-Git author jidongs45@gmail.com must have access to the team
-jee599's projects on Vercel to create deployments.
+━━━ 🐦 AgentCrow ━━━━━━━━━━━━━━━━━━━━━
+Dispatching 4 agents:
+
+🖥️ @toggle-panel → Create FeatureToggle.tsx control panel component
+🖥️ @cursor-effect → Create CursorEffect.tsx cursor tracking + card tilt
+🎨 @aurora-css → Create aurora background CSS
+🎨 @scroll-css → Create CSS Scroll-Driven Animations CSS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-My Mac's global git config had `user.email` set to `jidongs45@gmail.com` — a personal account that wasn't a member of the `jee599` Vercel team. The spoonai-site repo lives under that team. So every commit pushed from my machine was blocked at Vercel's author check.
+Each agent had a clearly scoped, independent deliverable with no file overlap. While the 4 agents ran in parallel, the main Claude thread handled GSAP installation and Bento Grid CSS. Everything happened concurrently.
 
-Here's the troubleshooting sequence, in order:
+The outputs:
 
-1. Changed `user.email` in git config to the `jee599` account email
-2. Pushed an empty commit — still blocked (Vercel uses the commit author email at push time, and cached the old commits)
-3. Tried adding `jidonggg` as a team member on Vercel — no delete option appeared, couldn't clean up
-4. Pushed an empty commit directly from the `jee599` account — this worked
-5. Existing blocked deployments showed "This deployment can not be redeployed" — they're permanently stuck
-6. Created a fresh commit from the `jee599` account — new deployment triggered, site came back up
+- `src/styles/aurora.css` — toggled via `[data-ft-aurora="on"]` attribute on the document root
+- `src/components/FeatureToggle.tsx` — fixed bottom-right panel, z-index layered above everything
+- `src/components/CursorEffect.tsx` — 40px cursor glow effect + perspective card tilt on hover
+- `src/styles/scroll-animations.css` — scroll progress bar at the top + entrance animations for elements
 
-This entire sequence ate the majority of session 2's 127 Bash calls. The loop was: paste error message → Claude suggests fix → apply fix → push → check deployment log → same error or new variant → repeat.
+Integration came after all agents finished: CSS imports added to `Base.astro`, components mounted in `index.astro`. The orchestration overhead was measurable — 12 TaskUpdate calls and 6 TaskCreate calls just for tracking agent state. 18 tool calls spent purely on coordination, not on building anything.
 
-There's a hard boundary here that's worth naming: Vercel dashboard operations and account permission changes require human hands. Claude can diagnose what's wrong and tell you exactly what to click, but it can't click for you. The 127 Bash calls were me and Claude trying everything that could be scripted — the things that couldn't be scripted were the blocking factors.
+That's the real cost of multi-agent AI automation: it's fast, but not free.
 
-## Fixing AgentCrow's Failing Tests, Then Publishing to npm
+## Why Parallel Agents Work — and When They Don't
 
-Session 3 shifted to a different project: [AgentCrow](https://github.com/jee599/agentcrow), a Claude Code multi-agent routing tool. v3.3.0 had 3 failing tests.
+The parallel dispatch worked cleanly here because the task decomposed perfectly. Four agents, four independent files, zero merge conflicts. Had this been done sequentially — one agent finishing before the next starts — the same work would have taken significantly longer than 39 minutes.
 
-Root cause: the `hasSubmodule` check was using `existsSync` on a directory path. `existsSync` returns `true` for empty directories — and `agents/external/agency-agents/` was an empty submodule (not initialized). The check was supposed to skip certain tests via `describe.skipIf`, but since the directory existed (even though it was empty), the skip condition never fired.
+The pattern that makes multi-agent effective is file independence. When each agent owns its own output file and has no reason to read another agent's in-progress work, parallelism is safe and fast. The AgentCrow dispatch plan makes this explicit: you can see at a glance whether any two agents would touch the same files.
 
-The fix required checking for the presence of actual content inside the submodule directory, not just whether the directory path exists.
+What parallelism doesn't give you is time to think.
 
-Claude surfaced 10 proposed changes. I went through each one and re-verified whether it was actually necessary. Result: 4 were genuine fixes. 6 were either nice-to-have improvements or based on misdiagnosed root causes — things Claude had inferred incorrectly from the context.
+When agents are building at speed, there's no natural pause point where you step back and ask "should we actually be building this?" That question only surfaces after the work is done — when you're looking at the running result.
 
-This is a pattern worth paying attention to: Claude's suggestions aren't binary correct/incorrect. Filtering them matters more than applying all of them. Applying all 10 would have introduced noise into the codebase and made the actual fixes harder to isolate.
+## The Rollback Decision That Took 5 Seconds
 
-After applying the 4 real fixes:
+Everything was integrated. Deployment was one command away.
 
-```
-6 passed, 0 failed, 2 skipped
-```
+The decision to revert took about 5 seconds.
 
-Build passed. Time to publish.
+`jidonglab.com` is a site about transparent solo developer work — what got built, how it was built, what worked and what didn't. Aurora glow effects and animated cursor tracking are technically impressive, but they belong on a creative portfolio or a product landing page. They send the wrong signal for a dev log site where the point is clarity over flash.
+
+The technical execution was solid. The context fit was wrong.
 
 ```
-npm error code ENOENT
-npm error path /Users/jidong/package.json
+c0bb51e Revert "feat: add 6 modern web features with toggle control panel"
+71bf179 feat: add 6 modern web features with toggle control panel
 ```
 
-Ran `npm publish` from the home directory instead of the project directory. Classic. Moved to `/Users/jidong/agentcrow` and ran it again. Then the npm auth token wasn't in `.npmrc` — pasted it manually and published.
+Those two commits sit next to each other in the git log. 39 minutes to build, a few seconds to decide it was wrong.
 
-After publishing, the question came up: "Can we promote this somewhere? Hacker News maybe?"
+## What 223 Tool Calls Actually Bought
 
-First step before any promotion: record a proper demo. Used `asciinema` to capture the full flow — install, command input, agent dispatch output. Made the AgentCrow output visually distinct with color and emoji so the agent routing is obvious on first viewing. Updated the existing DEV.to post with the demo embed.
+Across both sessions:
 
-## Why the Skill-as-Runtime-Spec Pattern Scales
+- Session 1: 155 tool calls, debugging architectural data staleness + UX fixes in the admin panel
+- Session 2: 68 tool calls, 39 minutes, building and integrating 6 modern web features via parallel agents
 
-The most reusable thing from these sessions isn't the `auto-publish` tool itself — it's the pattern behind how it's built.
+What actually shipped: a fixed scroll duration (2 seconds, uniform) and a cleaner admin page. The 6 features exist only in the git history.
 
-The typical Claude Code workflow is prompt-driven: you describe what you want in the chat, Claude does it, session ends, context disappears. Next session you describe it again. It doesn't compound.
+The lesson from the multi-agent session isn't that parallel agents are risky. It's that speed compresses the window for strategic reconsideration. In sequential work, each intermediate step is a natural checkpoint. In parallel work, you go from "prompt" to "done" fast enough that the "should we?" question arrives too late.
 
-Skill files change that. You write the workflow once as a markdown spec, and every invocation of `/auto-publish` follows the same rules — platform-specific formatting, SEO requirements, input handling branches, all of it. The spec is version-controlled, easy to edit, and readable by both humans and Claude.
+The brainstorming phase should have included a fit check: does this belong on this site? It didn't. The build proceeded because Claude proposed 6 things and the instinct was to try all 6. That's the trap with capable AI tooling — the question shifts from "can we build it?" (almost always yes) to "should we build it?" (requires a different kind of deliberation that AI can't substitute for).
 
-The other pattern: parallel agents for independent tasks. The 4-article SEO rewrite that would have taken 40 minutes sequentially took roughly 15 minutes with 4 agents running simultaneously. The agentcrow fixes involved 3 agents working on non-overlapping files at the same time. 2–3x speed improvement is a reasonable estimate, though it varies by task.
+> Distribute independent tasks with no file overlap to parallel agents. But confirm direction before dispatching.
 
-Together, these two patterns — skill files as runtime specs + parallel agents for independent work — are what make Claude Code genuinely fast rather than just convenient.
+The toggle panel approach — build everything, then switch features on/off — was actually a reasonable mitigation for uncertainty. Each feature could have been evaluated independently and reverted without touching the others. The problem was that evaluation happened after 39 minutes of build time rather than before.
 
-## Tool Call Breakdown
-
-**Session 2:** Bash 127, Agent 38, Read 26, Edit 26
-
-Bash dominates because of the Vercel debugging cycle: push, check logs, modify, push again. Every attempt to unblock the deployment went through Bash. Agent calls were for the parallel SEO rewrites.
-
-**Session 3:** Bash 68, Edit 25, Read 19, Agent 7
-
-Higher Edit ratio reflects the test fixing work — read failing test, identify location, apply fix, re-run. The agent count is lower because most of the agentcrow changes were sequential (one fix informed the next).
-
-**Total across both sessions:** 289 tool calls, 22 hours 39 minutes.
-
-> Abstract repeated work into skill files. Split independent tasks across parallel agents. That's the efficient path with Claude Code.
+AgentCrow will dispatch the moment you say go. Make sure you've said the right thing first.
 
 ---
 
