@@ -112,15 +112,15 @@ const screenshotMap: Record<string, string> = {
   <section class="fade-in hero-dot-bg" style="background: #ffffff; padding: 5rem 0 4rem; position: relative;">
     <div style="max-width: 720px; margin: 0 auto; text-align: center;">
         <span style="display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; color: #2563eb; letter-spacing: 0.05em; padding: 0.3rem 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 999px; margin-bottom: 1.25rem;"
-          data-ko="1인 개발자" data-en="Solo Developer">1인 개발자</span>
+          data-ko="1인 개발자" data-en="Solo Developer">Solo Developer</span>
         <h1 style="font-size: clamp(2.25rem, 5vw, 3.25rem); font-weight: 800; color: #0f172a; line-height: 1.2; letter-spacing: -0.03em; margin: 0 0 1rem 0;">
-          <span data-ko="AI로 프로덕트를 만들고," data-en="Building products">AI로 프로덕트를 만들고,</span><br/>
-          <span style="color: #2563eb;" data-ko="과정을 기록한다." data-en="with AI.">과정을 기록한다.</span>
+          <span data-ko="AI로 프로덕트를 만들고," data-en="Building products">Building products</span><br/>
+          <span style="color: #2563eb;" data-ko="과정을 기록한다." data-en="with AI.">with AI.</span>
         </h1>
         <p style="font-size: 1.05rem; color: #475569; line-height: 1.7; max-width: 560px; margin: 0 auto 2rem auto;"
           data-ko="사주 앱, 트레이딩 봇, 커피챗 등 다양한 AI 프로덕트를 만들고, 빌드 과정을 투명하게 공개한다."
           data-en="Building AI products like fortune apps, trading bots, and coffee chat — documenting the entire process.">
-          사주 앱, 트레이딩 봇, 커피챗 등 다양한 AI 프로덕트를 만들고, 빌드 과정을 투명하게 공개한다.
+          Building AI products like fortune apps, trading bots, and coffee chat — documenting the entire process.
         </p>
         <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2rem; justify-content: center;">
           <a href="/projects"
@@ -128,7 +128,7 @@ const screenshotMap: Record<string, string> = {
             onmouseover="this.style.background='#1d4ed8'"
             onmouseout="this.style.background='#2563eb'"
             data-ko="프로젝트 보기" data-en="View Projects">
-            프로젝트 보기
+            View Projects
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
           </a>
           <a href="/posts"
@@ -136,15 +136,15 @@ const screenshotMap: Record<string, string> = {
             onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb'"
             onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'"
             data-ko="블로그" data-en="Blog">
-            블로그
+            Blog
           </a>
         </div>
         <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.85rem; color: #64748b;">
           <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #2563eb;">{projects.length}</span>
-          <span data-ko="프로젝트" data-en="projects">프로젝트</span>
+          <span data-ko="프로젝트" data-en="projects">projects</span>
           <span style="color: #e2e8f0;">·</span>
           <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #2563eb;">{buildLogs.length}</span>
-          <span data-ko="빌드 로그" data-en="build logs">빌드 로그</span>
+          <span data-ko="빌드 로그" data-en="build logs">build logs</span>
         </div>
     </div>
   </section>
@@ -154,15 +154,15 @@ const screenshotMap: Record<string, string> = {
     <div style="max-width: 1080px; margin: 0 auto; display: flex; justify-content: center; gap: 4rem;">
       <div style="text-align: center;">
         <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #2563eb;">{projects.length}</div>
-        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="프로젝트" data-en="Projects">프로젝트</div>
+        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="프로젝트" data-en="Projects">Projects</div>
       </div>
       <div style="text-align: center;">
         <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #0f172a;">{projects.filter(p => p.status === '운영중' || p.status === '실험중').length}</div>
-        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="운영중" data-en="Active">운영중</div>
+        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="운영중" data-en="Active">Active</div>
       </div>
       <div style="text-align: center;">
         <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #2563eb;">{buildLogs.length}</div>
-        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="빌드 로그" data-en="Build Logs">빌드 로그</div>
+        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="빌드 로그" data-en="Build Logs">Build Logs</div>
       </div>
     </div>
   </section>
@@ -171,7 +171,7 @@ const screenshotMap: Record<string, string> = {
   <section class="fade-in stagger-1" style="background: #ffffff; padding: 4rem 0;">
     <div style="max-width: 1080px; margin: 0 auto;">
       <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin: 0 0 1.5rem 0;"
-        data-ko="만든 것들" data-en="What I Built">만든 것들</h2>
+        data-ko="만든 것들" data-en="What I Built">What I Built</h2>
       <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
         {projects.filter(p => p.url).map(p => {
           const img = screenshotMap[p.slug];
@@ -209,7 +209,7 @@ const screenshotMap: Record<string, string> = {
   <section class="fade-in stagger-1" style="background: #f8fafc; padding: 4rem 0;">
     <div style="max-width: 1080px; margin: 0 auto;">
       <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin: 0 0 1.5rem 0;"
-        data-ko="오픈소스" data-en="Open Source">오픈소스</h2>
+        data-ko="오픈소스" data-en="Open Source">Open Source</h2>
       <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
         {projects.filter(p => !p.url && p.github && ['contextzip', 'agentcrow'].includes(p.slug)).map(p => (
           <a href={p.github} target="_blank" rel="noopener"
@@ -239,12 +239,12 @@ const screenshotMap: Record<string, string> = {
     <div style="max-width: 1080px; margin: 0 auto;">
       <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
         <h2 style="font-size: 1.25rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin: 0;"
-          data-ko="최근 글" data-en="Latest Posts">최근 글</h2>
+          data-ko="최근 글" data-en="Latest Posts">Latest Posts</h2>
         <a href="/posts"
           style="font-size: 0.8rem; font-weight: 500; color: #2563eb; text-decoration: none; transition: color 0.15s;"
           onmouseover="this.style.color='#1d4ed8'"
           onmouseout="this.style.color='#2563eb'"
-          data-ko="모든 글 →" data-en="All posts →">모든 글 →</a>
+          data-ko="모든 글 →" data-en="All posts →">All posts →</a>
       </div>
       <div>
         {latestPosts.map((post) => (
@@ -268,11 +268,11 @@ const screenshotMap: Record<string, string> = {
   <section class="fade-in stagger-2" style="background: linear-gradient(to bottom, #111827, #030712); padding: 5rem 0;">
     <div style="max-width: 1080px; margin: 0 auto; text-align: center;">
       <h2 style="font-size: 1.75rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin: 0 0 1rem 0;"
-        data-ko="더 많은 프로젝트 보기" data-en="Explore More Projects">더 많은 프로젝트 보기</h2>
+        data-ko="더 많은 프로젝트 보기" data-en="Explore More Projects">Explore More Projects</h2>
       <p style="font-size: 1rem; color: #94a3b8; line-height: 1.7; max-width: 480px; margin: 0 auto 2rem auto;"
         data-ko="AI 프로덕트 빌딩의 전 과정을 프로젝트별로 확인할 수 있다."
         data-en="Explore the full journey of building AI products, project by project.">
-        AI 프로덕트 빌딩의 전 과정을 프로젝트별로 확인할 수 있다.
+        Explore the full journey of building AI products, project by project.
       </p>
       <div style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
         <a href="/projects"
@@ -280,7 +280,7 @@ const screenshotMap: Record<string, string> = {
           onmouseover="this.style.background='#1d4ed8'"
           onmouseout="this.style.background='#2563eb'"
           data-ko="프로젝트 전체 보기" data-en="View All Projects">
-          프로젝트 전체 보기
+          View All Projects
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
         </a>
         <a href="/posts"
@@ -288,7 +288,7 @@ const screenshotMap: Record<string, string> = {
           onmouseover="this.style.borderColor='#6b7280';this.style.color='#ffffff'"
           onmouseout="this.style.borderColor='#374151';this.style.color='#94a3b8'"
           data-ko="빌드 로그 읽기" data-en="Read Build Logs">
-          빌드 로그 읽기
+          Read Build Logs
         </a>
       </div>
     </div>

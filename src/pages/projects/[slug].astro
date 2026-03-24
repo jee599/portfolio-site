@@ -85,7 +85,7 @@ const timeline: TimelineItem[] = [
     <header class="mb-10">
       <div class="flex items-center gap-3 mb-3">
         <span class={`text-xs font-mono ${statusColor[d.status] || 'text-muted'}`} data-ko={d.status} data-en={statusEn[d.status] || d.status}>
-          {d.status}
+          {statusEn[d.status] || d.status}
         </span>
       </div>
       <h1 class="text-3xl font-display font-bold text-heading mb-3">{d.title}</h1>
@@ -94,7 +94,7 @@ const timeline: TimelineItem[] = [
       <div class="flex gap-3 text-sm">
         {d.url && (
           <a href={d.url} target="_blank" rel="noopener" class="font-mono text-accent">
-            <span data-ko="사이트" data-en="Site">사이트</span> &rarr;
+            <span data-ko="사이트" data-en="Site">Site</span> &rarr;
           </a>
         )}
         <a href={d.github} target="_blank" rel="noopener" class="font-mono text-accent">
@@ -114,7 +114,7 @@ const timeline: TimelineItem[] = [
     {timeline.length > 0 ? (
       <section>
         <h2 class="text-sm font-mono text-muted uppercase tracking-widest mb-6">
-          <span data-ko="타임라인" data-en="Timeline">타임라인</span>
+          <span data-ko="타임라인" data-en="Timeline">Timeline</span>
         </h2>
         <div class="relative pl-6 border-l-2 border-gray-200">
           {timeline.map((item) => (
@@ -138,7 +138,7 @@ const timeline: TimelineItem[] = [
         </div>
       </section>
     ) : (
-      <p class="text-muted text-sm" data-ko="아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다." data-en="No build logs yet. They are generated automatically when you push.">아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다.</p>
+      <p class="text-muted text-sm" data-ko="아직 빌드 로그가 없다. 작업하고 push하면 자동으로 생긴다." data-en="No build logs yet. They are generated automatically when you push.">No build logs yet. They are generated automatically when you push.</p>
     )}
   </article>
 </Base>

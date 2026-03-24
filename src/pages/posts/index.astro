@@ -54,7 +54,7 @@ const categories = [
 <Base title="AI Posts">
   <div class="page-header fade-in">
     <h1 class="page-title" data-ko="AI Posts" data-en="AI Posts">AI Posts</h1>
-    <p class="page-desc" data-ko="빌드 로그, AI 팁, 블로그 글을 모아 놓은 곳이다." data-en="Build logs, AI tips, and blog posts all in one place.">빌드 로그, AI 팁, 블로그 글을 모아 놓은 곳이다.</p>
+    <p class="page-desc" data-ko="빌드 로그, AI 팁, 블로그 글을 모아 놓은 곳이다." data-en="Build logs, AI tips, and blog posts all in one place.">Build logs, AI tips, and blog posts all in one place.</p>
   </div>
 
   <!-- Category Filter Buttons -->
@@ -66,7 +66,7 @@ const categories = [
         style={`--cat-color: ${cat.color}`}
       >
         <span class="cat-dot" style={`background: ${cat.color}`}></span>
-        <span data-ko={cat.label} data-en={cat.labelEn || cat.label}>{cat.label}</span>
+        <span data-ko={cat.label} data-en={cat.labelEn || cat.label}>{cat.labelEn || cat.label}</span>
         <span class="cat-count">
           {cat.key === 'all' ? allPosts.length : allPosts.filter(p => p.type === cat.key).length}
         </span>
@@ -90,7 +90,7 @@ const categories = [
   </div>
 
   {allPosts.length === 0 && (
-    <p class="text-muted" data-ko="아직 글이 없다. 작업하고 push하면 빌드 로그가 자동으로 생긴다." data-en="No posts yet. Push code and build logs will appear automatically.">아직 글이 없다. 작업하고 push하면 빌드 로그가 자동으로 생긴다.</p>
+    <p class="text-muted" data-ko="아직 글이 없다. 작업하고 push하면 빌드 로그가 자동으로 생긴다." data-en="No posts yet. Push code and build logs will appear automatically.">No posts yet. Push code and build logs will appear automatically.</p>
   )}
 </Base>
 

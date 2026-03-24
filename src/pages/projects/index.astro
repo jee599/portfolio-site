@@ -52,7 +52,7 @@ const projectData = projects.map(p => {
         Projects
       </h1>
       <p style="font-size:0.9rem;color:#64748b;" data-ko="프로젝트를 선택하면 빌드 로그를 볼 수 있다." data-en="Select a project to see build logs.">
-        프로젝트를 선택하면 빌드 로그를 볼 수 있다.
+        Select a project to see build logs.
       </p>
     </div>
 
@@ -71,7 +71,7 @@ const projectData = projects.map(p => {
               <div style="flex:1;min-width:0;">
                 <div style="display:flex;align-items:center;gap:0.4rem;">
                   <span style="font-size:0.88rem;font-weight:700;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{p.title}</span>
-                  <span style={`font-size:0.55rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:${sc.color};`} data-ko={p.status} data-en={sc.en}>{p.status}</span>
+                  <span style={`font-size:0.55rem;font-family:'JetBrains Mono',monospace;font-weight:600;color:${sc.color};`} data-ko={p.status} data-en={sc.en}>{sc.en}</span>
                 </div>
                 <div style="display:flex;align-items:center;gap:0.35rem;margin-top:0.15rem;">
                   {p.stack.slice(0, 3).map(t => (
@@ -124,7 +124,7 @@ const projectData = projects.map(p => {
           {/* Build logs list */}
           <div style="padding:0 1.5rem 1.5rem;">
             <h3 style="font-size:0.7rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#64748b;margin:0 0 0.75rem;"
-              data-ko="빌드 로그" data-en="Build Logs">빌드 로그</h3>
+              data-ko="빌드 로그" data-en="Build Logs">Build Logs</h3>
             <div id="detail-logs"></div>
           </div>
         </div>

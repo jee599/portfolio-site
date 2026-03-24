@@ -33,7 +33,7 @@ const sc = statusConfig[status] || statusConfig['중단'];
       <span style={`display:inline-flex;align-items:center;gap:0.25rem;padding:0.15rem 0.5rem;border-radius:100px;font-size:0.6rem;font-weight:700;font-family:'JetBrains Mono',monospace;background:${sc.bg};color:${sc.color};`}
         data-ko={status} data-en={sc.en}>
         <span style={`display:inline-block;width:6px;height:6px;border-radius:50%;background:${sc.color};`}></span>
-        {status}
+        {sc.en}
       </span>
       <div style="display:flex;gap:0.2rem;">
         {url && (
@@ -93,13 +93,13 @@ const sc = statusConfig[status] || statusConfig['중단'];
         </a>
       ) : (
         <span style="font-size:0.7rem;color:#94a3b8;">
-          <span data-ko="상세 보기" data-en="View details">상세 보기</span> →
+          <span data-ko="상세 보기" data-en="View details">View details</span> →
         </span>
       )}
       <div style="display:flex;gap:0.4rem;flex-shrink:0;margin-left:0.5rem;">
         {url && (
           <a href={url} target="_blank" rel="noopener" style="font-size:0.65rem;font-weight:600;color:#2563eb;text-decoration:none;" onclick="event.stopPropagation()"
-            data-ko="사이트" data-en="Site">사이트 ↗</a>
+            data-ko="사이트" data-en="Site">Site ↗</a>
         )}
         <a href={github} target="_blank" rel="noopener" style="font-size:0.65rem;font-weight:600;color:#64748b;text-decoration:none;" onclick="event.stopPropagation()">GitHub ↗</a>
       </div>
