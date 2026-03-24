@@ -1,176 +1,121 @@
 ---
-title: "4 Parallel Claude Code Agents Built 6 Web Features in 39 Minutes — Then I Rolled Them All Back"
+title: "HTTP 200 OK, Email Not Delivered — Hunting a 7-Day Silent Pipeline Failure with Claude Code"
 project: "portfolio-site"
 date: 2026-03-24
 lang: en
 pair: "2026-03-24-portfolio-site-ko"
-tags: [claude-code, agentcrow, parallel-agents, portfolio, admin]
-description: "One vague prompt triggered AgentCrow to dispatch 4 parallel agents. Aurora, cursor effects, scroll animations, Bento Grid — all built and rolled back in 39 minutes."
+tags: [claude-code, agentcrow, debugging, email-pipeline]
+description: "A Claude CLI logout silently killed my news pipeline for 7 days. 8 sessions, 153 tool calls to diagnose, recover, and send to 11 subscribers."
 ---
 
-68 tool calls. 39 minutes. 6 web features shipped. Then I typed "roll everything back" and it was gone in under 5 minutes.
+Eight sessions. 153 tool calls. Almost no code written.
 
-That's the story of Session 7. But before we get there, Session 4 had its own mess — a static JSON file that had been silently lying about which projects existed, and a typo that turned "refmade" into "defmade" on the live site.
+That was today — tracking down a silent pipeline failure, recovering it, and finally sending a newsletter to 11 subscribers. The root cause turned out to be a Claude CLI logout that had been quietly killing my daily news pipeline since March 17.
 
-**TL;DR:** Two sessions totaling 223 tool calls and ~2h 20min. AgentCrow dispatched 4 parallel Claude Code agents from a single vague prompt and built View Transitions, Aurora background, cursor tilt effects, Scroll-Driven Animations, GSAP, and Bento Grid simultaneously. The rollback cost was near-zero because agents created new files instead of patching existing code. Key lesson: "faster" is a bad prompt. "2000ms" is a good prompt.
+**TL;DR** — A logged-out Claude CLI caused 7 consecutive days of crawl failures. I used AgentCrow to orchestrate a 3-agent recovery in two phases, got HTTP 200 from Resend but still no email in my inbox (sent it twice), fixed 4 design issues in 48 tool calls, and shipped to all 11 subscribers: 11 successes, 0 failures.
 
----
+## The Bug That Hid for 7 Days
 
-## The Admin Page Was Lying
+The first session started with: "Why didn't the email come today. Again."
 
-Session 4 started with a simple goal: improve the admin dashboard. Total cost: 155 tool calls, 1h 41min.
-
-The first thing that came up was a bug that had been invisible until now. The admin page showed a list of GitHub repos, but repos created after the last build weren't appearing. The cause was obvious once surfaced: `github-repos.json` was a static file generated at compile time. Cloudflare Pages builds don't run continuously, so any repo created after the last deploy was just... absent.
-
-The fix was straightforward — replace the static JSON read with a live GitHub API call inside `api/admin-projects.ts`:
-
-```typescript
-// Before: reading a static file baked in at build time
-const repos = JSON.parse(await fs.readFile('github-repos.json', 'utf-8'))
-
-// After: live call, always current
-const res = await fetch('https://api.github.com/users/jee599/repos?per_page=100', {
-  headers: { Authorization: `Bearer ${import.meta.env.GITHUB_TOKEN}` }
-})
-const repos = await res.json()
-```
-
-Static data baked into a deploy is fine until you need it to reflect reality. GitHub repos are a real-time data source — they should be treated like one.
-
-## The Typo That Wasn't in the Code
-
-While reviewing the project cards, I noticed that one project was showing as "defmade" instead of "refmade." The card link was broken too — clicking it went nowhere useful.
-
-First instinct: search the codebase for the string "defmade". Nothing. The component code was clean. The bug had to be upstream.
-
-It was in `aidesiner.yaml` — a YAML config file for a project entry. The `url` field had a typo that was corrupting how the project slug was being derived and displayed. One wrong character in a YAML value, surfacing as a broken project card on the live site.
-
-This kind of bug is the worst category: the error is nowhere near where the symptom appears. The component is correct. The template is correct. The data is wrong. You only find it by following the data backwards from the broken output.
-
-## Scroll Speed: Three Iterations Because I Said "Faster"
-
-The scroll animation speed on the project section needed tuning. This is where things got annoying — and entirely my fault.
-
-The exchange went roughly like this:
-
-> Me: Make the scroll a bit faster.
-> Claude: Done. (2x speed)
-> Me: Still too slow, make it faster.
-> Claude: Done. (2x again)
-> Me: Still not right. Make it about 2 seconds.
-> Claude: Done. (2000ms, correct on first try)
-
-Three iterations. The first two used relative language: "faster," "still too slow." These are meaningless without a reference point. Claude's interpretation of "faster" is a guess, and guesses compound.
-
-The moment I switched to an absolute value — "2 seconds" — it resolved in one shot.
-
-> Vague directional feedback causes iteration loops. Precise specs solve it in one shot.
-
-This applies everywhere, not just animation speed. If you're giving feedback to an AI agent (or a human engineer), "bigger," "faster," "cleaner" are not specs. A number is a spec.
-
----
-
-## Session 7: One Prompt, Four Agents
-
-Session 7 had a different character entirely. The goal was to prototype a set of modern web features for the portfolio site — nothing critical, just exploratory. The prompt was intentionally loose:
-
-> "Add View Transitions API, Aurora background, cursor tracking with card tilt, Scroll-Driven Animations, GSAP entrance effects, and Bento Grid layout. Just do it all."
-
-AgentCrow — the multi-agent dispatch system configured in `CLAUDE.md` — parsed that into 4 parallel agents with independent file ownership:
+I pointed Claude at `~/spoonai/` and let it dig through the logs. The cron job fires at 09:03 KST every day, calling `generate-ai-news.sh`, which internally invokes the Claude CLI. Exit code 1. Reason:
 
 ```
-━━━ AgentCrow ━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Dispatching 4 agents:
-
-@toggle-panel  → create FeatureToggle.tsx (UI to toggle each feature on/off)
-@cursor-effect → create CursorEffect.tsx (cursor tracking + card tilt logic)
-@aurora-css    → create aurora.css (aurora gradient background animation)
-@scroll-css    → create scroll-animations.css (Scroll-Driven Animations + GSAP)
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Not logged in · Please run /login
 ```
 
-Each agent owned exactly one new file. No agent touched a file that another agent was writing. No merge conflicts possible by design.
+That error isn't unusual. What was unusual was the timestamp. The same error, every single day, **from March 17 to March 24 — 7 days straight**.
 
-While the 4 agents ran in parallel, the main thread waited. When all 4 completed, the main thread handled integration: wiring the new components into `Base.astro` and `index.astro`, passing props, and validating that the toggle panel could enable/disable each feature independently.
+The failure chain was clean once you saw it: Claude CLI logout → 0 articles generated → empty crawl JSON → email HTML can't be built → 0 emails sent. The first stage of the pipeline had been dead for a week. From the outside, it just looked like "no email again today."
 
-68 tool calls. 39 minutes from prompt to "all 6 features running locally."
+Diagnosis took 21 tool calls: 15 Bash calls to dig through log files, 3 Glob calls to confirm whether crawl JSONs existed.
 
-For context: doing this sequentially — one feature at a time, each waiting on the last — would take at minimum 2-3 hours, and likely longer because you'd lose context between features. Parallel agents don't lose context. They each have a focused scope and execute simultaneously.
+## 2-Phase Pipeline Recovery with AgentCrow
 
-## Why the Rollback Was Cheap
+After logging back in, I started a manual recovery session (14 min, 13 tool calls).
 
-After reviewing the implementation locally, I decided not to ship any of it. The features were well-built, but the overall aesthetic didn't fit where the site is right now. Too much going on.
+The pipeline has a hard dependency: crawling must complete before site publishing and email generation can begin. So I structured the AgentCrow dispatch as sequential phases with parallel execution inside Phase 2.
 
-The rollback took under 5 minutes.
+```
+━━━ 🐦 AgentCrow ━━━━━━━━━━━━━━━━━━━━━
+Dispatching 3 agents (2-phase sequential):
 
-Why? Because the agents created new files. They didn't patch `Base.astro`. They didn't rewrite `index.astro`. They added:
+Phase 1:
+🔄 @data_pipeline_engineer → crawl articles → ~/spoonai/crawl/2026-03-24.json
 
-- `FeatureToggle.tsx`
-- `CursorEffect.tsx`
-- `aurora.css`
-- `scroll-animations.css`
-
-Rolling back meant deleting those 4 files and removing the integration wiring the main thread had added — a few lines in two files.
-
-Compare that to the alternative: if the agents had edited existing components in-place, a rollback would require carefully reverting diffs across multiple files, checking for unintended side effects, and probably re-testing everything. With new files, the rollback is surgical.
-
-> The cost of a rollback is proportional to how much existing code was modified, not how much new code was created.
-
-This is a principle worth designing for. When you're prototyping with AI agents, encourage them to create new files over patching existing ones. It keeps the blast radius small.
-
-## Deploying to Cloudflare Pages via wrangler
-
-One thing worth documenting: during this session, I explored deploying directly via `wrangler` CLI rather than going through the Cloudflare dashboard.
-
-```bash
-npx wrangler pages deploy dist/ --project-name portfolio-site
+Phase 2 (parallel, after Phase 1):
+🖥️ @senior_developer → generate article MDs + download images + git push
+📝 @writer            → generate email HTML (ko/en)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-It works. The deploy takes about the same time as a git-push-triggered deploy, but gives you more direct control over which build you're shipping. Useful for manual rollback scenarios or testing a specific build artifact.
+Phase 1 returned 52 articles, filtered to 28 (TOP5, BUZZ3, PAPER1, QUICK17, GITHUB3). That JSON fed Phase 2.
 
-In this case, I ultimately decided to roll back rather than deploy, but having the wrangler path available matters. Dashboard-driven deploys are fine for normal workflow; CLI deploys are better when you need precision.
+Result: 6 article MDs published (NVIDIA GTC, Anthropic Marketplace, Meta Llama 4 — both ko and en), 3 failed OG image downloads replaced with Wikimedia CC images, site deployed.
 
-## What "CLAUDE.md is configured right" Actually Means
+## HTTP 200 OK, Email Not Delivered
 
-The "just do it all" prompt only works because of what's in `CLAUDE.md`. Without the AgentCrow dispatch rules, Claude Code would execute those 6 features sequentially — one agent, one feature at a time, 2-3 hours minimum.
+Test send session: 2 min, 9 tool calls. `send-email.js` to `jidongs45@gmail.com`. Resend API responded 200, ID `ebf3a2a5-...`.
 
-The relevant configuration is:
+"It didn't arrive."
 
-```markdown
-## AgentCrow Rules
-- For complex requests (2+ tasks), find matching agents from .claude/agents/ and dispatch them
-- Dispatch independent tasks in parallel
-- Each agent owns one file — no overlapping file ownership
-- Main thread handles integration after agents complete
-```
+Second send session: 2 min, 8 tool calls. Re-confirmed file paths, checked an alternate output directory (`~/spoonai-site/data/output/`), explicitly specified the HTML file and script. Sent again. ID `ad836686-...`. Response 200.
 
-This isn't magic. It's a documented decision protocol. The `CLAUDE.md` file acts as a persistent system prompt that shapes how Claude Code interprets every subsequent prompt in the session. "Just do it all" lands very differently when the system already knows to decompose multi-task requests into parallel agent work.
+In hindsight, the first send almost certainly landed correctly. I should have checked Resend's delivery status before sending a second time. Instead I fired again immediately. Two test emails went out today because of that.
 
-The investment in writing good `CLAUDE.md` rules pays compound returns. Every session that follows gets better agent dispatch without any additional prompting.
+> Check delivery status before resending. HTTP 200 means the API accepted it — not that it was delivered. Resend's dashboard shows the actual status.
 
-## Four Things That Actually Hold Up
+## Email Design Fixes: 48 Tool Calls
 
-After two sessions and 223 tool calls, these are the four things that proved out in practice:
+Once the email arrived and was confirmed, feedback came in: "The design changes I requested before aren't applied."
 
-**1. Vague prompts are fine at the task level, not at the spec level.**
-"Do all 6 features" is a good task-level prompt — it gives Claude Code room to decompose the work intelligently. "Make it faster" is a bad spec-level prompt — it gives the agent no ground truth to target. The distinction matters. Use natural language for task decomposition; use numbers for specs.
+Session 5: 9 min, 48 tool calls.
 
-**2. Parallel agents scale the output, not just the speed.**
-The 39-minute session wasn't just faster than sequential execution — it was qualitatively different. Each agent maintained focused context on its specific file. `@cursor-effect` only thought about cursor tracking. `@aurora-css` only thought about the gradient animation. The output quality per feature was higher than if one agent had context-switched between all six.
+Four changes: keyword tags smaller with bolder colors, link buttons reduced in size, feedback section redesigned, the finalized TLDR style guide applied throughout.
 
-**3. New files are rollback-safe; patched files are not.**
-This is an architectural principle for AI-assisted prototyping. If you're exploring features you're not sure you'll keep, structure the work so agents create isolated files. Integration can always be added; surgery on existing files is expensive to undo.
+I had Claude read `email-2026-03-21-ko.html` as a reference and compare the CSS patterns. Edit ran 14 times to apply changes to both the ko and en HTML files. TodoWrite ran 7 times to track all four items across both files.
 
-**4. Static data ages poorly in live systems.**
-The `github-repos.json` bug wasn't a coding error — it was an architecture assumption that stopped being valid. Static snapshots of live data sources are technical debt that starts accruing the moment the data changes. If the data is live, the read should be live.
+After fixes were confirmed, I generated two new template files: `email-template-ko.html` and `email-template-en.html`. Next time, there's no need to rebuild the base structure from scratch.
 
----
+## Sending to All 11 Subscribers: 11/11
 
-**Sessions:** 4 + 7
-**Total tool calls:** 223 (155 + 68)
-**Total time:** ~2h 20min (1h 41min + 39min)
-**Features shipped:** Admin bug fixes, scroll animation tuning, typo fix
-**Features built and rolled back:** View Transitions API, Aurora background, cursor tilt, Scroll-Driven Animations, GSAP, Bento Grid
+One message: "Ship it to everyone."
+
+Full-send session: 4 min, 18 tool calls.
+
+`subscribers.txt` uses the format `ko,email@example.com`. Subscriber count: **10 in Korean, 1 in English**. One API call per recipient.
+
+| Language | Subject | Recipients |
+|----------|---------|------------|
+| ko | `[spoonai] 3/24 Mon — 젠슨 황이 터뜨린 1조 달러 AI 수주` | 10 |
+| en | `[spoonai] 3/24 Mon — Jensen Huang's $1T AI Order Bombshell` | 1 |
+
+Success: 11. Failure: 0. Bash ran 9 times to write and execute the send script.
+
+## Removing the Feedback Section — Same Work Done Twice
+
+Right after sending, the next request arrived: "Starting tomorrow, drop the 'how was this briefing' section. Update the skill too."
+
+This took two separate sessions (session 7: 9 min, 26 tool calls; session 8: 0 min, 10 tool calls).
+
+Session 7 modified 2 SKILL.md files and 2 HTML templates. Session 8 used `grep` to find and remove leftover CSS class references that session 7 had missed.
+
+The reason it took two passes: session 7 left inline CSS class descriptions inside the SKILL.md files. Grep ran 4 times across keywords — `feedback`, `피드백`, `어땠어`, `survey` — to catch everything.
+
+> Skill files aren't code — they're instructions Claude reads at the start of each session. Stale content in a skill file means Claude will regenerate the feature you just removed in the next session.
+
+## Tool Usage Breakdown
+
+8 sessions, 153 total tool calls:
+
+- **Bash** — 51 (log inspection, send script execution)
+- **Read** — 34 (understanding file contents)
+- **Edit** — 28 (CSS/HTML/skill file updates)
+- **Glob** — 10 (locating files)
+- **TodoWrite** — 7 (tracking fix items)
+- **Grep** — 6 (keyword search)
+
+2 files created (`email-template-ko.html`, `email-template-en.html`), 6 files modified. Zero lines of original code written. Pipeline recovered, design fixed, 11 subscribers reached.
 
 ---
 
