@@ -1,99 +1,106 @@
 ---
-title: "50 Tool Calls to Fix One Language Toggle: Claude Code i18n Debugging"
+title: "3 Sessions, 336 Tool Calls: i18n Switch, Skill Refactor, and Hover Animations with Claude Code"
 project: "portfolio-site"
 date: 2026-03-25
 lang: en
 pair: "2026-03-25-portfolio-site-ko"
-tags: [claude-code, i18n, astro, multi-agent]
-description: "One hardcoded var lang = 'ko' was silently breaking the entire translation system. Root cause to deploy: 24 minutes, 50 tool calls with Opus 4.6."
+tags: [claude-code, i18n, animation, security, multi-agent]
+description: "How Claude Code handled a default language switch, skill cleanup, hover animations, and a security audit across 3 sessions and 336 tool calls."
 ---
 
-One hardcoded string was silently breaking the entire i18n system. Finding it took seconds. Cleaning up everything downstream took 24 minutes and 50 tool calls.
+336 tool calls. 3 sessions. 12 files changed. More decisions made than lines written.
 
-**TL;DR** `var lang = 'ko'` was hardcoded as the default. Every first-time visitor saw Korean regardless of browser language or preference. Flipping the default to English and reversing the button logic required touching 3 files — but Opus 4.6 used 8 parallel agent calls for translation review along the way.
+**TL;DR** — Switching the default language from Korean to English sounds trivial. It's not. Every text-bearing element across the entire layout needs to be audited. Claude Code mapped the change scope before touching anything, which is why it finished in one pass with no regressions.
 
-## The Bug That Wasn't Obviously Broken
+## Session 1: "English Should Be the Default" — 13 Reads, 12 Edits
 
-The request was simple: "English should be the default. The language toggle should switch to Korean, not the other way around."
+The prompt was direct.
 
-Simple request. Non-obvious root cause.
-
-Before touching anything, Opus 4.6 read `Base.astro` to map the current translation system. Three problems surfaced immediately.
-
-**Problem 1**: `var lang = 'ko'` — the default language was hardcoded to Korean. When `localStorage` had no `lang` key (i.e., every first visit), the fallback was always Korean. English-speaking visitors always landed on a Korean page.
-
-**Problem 2**: The button label was inverted. If English is the default, the toggle button should show "KO" (offering to switch to Korean). It was showing "EN" instead.
-
-**Problem 3**: 126 existing build log posts had no English pair (`lang: en`). Fixing the UI wouldn't fix the content — English users would still see Korean post titles in the list. This was scoped out intentionally. The request was "fix the toggle," not "translate everything."
-
-## How the i18n System Works
-
-This portfolio doesn't use server-side i18n. No locale routing, no translation files. Instead, every text element carries both languages as HTML attributes:
-
-```html
-<span data-ko="최근 포스트" data-en="Recent Posts">Recent Posts</span>
+```
+The language toggle isn't working right. The site needs to default to English —
+all translations should be complete for English.
 ```
 
-JavaScript reads `localStorage.getItem('lang')`, then walks the DOM replacing `textContent` with the appropriate attribute value. It's client-side, zero-dependency, and works without any framework overhead.
+Claude Code read `Base.astro` first, then returned with three specific problems instead of just starting to edit.
 
-The catch: **the default text content needs to match the default language**. If the page initializes in Korean but the default text is Korean, there's no flash. If the default text is Korean but you're switching to English as default, you get a brief Korean flash before JS runs.
+**Problem 1**: `var lang = 'ko'` — default language hardcoded to Korean. Every first visit fell back to Korean regardless of browser preference.
 
-The fix required both changing the default language *and* updating all the default text nodes to English. Otherwise the flash would persist even after the `lang` variable was corrected.
+**Problem 2**: The toggle button showed `EN`. If English is the default, the button should offer `KO` — not the other way around.
 
-## The Fix: 3 Files, 3 Changes Each
+**Problem 3**: Every `data-ko`/`data-en` element had Korean as its rendered baseline text in the HTML. Flipping `lang = 'en'` wouldn't fix the flash — the text nodes loaded from the server are still Korean.
 
-The actual changes were surgical:
+That third point was the real problem. The strategy: keep the `data-ko`/`data-en` attribute structure intact, replace all inline default text with English, then at JS initialization read `localStorage` for a saved `lang` preference. Korean users get the `data-ko` values applied on top.
 
-```diff
-- <html lang="ko">
-+ <html lang="en">
+25 of the 50 tool calls in this session were Read and Edit. The other half went to a delegated Agent for translation review.
+
+```
+Check all the English translations — are they complete, natural, no typos?
 ```
 
-```diff
-- var lang = localStorage.getItem('lang') || 'ko';
-+ var lang = localStorage.getItem('lang') || 'en';
+One prompt. The Agent crawled the entire site, flagged missing translations, and caught awkward phrasing. Faster than clicking through every page manually, and it stayed focused without getting tired.
+
+## Session 2: Removing Naver from the auto-publish Skill — 37 Bash, 23 Edits
+
+The original goal was publishing three articles about Claude updates to DEV.to and Hashnode. But opening the `auto-publish` skill showed Naver still listed as a publish target.
+
+```
+Remove the Naver stuff from that skill.
 ```
 
-```diff
-- <button id="lang-toggle">EN</button>
-+ <button id="lang-toggle">KO</button>
+Six references removed: Agent 3 (Naver Korean HTML), the `naver-seo-rules.md` reference, Phase 4 Naver publishing section, Phase 5 Naver queue check. Platform count dropped from 3 to 2 — spoonai.me and DEV.to only.
+
+The Hashnode token setup was unexpectedly tedious. Even after providing the token directly, Claude Code ran through a Bash sequence: locate the env var, patch `publish-to-hashnode.mjs`, verify the result. That's where the 37 Bash calls came from. One token, a lot of shell.
+
+One SEO decision worth keeping: every English post published to DEV.to or Hashnode gets `canonical_url` set to `jidonglab.com`. Whichever platform Google crawls first, the original source stays attributed to the personal site. That's how you syndicate without duplicate content penalties.
+
+## Session 3: Hover Animations and a Security Audit — 100 Bash, 33 Edits
+
+The longest session. 196 tool calls, 100 of them Bash.
+
+It started with a UX question about the preview cards.
+
+```
+Can you make the previews animate on hover? Like a scroll or re-trigger animation?
 ```
 
-Then every `data-ko`/`data-en` element needed its default text flipped to English. This touched `Base.astro`, `PostLayout.astro`, and `blog/[slug].astro`.
+Three animation variants added to `ArticleCard.tsx`:
+- **Hero card**: 1.05x image zoom + shimmer scanline effect
+- **Default card**: 1.05x image zoom on hover
+- **Compact card**: 1.1x thumbnail zoom on hover
 
-Not complicated. But there were enough scattered changes across enough files that doing it carefully — without breaking the toggle logic — justified methodical execution.
+A `scan` keyframe animation landed in `globals.css` for the shimmer effect.
 
-## Why 50 Tool Calls?
+Then Vercel deployments started canceling. Three consecutive `git push` triggers, three `CANCELED` statuses. Claude Code bypassed the stalled auto-deploy by running `vercel build --prod && vercel deploy --prebuilt --prod` directly. Not elegant, but it shipped.
 
-Breakdown: Read ×13, Bash ×12, Edit ×12, Agent ×8, Glob ×2.
+The security audit was a single delegated prompt.
 
-The 8 Agent calls are the interesting part. After making the changes, the task was: "Check that all English translations look right. No awkward phrasing, no typos, no missing translations." Instead of scanning the entire site serially, AgentCrow dispatched parallel agents per section — header, navigation, blog listing, post layout, footer.
+```
+Are there any security issues in this site? API attack vectors, token exposure, anything?
+```
 
-Parallel review is faster and catches more. A single agent scanning 5 sections sequentially will start rushing by section 4. Five agents each owning one section stay focused.
+The Agent came back with one CRITICAL finding: an API route with no input validation. Finding that manually would have meant reading every route file from scratch. Delegated and triaged in under 15 minutes.
 
-The 12 Bash calls were mostly build verification (`astro build`) and Cloudflare Pages deployment. The 13 Read calls were the repeated read-modify cycles across the three files — changes were scattered enough that each file needed multiple passes.
+The hover animation itself went through five revision cycles. "Scroll on hover" → "Why does it scroll every 4 seconds?" → "Only scroll while hovering" → "2.5x the scroll speed" → "Actually, half that." Requirements tightened through iteration. The 33 Edit calls are mostly this loop.
 
-## The 126-Post Problem (Deferred)
+## Tool Distribution Across All Three Sessions
 
-The deeper issue: 126 existing build logs are Korean-only (`lang: ko`, no `lang: en` pair). English users browsing `/posts` will still see Korean titles for those posts. The UI is fixed but the content isn't.
+| Tool | Count |
+|------|-------|
+| Bash | 149 |
+| Edit | 68 |
+| Read | 54 |
+| Agent | 25 |
+| Other | 40 |
 
-This was a deliberate scope decision. Auto-translating 126 markdown files is a batch job for the Claude API — a Python script that reads each post, calls `claude-haiku-4-5-20251001` with a translation prompt, and writes the English pair. That's a separate session with a separate scope.
+Bash is nearly half the total because build verification, deployments, and env var setup ran repeatedly across sessions.
 
-Fixing the UI layer without fixing content is still a real improvement. First-time visitors now land on English, see English navigation, and can find the handful of posts that do have English pairs. The rest is backlog.
+The 25 Agent calls stand out. Translation review, security audit, and reference HTML improvements were all delegated. Each would have taken 1–2 hours done manually.
 
-## Before / After
+## What Sticks From This Day
 
-| | Before | After |
-|---|---|---|
-| Default language | Korean (hardcoded) | English |
-| Toggle button | Shows "EN" | Shows "KO" |
-| `<html lang>` | `ko` | `en` |
-| First visit | Korean page | English page |
-| Load flash | Korean → English flicker | None |
+A task that looks simple — "switch the default language" — can silently affect every text-bearing element in the layout. The right prompt isn't "switch it to English." It's "map how the translation system currently works and list the problems." Scope analysis before edits catches side effects that a direct implementation would miss.
 
-After deploying: opened the site, saw English, saw "KO" in the top-right corner. Clicked it, switched to Korean. Clicked again, back to English. Done.
-
-24 minutes. 50 tool calls. The actual fix was 3 lines — the other 47 tool calls were reading context, verifying build output, running parallel review, and deploying. That's roughly the right ratio for a change that's small in code but high in surface area.
+Security audits and code review are now default Agent tasks. No need to know what to look for in advance — delegate and triage the output.
 
 ---
 
