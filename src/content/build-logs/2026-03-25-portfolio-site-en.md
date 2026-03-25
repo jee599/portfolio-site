@@ -1,106 +1,108 @@
 ---
-title: "3 Sessions, 336 Tool Calls: i18n Switch, Skill Refactor, and Hover Animations with Claude Code"
+title: "Default Language Switch + 3-Platform Auto-Publish: 336 Tool Calls, 3 Sessions"
 project: "portfolio-site"
 date: 2026-03-25
 lang: en
 pair: "2026-03-25-portfolio-site-ko"
-tags: [claude-code, i18n, animation, security, multi-agent]
-description: "How Claude Code handled a default language switch, skill cleanup, hover animations, and a security audit across 3 sessions and 336 tool calls."
+tags: [claude-code, i18n, auto-publish, devto, hashnode, astro]
+description: "One hardcoded var lang = 'ko' broke the translation toggle on an English site. Fixing it took 50 tool calls. Here's what 336 tool calls across 3 Claude Code sessions looks like."
 ---
 
-336 tool calls. 3 sessions. 12 files changed. More decisions made than lines written.
+336 tool calls. 3 sessions. One `var lang = 'ko'` buried in `Base.astro` was the source of everything.
 
-**TL;DR** — Switching the default language from Korean to English sounds trivial. It's not. Every text-bearing element across the entire layout needs to be audited. Claude Code mapped the change scope before touching anything, which is why it finished in one pass with no regressions.
+**TL;DR**: Session 1 fixed the default language and cleaned up English copy across the entire site (50 tool calls). Session 2 removed Naver from the auto-publish skill and added Hashnode, completing a 3-platform pipeline (90 tool calls). Session 3 rounded out the rest. Across all three: 149 Bash calls, 25 Agent delegations, 12 files modified, 0 new files created.
 
-## Session 1: "English Should Be the Default" — 13 Reads, 12 Edits
+## How "the toggle is broken" cascaded into a full pipeline rebuild
 
-The prompt was direct.
+Session 1 started with two words: "portfolio site."
 
-```
-The language toggle isn't working right. The site needs to default to English —
-all translations should be complete for English.
-```
+Claude Code ran a brainstorming skill first — assessed the current stack (Astro 4 + React + Tailwind, Cloudflare Pages, toss.tech-style design), confirmed it was a live site, then waited. The second prompt locked in the scope:
 
-Claude Code read `Base.astro` first, then returned with three specific problems instead of just starting to edit.
+> "The translation button doesn't quite work. The site should be English-first, so English needs to be the default everywhere."
 
-**Problem 1**: `var lang = 'ko'` — default language hardcoded to Korean. Every first visit fell back to Korean regardless of browser preference.
+Opening `Base.astro` surfaced three problems at once: `<html lang="ko">` in the HTML declaration, `var lang = 'ko'` as the JavaScript default, and a toggle button that displayed the wrong label for its current state. On an English-first site, English should load by default and the toggle should show "KO" — the language you're switching *to*, not the one you're already on.
 
-**Problem 2**: The toggle button showed `EN`. If English is the default, the button should offer `KO` — not the other way around.
+The actual fix was three lines. But verifying it required crawling every element with `data-ko`/`data-en` attributes to confirm English was the visible default across all of them. That verification is what drove 13 Reads, 12 Edits, and 12 Bash calls across `Base.astro`, `PostLayout.astro`, and `blog/[slug].astro`.
 
-**Problem 3**: Every `data-ko`/`data-en` element had Korean as its rendered baseline text in the HTML. Flipping `lang = 'en'` wouldn't fix the flash — the text nodes loaded from the server are still Korean.
+One prompt then kicked off a quality pass:
 
-That third point was the real problem. The strategy: keep the `data-ko`/`data-en` attribute structure intact, replace all inline default text with English, then at JS initialization read `localStorage` for a saved `lang` preference. Korean users get the `data-ko` values applied on top.
+> "Check if all English translations are correct, smooth, no typos"
 
-25 of the 50 tool calls in this session were Read and Edit. The other half went to a delegated Agent for translation review.
+That triggered 8 Agent calls. Claude Code swept the entire site, found awkward phrasings left over from the original Korean copy, and cleaned them up — faster than clicking through every page manually. Total: 24 minutes, 50 tool calls.
 
-```
-Check all the English translations — are they complete, natural, no typos?
-```
+## Naver was in the auto-publish skill. It shouldn't have been.
 
-One prompt. The Agent crawled the entire site, flagged missing translations, and caught awkward phrasing. Faster than clicking through every page manually, and it stayed focused without getting tired.
+Session 2 opened with a question about an existing skill:
 
-## Session 2: Removing Naver from the auto-publish Skill — 37 Bash, 23 Edits
+> "Is there a skill for writing about specific topics to jidonglab / devto?"
 
-The original goal was publishing three articles about Claude updates to DEV.to and Hashnode. But opening the `auto-publish` skill showed Naver still listed as a publish target.
+The `auto-publish` skill existed. But its target list was spoonai.me + DEV.to + Naver, and Naver was no longer in the plan. The follow-up prompt:
 
-```
-Remove the Naver stuff from that skill.
-```
+> "Remove the Naver parts from that skill"
 
-Six references removed: Agent 3 (Naver Korean HTML), the `naver-seo-rules.md` reference, Phase 4 Naver publishing section, Phase 5 Naver queue check. Platform count dropped from 3 to 2 — spoonai.me and DEV.to only.
+`SKILL.md` showed that Agent 3 was "Naver Korean HTML generation." Naver-related logic was scattered in four places: Phase 4 (publishing), Phase 5 (queue checks), series handling rules, and one of six reference files (`naver-seo-rules.md`). Surgical removal took 23 Edit calls — one for each section, not a bulk find-and-replace that could break surrounding logic.
 
-The Hashnode token setup was unexpectedly tedious. Even after providing the token directly, Claude Code ran through a Bash sequence: locate the env var, patch `publish-to-hashnode.mjs`, verify the result. That's where the 37 Bash calls came from. One token, a lot of shell.
-
-One SEO decision worth keeping: every English post published to DEV.to or Hashnode gets `canonical_url` set to `jidonglab.com`. Whichever platform Google crawls first, the original source stays attributed to the personal site. That's how you syndicate without duplicate content penalties.
-
-## Session 3: Hover Animations and a Security Audit — 100 Bash, 33 Edits
-
-The longest session. 196 tool calls, 100 of them Bash.
-
-It started with a UX question about the preview cards.
+Then the publishing targets were redefined in a single line:
 
 ```
-Can you make the previews animate on hover? Like a scroll or re-trigger animation?
+jidonglab.com as canonical, then spoonai.me / hashnode / dev.to
 ```
 
-Three animation variants added to `ArticleCard.tsx`:
-- **Hero card**: 1.05x image zoom + shimmer scanline effect
-- **Default card**: 1.05x image zoom on hover
-- **Compact card**: 1.1x thumbnail zoom on hover
+Three platforms, one canonical domain. The skill read this directly and rebuilt the pipeline around it. When the Hashnode API token came in mid-conversation, the skill read it, saved it to config, and updated `hashnode_blog/.github/scripts/publish-to-hashnode.mjs` without being explicitly told to. Then it generated articles on three Claude-related topics and published to all three platforms simultaneously. 45 minutes, 90 tool calls.
 
-A `scan` keyframe animation landed in `globals.css` for the shimmer effect.
+## Why canonical_url is the whole point
 
-Then Vercel deployments started canceling. Three consecutive `git push` triggers, three `CANCELED` statuses. Claude Code bypassed the stalled auto-deploy by running `vercel build --prod && vercel deploy --prebuilt --prod` directly. Not elegant, but it shipped.
+Every article published to DEV.to and Hashnode includes `canonical_url` pointing back to `jidonglab.com`. It doesn't matter which platform Google indexes first — the authoritative source stays at jidonglab.com. Duplicate content penalties are avoided. Domain authority flows back to the original site instead of splitting across three domains.
 
-The security audit was a single delegated prompt.
+This is standard SEO practice, but it requires the automation to handle it consistently. Doing it manually across every post is error-prone. The skill enforces it by default.
+
+One friction point: fetching the Hashnode publication ID via API failed due to a permissions issue. The prompt:
+
+> "What's a publication ID? Just figure it out"
+
+Claude Code found a workaround independently — no further instructions needed. This delegation pattern matters. When you give Claude Code room to find a solution rather than prescribing one, it often finds a faster path than you would have specified.
+
+## Tool call distributions tell you what each session was actually doing
+
+The three sessions had visibly different tool call patterns, which reflects what kind of work was happening in each.
+
+Session 1 was Read/Edit-heavy. The approach: read the existing code thoroughly before touching anything. 13 Read calls, 12 Edit calls. Bash appeared only for build verification and deployment.
+
+Session 2 was Bash-dominant: 37 Bash calls. The 23 Edit calls were for the skill file itself, but most of the session was shell execution — Hashnode API testing, publish verification, config writes, and 7 WebSearch calls to gather the latest Claude news for the test articles.
+
+Session 3: Bash 100, Edit 33, Read 32. Hover animation iterations and Vercel deployment troubleshooting inflated the counts. Agent ran 13 times for security audit and reference improvements in parallel.
+
+Across all 336 tool calls, Bash was the most frequent at 149 (44%). More time went into execution and verification than writing code.
+
+## The prompts that did the work
+
+Two prompts stand out for how much output they produced relative to their length.
+
+**Delegating the translation review:**
 
 ```
-Are there any security issues in this site? API attack vectors, token exposure, anything?
+Check if all English translations are correct, smooth, no typos
 ```
 
-The Agent came back with one CRITICAL finding: an API route with no input validation. Finding that manually would have meant reading every route file from scratch. Delegated and triaged in under 15 minutes.
+No file paths, no instructions about how to check. Claude Code dispatched agents to crawl the entire site, compare `data-ko`/`data-en` pairs, and fix awkward phrasing. 8 Agent calls from one sentence.
 
-The hover animation itself went through five revision cycles. "Scroll on hover" → "Why does it scroll every 4 seconds?" → "Only scroll while hovering" → "2.5x the scroll speed" → "Actually, half that." Requirements tightened through iteration. The 33 Edit calls are mostly this loop.
+**Defining the new pipeline:**
 
-## Tool Distribution Across All Three Sessions
+```
+jidonglab.com as canonical, then spoonai.me / hashnode / dev.to
+```
 
-| Tool | Count |
-|------|-------|
-| Bash | 149 |
-| Edit | 68 |
-| Read | 54 |
-| Agent | 25 |
-| Other | 40 |
+Three platforms separated by slashes. One canonical domain. The skill parsed this line directly and rebuilt the publishing pipeline. The less you prescribe the implementation, the more Claude Code can optimize for what actually makes sense given the existing code.
 
-Bash is nearly half the total because build verification, deployments, and env var setup ran repeatedly across sessions.
+## What actually changed
 
-The 25 Agent calls stand out. Translation review, security audit, and reference HTML improvements were all delegated. Each would have taken 1–2 hours done manually.
+The default language fix touched `Base.astro`, `PostLayout.astro`, and `blog/[slug].astro`. Three line changes, but verification required checking every `data-ko`/`data-en` element across the site.
 
-## What Sticks From This Day
+The auto-publish skill dropped Naver, added Hashnode, and established `jidonglab.com` as the canonical base. The 3-platform pipeline (spoonai.me + DEV.to + Hashnode) was live by end of session.
 
-A task that looks simple — "switch the default language" — can silently affect every text-bearing element in the layout. The right prompt isn't "switch it to English." It's "map how the translation system currently works and list the problems." Scope analysis before edits catches side effects that a direct implementation would miss.
+12 files modified total. 0 new files created. New functionality came from changing existing code, not layering on top of it. 25 Agent delegations handled translation review, security audit, and reference improvements without manual intervention — tasks that would have been context-switching overhead if done by hand.
 
-Security audits and code review are now default Agent tasks. No need to know what to look for in advance — delegate and triage the output.
+The pattern across all three sessions: short prompts with clear intent, delegation of verification to agents, and trusting Claude Code to find solutions when the "how" isn't specified.
 
 ---
 
