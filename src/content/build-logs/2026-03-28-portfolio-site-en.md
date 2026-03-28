@@ -1,37 +1,37 @@
 ---
-title: "I Used Claude Code to Build a Claude Code Agent Router: 863 Tool Calls Later"
+title: "Building an AI Agent Router with Claude Code: AgentCrow at 863 Tool Calls"
 project: "portfolio-site"
 date: 2026-03-28
 lang: en
 pair: "2026-03-28-portfolio-site-ko"
-tags: [claude-code, agentcrow, agent-teams, cli-refactor, multi-agent]
-description: "4 sessions, 863 tool calls: building AgentCrow Teams Router, refactoring a CLI into 13 modules, and passing 86 tests — all using multi-agent workflows."
+tags: [claude-code, agentcrow, agent-teams, multi-agent, refmade]
+description: "4 sessions, 863 tool calls. Built AgentCrow Teams Router, split CLI into 13 modules, passed 86 tests. Agents building agents."
 ---
 
-863 tool calls. 4 sessions. The task was to build a multi-agent router using multi-agent workflows. The tool doing the building was the same type of tool being built.
+863 tool calls across 4 sessions. That's what it takes to build an AI agent router — using AI agents.
 
-This is the build log for AgentCrow — a CLI that decomposes prompts, injects role-specific agent personas, and dispatches work to Agent Teams. The meta part: most of the implementation was done by Agent Teams orchestrated through Claude Code.
+AgentCrow is a CLI that decomposes prompts, attaches role-specific agent personas, and dispatches them as Agent Teams. The meta part: the entire build process itself ran through Agent Teams.
 
-**TL;DR** Refactored AgentCrow's CLI from a single `cli.ts` into 13 modules, implemented the Teams Router, passed 86 tests. Separately, used 5 parallel agents to implement 83 refmade UI references at an average score of 9.1/10.
+**TL;DR** Refactored AgentCrow CLI from a single `cli.ts` into 13 modules, implemented a Teams Router with proper persona injection, and separately used 5 parallel agents to implement 83 HTML references in the refmade dataset — averaging 9.1/10. 28 files modified, 31 new files created.
 
-## What "Just Do Everything" Actually Produces
+## What Happened When I Said "Fix Everything"
 
 Session 1 started with this prompt:
 
-> "Open the agentcrow project, understand the current state, identify everything that needs fixing or implementing across all areas."
+> "Open the agentcrow project, understand the current state. Tell me everything that needs to be fixed, improved, or implemented — across all areas."
 
-Three analysis agents ran in parallel: competitive research (LangGraph, CrewAI, agency-agents), popular GitHub agent packs survey, and a local code audit. All three ran simultaneously.
+Three analysis agents ran in parallel: competitive research (LangGraph, CrewAI, agency-agents), popular GitHub agent pack survey, and local code audit. All three ran simultaneously.
 
-The reports surfaced two real problems:
+The reports came back with two core problems:
 
-1. `VERSION` was defined in both `cli.ts:33` and `package.json` — two sources of truth
-2. `src/cli.ts` had every command jammed into a single file, making it impossible to extend cleanly
+1. `VERSION` was duplicated in `cli.ts:33` and `package.json`
+2. All commands were crammed into `src/cli.ts` — completely unscalable
 
-One follow-up prompt kicked off the full refactor. The result:
+"Fix everything" went ahead. The result:
 
 ```
 src/
-  cli.ts           — entry point + arg parsing only
+  cli.ts           — main entry + arg parsing only
   commands/
     init.ts
     agents.ts
@@ -45,7 +45,7 @@ src/
     serve.ts
     stats.ts
   utils/
-    constants.ts   — single VERSION source
+    constants.ts   — single source of truth for VERSION
     hooks.ts
     history.ts
     catalog-index.ts
@@ -53,76 +53,106 @@ src/
     index-generator.ts
 ```
 
-The existing `tests/cli.test.ts` was coupled to the old structure, so every test had to be rewritten. Test count went from 74 to 86. Total: 28 modified files, 31 new files. Tool breakdown: `Bash(179)`, `Edit(124)`, `Read(81)`. 6 hours 29 minutes.
+The existing `tests/cli.test.ts` depended on the old structure, so the entire test suite got rewritten alongside. Test count went from 74 to 86. Tool distribution for this session: `Bash(179)`, `Edit(124)`, `Read(81)`. Runtime: 6 hours 29 minutes.
 
-## The Difference Between Subagents and Agent Teams
+## The Difference Between a Subagent and a Teams Agent
 
-Session 4 had a conversation that clarified something important:
+Session 4 surfaced a question I should have caught earlier:
 
-> "Wait — aren't you just spawning subagents? That's not actually using Agent Teams."
+> "Wait — this is just a subagent, not actually Agent Teams, right?"
 
-Correct. Calling `Agent()` alone doesn't put anything on the Teams infrastructure. For Teams to work properly, the flow has to be explicit:
+Correct. Calling `Agent()` alone doesn't put it on the Teams infrastructure. Proper Teams usage requires a different flow:
 
 ```
 TeamCreate(team_name)
-  → Agent(team_name, name, subagent_type, prompt)  # spawned as team member
+  → Agent(team_name, name, subagent_type, prompt)  # spawned into the team
   → SendMessage(to, task)                           # assign work
   → [receive results]
   → SendMessage(to, {type: "shutdown_request"})
   → TeamDelete(team_name)
 ```
 
-AgentCrow's job in this pipeline is persona injection. The `agentcrow-inject.sh` PreToolUse hook intercepts every agent spawn, looks up the role in `catalog-index.json`, finds the matching `.claude/agents/*.md` file, and prepends it to the prompt. If the system determines a `frontend_developer` is needed, that agent's role definition, persona, deliverables, and success metrics are all prepended to its context automatically.
+AgentCrow's role in this is persona injection. The `agentcrow-inject.sh` PreToolUse hook fires when an agent spawns — it looks up the matching `.claude/agents/*.md` file in `catalog-index.json` and prepends the persona to the prompt automatically.
 
-Without this, every agent in an Agent Team behaves identically — same defaults, same instincts, same blind spots. With persona injection, a QA agent immediately looks for test cases; a security agent immediately looks for vulnerabilities. Same underlying model, different starting angle.
+When the router decides a `frontend_developer` is needed, that agent gets the persona's `role`, `persona`, `deliverables`, and `success_metrics` prepended to its context before it does anything.
 
-## Agent YAML Quality Validation
+Without this, all agents on a Team are functionally identical. With it, the QA agent goes looking for test cases first. The security agent goes looking for vulnerabilities first. The behavior diverges because the identity diverges.
 
-The built-in agent library had 14 agents plus 9 English-language agents — 23 total. "Validate the quality" triggered two parallel agents:
+## Validating 23 Agent YAML Files in Parallel
 
-- GitHub research agent: compared against `awesome-claude-code-subagents` and `agency-agents` repos
-- Local audit agent: checked YAML schema consistency and missing fields
+14 built-in agents + 9 English-language agents = 23 total. "Validate quality" triggered a two-agent parallel dispatch:
 
-Feedback: agents without `output_format` and `example` fields had inconsistent outputs. Both fields were added to 9 files in a batch update. README synchronization across Korean/English/multilingual variants was handled by 3 agents in parallel.
+- GitHub research agent: compared against `awesome-claude-code-subagents` and `agency-agents`
+- Local audit agent: checked YAML schema consistency, missing fields
 
-## Session 2 Is Empty: Rate Limits
+The feedback: agents without `output_format` and `example` fields produced inconsistent output structure. Both fields were added to 9 files in bulk. README synchronization (Korean/English/multilingual) ran as 3 parallel agents.
 
-Pushing 598 tool calls into a single session ended with: *"You've hit your limit · resets 11pm (Asia/Seoul)"*. That's why session 2 has zero tool calls and zero output.
+## Rate Limits Don't Care About Your Momentum
 
-The recovery was clean because the previous session ended with an explicit handoff note:
+Pushing 598 tool calls into a single session ended with: *"You've hit your limit · resets 11pm (Asia/Seoul)."*
 
-> "In a new session, just say '007 re-evaluation to start' and we'll pick up from there."
+Session 2 has zero tool calls in the logs. That's the API key error window.
 
-If you're running long sessions, the most effective thing you can do before hitting the rate limit is write down exactly how to resume. One sentence at the end of a session eliminates all the context reconstruction work at the start of the next one.
+What saved the continuity was a checkpoint message left at the end of session 1:
 
-## 83 UI References, 5 Agents, No File Conflicts
+> "In a new session, just say '007 re-evaluation from the start' and you're good."
 
-refmade is a dataset of landing page recreations — Stripe, Linear, Vercel, Supabase, Arc, Raycast — implemented as standalone HTML files, screenshotted with Playwright, and scored against the original. 9.0/10 or above is a pass.
+If you're doing heavy multi-session work with Claude Code, end each session with explicit handoff instructions. The format doesn't matter — what matters is that the next session knows exactly where to pick up. Context switching overhead drops to near zero.
 
-83 incomplete references went to 5 parallel agents simultaneously. Each agent owned a separate HTML file, so there were no merge conflicts. Placeholder CSS shapes were replaced using the Google Imagen API — each agent wrote its own image generation prompts:
+## 5 Parallel Agents, 83 HTML Implementations, Average 9.1/10
+
+refmade is a dataset of landing page recreations — Stripe, Linear, Vercel, Supabase, Arc, Raycast. Each reference is implemented as standalone HTML, captured via Playwright, then evaluated against the original screenshot. Passing threshold: 9.0/10.
+
+83 incomplete references ran through 5 parallel agents simultaneously. Each agent owned independent HTML files — no overlap, no conflicts.
+
+Images that were placeholder CSS shapes got replaced using the Google Imagen API. Agents wrote their own prompts:
 
 > "8K hyperrealism, professional woman in cream blazer, auburn hair, fintech mobile app, white background, photorealistic"
 
-Batch results:
+Batch evaluation results:
 
 | Batch | References | Avg Score |
 |-------|-----------|-----------|
-| 023–031 | Glassmorphism → Minimal Product | 9.1 |
-| 056–065 | App Store → Editorial | 9.0 |
-| 066–075 | Reality Interface → Linear | 9.2 |
-| 076–083 | Vercel → Clerk | 9.3 |
+| 023-031 | Glassmorphism ~ Minimal Product | 9.1 |
+| 056-065 | App Store ~ Editorial | 9.0 |
+| 066-075 | Reality Interface ~ Linear | 9.2 |
+| 076-083 | Vercel ~ Clerk | 9.3 |
 
-Tool breakdown: `Read(156)`, `Bash(56)`, `Agent(54)`. Read is #1 because every agent was constantly referencing the original screenshots for comparison.
+Tool distribution: `Read(156)`, `Bash(56)`, `Agent(54)`. Read is #1 because each agent repeatedly references the original screenshot while building.
 
-## The One Rule for Parallel Agents
+## When Parallel Agents Actually Make Sense
 
-Parallel works when agents don't touch the same files. That's the whole rule.
+Parallel only works when there are no file conflicts. The rule is simple: two agents touching the same file means a conflict.
 
-refmade is structurally ideal: each reference is one independent HTML file, so 5 agents can run with zero coordination overhead. The AgentCrow GitHub research agent and local audit agent also had completely non-overlapping file sets.
+refmade is the ideal parallel workload because each reference is one independent HTML file. In the AgentCrow sessions, the GitHub research agent and the local audit agent operated on completely separate file sets.
 
-The CLI module split, by contrast, was sequential. Restructuring the file system requires verifying the build and tests pass at each step before moving forward. No shortcuts there.
+The `cli.ts` module split, by contrast, ran sequentially. Restructuring the file system itself means each step needs a passing build and tests before the next step starts. That's a dependency chain — parallel doesn't apply.
 
-Benchmark numbers: direct processing 30s vs parallel agents 51s vs Agent Teams 65s. Agents aren't always faster. Spawn overhead is real. For small tasks (3–5 files), direct processing is the faster choice. Match the approach to the scale of the task.
+Benchmark from actual runs: direct processing 30s vs parallel agents 51s vs Teams 65s. Agents aren't always faster. Spawn overhead is real. For small tasks (3-5 files), doing it yourself is faster.
+
+The decision tree for multi-agent dispatch:
+
+| Situation | Approach | Reason |
+|:----------|:---------|:-------|
+| Small independent work (3-5 files) | Direct | Spawn overhead exceeds task cost |
+| Independent parallel domains | Parallel agents (no Teams) | No coordination needed |
+| Sequential with handoffs (A→B→C) | Teams | SendMessage carries results between agents |
+| Research → Implementation | Teams | Explore→general-purpose handoff |
+| Large (5+ domains, shared context) | Teams | TaskList tracking + coordination |
+
+## What 863 Tool Calls Built
+
+Across 4 sessions:
+
+- AgentCrow CLI: 1 file → 13 modules
+- Test suite: 74 → 86 tests passing
+- Agent YAML files: 23 validated and patched
+- refmade HTML references: 83 implemented at 9.0+ average
+- Teams Router: fully documented and embedded in CLAUDE.md
+
+The sessions that moved fastest were the ones where the prompt was specific about constraints: file ownership, pass/fail criteria, what "done" looks like. The sessions that were slower were the open-ended analysis passes — useful output, but high variance.
+
+The meta-observation: building an agent routing system with agents gives you immediate feedback on the design. If the routing logic is wrong, you see it in the dispatch decisions. If the persona injection is incomplete, the agent behavior tells you. Eating your own dog food at 863 tool calls a day accelerates iteration in a way that static testing doesn't.
 
 ---
 
