@@ -1,112 +1,128 @@
 ---
-title: "808 Tool Calls: Using Claude Code to Build an AI Agent Dispatcher"
+title: "I Used Claude Code to Build a Claude Code Agent Router: 863 Tool Calls Later"
 project: "portfolio-site"
 date: 2026-03-28
 lang: en
 pair: "2026-03-28-portfolio-site-ko"
-tags: [claude-code, agentcrow, parallel-agents, multi-agent, cli-refactor]
-description: "Two projects, one day, 808 tool calls. How I used Claude Code agents to refactor AgentCrow CLI and implement 83 UI references in parallel."
+tags: [claude-code, agentcrow, agent-teams, cli-refactor, multi-agent]
+description: "4 sessions, 863 tool calls: building AgentCrow Teams Router, refactoring a CLI into 13 modules, and passing 86 tests — all using multi-agent workflows."
 ---
 
-808 tool calls. Two sessions. Two projects. One of them was building an agent dispatcher — using an agent.
+863 tool calls. 4 sessions. The task was to build a multi-agent router using multi-agent workflows. The tool doing the building was the same type of tool being built.
 
-**TL;DR** AgentCrow CLI refactor (598 tool calls, 6h 29min) and refmade UI reference implementation (210 tool calls, 3h 26min) ran as separate sessions. The core pattern: dispatch up to 5 parallel agents, each owning non-overlapping files.
+This is the build log for AgentCrow — a CLI that decomposes prompts, injects role-specific agent personas, and dispatches work to Agent Teams. The meta part: most of the implementation was done by Agent Teams orchestrated through Claude Code.
 
-## "Fix Everything" — and the Agent Did
+**TL;DR** Refactored AgentCrow's CLI from a single `cli.ts` into 13 modules, implemented the Teams Router, passed 86 tests. Separately, used 5 parallel agents to implement 83 refmade UI references at an average score of 9.1/10.
 
-AgentCrow is an automatic agent dispatch tool for Claude Code. The published version on `npm` was v3.4.3. I gave Claude a full project walkthrough and asked: "What needs fixing, improving, or implementing — across all areas?"
+## What "Just Do Everything" Actually Produces
 
-The analysis came back with two clear issues. `VERSION` was duplicated between `cli.ts:33` and `package.json`. More critically, `src/cli.ts` was a single monolith containing every command.
+Session 1 started with this prompt:
 
-74 tests were passing. The architecture was not.
+> "Open the agentcrow project, understand the current state, identify everything that needs fixing or implementing across all areas."
 
-I said: "Do all of it."
+Three analysis agents ran in parallel: competitive research (LangGraph, CrewAI, agency-agents), popular GitHub agent packs survey, and a local code audit. All three ran simultaneously.
 
-`src/cli.ts` split into 12 files:
+The reports surfaced two real problems:
+
+1. `VERSION` was defined in both `cli.ts:33` and `package.json` — two sources of truth
+2. `src/cli.ts` had every command jammed into a single file, making it impossible to extend cleanly
+
+One follow-up prompt kicked off the full refactor. The result:
 
 ```
 src/
-  cli.ts              — main entry + arg parsing only
+  cli.ts           — entry point + arg parsing only
   commands/
     init.ts
     agents.ts
     compose.ts
     lifecycle.ts
+    add.ts
     doctor.ts
     update.ts
     uninstall.ts
-    ...
+    inject.ts
+    serve.ts
+    stats.ts
   utils/
-    constants.ts      — single source of truth for VERSION
+    constants.ts   — single VERSION source
     hooks.ts
     history.ts
-    ...
+    catalog-index.ts
+    mcp-config.ts
+    index-generator.ts
 ```
 
-Tests went from 74 to 86. The existing `cli.test.ts` was tightly coupled to the old structure, so it needed a full rewrite alongside the refactor. Final count: 28 modified files, 31 new files — all in one session.
+The existing `tests/cli.test.ts` was coupled to the old structure, so every test had to be rewritten. Test count went from 74 to 86. Total: 28 modified files, 31 new files. Tool breakdown: `Bash(179)`, `Edit(124)`, `Read(81)`. 6 hours 29 minutes.
 
-## Agents That Audit Agents
+## The Difference Between Subagents and Agent Teams
 
-AgentCrow's core feature is automatic persona injection. It decomposes a prompt, identifies the right roles, and routes tasks to `agent teams`. There were 9 builtin agent YAMLs.
+Session 4 had a conversation that clarified something important:
 
-While adding English-language agents, I asked: "Validate the agent quality."
+> "Wait — aren't you just spawning subagents? That's not actually using Agent Teams."
 
-Claude dispatched two agents in parallel:
+Correct. Calling `Agent()` alone doesn't put anything on the Teams infrastructure. For Teams to work properly, the flow has to be explicit:
 
-- **Research best agent personas on GitHub** — scanned competing agent frameworks
-- **Audit builtin agent quality** — checked 14 local YAMLs for schema consistency
+```
+TeamCreate(team_name)
+  → Agent(team_name, name, subagent_type, prompt)  # spawned as team member
+  → SendMessage(to, task)                           # assign work
+  → [receive results]
+  → SendMessage(to, {type: "shutdown_request"})
+  → TeamDelete(team_name)
+```
 
-The GitHub research agent combed through repos like `awesome-claude-code-subagents` and `agency-agents`. Simultaneously, the audit agent read all 14 local YAMLs and flagged missing `output_format` and `example` fields. Both finished at roughly the same time.
+AgentCrow's job in this pipeline is persona injection. The `agentcrow-inject.sh` PreToolUse hook intercepts every agent spawn, looks up the role in `catalog-index.json`, finds the matching `.claude/agents/*.md` file, and prepends it to the prompt. If the system determines a `frontend_developer` is needed, that agent's role definition, persona, deliverables, and success metrics are all prepended to its context automatically.
 
-The follow-up work — adding `output_format` and `example` sections to 9 agents, syncing English/Korean/multilingual READMEs — ran as 3 parallel agents per batch. Each agent owned a different file, so there was no collision.
+Without this, every agent in an Agent Team behaves identically — same defaults, same instincts, same blind spots. With persona injection, a QA agent immediately looks for test cases; a security agent immediately looks for vulnerabilities. Same underlying model, different starting angle.
 
-## The Rate Limit Wall
+## Agent YAML Quality Validation
 
-Mid-session, it stopped. "You've hit your limit · resets 4am (Asia/Seoul)"
+The built-in agent library had 14 agents plus 9 English-language agents — 23 total. "Validate the quality" triggered two parallel agents:
 
-598 tool calls in one session on the `<synthetic>` model. Session 2 has no record — a question about whether AgentCrow was applied just returned the limit message.
+- GitHub research agent: compared against `awesome-claude-code-subagents` and `agency-agents` repos
+- Local audit agent: checked YAML schema consistency and missing fields
 
-The next morning I started fresh with `claude-opus-4-6`. This is a recurring pattern. Instead of pushing everything into one session, it's worth leaving clear checkpoints. AgentCrow's session had an end-of-session summary: "start the next session with this prompt." That made picking up seamless.
+Feedback: agents without `output_format` and `example` fields had inconsistent outputs. Both fields were added to 9 files in a batch update. README synchronization across Korean/English/multilingual variants was handled by 3 agents in parallel.
 
-## 83 UI References, 5 Agents at a Time
+## Session 2 Is Empty: Rate Limits
 
-refmade is a project that recreates real product UIs (Stripe, Linear, Supabase, Arc, Vercel) in HTML. Each reference has a target screenshot. Implement it, compare against the original, score ≥ 9/10 to pass.
+Pushing 598 tool calls into a single session ended with: *"You've hit your limit · resets 11pm (Asia/Seoul)"*. That's why session 2 has zero tool calls and zero output.
 
-83 references were still incomplete. At the start of the session, I dispatched 5 agents simultaneously.
+The recovery was clean because the previous session ended with an explicit handoff note:
 
-Each agent worked independently: read the reference screenshot, examine existing HTML, rewrite or patch it, capture an implementation screenshot with Playwright, compare against the original, and self-score.
+> "In a new session, just say '007 re-evaluation to start' and we'll pick up from there."
 
-A few agents hit rate limits mid-task. Their task output came back with just "You've hit your limit · resets 11pm (Asia/Seoul)." Those agents were re-dispatched with "continue."
+If you're running long sessions, the most effective thing you can do before hitting the rate limit is write down exactly how to resume. One sentence at the end of a session eliminates all the context reconstruction work at the start of the next one.
 
-3 hours 26 minutes. 210 tool calls. References 056–083 mostly complete. Average score per batch: 9.0–9.3/10. Stripe, Linear, Vercel, Supabase, Arc, Raycast, Notion, Clerk — all passed at 9+.
+## 83 UI References, 5 Agents, No File Conflicts
 
-## Tool Usage Breakdown
+refmade is a dataset of landing page recreations — Stripe, Linear, Vercel, Supabase, Arc, Raycast — implemented as standalone HTML files, screenshotted with Playwright, and scored against the original. 9.0/10 or above is a pass.
 
-| Tool | Count | Share |
-|------|-------|-------|
-| Read | 214 | 26% |
-| Bash | 197 | 24% |
-| Edit | 124 | 15% |
-| TaskUpdate | 83 | 10% |
-| Agent | 72 | 9% |
-| TaskCreate | 45 | 6% |
-| Write | 34 | 4% |
-| Grep | 22 | 3% |
-| Other | 17 | 2% |
+83 incomplete references went to 5 parallel agents simultaneously. Each agent owned a separate HTML file, so there were no merge conflicts. Placeholder CSS shapes were replaced using the Google Imagen API — each agent wrote its own image generation prompts:
 
-`Read` leads at 26%. Before touching any code, Claude reads it. This cuts down on the "rewrite code that already exists" failure mode significantly.
+> "8K hyperrealism, professional woman in cream blazer, auburn hair, fintech mobile app, white background, photorealistic"
 
-`Agent` at 72 calls means any task where files don't overlap gets parallelized. One agent mines GitHub while another audits local files and a third translates a README.
+Batch results:
 
-## When Parallel Agents Work — and When They Don't
+| Batch | References | Avg Score |
+|-------|-----------|-----------|
+| 023–031 | Glassmorphism → Minimal Product | 9.1 |
+| 056–065 | App Store → Editorial | 9.0 |
+| 066–075 | Reality Interface → Linear | 9.2 |
+| 076–083 | Vercel → Clerk | 9.3 |
 
-Parallel dispatch only works without file conflicts. Two agents writing to the same file will collide. refmade's structure is ideal: each reference is one independent HTML file.
+Tool breakdown: `Read(156)`, `Bash(56)`, `Agent(54)`. Read is #1 because every agent was constantly referencing the original screenshots for comparison.
 
-The AgentCrow session had the same clean separation. The Research agent and the Audit agent touched entirely different files. README translation agents each owned a different language file.
+## The One Rule for Parallel Agents
 
-The `cli.ts` refactor was sequential. It was restructuring the entire file hierarchy — one agent at a time, verify build and tests, then proceed. Parallelizing structural refactors causes conflicts.
+Parallel works when agents don't touch the same files. That's the whole rule.
 
-The rule is simple: parallel for independent file ownership, sequential for shared structure.
+refmade is structurally ideal: each reference is one independent HTML file, so 5 agents can run with zero coordination overhead. The AgentCrow GitHub research agent and local audit agent also had completely non-overlapping file sets.
+
+The CLI module split, by contrast, was sequential. Restructuring the file system requires verifying the build and tests pass at each step before moving forward. No shortcuts there.
+
+Benchmark numbers: direct processing 30s vs parallel agents 51s vs Agent Teams 65s. Agents aren't always faster. Spawn overhead is real. For small tasks (3–5 files), direct processing is the faster choice. Match the approach to the scale of the task.
 
 ---
 
