@@ -1,147 +1,110 @@
 ---
-title: "AgentCrow v5: 883 Tool Calls, 4 Sessions, 83 Sites Built in Parallel with Claude Code"
+title: "AgentCrow v5: I Benchmarked 3 Claude Code Agent Modes — 41s vs 89s vs 197s"
 project: "portfolio-site"
 date: 2026-03-29
 lang: en
 pair: "2026-03-29-portfolio-site-ko"
-tags: [claude-code, agent-teams, agentcrow, parallel-agents, automation]
-description: "Built a Claude Code Teams Router that auto-injects 144 agent personas. Then used it to implement 83 reference sites in a single day with parallel agents."
+tags: [claude-code, agent-teams, agentcrow, benchmark, parallel-agents]
+description: "Direct: 41s. Parallel agents: 89s. Teams: 197s. Real benchmarks on Claude Code multi-agent routing and when each mode actually makes sense."
 ---
 
-4 sessions. 883 tool calls. 22 hours of accumulated runtime. I built AgentCrow as a Claude Code Teams Router, then immediately used it to implement 83 web references in parallel — in a single day.
+More agents should mean faster results. In my benchmarks, using Claude Code Teams on a simple task was **4.8x slower** than just handling it directly.
 
-**TL;DR** AgentCrow v5 is a router that takes a prompt, matches it against 144 agent personas, and auto-injects the right persona into Agent Teams. This post covers two things: building the router itself, and using it to ship the `refmade` reference library.
+**TL;DR** AgentCrow v5 routes requests across three execution modes — direct, parallel agents, and Teams — based on task structure. Benchmarks: direct 41s · parallel 89s · Teams 197s. The entire game is picking the right mode for the job.
 
-## The Prompt That Started It All
+## The Question That Started This
 
-Session 1 began with the simplest possible prompt:
-
-```
-Open the agentcrow project and get a sense of the current state.
-Fix anything that needs fixing or improving — all areas.
-```
-
-The follow-up was even simpler:
+The conversation was short:
 
 ```
-Do everything.
+Me: is agentcrow working?
+Me: when agents are created, does it automatically hand off to agent teams?
+Claude: Currently spawning sub-agents directly without Teams
+Me: I want it to use teams
+Me: I'm thinking of it as a router between teams and prompts
 ```
 
-Claude ran with it for 6 hours 29 minutes: 598 tool calls, 179 Bash, 124 Edit, 81 Read. It found `VERSION` duplicated across `cli.ts` and `package.json`, split the monolithic `cli.ts` into a `commands/` directory, and grew the test suite from 74 to 88 tests.
+AgentCrow already had 144 agent personas — a router in concept. But in practice it was calling the `Agent` tool directly, skipping Teams' `SendMessage` handoff entirely. The natural follow-up: how much does that actually matter? Time to measure.
 
-But none of that was what I actually wanted.
+## Benchmark Setup
 
-## The Real Problem: Teams vs Subagents
+Three modes, same task: implement `slugify`, `deepClone`, and `retry` utilities with tests. Three independent modules, six total files — clean and comparable.
 
-AgentCrow was spawning agents — but I realized they were plain subagents, not Agent Teams. The difference matters.
+**Mode 1: Direct** — write all six files sequentially, no agents.
 
-```
-Me: When you spawn an agent, does it go through Agent Teams?
-Claude: Currently it spawns subagents directly, without Teams.
-Me: I want it using Teams.
-Me: I want it to feel like a router sitting between prompts and Teams.
-```
+**Mode 2: Parallel agents** — spawn three `Agent` tool calls simultaneously, each handling two files.
 
-Plain subagents are parallel execution. Agent Teams adds a coordination layer where agents communicate via `SendMessage` and pass results to each other. For dependency chains (`A → B → C` handoffs), Teams is the right primitive.
+**Mode 3: Teams** — full `TeamCreate` → `TaskCreate` → `Agent(team_name)` → `SendMessage` handoff chain.
 
-## What AgentCrow v5 Actually Does
+I also ran a dependency scenario separately: `types` → `validator` → `formatter`, each importing the previous one.
 
-Here's the flow:
+## The Numbers
 
-```
-Prompt received
-    ↓
-Match agent roles from INDEX.md
-    ↓
-TeamCreate(team_name)
-    ↓
-Agent(team_name, name, subagent_type, prompt + persona)
-    ↓
-Coordinate via SendMessage / dependency handoffs
-    ↓
-TeamDelete
-```
+| Mode | Time | Tool Calls |
+|------|------|------------|
+| Direct | **41s** | 12 |
+| Parallel agents | **89s** | ~45 |
+| Teams | **197s** | ~80 |
 
-The key mechanic: when spawning an agent, the `.claude/agents/{role}.md` persona gets auto-injected into the prompt. 144 personas exist, and `agentcrow-inject.sh` does the matching from `catalog-index.json`.
+Teams was 4.8x slower than direct. Every part of the Teams machinery adds latency: spawn overhead, `TeamCreate`, `TaskCreate`, and `SendMessage` round-trips all stack up.
 
-Agent count is determined by task complexity, not by a fixed rule:
+This doesn't mean Teams is bad. On the dependency scenario, the calculus changed.
 
-| Scale | Agents | Criteria |
-|-------|--------|----------|
-| Single file / bug fix | 0 (direct) | 1 domain, 1-2 files |
-| Small (2 domains) | 2 | API+tests, UI+styles |
-| Medium (3-4 domains) | 3-4 | auth+tests+docs |
-| Large (research+implement+review) | 5 (max) | multiple files, cross-domain |
+## When to Use Each Mode
 
-It's not always 5. Benchmark results showed: direct handling 30s, parallel agents 51s, Teams 65s. Teams has coordination overhead. For independent parallel work, skip Teams and spawn agents directly.
+**Go direct** when you have 1–5 files, clear specs, and a single domain. The agent spawn overhead exceeds the work itself on small tasks — you're paying a fixed cost for zero benefit.
 
-## refmade: 83 References, One Day
+**Parallel agents** fit when you have 2+ distinct domains, no file conflicts, and you can write the full spec upfront. Even with dependencies, if you can describe the interface in text, parallel is enough. In the `formatter` → `types` case, I just included the `types` interface in the formatter agent's prompt. No Teams needed.
 
-Session 3 was the `refmade` project — HTML reimplementations of real SaaS landing pages: Stripe, Vercel, Linear, Notion, Supabase, Clerk, and 77 others. More than 80 remained.
+**Teams** earns its overhead when agent A's *runtime output* is the input for agent B. Schema analysis → migration generation. Build error collection → fix implementation. Codebase exploration → targeted implementation. The key phrase: "dynamic information that can't be written into the prompt in advance."
 
-The prompt:
+## The AgentCrow v5 Decision Flow
+
+This went straight into `CLAUDE.md`:
 
 ```
-Continue the refmade reference implementation→evaluation loop. Start from re-evaluating 007.
+Q1. ≤5 files, clear spec?
+  YES → Direct
+  NO  ↓
+
+Q2. Can you write everything each agent needs in the prompt upfront?
+  YES → Parallel agents (Agent tool, no Teams)
+  NO  ↓
+
+Q3. Does agent B need agent A's runtime result?
+  YES → Teams (TeamCreate + SendMessage handoff)
 ```
 
-The pattern was: batch 4-5 references in parallel, each agent compares against the original screenshot, score 9.0+ = PASS. 285 tool calls over 15 hours 45 minutes.
+The previous v4 collapsed this to: "complex request → use agents." Measuring revealed that rule fails in both directions — Teams on independent tasks wastes 4x+ time, while direct handling on small tasks is consistently fastest.
+
+## Parallel Agents at Scale: 83 References
+
+During the same period, I used parallel agents heavily on the refmade project — recreating 83 real SaaS landing pages (Stripe, Vercel, Linear, Notion, Supabase, Clerk) as HTML from screenshots.
+
+The prompt was minimal:
 
 ```
-Batch 1: 023, 025, 027, 029 → all 9.0+ PASS
-Batch 2: 030, 031, 039, 043 → all 9.0+ PASS
-...
-Batch N: 056, 057, 058, 059 → ...
+continue the refmade reference implementation→evaluation loop. start from 007 re-evaluation
 ```
 
-Rate limits hit multiple times mid-session. When an agent returns "You've hit your limit · resets 11pm (Asia/Seoul)", only that agent stops — the rest keep running. Typed "continue" three times total to resume the stopped agents.
+The pattern: batch 4–5 references, spawn agents in parallel, each compares its implementation against the original screenshot, score ≥9/10 means PASS. Repeat. A 42-hour session, 302 tool calls.
 
-## Swapping CSS Shapes for 8K Hyperrealism
+Rate limits hit multiple times mid-batch. When an agent returns `"You've hit your limit · resets 11pm (Asia/Seoul)"`, only that agent pauses — the rest keep running. Three "continue" prompts total across the session.
 
-Fake placeholder images made with CSS shapes were killing the visual quality. The fix was calling Gemini Imagen API directly.
-
-Prompt:
-
-```
-I'll give you a Nano Banana API key — generate photorealistic 8K images with precise prompts and use them in the references.
-Prompts need to be accurate, targeting 8K hyperrealism.
-```
-
-Claude wrote the image prompt for each reference, called the API, saved to `public/images/`, and swapped the `<img>` tags. `056-app-store` got a woman with auburn hair in a cream blazer. `064-neon-cinema` got an actual concert stage photo. `073-poppr` got a VR exhibition space.
-
-No comparison to CSS shapes.
-
-## What Landed in CLAUDE.md
-
-The rules that came out of this work:
-
-```markdown
-## Agent count decision
-Benchmark: direct 30s vs parallel 51s vs Teams 65s
-- Small independent tasks: direct
-- Independent parallel: parallel agents (no Teams)
-- Dependency chains: Teams (SendMessage handoffs)
-- Large research+implementation: Teams
-```
-
-Teams isn't a universal answer. It has overhead. For simple parallel work, spawning agents directly is faster. Documenting this decision criteria was the point.
+Image quality was a friction point. CSS placeholder shapes dragged scores down. The fix: Gemini Imagen API. Claude writes a specific image prompt per reference, calls the API, and patches the HTML. `056-app-store` got an auburn hair, cream blazer professional. `064-neon-cinema` got a real concert stage. `073-poppr` got a VR exhibition space.
 
 ## Session Stats
 
-| Session | Duration | Tool calls | Work |
-|---------|----------|-----------|------|
-| 1 | 6h 29min | 598 | AgentCrow v5 build |
-| 2 | 0min | 0 | API key error |
-| 3 | 15h 45min | 285 | refmade 83 references |
-| 4 | 16h 26min | 97 | Teams Router validation |
-
-Session 2 died immediately on `Invalid authentication credentials`. Swapped the key and restarted.
+- Total sessions: 5
+- Total tool calls: 466
+- By tool: Read 196, Bash 108, Agent 75, Write 19
+- Files created: 17, files modified: 5
 
 ## What I Actually Learned
 
-"Do everything" prompts work surprisingly well. The catch: you need to drop a "re-explain what you're currently building and how it works" checkpoint mid-session to keep Claude oriented. Did it 3 times in the 6-hour session. It's not about distrust — it's a calibration ping to make sure Claude's mental model of the task matches yours.
+Before running these benchmarks, "more agents = better" felt intuitively true. Measuring gave me a concrete framework instead. Teams is the right answer less often than expected. Independent tasks run faster in parallel, and even dependency chains don't require Teams as long as you can describe the interface upfront.
 
-For large-scale parallel agent work, design for rate limits upfront. Because agents run independently, some dying doesn't block the rest. The recovery pattern is just: identify which agents stopped, send "continue", done.
+In multi-agent orchestration, the question isn't "how many agents?" It's "what execution mode fits this task's dependency structure?"
 
 ---
 
