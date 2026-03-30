@@ -1,105 +1,122 @@
 ---
-title: "병렬 에이전트 334 tool calls — 20개 HTML 레퍼런스를 하루에 구현한 방법"
+title: "결제사 AUP 거절 3번, Claude Code로 코드 전체 리브랜딩 + 블로그 40개 자동 생성"
 project: "portfolio-site"
 date: 2026-03-30
 lang: ko
-tags: [claude-code, agents, agentcrow, parallel, refmade]
-description: "334번의 tool call로 20개 HTML 레퍼런스를 하루에 구현했다. 병렬 에이전트, rate limit 패턴, AgentCrow 벤치마크까지 9개 세션에서 배운 것들."
+tags: [claude-code, agentcrow, auto-publish, lemon-squeezy, polar, rebranding, parallel-agents]
+description: "Stripe·LemonSqueezy·Polar 연속 거절. 사주 → AI 성격 분석 리브랜딩으로 21개 i18n 파일 수정. 5 에이전트 병렬로 블로그 40개 생성, 3개 플랫폼 배포. 281 tool calls."
 ---
 
-334번. 세션 하나에서 쓴 tool call 수다. 에이전트 20개가 동시에 HTML을 고치고, 스크린샷을 찍고, 서로의 결과를 평가했다. 여기에 rate limit 3번, Gemini API 이미지 생성까지 붙었다.
+3개 결제사에서 연속으로 거절당했다. 이유는 전부 같다 — "fortune-telling/astrology reports는 AUP 위반." 사주(四柱)라는 단어 자체가 문제였다.
 
-**TL;DR** 병렬 에이전트는 독립적인 파일 작업에서 압도적으로 빠르다. 단 rate limit을 고려한 재시도 패턴이 없으면 절반은 "You've hit your limit"으로 끝난다.
+**TL;DR** 3개 세션, 281 tool calls. 결제사 우회를 위한 전체 코드 리브랜딩(FortuneLab → InsightLab, 21개 i18n 파일), 블로그 40개 병렬 생성 + 3개 플랫폼 배포, 데일리 브리핑 한/영 이중 언어 지원 추가.
 
-## 배경: refmade 레퍼런스 구현 루프
+## "사주" 두 글자가 결제사 3개를 막았다
 
-refmade는 디자인 레퍼런스 HTML을 원본 스크린샷에 맞게 재구현하는 프로젝트다. 83개 레퍼런스 중 40개 이상이 미완료 상태였고, 각각 원본 이미지와 비교해서 점수를 매기는 평가 루프가 있었다.
+세션 1 시작 프롬프트는 단 두 글자였다.
 
-작업 방식은 이렇다. 먼저 미완료 목록을 확인하고, 4~5개씩 에이전트에 분배한다. 각 에이전트는 원본 스크린샷과 현재 HTML을 비교해서 수정하고, Playwright로 결과를 캡처한다. 그리고 점수를 매겨서 8.5/10 이상이면 PASS 처리.
+> "사주"
 
-```
-014, 023, 025, 027, 029, 030, 031, 039, 043, 048, 049, 052, 056, 057, 058,
-059, 060, 061, 062, 063, 064, 065, 066, 067, 069, 070, 073, 074, 075, 076,
-077, 078, 079, 080, 081, 082, 083
-```
+LemonSqueezy에 상품 6개를 등록하려는 거였다. `standard`(사주 리포트), `compat`(궁합), `palm`(손금) 등. Claude가 각 상품의 Name/Description/Pricing을 정리해줬다. 문제는 첫 등록 시도에서 바로 터졌다. LemonSqueezy 계정이 **"identity verification: Rejected"** 상태였다.
 
-한 세션에서 처리한 미완료 목록이다. 37개. 병렬로 돌리지 않으면 하루로 끝낼 수 없는 양이다.
+재시도, 신규 계정 생성, Polar 시도. 세 번 모두 같은 메시지였다:
 
-## rate limit을 만나는 패턴
+> "Your product appears to provide fortune-telling/astrology-style reports and insights, which aren't supported under our Acceptable Use Policy."
 
-에이전트를 5개씩 동시에 스폰하면 얼마 안 가 이런 결과가 돌아온다.
+Stripe 기반 결제 인프라를 쓰는 곳이라면 다 동일하다. divination, fortune-telling, astrology — 이 범주 자체가 거절 대상이다.
 
-```
-"You've hit your limit · resets 11pm (Asia/Seoul)"
-```
+해결책은 프레이밍 전환이었다. Claude에게 던진 프롬프트:
 
-문제는 에이전트가 반환하는 result가 이 메시지 하나뿐이라는 것이다. 실제로 작업이 됐는지 안 됐는지 알 수 없다. 확인하면 tool_uses가 7~15개 찍혀 있는데, 파일이 변경됐는지는 따로 체크해야 한다.
+> "내가 원하는 해결책은 점술이 아닌 생일기반 ai 성격분석? 이런느낌으로 가고 싶어"
 
-이때 쓴 프롬프트가 "다시 진행해"다. 단 두 글자. Claude는 어디까지 됐는지 파악하고, rate limit이 풀린 에이전트들부터 이어서 처리했다. 이 패턴이 이번 세션에서 두 번 반복됐다.
+"점술 서비스" → **"AI 성격 분석 / 자기이해 리포트"**. 코드 전체에서 사주·fortune·divination 단어를 뽑아내고 personality insight / self-discovery / AI analysis로 교체한다.
 
-> rate limit은 예외 상황이 아니다. 대규모 병렬 작업에서는 항상 발생하는 일이고, 체크포인트 개념으로 접근해야 한다.
+## 5개 에이전트 병렬로 21개 i18n 파일 리브랜딩
 
-## AgentCrow 벤치마크: Teams vs 병렬 에이전트
+리브랜딩 범위가 넓었다. `lib/productNames.ts`, `common.json`, `palm.json`, `seo.json` 등 i18n 파일 21개, 브랜드명 FortuneLab → InsightLab, URL 경로, 메타 태그까지.
 
-agentcrow 세션에서 실제로 성능 측정을 했다. Claude Teams API의 `TeamCreate` + `SendMessage`와 `Agent` 도구를 사용한 병렬 서브에이전트를 같은 작업에 돌려서 비교했다.
-
-벤치마크 태스크는 `slugify.ts`, `deepClone.ts`, `types.ts`, `validator.ts`, `formatter.ts` — 서로 의존성이 있는 TypeScript 모듈 세트였다.
-
-결과:
-
-| 방식 | 완료 시간 | 의존성 처리 | 상태 공유 |
-|------|----------|------------|---------|
-| Teams | 느림 | 가능 | 실시간 |
-| 병렬 에이전트 | 빠름 | 불가 | 없음 |
-| 직접 처리 | 중간 | 자연스러움 | 완전 |
-
-이 결과가 말하는 건 단순하다. **파일이 독립적이면 병렬 에이전트, 상태를 공유해야 하면 Teams, 그 외 대부분은 직접 처리**가 맞다.
-
-세션에서 나온 실제 수치는 병렬 에이전트가 Teams보다 2-3배 빠르게 완료됐지만, `formatter.ts`가 `validator.ts`의 결과를 기다려야 하는 부분에서 에러가 한 번 났다. 의존성이 있는 작업을 병렬로 스폰하면 이런 식으로 깨진다.
-
-## Gemini API로 이미지 품질 올리기
-
-refmade 레퍼런스 중 몇 개는 실제 사람 사진이나 제품 사진이 필요했다. CSS 도형으로 대체하면 퀄리티가 눈에 띄게 낮아진다.
-
-사용한 API 키: Gemini Nano Banana API (`AIzaSyD...`). 프롬프트는 에이전트가 직접 작성했다.
+AgentCrow가 독립 도메인 3개로 분리했다:
 
 ```
-8K hyperrealism photography, woman with auburn hair wearing cream blazer,
-natural office lighting, shallow depth of field, editorial style
+🤖 @코드-파일-리브랜딩  → lib/productNames.ts, API routes
+🌐 @핵심-영문-i18n      → common.json, seo.json (brand, metadata)
+📝 @기능별-영문-i18n    → palm.json, compat.json 등 기능 파일 18개
 ```
 
-Revolut 랜딩 페이지 스타일에 맞는 이미지를 생성해서 `056-app-store-showcase.html`에 적용했더니 원본과 구분이 어려운 수준이 됐다. 같은 방식으로 `064-neon-cinema`(콘서트 사진), `073-poppr`(VR 착용 사진), `070-overlay-beauty`(뷰티 브랜드)에도 적용했다.
+각 에이전트 결과는 다음과 같았다:
 
-> 도형으로 만든 이미지 mock-up은 퀄리티 평가에서 -1~2점을 까인다. 실제 이미지 생성 API 연동이 레퍼런스 충실도에 결정적이다.
+- `productNames.ts`: `full.en`이 "AI Four Pillars Analysis Report" 등으로 교체됨
+- `common.json`: FortuneLab → InsightLab, 전 브랜드 참조 5곳 수정
+- 기능 파일 18개: "Reading the heart line" 같이 오해 소지 없는 표현은 유지, 명시적 점술 표현만 제거
 
-## 이번 세션들의 도구 사용 통계
+공유 파일이 없는 구조라 병렬이 안전했다. 파일 충돌이 없을 때만 병렬을 쓴다 — AgentCrow 병렬 판단의 핵심 기준이다.
 
-| 세션 | tool calls | 주요 도구 |
-|------|-----------|---------|
-| refmade 루프 | 334 | Read(164), Bash(88), Agent(54) |
-| AgentCrow 벤치마크 | 198 | Bash(22 + 병렬 팀), WebSearch(11) |
-| spoonai i18n 수정 | 55 | Read(23), Bash(14), Edit(5) |
+세션 도구 분포: `Grep(12)`, `Read(8)`, `Glob(7)`, `Agent(7)`, `Bash(5)`. Grep이 1위인 이유는 브랜드 키워드를 전체 코드베이스에서 찾아야 했기 때문이다.
 
-가장 많이 쓴 도구는 `Read`다. 에이전트를 스폰하기 전에 실제 코드를 읽어서 스펙을 확인하는 패턴 때문이다. 기억으로 스펙을 쓰면 에이전트가 없는 타입을 참조하거나 잘못된 경로를 쓴다.
+## 5 에이전트 병렬로 블로그 40개, 3개 플랫폼 배포
 
-## 삽질: 미리보기 이미지 깨짐
+세션 2는 규모가 달랐다. 199 tool calls, 15시간 54분.
 
-배포 후 레퍼런스 갤러리에서 미리보기가 안 나오는 문제가 있었다.
+시작 프롬프트는 두 줄이었다.
+
+> "블로그 글 쓰게 현재 웹상 / 커뮤니티에서 claude 관련 최신 소식 / 핫한 소식 키워드 10개 정도 찾아줘"
+> "10개로 블로그 글 하나씩 써줘. 배포까지"
+
+`auto-publish` 스킬이 활성화됐다. 소재 1개 → spoonai(한/영) + DEV.to(영) + Hashnode(영) = 4파일. 10개 토픽이면 40파일이다.
+
+먼저 기존 포스트와 중복 체크를 했다. Topics 4, 5가 `2026-03-25-claude-computer-use-mac-agent` 등 기존 포스트와 겹쳤다. 해당 2개는 스킵하고 나머지 8개로 진행했다. 결과는 32파일.
+
+5개 에이전트 병렬 디스패치:
 
 ```
-refmade.com에서 연결을 거부했습니다.
+📝 @writer-1 → Topics 1-2: Mythos 모델 유출 + 펜타곤 소송
+📝 @writer-2 → Topics 3-4: IPO 추진 + Computer Use/Cowork
+📝 @writer-3 → Topics 5-6: Auto Mode + 서브에이전트
+📝 @writer-4 → Topics 7-8: AI 개발자 불안감 + Anthropic Institute
+📝 @writer-5 → Topics 9-10: Chrome 확장 + 금융 시장
 ```
 
-원인은 Next.js Image 컴포넌트의 `domains` 설정 문제였다. `next.config.ts`에 `refmade.com`을 허용 도메인으로 추가하고, CORS 헤더를 `middleware.ts`에 추가해서 해결했다.
+각 에이전트가 WebSearch로 실제 기사를 수집하고, 한국어 포스트(spoonai용)와 영어 포스트(DEV.to/Hashnode용)를 동시에 작성했다.
 
-한 번 해결하고 나서 또 "미리보기 안보여"가 나왔다. 이때는 메인 화면의 썸네일 경로가 `/samples/` 하위로 하드코딩돼 있어서 경로가 달랐다. `GalleryClient.tsx`에서 경로 생성 로직을 수정했다.
+배포는 git push 3개 레포였다. spoonai는 바로 성공, dev_blog와 hashnode는 리모트에 변경이 있어서 pull 후 재push. 최종 결과:
 
-같은 증상인데 원인이 다른 경우. 스크린샷을 공유하자마자 빠르게 파악됐다. 텍스트로 "미리보기 안나와"라고만 하면 Claude는 이전 수정과 같은 원인으로 추정한다.
+| 레포 | 파일 수 | 상태 |
+|------|--------|------|
+| spoonai | 40파일 | push 성공 |
+| dev_blog | 20파일 | pull → push |
+| hashnode | 20파일 | pull → push |
 
-## 정리
+세션 도구 분포: `Bash(103)`, `Read(24)`, `Agent(22)`, `WebFetch(18)`, `Grep(11)`. Bash가 압도적 1위 — git 조작, 파일 이동, 빌드 확인이 많았다.
 
-- 독립 파일 작업은 병렬 에이전트로. 의존성 있으면 직접 처리
-- rate limit은 예외 아님. "다시 진행해" 한 마디로 체크포인트부터 재개 가능
-- 에이전트 스펙은 반드시 코드에서 읽어서 프롬프트에 넣기. 기억은 틀림
-- 이미지 품질이 레퍼런스 구현 점수에 직접 영향. 도형 mock-up은 -1~2점
-- 같은 증상 다른 원인 — 스크린샷이 없으면 원인 특정이 느려진다
+## 24분, 36 tool calls: 데일리 브리핑 영어 탭 추가
+
+세션 3은 반대 극단이었다. 24분, 36 tool calls.
+
+명확한 스펙이 있을 때 Claude Code가 얼마나 빠른지를 보여주는 케이스다. 스펙을 처음부터 정확하게 주는 게 핵심이다:
+
+> "content/daily/에는 YYYY-MM-DD.md 한국어만 있음 (문제). 해야 할 것: 1. lib/content.ts — getDailyBriefing에 언어 파라미터 추가. 2. app/daily/[date]/page.tsx — ko/en 탭 방식. 3. components/DailyBriefing.tsx — 탭 UI"
+
+Claude가 TodoWrite로 체계를 잡았다:
+
+```
+☐ lib/content.ts: getDailyDates()에 -en.md 필터 추가
+☐ lib/content.ts: hasDailyEnVersion(date) 신규 함수
+☐ lib/content.ts: getDailyBriefing(date, lang?) 언어 파라미터
+☐ app/daily/[date]/page.tsx: ko/en 병렬 fetch
+☐ components/DailyBriefing.tsx: 탭 UI 추가
+☐ content/daily/2026-03-30-en.md: 영어 샘플 파일 생성
+```
+
+빌드 성공, `/daily/[date]` 10개 경로 정상 생성. 스케줄 스킬 파일 2개(`spoonai-site-publish/SKILL.md`, `spoonai-daily-briefing/SKILL.md`)도 동기화까지 포함해서 24분이었다.
+
+도구 분포: `Read(15)`, `TodoWrite(7)`, `Edit(7)`, `Glob(2)`, `Bash(2)`. TodoWrite가 2위 — 스펙이 명확하면 계획을 먼저 세우는 패턴이 나온다.
+
+## 결제사 거절에서 배운 것
+
+사주 앱 작업에서 가장 긴 시간을 쓴 건 코드가 아니었다. 결제 인프라를 우회하는 전략이었다.
+
+Claude가 여기서 한 일은 코드 수정이 아니라 **포지셔닝 전략 제안**이었다. "점술 서비스를 AI 성격 분석으로 재프레이밍하면 AUP를 통과할 수 있다" — 이 판단을 내리고, 거기에 맞게 전체 코드를 바꿨다.
+
+결제사 정책이 코드 아키텍처를 바꾼 케이스다. 사업 제약이 기술 결정에 영향을 미칠 때, Claude가 전략 레벨에서 같이 생각해주는 게 유용하다는 걸 확인했다.
+
+21개 파일을 혼자 수정했으면 반나절이 걸렸을 작업을 병렬 에이전트 3개가 20분 안에 끝냈다.

@@ -1,132 +1,128 @@
 ---
-title: "334 Tool Calls: How Parallel Claude Code Agents Shipped 20 HTML References in One Day"
+title: "Rejected by 3 Payment Processors: Full Codebase Rebranding + 40 Blog Posts with Claude Code"
 project: "portfolio-site"
 date: 2026-03-30
 lang: en
 pair: "2026-03-30-portfolio-site-ko"
-tags: [claude-code, agents, agentcrow, parallel, refmade]
-description: "334 tool calls, 20 HTML references, one day. Parallel agents, rate limit checkpoints, and Gemini image generation across 9 sessions."
+tags: [claude-code, agentcrow, auto-publish, lemon-squeezy, polar, rebranding, parallel-agents]
+description: "Stripe, LemonSqueezy, Polar all rejected my saju app. Rebranded 21 i18n files via 5 parallel agents, generated 40 blog posts, deployed to 3 platforms. 281 tool calls."
 ---
 
-334. That's the number of tool calls fired in a single Claude Code session. Twenty agents running simultaneously — reading HTML, taking screenshots, scoring each other's output. Add three rate limit walls and a Gemini image generation pipeline, and that's what one day of parallel agent work looks like.
+Three payment processors. Three rejections. Same reason every time.
 
-**TL;DR** Parallel agents are dramatically faster for independent file work. But without a rate limit retry pattern, roughly half your agents will return "You've hit your limit" and nothing else.
+**TL;DR** — 3 sessions, 281 tool calls. Used Claude Code to rebrand an entire codebase (FortuneLab → InsightLab, 21 i18n files) after payment processors blocked "fortune-telling" framing. Then spawned 5 parallel agents to generate 40 blog posts and deploy to 3 platforms. Added bilingual support to the daily briefing in 24 minutes flat.
 
-## The Problem: 37 Unfinished References and a Deadline
+## The Word That Got My App Rejected Three Times
 
-refmade is a design reference project — the goal is to re-implement curated HTML layouts so they match their original screenshots as closely as possible. Out of 83 references, over 40 were unfinished. Each one had an evaluation loop: compare against the original image, score it, mark PASS if it hits 8.5/10 or above.
+Session 1 started with a two-character prompt:
 
-One session had 37 incomplete references queued:
+> "사주"
 
-```
-014, 023, 025, 027, 029, 030, 031, 039, 043, 048, 049, 052, 056, 057, 058,
-059, 060, 061, 062, 063, 064, 065, 066, 067, 069, 070, 073, 074, 075, 076,
-077, 078, 079, 080, 081, 082, 083
-```
+I was registering 6 products on LemonSqueezy — `standard` (saju report), `compat` (compatibility), `palm` (palm reading). Claude drafted Names, Descriptions, and Pricing tiers for each. The first registration attempt hit a wall immediately: **"identity verification: Rejected."**
 
-Sequential processing was never an option. The workflow was: scan the incomplete list → distribute 4–5 references per agent → each agent compares current HTML against the original screenshot, patches it, captures the result with Playwright → score it → PASS if ≥ 8.5/10.
+I tried again. Created a new account. Switched to Polar. Three attempts, same message each time:
 
-Five agents spawned simultaneously, each working on a different reference file. No shared state. No file conflicts. Textbook parallel agent territory.
+> "Your product appears to provide fortune-telling/astrology-style reports and insights, which aren't supported under our Acceptable Use Policy."
 
-## Hitting the Rate Limit — and What "Resume" Actually Means
+Any platform running on Stripe's infrastructure enforces the same AUP categories: divination, fortune-telling, astrology. The entire domain is blocked.
 
-Spawn five agents at once, and sooner or later you get this back:
+The fix was a framing shift. My prompt to Claude:
 
-```
-"You've hit your limit · resets 11pm (Asia/Seoul)"
-```
+> "I want to go in the direction of birthday-based AI personality analysis rather than divination."
 
-The problem isn't the limit itself — it's what the agent returns. Just that one line. You have no idea whether the task completed or not. Checking the session shows 7–15 tool_uses logged, but whether the file actually changed requires a manual diff.
+**"Fortune-telling service" → "AI personality analysis / self-discovery report."** Extract saju, fortune, divination from the codebase. Replace with personality insight, self-discovery, AI analysis.
 
-The prompt I used to recover: **"다시 진행해"** — two words in Korean, roughly "resume." That's it.
+## 5 Parallel Agents, 21 i18n Files, One Rebranding Pass
 
-Claude scanned which agents had finished, which had stalled mid-task, and resumed from the last known checkpoint. This pattern repeated twice in the same session.
+The scope was wide: `lib/productNames.ts`, `common.json`, `palm.json`, `seo.json` — 21 i18n files total, plus the brand rename FortuneLab → InsightLab across URL paths and meta tags.
 
-> Rate limits in large parallel workloads aren't exceptions — they're expected. Treat them like checkpoints, not failures.
-
-The practical implication: when you're running 20+ agents across a session, budget for at least two rate limit pauses. Design your prompts so that "check what's done, continue what isn't" is a natural recovery path — not an afterthought.
-
-## AgentCrow Benchmark: Teams API vs Parallel Agents vs Direct
-
-During an AgentCrow tuning session, I ran an actual performance comparison. Same task, three execution strategies:
-
-1. **Claude Teams API** — `TeamCreate` + `SendMessage` for coordinated multi-agent work
-2. **Parallel subagents** — `Agent` tool, multiple independent spawns
-3. **Direct processing** — Claude working through tasks sequentially
-
-The benchmark task was a TypeScript module set with interdependencies: `slugify.ts`, `deepClone.ts`, `types.ts`, `validator.ts`, `formatter.ts`.
-
-| Method | Speed | Dependency handling | State sharing |
-|--------|-------|--------------------|-|
-| Teams API | Slow | Yes | Real-time |
-| Parallel agents | Fast | No | None |
-| Direct | Medium | Natural | Full |
-
-Parallel agents finished 2–3x faster than Teams for the independent files. But `formatter.ts` had a hard dependency on `validator.ts` output — and that's where it broke. One agent tried to import a type that the other hadn't written yet.
-
-The rule this confirms: **parallel agents for independent files, Teams or direct for anything with shared state or ordering constraints.** Mixing them without mapping dependencies first guarantees at least one failure.
-
-## Gemini API: When CSS Shapes Don't Cut It
-
-Several refmade references required real photography — people, product shots, lifestyle imagery. CSS shapes as placeholders are immediately obvious in quality scoring, typically costing -1 to -2 points per image mock-up.
-
-The fix: Gemini Nano API for image generation, prompts written directly by the agent.
+AgentCrow split the work into 3 independent domains:
 
 ```
-8K hyperrealism photography, woman with auburn hair wearing cream blazer,
-natural office lighting, shallow depth of field, editorial style
+🤖 @code-files-rebrand  → lib/productNames.ts, API routes
+🌐 @core-en-i18n        → common.json, seo.json (brand, metadata)
+📝 @feature-en-i18n     → palm.json, compat.json, 16 other feature files
 ```
 
-Applied to `056-app-store-showcase.html` (Revolut-style landing page), the result was close enough to the original that the scoring difference dropped to noise. Same approach for:
+Results per agent:
 
-- `064-neon-cinema` — concert crowd photography
-- `073-poppr` — VR headset product shot
-- `070-overlay-beauty` — beauty brand editorial
+- `productNames.ts`: `full.en` replaced with "AI Four Pillars Analysis Report" and equivalents
+- `common.json`: FortuneLab → InsightLab, 5 brand references updated
+- 18 feature files: language like "Reading the heart line" was kept where it's descriptively neutral; explicit divination language removed
 
-> If your reference implementation uses placeholder shapes where the original has photography, you're leaving points on the table. Real image generation APIs are load-bearing for fidelity scores.
+No shared files across agents, so parallel dispatch was safe. That's the key criterion for AgentCrow — file scopes must not overlap.
 
-## Tool Usage Across Sessions
+Session tool distribution: `Grep(12)`, `Read(8)`, `Glob(7)`, `Agent(7)`, `Bash(5)`. Grep led because finding brand keywords across the full codebase required it.
 
-| Session | Tool calls | Top tools |
-|---------|-----------|-----------|
-| refmade loop | 334 | Read (164), Bash (88), Agent (54) |
-| AgentCrow benchmark | 198 | Bash (22 + parallel teams), WebSearch (11) |
-| spoonai i18n fix | 55 | Read (23), Bash (14), Edit (5) |
+21 files, under 20 minutes. Solo that's half a day.
 
-`Read` is the most-called tool by a wide margin. The reason: before spawning any agent, I read the actual source code to extract the spec. Pulling types, interfaces, or file paths from memory means agents reference things that don't exist or paths that have moved.
+## 40 Blog Posts Across 3 Platforms
 
-This habit — **read the code, then write the prompt** — is the single biggest quality multiplier for agent-driven work. A prompt with wrong types produces wrong code at agent speed.
+Session 2 was a different scale. 199 tool calls, 15 hours 54 minutes of compute time.
 
-## Two Bugs, Same Symptom, Different Root Causes
+It started with two prompts back-to-back:
 
-After deployment, the reference gallery was showing broken preview images.
+> "Find ~10 trending Claude-related keywords from the web and communities right now."
+> "Write one blog post per keyword. Deploy everything."
+
+The `auto-publish` skill kicked in. One topic → spoonai (KO + EN) + DEV.to (EN) + Hashnode (EN) = 4 files per topic. 10 topics = 40 files.
+
+Before generating, Claude checked for duplicates. Topics 4 and 5 overlapped with `2026-03-25-claude-computer-use-mac-agent` and one other existing post. Those 2 were skipped; 8 topics proceeded. Final output: 32 files.
+
+5 agents dispatched in parallel:
 
 ```
-refmade.com에서 연결을 거부했습니다.
-(Connection refused from refmade.com)
+📝 @writer-1 → Topics 1-2: Mythos model leak + Pentagon lawsuit
+📝 @writer-2 → Topics 3-4: Anthropic IPO + Computer Use/Cowork
+📝 @writer-3 → Topics 5-6: Auto Mode + sub-agents
+📝 @writer-4 → Topics 7-8: Developer anxiety + Anthropic Institute
+📝 @writer-5 → Topics 9-10: Chrome extension + financial markets
 ```
 
-First fix: `next.config.ts` missing `refmade.com` in the `images.domains` array, plus missing CORS headers in `middleware.ts`. Done.
+Each agent ran `WebSearch` to pull real articles, then wrote both a Korean post (for spoonai) and an English post (DEV.to/Hashnode) simultaneously.
 
-Then the same symptom came back. Same broken preview message. Different cause: the thumbnail path in the main gallery view was hardcoded to `/samples/` — a different base path than where the images actually lived. Fixed the path generation logic in `GalleryClient.tsx`.
+Deployment: 3 git pushes to 3 separate repos. spoonai went clean. `dev_blog` and `hashnode` had upstream changes — pull first, then push.
 
-Same error message. Two completely separate root causes. The second diagnosis was fast because I shared a screenshot. Without it, Claude would have assumed the same fix applied twice — because that's the natural prior given the identical symptom.
+| Repo | Files | Status |
+|------|-------|--------|
+| spoonai | 40 files | push success |
+| dev_blog | 20 files | pull → push |
+| hashnode | 20 files | pull → push |
 
-> When debugging recurring symptoms, share a screenshot before describing the problem. Text descriptions anchor to the previous fix; visual context forces fresh analysis.
+Session tool distribution: `Bash(103)`, `Read(24)`, `Agent(22)`, `WebFetch(18)`, `Grep(11)`. Bash dominated — git operations, file moves, build verification.
 
-## What Carried Over
+## 24 Minutes, 36 Tool Calls: Bilingual Daily Briefing
 
-Five things worth keeping from this batch of sessions:
+Session 3 was the opposite extreme.
 
-**Independent files → parallel agents.** Any time a task maps cleanly onto separate files with no shared types or imports, parallel agents are the right call. The speedup is real and consistent.
+This is what happens when the spec is precise before Claude touches any file. I gave the exact structure upfront:
 
-**Rate limits are checkpoints, not blockers.** "Resume from where you left off" is a valid single-sentence prompt for recovery. Build the mental model that large parallel sessions will pause — and plan for it.
+> "content/daily/ only has YYYY-MM-DD.md in Korean (problem). Required: 1. lib/content.ts — add lang param to getDailyBriefing. 2. app/daily/[date]/page.tsx — ko/en tab UI. 3. components/DailyBriefing.tsx — tab component."
 
-**Read the code before writing agent prompts.** Memory is wrong often enough that it's not worth trusting. Five minutes reading the actual types and paths saves 30 minutes debugging a confused agent.
+Claude created a `TodoWrite` plan before writing a single line:
 
-**Image generation is load-bearing for visual references.** Shape-based placeholders score 1–2 points lower than real images. If you're evaluating against visual fidelity, image API integration pays for itself immediately.
+```
+☐ lib/content.ts: filter -en.md in getDailyDates()
+☐ lib/content.ts: new hasDailyEnVersion(date) function
+☐ lib/content.ts: getDailyBriefing(date, lang?) with lang param
+☐ app/daily/[date]/page.tsx: parallel fetch for ko/en
+☐ components/DailyBriefing.tsx: tab UI
+☐ content/daily/2026-03-30-en.md: sample English file
+```
 
-**Same symptom, different cause — screenshot first.** Verbal bug reports lead to pattern-matching on previous fixes. Screenshots surface actual current state and make the second root cause obvious.
+Build passed. 10 `/daily/[date]` routes generated correctly. Two skill sync files (`spoonai-site-publish/SKILL.md`, `spoonai-daily-briefing/SKILL.md`) updated in the same session. All in 24 minutes.
+
+Tool distribution: `Read(15)`, `TodoWrite(7)`, `Edit(7)`, `Glob(2)`, `Bash(2)`. `TodoWrite` second — precise specs produce a planning-first pattern.
+
+## Business Constraints Changed the Architecture
+
+The longest part of this sprint wasn't writing code. It was routing around payment infrastructure constraints.
+
+Claude's contribution here wasn't code changes — it was **positioning strategy**. "If you reframe from divination to AI personality analysis, you can pass AUP" — making that call, then executing a full codebase change to match it.
+
+Payment processor policy drove technical architecture. When external constraints (AUP rules, compliance requirements, platform policies) shape technical decisions, AI that can reason at the strategy level alongside you is useful differently than autocomplete.
+
+> Business constraints changed what the product says it is. Claude Code changed what the code actually says.
 
 ---
 
