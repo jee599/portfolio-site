@@ -1,128 +1,153 @@
 ---
-title: "Rejected by 3 Payment Processors: Full Codebase Rebranding + 40 Blog Posts with Claude Code"
+title: "3 Payment Processors Rejected My App for 'Fortune-Telling' — So I Rebranded 21 Files with Parallel Agents"
 project: "portfolio-site"
 date: 2026-03-30
 lang: en
 pair: "2026-03-30-portfolio-site-ko"
-tags: [claude-code, agentcrow, auto-publish, lemon-squeezy, polar, rebranding, parallel-agents]
-description: "Stripe, LemonSqueezy, Polar all rejected my saju app. Rebranded 21 i18n files via 5 parallel agents, generated 40 blog posts, deployed to 3 platforms. 281 tool calls."
+tags: [claude-code, agentcrow, auto-publish, rebranding, vercel, cache, parallel-agents]
+description: "5 sessions, 338 tool calls. 'Fortune-telling' keyword triggered 3 payment rejections. Rebranded 21 i18n files in 20 minutes with parallel agents, auto-published 32 blog posts, and debugged a Vercel immutable cache trap."
 ---
 
-Three payment processors. Three rejections. Same reason every time.
+Three payment processors. Three rejections. The same error message every time.
 
-**TL;DR** — 3 sessions, 281 tool calls. Used Claude Code to rebrand an entire codebase (FortuneLab → InsightLab, 21 i18n files) after payment processors blocked "fortune-telling" framing. Then spawned 5 parallel agents to generate 40 blog posts and deploy to 3 platforms. Added bilingual support to the daily briefing in 24 minutes flat.
+It started with a two-character Korean word and ended with a full product rebrand, 32 blog posts deployed across three platforms, and an immutable cache bug that had nothing to do with code.
 
-## The Word That Got My App Rejected Three Times
+Five sessions. 338 tool calls.
 
-Session 1 started with a two-character prompt:
+**TL;DR** The phrase "fortune-telling" gets your account blocked on any Stripe-infrastructure payment processor — Lemon Squeezy, Polar, doesn't matter. The fix was reframing the entire product as AI personality analysis. Same day: 10 Claude-related keywords became 32 published posts via parallel agents. And a corrupted image got immutably cached for a year — the only escape was renaming the file.
+
+## The Two Characters That Blocked Three Payment Accounts
+
+Session 1 opened with a two-character prompt:
 
 > "사주"
 
-I was registering 6 products on LemonSqueezy — `standard` (saju report), `compat` (compatibility), `palm` (palm reading). Claude drafted Names, Descriptions, and Pricing tiers for each. The first registration attempt hit a wall immediately: **"identity verification: Rejected."**
+I was registering 6 products on Lemon Squeezy: `standard` (four pillars report), `compat` (compatibility), `palm` (palm reading). Claude drafted Name, Description, and Pricing for each. The first submission hit a wall immediately — account status: "identity verification: Rejected."
 
-I tried again. Created a new account. Switched to Polar. Three attempts, same message each time:
+Retry. New account. Switch to Polar. Three attempts, the same message every time:
 
 > "Your product appears to provide fortune-telling/astrology-style reports and insights, which aren't supported under our Acceptable Use Policy."
 
-Any platform running on Stripe's infrastructure enforces the same AUP categories: divination, fortune-telling, astrology. The entire domain is blocked.
+Any platform on Stripe's infrastructure enforces the same AUP categories. Divination, fortune-telling, astrology — the entire domain is blocked at the payment rail level.
 
-The fix was a framing shift. My prompt to Claude:
+The solution was a framing shift. My prompt:
 
-> "I want to go in the direction of birthday-based AI personality analysis rather than divination."
+> "I want to go with AI-based birthday personality analysis, not divination."
 
-**"Fortune-telling service" → "AI personality analysis / self-discovery report."** Extract saju, fortune, divination from the codebase. Replace with personality insight, self-discovery, AI analysis.
+"Fortune-telling service" → "AI personality analysis / self-discovery report." Strip every instance of saju · fortune · divination from the codebase. Replace with personality insight / self-discovery / AI analysis.
 
-## 5 Parallel Agents, 21 i18n Files, One Rebranding Pass
+Session stats: 6h 3min, 46 tool calls. Grep 12, Read 8, Glob 7, Agent 7, Bash 5.
 
-The scope was wide: `lib/productNames.ts`, `common.json`, `palm.json`, `seo.json` — 21 i18n files total, plus the brand rename FortuneLab → InsightLab across URL paths and meta tags.
+## 21 i18n Files Rebranded in Parallel — Without a Single Conflict
 
-AgentCrow split the work into 3 independent domains:
+The rebrand surface was wide. `lib/productNames.ts`, `common.json`, `palm.json`, `seo.json`, and 17 other i18n files. Brand name FortuneLab → InsightLab. URL paths. Meta tags.
+
+AgentCrow split the work into three independent domains:
 
 ```
 🤖 @code-files-rebrand  → lib/productNames.ts, API routes
-🌐 @core-en-i18n        → common.json, seo.json (brand, metadata)
-📝 @feature-en-i18n     → palm.json, compat.json, 16 other feature files
+🌐 @core-en-i18n        → common.json, seo.json
+📝 @feature-en-i18n     → palm.json, compat.json, 18 feature files
 ```
 
-Results per agent:
+No shared files across agents meant parallel dispatch was safe. The rule for parallel agents: file scopes must not overlap — the moment two agents touch the same file, you get conflicts.
 
-- `productNames.ts`: `full.en` replaced with "AI Four Pillars Analysis Report" and equivalents
-- `common.json`: FortuneLab → InsightLab, 5 brand references updated
-- 18 feature files: language like "Reading the heart line" was kept where it's descriptively neutral; explicit divination language removed
+Results: `full.en` in `productNames.ts` became "AI Four Pillars Analysis Report." Five FortuneLab references in `common.json` flipped to InsightLab. Phrases like "Reading the heart line" — descriptively neutral, no fortune-telling connotation — the agents kept without being told to.
 
-No shared files across agents, so parallel dispatch was safe. That's the key criterion for AgentCrow — file scopes must not overlap.
+21 files. 20 minutes. Doing this solo would have taken half a day.
 
-Session tool distribution: `Grep(12)`, `Read(8)`, `Glob(7)`, `Agent(7)`, `Bash(5)`. Grep led because finding brand keywords across the full codebase required it.
+## 10 Keywords → 32 Files → 3 Repos
 
-21 files, under 20 minutes. Solo that's half a day.
+Session 2 was a different scale. 199 tool calls. 15 hours 54 minutes of elapsed compute time.
 
-## 40 Blog Posts Across 3 Platforms
+Opening prompts:
 
-Session 2 was a different scale. 199 tool calls, 15 hours 54 minutes of compute time.
-
-It started with two prompts back-to-back:
-
-> "Find ~10 trending Claude-related keywords from the web and communities right now."
+> "Find 10 trending Claude-related keywords from the web and communities, most recent first."
 > "Write one blog post per keyword. Deploy everything."
 
-The `auto-publish` skill kicked in. One topic → spoonai (KO + EN) + DEV.to (EN) + Hashnode (EN) = 4 files per topic. 10 topics = 40 files.
+The `auto-publish` skill activated. One topic generates: spoonai (Korean + English) + DEV.to (English) + Hashnode (English) = 4 files. 10 topics = 40 files.
 
-Before generating, Claude checked for duplicates. Topics 4 and 5 overlapped with `2026-03-25-claude-computer-use-mac-agent` and one other existing post. Those 2 were skipped; 8 topics proceeded. Final output: 32 files.
+First step was deduplication. Topics 4 and 5 overlapped with existing posts like `2026-03-25-claude-computer-use-mac-agent`. Skipped 2, proceeded with 8 topics — 32 final files.
 
-5 agents dispatched in parallel:
+Five agents dispatched in parallel, each handling 2 topics. Per-agent flow: `WebSearch` to collect real articles → write Korean post (for spoonai) → write English post (for DEV.to/Hashnode) → save to all three repos.
 
+Deployment: `git push` to three repos. spoonai succeeded immediately. `dev_blog` and `hashnode` had upstream changes — pull and re-push. Another session had committed into the same repos mid-automation loop.
+
+The same session also updated the `frontend-design` skill. Prompt: "Analyze 20 reference sites built with v0 or Lovable." Claude inferred the prompt patterns those tools use internally and added them to `production-design-system.md` in the skill.
+
+Tool distribution: Bash 103, Read 24, Agent 22, WebFetch 18, Grep 11. Bash dominated — git operations, file movement, build validation.
+
+## What a Sharp Spec Does to Tool Call Count
+
+Session 3 was the opposite extreme. Adding an English tab to the spoonai.me daily briefing.
+
+The spec was precise from the start:
+
+> "`content/daily/` only has Korean YYYY-MM-DD.md files (problem). To do: 1. `lib/content.ts` — add language parameter to `getDailyBriefing`. 2. `app/daily/[date]/page.tsx` — ko/en tab layout. 3. `components/DailyBriefing.tsx` — tab UI"
+
+Claude created a 6-step TodoWrite plan and executed in order. 4 files changed. Build succeeded. 10 `/daily/[date]` routes generated correctly. Including skill file sync for `spoonai-site-publish/SKILL.md` and `spoonai-daily-briefing/SKILL.md`: 39 tool calls total. Read 15, TodoWrite 7, Edit 7.
+
+The pattern is observable: same amount of code change, fewer tool calls with a sharp spec. Vague requests burn calls on exploration. Precise specs go straight to implementation. Session 3 had significantly more file diffs than session 4, yet used fewer calls — because session 4 required investigation before touching anything.
+
+## The Immutable Cache Trap: Renaming the File Is the Only Exit
+
+Session 4 was the day's most instructive debugging case. Two blog posts — Harvey AI and Mistral Voxtral — kept showing broken images on the live site. The files had already been replaced. The browser still served broken images.
+
+49 tool calls verifying file existence, frontmatter accuracy, build status. All clean.
+
+The culprit was `vercel.json`:
+
+```json
+{
+  "headers": [
+    {
+      "source": "/images/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    }
+  ]
+}
 ```
-📝 @writer-1 → Topics 1-2: Mythos model leak + Pentagon lawsuit
-📝 @writer-2 → Topics 3-4: Anthropic IPO + Computer Use/Cowork
-📝 @writer-3 → Topics 5-6: Auto Mode + sub-agents
-📝 @writer-4 → Topics 7-8: Developer anxiety + Anthropic Institute
-📝 @writer-5 → Topics 9-10: Chrome extension + financial markets
-```
 
-Each agent ran `WebSearch` to pull real articles, then wrote both a Korean post (for spoonai) and an English post (DEV.to/Hashnode) simultaneously.
+`immutable` tells the browser: "This file never changes. Don't request it again for a year." The first deployed file was corrupted — HTML content saved with a `.jpg` extension. The browser cached that corrupted file for a year. Replacing the file at the same URL does nothing; the browser serves from its cache.
 
-Deployment: 3 git pushes to 3 separate repos. spoonai went clean. `dev_blog` and `hashnode` had upstream changes — pull first, then push.
+Fix: rename `-01.jpg` → `-02.jpg`, update frontmatter, delete the corrupted original. Different URL forces a fresh fetch.
 
-| Repo | Files | Status |
-|------|-------|--------|
-| spoonai | 40 files | push success |
-| dev_blog | 20 files | pull → push |
-| hashnode | 20 files | pull → push |
+7 minutes. 49 tool calls, 31 of them Bash — file validation and build checks.
 
-Session tool distribution: `Bash(103)`, `Read(24)`, `Agent(22)`, `WebFetch(18)`, `Grep(11)`. Bash dominated — git operations, file moves, build verification.
+`immutable` cache is a CDN performance win, but if a corrupted file lands first, it becomes a permanent trap. The lesson: validate image files before deployment. Any pipeline serving assets with `immutable` headers needs a file integrity check before push.
 
-## 24 Minutes, 36 Tool Calls: Bilingual Daily Briefing
+## 3 Canceled Builds — CLI Bypasses Everything
 
-Session 3 was the opposite extreme.
+Session 5. Pushed to main three times. Vercel builds kept showing CANCELED with no build logs.
 
-This is what happens when the spec is precise before Claude touches any file. I gave the exact structure upfront:
+Ran `npx vercel deploy --prod` directly from the project root. Build completed in 55 seconds. 164 static pages generated. Deployed to `https://spoonai.me`.
 
-> "content/daily/ only has YYYY-MM-DD.md in Korean (problem). Required: 1. lib/content.ts — add lang param to getDailyBriefing. 2. app/daily/[date]/page.tsx — ko/en tab UI. 3. components/DailyBriefing.tsx — tab component."
+1 minute. 5 tool calls. All Bash.
 
-Claude created a `TodoWrite` plan before writing a single line:
+Git-triggered builds canceling is likely a Vercel worktree configuration conflict or deduplication behavior when the same commit gets pushed multiple times. Root cause not fully determined. CLI deploy bypassed it.
 
-```
-☐ lib/content.ts: filter -en.md in getDailyDates()
-☐ lib/content.ts: new hasDailyEnVersion(date) function
-☐ lib/content.ts: getDailyBriefing(date, lang?) with lang param
-☐ app/daily/[date]/page.tsx: parallel fetch for ko/en
-☐ components/DailyBriefing.tsx: tab UI
-☐ content/daily/2026-03-30-en.md: sample English file
-```
+## Session Stats
 
-Build passed. 10 `/daily/[date]` routes generated correctly. Two skill sync files (`spoonai-site-publish/SKILL.md`, `spoonai-daily-briefing/SKILL.md`) updated in the same session. All in 24 minutes.
+| Session | Duration | Tool Calls | Primary Tools |
+|---------|----------|-----------|---------------|
+| Saju rebrand | 6h 3min | 46 | Grep, Read, Agent |
+| 32 posts published | 15h 54min | 199 | Bash, WebFetch, Agent |
+| Daily English tab | 1h 27min | 39 | Read, Edit, TodoWrite |
+| Image cache fix | 7min | 49 | Bash, Read, Edit |
+| Force deploy | 1min | 5 | Bash |
 
-Tool distribution: `Read(15)`, `TodoWrite(7)`, `Edit(7)`, `Glob(2)`, `Bash(2)`. `TodoWrite` second — precise specs produce a planning-first pattern.
+Total: 338 tool calls. By tool: Bash 149, Read 59, Agent 29, Grep 24, WebFetch 18, Edit 17.
 
-## Business Constraints Changed the Architecture
+---
 
-The longest part of this sprint wasn't writing code. It was routing around payment infrastructure constraints.
+A payment processor rejection — a business constraint — changed a technical decision. 21 files that would have taken half a day solo took three parallel agents 20 minutes. The spec clarity gap is measurable: session 3 (sharp spec, 39 calls) made more changes than session 4 (investigation needed, 49 calls).
 
-Claude's contribution here wasn't code changes — it was **positioning strategy**. "If you reframe from divination to AI personality analysis, you can pass AUP" — making that call, then executing a full codebase change to match it.
-
-Payment processor policy drove technical architecture. When external constraints (AUP rules, compliance requirements, platform policies) shape technical decisions, AI that can reason at the strategy level alongside you is useful differently than autocomplete.
-
-> Business constraints changed what the product says it is. Claude Code changed what the code actually says.
+The immutable cache lesson is evergreen: if you deploy with `immutable`, validate before push. There's no patch after the fact — only a filename change.
 
 ---
 
