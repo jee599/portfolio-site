@@ -1,0 +1,35 @@
+# jidonglab
+> AI developer building tools, agents, and open-source projects. Weekly build logs, AI news analysis, and deep-dive technical articles in Korean and English.
+
+jidonglab.com is the personal dev blog and portfolio of jidonglab — a developer focused on AI tooling, multi-agent orchestration, and build-in-public culture. Content covers Claude Code skills, MCP servers, LLM orchestration, and weekly project build logs.
+
+## Site Structure
+- Homepage: https://jidonglab.com
+- Blog: https://jidonglab.com/blog — Technical articles and deep dives
+- AI News: https://jidonglab.com/ai-news — Curated AI industry news analysis
+- Build Logs: https://jidonglab.com/posts — Weekly project build logs (204+ entries)
+- Projects: https://jidonglab.com/projects — Open-source project showcase
+- About: https://jidonglab.com/about
+
+## Content Categories
+- Claude Code skills, hooks, and MCP server development
+- Multi-agent LLM orchestration (AgentCrow, LLMMixer)
+- Build-in-public weekly logs
+- AI news analysis and commentary
+- Token optimization (ContextZip)
+- Game development with AI (UE5/C++ background)
+
+## Key Projects
+- AgentCrow: Auto agent router for Claude Code (npm published)
+- ContextZip: Token compression for Claude Code (60-90% savings)
+- LLMMixer: Multi-agent LLM orchestrator
+- FortuneLab: AI fortune telling (saju) platform
+- spoonai: Daily AI news newsletter and website
+
+## Key Facts
+- Author: jidonglab
+- Languages: Korean, English (bilingual)
+- Tech stack: Astro, Cloudflare Pages
+- Content: 278+ articles (42 blog, 29 AI news, 204 build logs, 3 tips)
+- Update frequency: Multiple times per week
+- Also publishes on: DEV.to (ji_ai), Velog, Naver Blog

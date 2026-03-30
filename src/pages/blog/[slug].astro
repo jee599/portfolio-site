@@ -25,6 +25,20 @@ const ContentComponent = rendered.Content;
 ---
 
 <Base title={title} description={description}>
+  <script type="application/ld+json" set:html={JSON.stringify({
+    '@context': 'https://schema.org',
+    '@type': 'BlogPosting',
+    headline: title,
+    description: description,
+    datePublished: `${dateStr}T08:00:00+09:00`,
+    dateModified: `${dateStr}T08:00:00+09:00`,
+    author: { '@type': 'Person', name: 'jidonglab', url: 'https://jidonglab.com' },
+    publisher: { '@type': 'Person', name: 'jidonglab', url: 'https://jidonglab.com' },
+    mainEntityOfPage: { '@type': 'WebPage', '@id': `https://jidonglab.com${blogSlug}` },
+    url: `https://jidonglab.com${blogSlug}`,
+    keywords: tags.join(', '),
+    speakable: { '@type': 'SpeakableSpecification', cssSelector: ['h1', '.blog-title', '.prose p:first-of-type'] },
+  })} />
   <article class="blog-post fade-in">
     <header class="blog-header">
       <span class="blog-source">{sourceLabel}</span>

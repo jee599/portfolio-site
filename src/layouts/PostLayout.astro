@@ -26,12 +26,16 @@ const articleJsonLd = {
   '@context': 'https://schema.org',
   '@type': 'Article',
   headline: title,
+  description: description || title,
   datePublished: date.toISOString(),
-  author: { '@type': 'Person', name: 'jidonglab' },
-  publisher: { '@type': 'Organization', name: 'Jidong Lab', url: siteUrl },
+  dateModified: date.toISOString(),
+  author: { '@type': 'Person', name: 'jidonglab', url: siteUrl },
+  publisher: { '@type': 'Person', name: 'jidonglab', url: siteUrl },
+  mainEntityOfPage: { '@type': 'WebPage', '@id': canonicalUrl },
   url: canonicalUrl,
-  ...(description ? { description } : {}),
+  inLanguage: lang === 'en' ? 'en-US' : 'ko-KR',
   ...(tags.length > 0 ? { keywords: tags.join(', ') } : {}),
+  speakable: { '@type': 'SpeakableSpecification', cssSelector: ['h1', '.post-desc', '.prose p:first-of-type'] },
 };
 ---
 
