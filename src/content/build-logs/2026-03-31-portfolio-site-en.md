@@ -1,29 +1,27 @@
 ---
-title: "The `immutable` Cache Flag That Locked My Images for a Year — Found by Claude Code"
+title: "My DEV.to Auto-Publish Pipeline Had Never Worked — Finding the const lang SyntaxError"
 project: "portfolio-site"
 date: 2026-03-31
 lang: en
 pair: "2026-03-31-portfolio-site-ko"
-tags: [claude-code, vercel, godot, devto, parallel-agents, debugging]
-description: "A single `immutable` header in vercel.json held broken images hostage for a year. 9 sessions, 406 tool calls, and what Claude actually found."
+tags: [claude-code, github-actions, devto, debugging, automation]
+description: "11 sessions, 452 tool calls, and a SyntaxError that silently killed my DEV.to automation from the moment it was created."
 ---
 
-9 sessions. 406 tool calls. 25 files changed. Here's what actually happened on March 31, 2026.
+11 sessions. 452 tool calls. 26 files modified, 14 created. The most striking discovery of the day: my DEV.to auto-publish workflow had never successfully run — not even once — since the day I built it.
 
-**TL;DR**: An `immutable` cache header in `vercel.json` was keeping broken images locked in browsers for a full year — not because the server file was wrong, but because the browser refused to ask for it again. Renaming the file bypassed the cache. Separately, Vercel's git-triggered builds kept getting silently canceled; `npx vercel deploy --prod` fixed it in 55 seconds.
+**TL;DR** A `const lang` duplicate declaration `SyntaxError` in the GitHub Actions script killed the workflow from day one. Renaming the second declaration to `effectiveLang` and moving EN files to the correct trigger path brought the pipeline back to life.
 
-## The Image That Refused to Heal
+## The Image That `immutable` Cache Refused to Let Go
 
-Right after a deploy, post thumbnails were broken. I replaced the file with a valid JPEG, pushed, redeployed — still broken in the browser. The server file was correct. The frontmatter was correct. The image rendered fine locally. But the live site kept showing a broken icon.
-
-The prompt I gave Claude:
+Right after deploying to spoonai.me, thumbnails for Harvey AI and Mistral Voxtral articles were broken. I replaced them with valid JPEGs. The browser still showed the broken images.
 
 ```
-Previous fix replaced the image with a correct JPEG, but the live site still shows it as broken.
-Check whether the actual file is valid and whether the frontmatter is correct.
+Previous fix swapped in a valid JPEG but the live site still shows broken images.
+Verify the actual file is valid and frontmatter paths are correct.
 ```
 
-49 tool calls later, Claude surfaced the actual cause. It wasn't in any application code.
+49 tool calls later, the culprit wasn't the code at all.
 
 ```json
 // vercel.json
@@ -39,138 +37,103 @@ Check whether the actual file is valid and whether the frontmatter is correct.
 }
 ```
 
-The `immutable` directive was the culprit. Here's the sequence that caused it:
+On the initial request, a broken HTML response had been saved as a `.jpg`. The browser cached it with a 1-year TTL and the `immutable` directive — which tells browsers: *this file will never change, don't even bother revalidating*. Replacing the file on the server meant nothing; the browser never asked again.
 
-1. A corrupted or misnamed file got served at the image URL on the first request
-2. The browser received a `Cache-Control: immutable` response and stored the (broken) file locally
-3. `immutable` tells the browser: "this file will never change — don't ask again for the TTL duration"
-4. TTL was 31,536,000 seconds — one year
-5. Every subsequent server-side fix was invisible to any browser that had already cached the broken version
+The fix was a filename rename. Going from `-01.jpg` to `-02.jpg` changes the URL, which changes the cache key, which forces the browser to fetch from the server. Four frontmatter edits, old files deleted. 31 Bash calls, 12 Reads, 4 Edits.
 
-The `immutable` directive exists for a good reason. When paired with content-addressed filenames (like `image.a3f8c2.jpg` from a build tool), it's extremely effective — the filename changes when the content changes, so the cache never serves stale data. The problem is applying it to a static path like `/images/post-thumbnail.jpg` where you might need to update the content without changing the filename.
+> `immutable` is a performance win for truly static assets. But any path where file *content* can change — without the filename changing — will trap stale responses for up to a year.
 
-The fix was a file rename. Changing `-01.jpg` to `-02.jpg` creates a new URL, a new cache key, and forces every browser to fetch fresh from the server regardless of what was cached before. Four frontmatter edits, one old file deleted.
+## Bypassing Vercel's Stuck Build Queue
 
-Tool breakdown for this session: Bash 31 calls, Read 12, Edit 4. The majority of Bash calls were file verification and git operations. Claude read the `vercel.json` configuration, identified the header pattern, cross-referenced it with the browser behavior, and connected the dots. That kind of multi-file reasoning across configuration and deployment behavior is where the tool-call density pays off.
+Three `git push`es in a row, and Vercel never started a build. Every attempt showed "CANCELED" with no build logs to explain why.
 
-Going forward: image paths for any content that might be updated should include a hash or version identifier. The pattern is safer by default, and it makes `immutable` actually correct rather than misleading.
-
-## Why Vercel Kept Silently Canceling Builds
-
-Three separate `git push` attempts over a short window. All three builds showed up in the Vercel dashboard as "CANCELED" before they even started — no build logs, no error messages, just a canceled status.
-
-```
-Pushed 3 times via git push, Vercel canceled all of them. Builds aren't starting at all.
-Deploy the latest main to production.
-```
-
-Rather than spending time debugging the webhook, Claude went straight to the direct deployment path:
+Claude's solution was direct:
 
 ```bash
 npx vercel deploy --prod
 ```
 
-55 seconds. 164 static pages built and live. Five Bash calls total.
+164 static pages built and deployed to production in 55 seconds. 5 Bash calls total. When git-connected auto-deploy gets stuck, `vercel deploy --prod` is the fastest escape hatch.
 
-This is a pattern worth remembering: git-triggered CI/CD is convenient but adds a layer of indirection. When that layer fails silently, `vercel deploy --prod` is the escape hatch. It bypasses webhooks, branch rules, and any Vercel project configuration that might be interfering — you get a direct build from the current working directory.
+## Adding an English Track to the Daily Briefing
 
-If this cancellation pattern repeats, the right thing to investigate is the Vercel project's git integration settings and whether branch protection rules conflict with automatic deployments. But for a one-off case where you need production updated now, direct deployment is the move.
+spoonai.me's `content/daily/` only had Korean files. The post system supported `-ko.md` / `-en.md` pairs, but the daily briefing had been left Korean-only.
 
-## The Automation Spec Problem: Daily Briefing English Version
+1 hour 27 minutes, 39 tool calls, 4 files changed.
 
-The `content/daily/` directory on spoonai.me had a straightforward structure: one Korean file per day, named `YYYY-MM-DD.md`. The posts section already supported bilingual pairs (`-ko.md` and `-en.md`), but the daily briefing had never been extended to match.
+`lib/content.ts` got a `getDailyBriefing(date, lang?)` signature update and a new `hasDailyEnVersion()` helper. `app/daily/[date]/page.tsx` now fetches both language versions in parallel, and `DailyBriefing.tsx` renders a tab UI to switch between them.
 
-This wasn't just a code change — it was a gap between the product and the automation that generates content for it.
+The less obvious part: `~/Documents/Claude/Scheduled/spoonai-site-publish/SKILL.md` step 3.6 was updated to include English daily generation, and `~/.claude/skills/spoonai-daily-briefing/SKILL.md` was kept in sync. Code and automation spec updated together. If the SKILL.md isn't current, the next scheduled Claude session will skip the English daily. That's the pattern: treat automation specs as first-class artifacts alongside the code they drive.
 
-1 hour 27 minutes, 39 tool calls, 4 files changed:
+## The DEV.to Pipeline That Was Dead on Arrival
 
-- `lib/content.ts` — updated `getDailyBriefing(date, lang?)` signature to accept a language parameter, added `hasDailyEnVersion()` helper
-- `app/daily/[date]/page.tsx` — updated to fetch both ko/en versions simultaneously, handle missing English gracefully
-- `components/DailyBriefing.tsx` — added tab UI for language switching, falls back to Korean-only if English isn't available
-- `content/daily/2026-03-30-en.md` — first English daily briefing, written to validate the new structure
+I wanted to publish two English posts (`claude-agent-sdk-deep-dive-en.md`, `harness-cicd-deep-dive-en.md`) to DEV.to. First pass: strip `cover_image` R2 URLs and hero image tags — those images don't exist in R2, so leaving them would produce broken embeds. Glob twice, Read twice, Edit twice.
 
-The code change was the smaller part of the work. The bigger update was to the automation specification itself.
+Then the actual publishing. No API key locally.
 
-Claude Code schedules run against SKILL.md files — structured documents that define what an automated session should do, step by step. The daily briefing automation lives in `~/Documents/Claude/Scheduled/spoonai-site-publish/SKILL.md`. STEP 3.6 was updated to include English daily generation logic. The corresponding `~/.claude/skills/spoonai-daily-briefing/SKILL.md` was synced to match.
-
-This is the critical point: if the SKILL.md doesn't describe a step, the next automated session won't do it. The product code can support English dailies perfectly, but if the automation spec doesn't know to generate them, they won't appear. Code and spec have to stay in sync.
-
-## 221 Tool Calls on a Godot 4 Game
-
-The guild-master project is a guild management simulation built on Godot 4. The `feature_list.json` had 68 features marked as `failing`. The goal was to move all of them to `passing` in a single session.
-
-The prompt was deliberately open-ended:
-
-```
-Implement all failing features in feature_list.json, starting from Phase 1, in order.
-When one is done, move immediately to the next. Don't stop until every feature is passing.
+```bash
+# Claude searched (21 Bash calls):
+~/.devto, ~/.config/devto, .env, .env.local,
+.env.production, wrangler.toml, macOS Keychain...
+# Nothing.
 ```
 
-2 hours 47 minutes. 221 tool calls. The Agent tool was invoked 21 times to parallelize work across independent subsystems.
+`DEVTO_API_KEY` is in GitHub Secrets — write-only by design, unreadable from outside. So the approach shifted: use the existing GitHub Actions workflow instead.
 
-**Phase 1** established the foundation: 12 data files (JSON configs for guilds, mercenaries, missions), 8 model classes, and 11 Autoload singletons for global state management. These are pure data and logic files with no UI dependencies or scene references, which made them safe to implement in parallel.
+Checking `.github/workflows/publish-to-devto.yml` revealed the first problem. The trigger was set to fire on pushes to `src/content/blog/`. The EN files lived in `blog-factory/devto/` — a path that had never been part of the trigger. The workflow had never had a reason to run.
 
-**Phase 2** split into two parallel tracks: the mercenary system's gameplay logic and the corresponding UI components. These are independent enough to work on simultaneously, but they share a data contract (the mercenary model), so the model from Phase 1 had to be finalized first.
+Then the worse problem:
 
-After the session: the feature list showed all 68 features as `passing`. Then I actually ran the game.
-
-Gray screen on launch. Nothing responded on the new game screen. The formation setup UI didn't advance. Three separate play-through issues surfaced in the first five minutes — none of which showed up in the automated feature checks.
-
-This is the ceiling of bulk implementation with AI assistance. `feature_list.json` entries like "mercenary hire UI works" can be marked passing when the component renders and the button triggers the right function. Whether the full gameplay loop — hire → assign → send on mission → return → level up — feels correct is a different question that requires a human playing it.
-
-The Godot-specific challenges compounded this. GDScript syntax errors don't surface without running the engine. Node reference issues in `.tscn` scene files only appear in the editor. Several of those 34 Bash calls were attempts to validate scene structure through the CLI — a partial solution at best.
-
-**What worked**: getting a complete feature skeleton in place in under 3 hours for a 68-feature spec. The parallel agent approach was effective for the data layer and clearly separated subsystems.
-
-**What didn't**: assuming feature-level passing equals gameplay quality. The follow-up debugging sessions on gray screens and broken flows were predictable and should be planned for after any bulk implementation session.
-
-## The DEV.to API Key Hunt
-
-Two English posts in `blog-factory/devto/` needed to be published to DEV.to. The process looked straightforward.
-
-First, strip the `cover_image` R2 URLs and hero image tags from the post bodies — the image files weren't actually in R2 yet, so leaving the references would mean broken images on publish. Glob: 2 calls. Read: 2. Edit: 2. Clean.
-
-Then the API key issue.
-
-```
-Check environment variables or config files for the API key.
-~/.devto, ~/.config/devto, .env, somewhere in the project.
-There were previous DEV.to posts, so the key must exist somewhere.
+```javascript
+// Inside publish-to-devto.yml Node.js script
+const lang = file.includes('-en.') ? 'en' : 'ko'
+// ...dozens of lines later...
+const lang = frontmatter.lang || 'ko'  // SyntaxError!
 ```
 
-Claude ran 15 Bash calls across the filesystem: `~/.devto`, `~/.config/devto`, every `.env` variant, `wrangler.toml`, `package.json` scripts section. Nothing.
+`SyntaxError: Identifier 'lang' has already been declared`. This was in the script from the day the workflow was created. Every run — if there had ever been a run — would have failed at parse time, before executing a single line of logic.
 
-The likely explanation: previous posts were published manually through the DEV.to web editor, or the key was set ephemerally in a terminal session that's long since closed. There's also no GitHub Actions workflow (`.github/workflows/publish-devto.yml`) for automated publishing — the pipeline doesn't exist yet.
+The fix was two steps:
 
-The immediate fix was to set the key manually as an environment variable. But the broader issue — no reproducible, documented publishing pipeline — is still open. Building a `publish-devto.yml` workflow would make this permanent: store the key in GitHub Secrets, trigger on push to `blog-factory/devto/`, call the DEV.to API. That's roughly 30 minutes of work that eliminates the manual step permanently.
+```bash
+# 1. Fix the SyntaxError — 1 Edit
+# Before:
+const lang = frontmatter.lang || 'ko'
+# After:
+const effectiveLang = frontmatter.lang || lang
 
-## Reading the Tool Call Distribution
+# 2. Move EN files into the trigger path
+cp blog-factory/devto/claude-agent-sdk-deep-dive-en.md \
+   src/content/blog/claude-agent-sdk-deep-dive-en.md
+
+# 3. Push to main → workflow triggers automatically
+git push origin main
+```
+
+The workflow fired. Claude Agent SDK post: published successfully. Harness CI/CD: 429 rate limit. A manual `gh workflow run` cleared it.
+
+The 21 Bash calls spent hunting for a local API key weren't wasted time — that dead end forced a pivot to GitHub Actions, which is how the `SyntaxError` got found at all. The detour surfaced the real bug.
+
+## Tool Call Breakdown
 
 ```
-Total: 406 tool calls across 9 sessions
-- Read:   148 (36%) — understanding existing code
-- Bash:   117 (29%) — builds, deployments, filesystem operations
-- Edit:    43 (11%) — actual code changes
-- Agent:   21  (5%) — parallel task distribution
-- Write:   16  (4%) — new file creation
-- Other:   61 (15%) — Glob, Grep, misc
+Total: 452 tool calls
+- Bash:   157 (35%) — builds, deploys, filesystem exploration
+- Read:   152 (34%) — understanding existing code
+- Edit:    45 (10%) — actual code changes
+- Agent:   21 (5%)  — parallel subagent dispatch
+- Write:   16 (4%)  — new file creation
 ```
 
-Read outpacing Bash is the most meaningful signal here. 36% of all tool calls were reading existing code — not searching for bugs, not writing new code, just building a mental model of what's already there.
+Read and Bash together are 69% of all calls. Understanding and verifying the system took significantly more effort than changing it. Edit ran 45 times across 26 files — 1.7 edits per file on average. Most files got it right the first time.
 
-The implication: AI-assisted development is primarily a comprehension task. The bottleneck isn't code generation speed — it's understanding enough context to generate the right code. Prompts that provide specific file paths and architectural context consistently outperform vague prompts that ask Claude to "figure it out."
+## What This Session Actually Taught
 
-43 edits across 25 files is an average of 1.7 edits per file. Most files got changed once or twice, not repeatedly — a sign that the initial edits were generally correct. When Claude has sufficient context before writing, the first attempt tends to be close.
+**Audit your GitHub Actions workflows.** A workflow with a `SyntaxError` fails silently. There's no notification, no alert, no indication anything is wrong — it just never runs. After creating a CI pipeline, actually trigger it once and verify it executes. `gh run list --workflow=publish-to-devto.yml` takes 10 seconds and would have caught this immediately.
 
-The 21 Agent calls for the Godot session drove a large portion of the Bash count. Parallel agents multiply tool call volume, which is worth accounting for when estimating session complexity.
+**`immutable` cache means what it says.** It's a valid performance optimization for assets that truly never change. But image paths that can be updated without renaming will trap broken responses for a year. Including a content hash or version in the filename is the safer pattern — then content changes force URL changes, which bypass cache automatically.
 
-## What Sticks From This Cycle
-
-**Cache strategy belongs in the pre-deployment checklist.** `immutable` is genuinely useful for CDN performance, but it requires content-addressed filenames to be safe. Applying it to static paths creates a debugging scenario that's hard to reproduce — the bug only manifests in browsers that cached the broken version, not in fresh sessions or incognito windows.
-
-**"Implement everything" prompts are effective for scaffolding speed.** Turning 68 failing features into a working skeleton in under 3 hours is real value. But the session plan should include follow-up time for manual playtesting, because gameplay quality isn't something a feature list can measure.
-
-**Automation specs are code.** When Claude Code runs scheduled sessions, the SKILL.md is what gets executed. If the spec is incomplete, the automation is incomplete — regardless of what the product code supports. Keeping SKILL.md files in sync with code changes is as important as the code change itself.
+The bigger pattern: the most expensive bugs in this session weren't complex logic errors. They were a one-line duplicate variable declaration and a misconfigured HTTP header. Both were invisible during normal development because they only manifest in specific runtime conditions — one in CI, one in a browser with a warm cache.
 
 ---
 
