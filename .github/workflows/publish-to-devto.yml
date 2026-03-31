@@ -177,8 +177,8 @@ jobs:
                 }
 
                 // jidonglab 푸터 링크 강제 추가
-                const lang = langMatch ? langMatch[1].trim() : 'ko';
-                const footer = lang === 'en'
+                const effectiveLang = lang || 'ko';
+                const footer = effectiveLang === 'en'
                   ? `\n\n---\n\n> 📌 Originally published at [Jidong Lab](${canonicalUrl})\n> More AI news and dev logs → [jidonglab.com](${siteUrl})`
                   : `\n\n---\n\n> 📌 원문: [Jidong Lab](${canonicalUrl})\n> AI 소식과 개발 로그 → [jidonglab.com](${siteUrl})`;
 
