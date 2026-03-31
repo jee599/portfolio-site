@@ -3,12 +3,8 @@ title: "Harness CI/CD Deep Dive: How Citi Cut Deployment Time from Days to 7 Min
 published: true
 description: "Harness CI/CD uses AI-powered pipeline automation to cut deployment time by up to 90% vs Jenkins. A deep dive into AIDA, Test Intelligence, auto-rollback, real enterprise case studies, and code examples."
 tags: devops, cicd, harness, ai
-cover_image: https://r2.jidonglab.com/blog/2026/03/harness-cicd-hero.png
 canonical_url: https://jidonglab.com/blog/harness-cicd-deep-dive-ko
 ---
-
-![Harness CI/CD platform architecture and product editions](https://r2.jidonglab.com/blog/2026/03/harness-cicd-hero.png)
-*Image source: Codefresh / Harness architecture diagram*
 
 Citi had 20,000 engineers deploying code anywhere from once a week to once every several months. The process from build to production took hours, sometimes days. After adopting Harness CD, that number dropped to 7 minutes. Most developers now deploy to production multiple times a day.
 

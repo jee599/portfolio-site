@@ -3,12 +3,8 @@ title: "Claude Agent SDK Deep Dive: What It Means to Use Claude Code as a Librar
 published: true
 description: "Anthropic's Claude Agent SDK ships Claude Code's agent loop, built-in tools, and context management as a Python/TypeScript library. Here's how the architecture works, what makes it different from LangGraph and CrewAI, and where the trade-offs are."
 tags: ai, claude, agentsdk, programming
-cover_image: https://r2.jidonglab.com/blog/2026/03/claude-agent-sdk-hero.jpg
 canonical_url: https://jidonglab.com/blog/claude-agent-sdk-deep-dive-ko
 ---
-
-![Claude Agent SDK architecture diagram](https://r2.jidonglab.com/blog/2026/03/claude-agent-sdk-hero.jpg)
-*Image source: Anthropic / claude.com*
 
 Six agent frameworks are competing for your codebase in 2026. Anthropic's entry takes a fundamentally different approach from all of them.
 
