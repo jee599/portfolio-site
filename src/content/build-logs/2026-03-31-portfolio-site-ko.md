@@ -1,148 +1,133 @@
 ---
-title: "Cloudflare 404 + SEO + 빌드 로그 자동화"
+title: "브라우저 캐시에 1년간 박힌 깨진 이미지, Claude가 찾아낸 방법"
 project: "portfolio-site"
 date: 2026-03-31
 lang: ko
-tags: [claude-code, cloudflare, seo, astro, automation, build-log]
-description: "Cloudflare Pages 배포 직후 404 원인 분석부터 llms.txt/JSON-LD SEO, 그리고 세션 기록으로 빌드 로그 5개를 자동 생성하는 루프까지. 7개 세션 177 tool calls."
+tags: [claude-code, vercel, godot, devto, parallel-agents, debugging]
+description: "immutable 캐시가 이미지를 1년간 잠근 원인 분석부터, Vercel 빌드 취소 우회, 221 tool calls Godot 게임 개발까지. 9개 세션, 406번 도구 호출의 기록."
 ---
 
-포트폴리오 사이트를 Cloudflare Pages에 배포하자마자 블로그 포스트가 전부 404였다. 거기서 시작해 UI 3개 수정, SEO/AEO/GEO 최적화, 빌드 로그 자동 생성까지 하루에 몰아쳤다. 7개 세션, 177 tool calls.
+9개 세션, 406번의 도구 호출, 수정 파일 25개. 2026-03-31 기준으로 최근 작업 흐름을 정리한다.
 
-**TL;DR** `_routes.json` 설정 오류가 Cloudflare 404의 원인이었다. SEO는 `llms.txt`를 추가해서 AI 크롤러 대응까지 챙겼다. 세션 기록 요약을 넘기면 빌드 로그가 자동으로 생성된다.
+**TL;DR** `vercel.json`의 `immutable` 캐시가 깨진 이미지를 브라우저에 1년째 가두고 있었다. 파일명 변경으로 캐시를 우회했고, Vercel 빌드 취소 문제는 `npx vercel deploy --prod`로 해결했다.
 
-## Cloudflare 배포하자마자 블로그 전체 404
+## 1년짜리 캐시에 갇힌 이미지
 
-배포 후 첫 확인. `/blog/tips/some-post`를 열면 404. 로컬 빌드는 정상인데 라이브에서만 깨진다.
+배포 직후 썸네일이 깨졌다. 파일을 올바른 JPEG로 교체했는데도 브라우저에는 여전히 깨진 이미지가 보였다.
 
-처음에는 Astro `output: 'hybrid'` 설정 문제를 의심했다. 정적 페이지가 SSR 함수로 라우팅되는 충돌이 있을 수 있어서다. 빌드 아웃풋을 뒤졌다.
+Claude에게 던진 프롬프트는 이랬다.
 
-```bash
-npx astro build
-# dist/ 확인 → /blog/tips/[slug]/index.html 정상 생성
+```
+이전 fix에서 이미지를 올바른 JPEG로 교체했는데 라이브 사이트에서 여전히 깨짐.
+실제 파일이 유효한지, frontmatter가 맞는지 확인해줘.
 ```
 
-파일은 있었다. 그런데 Cloudflare가 요청을 엉뚱한 곳으로 보내고 있었다. 원인은 `_routes.json`이었다:
+49번의 도구 호출 후 Claude가 찾아낸 원인은 코드가 아니었다.
 
 ```json
-// 기존 — 너무 좁음
+// vercel.json
 {
-  "version": 1,
-  "include": ["/*"],
-  "exclude": ["/api/*", "/_astro/*", "/favicon.svg"]
+  "headers": [
+    {
+      "source": "/images/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
+      ]
+    }
+  ]
 }
 ```
 
-`exclude` 배열이 너무 짧아서 정적 HTML 파일들이 SSR 함수 라우터를 통해 처리됐다. Cloudflare Pages에서 정적 파일과 함수 라우트가 섞이면 이 설정이 결정적이다. 이미지, 스크립트 패턴을 `exclude`에 추가해서 해결했다.
+`immutable`이 문제였다. 최초 요청 때 깨진 HTML 파일이 `.jpg`로 저장됐고, 브라우저가 그걸 1년 TTL의 `immutable` 응답으로 캐시했다. 이후 서버에서 파일을 올바르게 교체해도 브라우저는 캐시된 파일을 그냥 쓴다. `immutable`이란 "이 파일은 절대 바뀌지 않는다"는 선언이기 때문이다.
 
-같은 세션에서 `src/pages/api/generate-ai-news.ts`의 `process.env` → `import.meta.env` 전환도 처리했다. Cloudflare Pages Function은 Node.js 런타임이 아니라서 `process.env`가 undefined를 반환한다.
+해결책은 파일명 변경이었다. `-01.jpg`에서 `-02.jpg`로 rename하면 새 URL이 되고, 캐시 키가 달라지니 브라우저가 서버에서 새로 받는다. frontmatter 4개를 수정하고 구 파일을 삭제했다. Bash 31번, Read 12번, Edit 4번.
 
-세션 38분, 22 tool calls. Read 8회, Bash 8회, Glob 4회, Edit 2회.
+## Vercel 빌드가 계속 취소되는 문제
 
-## BuildLogCard 스키마 불일치 — 이미지 전체 깨진 이유
-
-배포 후 카드 이미지가 전부 안 보였다. 스크린샷을 보니 빈 박스만 가득했다.
-
-처음에는 이미지 경로 문제라고 생각했다. `public/images/posts/` 디렉토리를 확인하고, frontmatter 경로도 확인했다. 파일은 다 있었다.
-
-```typescript
-// src/content/config.ts — build-logs 스키마
-coverImage: z.string().optional()
-
-// src/content/config.ts — tips 스키마
-image: z.string().optional()
-```
-
-`build-logs`는 `coverImage`, `tips`는 `image`. 이 두 스키마가 달랐다. `BuildLogCard.astro`는 `coverImage` prop을 받도록 되어 있었는데, `BlogCard.astro`는 `image` prop을 쓰고 있었다. 빌드 오류는 없었다 — 타입이 `optional`이라 조용히 `undefined`로 넘어갔다.
-
-해결: 두 컴포넌트에 fallback 추가. 이미지가 없으면 초록 그라디언트 배경을 보여준다.
-
-```astro
-<!-- BuildLogCard.astro -->
-{coverImage ? (
-  <img src={coverImage} alt={title} class="w-full h-48 object-cover" />
-) : (
-  <div class="w-full h-48 bg-gradient-to-br from-[#00c471] to-[#00a060]" />
-)}
-```
-
-`BlogCard.astro`도 동일하게 처리했다. 이미지가 있는 포스트는 이미지, 없는 포스트는 브랜드 초록 그라디언트. 일관성도 생겼다.
-
-같은 세션에서 카드 description 2줄 truncate도 처리했다. 전체 요약이 다 보이면 카드가 너무 길어진다.
-
-```css
-.description {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-```
-
-두 세션 합쳐 59 tool calls (24+45). 주로 Read와 Glob으로 스키마 파악에 시간을 썼다.
-
-## SEO/AEO/GEO: llms.txt를 처음 추가해봤다
-
-프롬프트 한 줄:
-
-> "SEO/AEO/GEO 최적화 해줘. 다 챙겨서. JSON-LD, llms.txt, sitemap, robots.txt, OG tags"
-
-Claude가 현재 상태를 먼저 체크했다. `robots.txt`는 기본 허용만 있었고, JSON-LD는 `WebSite` 스키마 하나뿐이었다. OG 태그도 기본 4개밖에 없었다.
-
-**robots.txt** — AI 크롤러 명시 추가:
+`git push`를 3번 해도 Vercel 빌드가 시작조차 안 됐다. 빌드 로그도 없이 "CANCELED" 상태가 반복됐다.
 
 ```
-User-agent: GPTBot
-Allow: /
-
-User-agent: ClaudeBot
-Allow: /
-
-User-agent: PerplexityBot
-Allow: /
+git push로 3번 푸시했는데 Vercel이 전부 취소함. 빌드가 아예 안 시작됨.
+최신 main을 프로덕션에 올려줘.
 ```
 
-Googlebot은 기본 허용이라 굳이 명시 안 해도 되지만, AI 크롤러는 기본 차단되는 케이스가 있어서 명시했다.
+Claude가 선택한 방법은 단순했다.
 
-**llms.txt** — GEO(Generative Engine Optimization)용 파일이다. AI가 사이트 컨텍스트를 더 잘 이해하게 만든다. `/public/llms.txt`에 사이트 구조, 주요 섹션, 작성자 정보를 텍스트로 넣었다.
-
-**JSON-LD** — `Base.astro`에 `Article`, `Person` 스키마 추가. 포스트 페이지에서는 `Article` 타입이 자동으로 들어가고, 글쓴이 정보(`Person`)가 연결된다.
-
-**OG 태그** — `og:site_name`, `og:article:author`, `og:article:published_time` 추가. Twitter Card용 `twitter:creator`도 넣었다.
-
-세션 23분, 37 tool calls. Read 15회, Bash 11회, Edit 6회. 빌드 검증에 Bash를 많이 썼다.
-
-## 빌드 로그 자동 생성 루프
-
-세션 11-13은 메타 작업이었다. "자동으로 빌드 로그 생성해줘"라고 했더니 Claude가 git log와 기존 빌드 로그를 읽고 아직 커버 안 된 세션들을 파악해서 직접 파일을 썼다.
-
-```
-세션 11: "자동으로 빌드 로그 생성해줘. 모든 세션 기록 기반으로"
-→ 1개 생성 (Cloudflare 404 + API env vars)
-
-세션 12: "또 생성해줘. 쓸만한 내용으로"
-→ 1개 생성 (mass auto-publish 스토리)
-
-세션 13: "지금 build log 2개만 있는데 총 몇개 생성돼야해?"
-→ 3개 더 생성 (카드 truncate, 이미지 fallback, SEO)
+```bash
+npx vercel deploy --prod
 ```
 
-한 번에 전부 요청하지 않고 세 세션으로 나뉜 건 "어떤 각도로 쓸지"를 판단하는 게 대화 속에서 자연스럽게 이뤄졌기 때문이다. 세션 12에서 "쓸만한 내용으로"라고 했을 때 Claude가 이미 커버된 내용을 피하고 auto-publish 스토리를 골랐다. 세션 13에서 숫자 기준을 물어봤더니 "커버 안 된 세션 3개"를 파악해서 정확히 3개를 만들었다.
+55초 만에 164개 정적 페이지가 빌드됐고 프로덕션에 올라갔다. git 트리거 방식이 아닌 직접 배포로 우회한 것이다. Bash 5번으로 끝났다.
 
-3개 세션 합쳐 57 tool calls (18+25+14). Write 도구가 처음으로 주역이 됐다.
+git 연동 자동 배포가 실패할 때 `vercel deploy --prod`는 빠른 우회 수단이 된다. 단, 이게 반복되면 Vercel 프로젝트 설정이나 branch protection 규칙을 점검해야 한다.
 
-## 세션별 통계
+## 데일리 브리핑 영어 버전 추가
 
-| 세션 | 내용 | 시간 | tool calls |
-|------|------|------|-----------|
-| 7 | Cloudflare 404 + env vars | 49min | 22 |
-| 8 | 카드 description truncate | 4min | 14 |
-| 9 | 이미지 fallback | 38min | 45 |
-| 10 | SEO/AEO/GEO | 23min | 37 |
-| 11 | 빌드 로그 1개 생성 | 11min | 18 |
-| 12 | 빌드 로그 1개 생성 | 22min | 25 |
-| 13 | 빌드 로그 3개 생성 | 9min | 14 |
+spoonai.me의 `content/daily/` 디렉토리는 `YYYY-MM-DD.md` 한국어 단일 파일만 있었다. 포스트 쪽은 이미 `-ko.md`, `-en.md` 양쪽을 지원하는데 데일리 브리핑만 빠져있었다.
 
-전체: 2h 36min, 175 tool calls. 도구별: Read 68회, Bash 39회, Glob 22회, Edit 16회, Write 4회.
+1시간 27분, 39번의 도구 호출이 들어갔다. 변경 범위는 4개 파일이었다.
 
-배포 직후 버그 수정에 Read와 Glob이 집중됐다 — 스키마 파악, 컴포넌트 구조 이해, 라우팅 설정 확인. 코드를 먼저 읽어야 정확하게 고친다는 게 수치로도 나온다.
+- `lib/content.ts` — `getDailyBriefing(date, lang?)` 시그니처 변경, `hasDailyEnVersion()` 추가
+- `app/daily/[date]/page.tsx` — ko/en 두 버전 동시 fetch
+- `components/DailyBriefing.tsx` — 탭 UI 추가
+- `content/daily/2026-03-30-en.md` — 첫 영어 데일리 생성
+
+코드만 바꾼 게 아니다. `~/Documents/Claude/Scheduled/spoonai-site-publish/SKILL.md`의 STEP 3.6에 영어 데일리 생성 로직을 추가하고, `~/.claude/skills/spoonai-daily-briefing/SKILL.md`도 동기화했다. 코드와 자동화 명세를 함께 관리하는 패턴이다. Claude가 다음 자동화 세션에서 영어 데일리를 빠뜨리지 않으려면 SKILL.md가 업데이트되어 있어야 한다.
+
+## 221번의 도구 호출: Godot 게임 개발
+
+guild-master 프로젝트. Godot 4 기반 길드 경영 시뮬레이션이다. `feature_list.json`에 68개 기능이 `failing` 상태로 있었다.
+
+프롬프트는 간결했다.
+
+```
+feature_list.json의 failing 기능을 Phase 1부터 순서대로 전부 구현해.
+하나 끝나면 바로 다음 것 진행. 모든 기능이 passing이 될 때까지 멈추지 마.
+```
+
+2시간 47분, 221번 도구 호출. Agent 도구를 21번 호출해서 병렬로 작업을 분산했다.
+
+- Phase 1: 데이터 파일 12개 + 모델 8개 + Autoload 싱글톤 11개
+- Phase 2: 용병 시스템 로직 + UI 병렬 처리
+- 씬 파일, GDScript, 테스트 업데이트
+
+구현 후 실제 실행하면 버그들이 쏟아졌다. "회색 화면", "new game에서 아무것도 동작 안 해", "포메이션 셋업에서 진행 안 돼" 같은 피드백이 계속 이어졌다. 대규모 일괄 구현의 한계다. 기능 목록이 `passing`으로 바뀌어도 실제 게임 흐름은 따로 검증해야 한다.
+
+Claude Code로 Godot 프로젝트를 다룰 때의 현실이다. GDScript 문법 오류는 빌드 없이 잡기 어렵고, 씬 파일(`.tscn`)의 노드 참조 문제는 에디터를 열어봐야 확인된다. Bash 34번 중 상당수가 Godot 에디터를 CLI로 검증하려는 시도였다.
+
+## DEV.to 발행 파이프라인
+
+`blog-factory/devto/`에 있는 영어 포스트 2개를 DEV.to에 올리는 작업이었다. 절차는 단순해 보였다.
+
+먼저 `cover_image` R2 URL과 본문 내 히어로 이미지 태그를 제거했다. 이미지 파일이 R2에 없으므로 그냥 두면 깨진 이미지가 뜬다. Glob 2번 + Read 2번 + Edit 2번으로 끝났다.
+
+문제는 API 발행이었다.
+
+```
+API key는 환경변수나 설정 파일에서 찾아봐.
+~/.devto, ~/.config/devto, .env, 프로젝트 내 어딘가에 있을 거야.
+이전 DEV.to 글이 있었으니 어딘가에 키가 있을 거야.
+```
+
+Claude가 Bash 15번으로 파일시스템 전체를 뒤졌지만 키를 찾지 못했다. `~/.devto`, `~/.config/devto`, `.env`, `wrangler.toml`, `package.json` scripts까지 뒤졌다. 이전에 수동으로 발행했거나 다른 시스템에서 관리했을 가능성이 높다. DEV.to API 키는 직접 환경변수로 설정해야 했다.
+
+GitHub Actions 워크플로우(`.github/workflows/publish-devto.yml`)도 없었다. 자동 발행 파이프라인은 아직 없는 상태다.
+
+## 도구 사용 패턴
+
+```
+전체 통계: 406 tool calls
+- Read:       148 (36%) — 코드 파악이 작업 시간의 절반
+- Bash:       117 (29%) — 빌드, 배포, 파일시스템 검색
+- Edit:        43 (11%) — 실제 코드 변경
+- Agent:       21 (5%)  — 병렬 작업 분산
+- Write:       16 (4%)  — 새 파일 생성
+```
+
+Read가 Bash보다 많다. 코드를 이해하는 데 구현보다 더 많은 시간이 든다는 뜻이다. Edit이 43번인데 변경된 파일은 25개다. 파일당 평균 1.7번 수정했다는 의미이고, 한 번에 제대로 고치는 경우가 많았다는 뜻이기도 하다.
+
+## 이번 사이클에서 배운 것
+
+캐시 전략은 배포 전에 검토해야 한다. `immutable`은 CDN 성능을 위해 유용하지만, 파일 내용이 바뀔 가능성이 있는 경로에 적용하면 디버깅이 어려워진다. 이미지 경로에 해시나 버전을 포함하는 패턴이 더 안전하다.
+
+"전부 구현해" 프롬프트는 뼈대를 빠르게 세울 때 유효하다. 하지만 게임 루프 품질은 개발자가 직접 플레이하며 검증해야 한다. 221번 도구 호출이 feature list를 passing으로 바꿔줘도, 실제 사용자 경험은 별개 문제다.
