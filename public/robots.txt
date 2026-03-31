@@ -16,4 +16,25 @@ Allow: /
 User-agent: Google-Extended
 Allow: /
 
-Sitemap: https://jidonglab.com/sitemap-index.xml
+User-agent: ChatGPT-User
+Allow: /
+
+User-agent: Amazonbot
+Allow: /
+
+User-agent: anthropic-ai
+Allow: /
+
+User-agent: Bytespider
+Allow: /
+
+User-agent: cohere-ai
+Allow: /
+
+User-agent: Diffbot
+Allow: /
+
+User-agent: YouBot
+Allow: /
+
+Sitemap: https://jidonglab.com/sitemap.xml

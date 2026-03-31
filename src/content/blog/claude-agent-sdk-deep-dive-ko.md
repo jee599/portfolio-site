@@ -8,10 +8,8 @@ heroImage: "https://r2.jidonglab.com/blog/2026/03/claude-agent-sdk-hero.jpg"
 heroImageCaption: "사진 출처: Anthropic / claude.com"
 heroImageAlt: "Claude Agent SDK 아키텍처를 보여주는 공식 다이어그램"
 readingTime: 14
-source:
-  title: "Building agents with the Claude Agent SDK"
-  url: "https://claude.com/blog/building-agents-with-the-claude-agent-sdk"
-  author: "Thariq Shihipar, Anthropic"
+source: "original"
+source_url: "https://claude.com/blog/building-agents-with-the-claude-agent-sdk"
 ---
 
 ![Claude Agent SDK 아키텍처를 보여주는 공식 다이어그램](https://r2.jidonglab.com/blog/2026/03/claude-agent-sdk-hero.jpg)

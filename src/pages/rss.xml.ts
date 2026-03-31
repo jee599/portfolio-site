@@ -19,7 +19,9 @@ export async function GET(context: any) {
     ...buildLogs.map((p) => ({
       title: p.data.title,
       pubDate: p.data.date,
+      description: p.data.description || p.data.title,
       link: `/posts/${p.slug}`,
+      categories: p.data.tags,
     })),
     ...tips.map((p) => ({
       title: p.data.title,

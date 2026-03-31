@@ -8,10 +8,8 @@ heroImage: "https://r2.jidonglab.com/blog/2026/03/harness-cicd-hero.png"
 heroImageCaption: "사진 출처: Codefresh / Harness 아키텍처 다이어그램"
 heroImageAlt: "Harness CI/CD 플랫폼의 제품 에디션과 아키텍처 구성도"
 readingTime: 15
-source:
-  title: "Harness Official"
-  url: "https://www.harness.io/"
-  author: "Harness Inc."
+source: "original"
+source_url: "https://www.harness.io/"
 ---
 
 ![Harness CI/CD 플랫폼의 제품 에디션과 아키텍처 구성도](https://r2.jidonglab.com/blog/2026/03/harness-cicd-hero.png)

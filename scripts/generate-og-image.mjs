@@ -1,0 +1,31 @@
+/**
+ * Generate default OG image as PNG using HTML + Playwright-like approach
+ * Run: node scripts/generate-og-image.mjs
+ *
+ * Since we can't run Playwright in all envs, this creates a simple SVG
+ * that's valid for OG (1200x630) and converts concept to a static PNG placeholder.
+ *
+ * For now, we create a proper SVG with foreignObject for text rendering.
+ */
+
+import { writeFileSync } from 'fs';
+
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="100%" style="stop-color:#1e293b"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <circle cx="100" cy="500" r="200" fill="#00c471" opacity="0.08"/>
+  <circle cx="1100" cy="130" r="180" fill="#3b82f6" opacity="0.06"/>
+  <text x="80" y="260" font-family="system-ui,-apple-system,sans-serif" font-size="72" font-weight="800" fill="#ffffff" letter-spacing="-2">jidonglab</text>
+  <text x="80" y="340" font-family="system-ui,-apple-system,sans-serif" font-size="32" font-weight="400" fill="#94a3b8">AI Developer · Builder · Open Source</text>
+  <text x="80" y="420" font-family="system-ui,-apple-system,sans-serif" font-size="24" fill="#64748b">Build logs · AI News · Technical articles</text>
+  <rect x="80" y="470" width="60" height="4" rx="2" fill="#00c471"/>
+  <text x="80" y="520" font-family="monospace" font-size="20" fill="#475569">jidonglab.com</text>
+</svg>`;
+
+writeFileSync('public/og/default-og.svg', svg);
+console.log('Generated: public/og/default-og.svg (1200x630)');

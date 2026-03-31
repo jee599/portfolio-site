@@ -24,7 +24,7 @@ const rendered = await entry.render();
 const ContentComponent = rendered.Content;
 ---
 
-<Base title={title} description={description}>
+<Base title={title} description={description} ogType="article" publishedTime={`${dateStr}T08:00:00+09:00`} tags={tags}>
   <script type="application/ld+json" set:html={JSON.stringify({
     '@context': 'https://schema.org',
     '@type': 'BlogPosting',
