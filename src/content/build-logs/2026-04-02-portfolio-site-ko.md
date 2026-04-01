@@ -1,111 +1,108 @@
 ---
-title: "Claude Code로 네이버 치과 블로그 300개 분석하고 카드 자동화까지 — 671번의 도구 호출"
+title: "DEV.to 자동 발행 파이프라인이 조용히 죽어있었다 — `const lang` 한 줄 때문에"
 project: "portfolio-site"
 date: 2026-04-02
 lang: ko
-tags: [claude-code, automation, naver, dental, gemini, playwright]
-description: "25시간 671번의 도구 호출로 네이버 치과 블로그 300개를 분석하고 S급 패턴을 추출해 자동화 파이프라인을 구축했다. /compact 3번, 컨텍스트 한계와 싸운 기록."
+tags: [claude-code, github-actions, automation, devto, debugging]
+description: "DEV.to 발행 자동화가 SyntaxError로 조용히 실패하고 있었다. Claude가 먼저 한 건 API 키 8시간 수색이었고, 실제 버그는 `const lang` 이중 선언 한 줄이었다."
 ---
 
-5개 세션, 총 1501번의 도구 호출. 그 중 하나의 세션이 671번이었다. 25시간 55분짜리 세션이다.
+DEV.to에 영어 글 2개를 발행해달라고 했다. 두 글 다 결국 올라갔다. 그런데 거기까지 가는 경로가 예상보다 복잡했다.
 
-**TL;DR** 네이버 검색 API로 치과 블로그 330개를 수집·분석하고, S급 구조 패턴을 추출해 Gemini API + Playwright로 자동 생성하는 파이프라인을 Claude Code 한 세션에서 완성했다. `/compact`를 3번 써야 했고, 컨텍스트가 3번 날아갔다.
+**TL;DR** GitHub Actions 워크플로우가 `const lang` 이중 선언 SyntaxError로 실행 자체가 안 되고 있었다. 그 사실을 발견하기 전에 Claude가 API 키를 찾는 데 8시간을 썼다.
 
-## 시작: "분당 임플란트 상위 10건만 분석해줘"
+## API 키 8시간 수색
 
-처음 요청은 단순했다. 네이버 블로그 하나를 URL로 던지며 구조 분석을 요청했다. iframe 래퍼가 3KB, 실제 본문이 292KB인 PostView URL 구조를 파악하는 데 몇 번의 Bash 호출이 필요했다.
+첫 프롬프트는 이랬다.
 
-macOS에서 막힌 첫 번째 삽질: `grep -P` 옵션이 없다. Perl 정규식을 지원하지 않는다. Python으로 우회했다.
+> `blog-factory/devto/` 디렉토리에 있는 두 글을 DEV.to API로 직접 발행해라. API 키는 환경변수나 설정 파일에서 찾아봐.
 
-```python
-# macOS grep 대신 Python으로 class 빈도 추출
-import re
-from collections import Counter
-# ...
+Claude가 Bash를 28번 호출했다. 확인한 경로:
+
+- `~/.devto`, `~/.config/devto` — 없음
+- `~/.env.local` — `ANTHROPIC_API_KEY`만 있음
+- 프로젝트 내 `.env*` 파일 — 없음
+- macOS 키체인 — 없음
+- 환경변수 전수 확인 — 없음
+
+GitHub 시크릿에 `DEVTO_API_KEY`가 존재하는 건 발견했다. 하지만 GitHub CLI로 시크릿 값을 읽는 건 불가능하다. 쓰기 전용이다.
+
+```bash
+gh secret list
+# ✓ DEVTO_API_KEY  Updated 3 months ago
+# 값은 읽기 불가
 ```
 
-네이버 API 키 발급은 사람이 직접 해야 하는 작업이다. 개발자 콘솔 로그인이 필요한 인증 단계는 Claude가 대신할 수 없다. 키를 받아서 붙여넣는 방식으로 진행했다.
+8시간 뒤 결론은 "API 키가 로컬 어디에도 없다, 직접 알려달라"였다.
 
-첫 분석 결과: 상위 1위 블로그(서울리더스치과)는 컴포넌트 27개, 이미지 36장(슬라이드 26장 포함), 텍스트 단락 77개였다. 이 구조를 기준으로 S급 패턴을 정의했다.
+이게 Claude Code의 특성이다. 명확한 정보가 없으면 가능한 모든 경로를 소진한다. `gh secret list`에서 키가 있다는 걸 확인한 순간 "그럼 GitHub Actions로 직접 발행하면 되지 않나?"로 전략을 전환했으면 더 빨랐을 텐데, 그 판단은 사용자가 명시해줘야 한다.
 
-## 330개로 확장: Background Task 전략
+## 실제 문제는 `const lang` 이중 선언이었다
 
-"분당 임플란트"에서 시작해 "16 지역 × 7 시술"로 검색어를 확장했다. 112개 키워드, 각 상위 3건 = 336건. 이걸 한 번에 Claude에게 넘기면 컨텍스트가 터진다.
+다음 세션에서 워크플로우 파일 자체를 먼저 열어봤다. `.github/workflows/publish-to-devto.yml` 내부 스크립트:
 
-해결 방법은 Background Task였다.
-
-```
-TaskCreate → "Run full dental blog collection pipeline"
-(exit code 0으로 완료 알림 수신)
-```
-
-Claude가 직접 모든 HTTP 요청을 처리하는 대신, Python 스크립트를 Background로 실행하고 완료 알림을 기다리는 패턴이다. API 응답이 contextzip에 의해 압축되는 문제도 있어서, 결과를 파일로 저장하고 파싱하는 방식으로 우회했다.
-
-도구 사용 통계를 보면 이 전략이 효과적이었는지 알 수 있다. Read 277번, Bash 191번. 직접 처리보다 파일 읽기 비중이 압도적으로 높다.
-
-## /compact 3번: 컨텍스트 한계와의 싸움
-
-25시간짜리 세션에서 `/compact`를 3번 사용했다. 컨텍스트가 한계에 가까워지면 이전 요약을 넣고 새 컨텍스트로 이어간다.
-
-두 번째 compact 이후 세션 요약에 들어온 내용:
-
-> "Primary Request: 사용자는 데이터 기반 치과 블로그 마케팅 자동화 파이프라인을 구축하고 싶다. 330개+ 포스트를 분석해 S급 품질 HTML 카드 템플릿을 만들고..."
-
-같은 세션이지만 Claude 입장에서는 처음 만나는 컨텍스트다. 중요한 결정사항과 진행 상태가 요약에 충분히 담겨야 다음 compact 이후에도 이어갈 수 있다.
-
-이 패턴에서 배운 것: 긴 작업을 이어가려면 중간 중간 명확한 상태 요약이 필요하다. Claude가 알아서 요약하지만, 사용자가 핵심 결정사항을 명시적으로 확인해두는 게 낫다.
-
-## 시각적 피드백 루프: 스크린샷으로 이터레이션
-
-카드 이미지 생성 단계에서는 코드 리뷰가 아니라 **시각적 피드백**이 반복됐다. 사용자가 스크린샷을 붙여넣으면 Claude가 문제를 파악하고 HTML을 수정하는 루프다.
-
-```
-[Image: 스크린샷 2026-04-01 오후 8.39.28.png]
-"이게 원본 사이트야 로고 가져와서 저장해"
+```javascript
+// 문제가 된 코드
+const lang = frontmatter.lang || 'ko';
+// ... 중간 로직 ...
+const lang = effectiveLang; // SyntaxError: Identifier 'lang' has already been declared
 ```
 
-Playwright로 캡처 → 사용자 확인 → 피드백 → HTML 수정 → 재캡처. 이 루프가 수십 번 돌았다.
+같은 스코프에 `const lang`이 두 번 선언되어 있었다. Node.js는 이걸 파싱 단계에서 막는다. 실행조차 안 된다. 즉, 이 워크플로우는 파일을 push할 때마다 조용히 실패하고 있었다.
 
-로고 관련 삽질이 가장 길었다. `opacity` 값이 들어가 있어서 흐리게 나오는 문제, SVG를 직접 크롤링해서 `logo2W.svg`(다크 배경용 화이트 버전)를 사용하는 방식으로 해결했다. 최종 카드 구조:
+수정은 한 줄이었다.
 
-```
-┌─────────────────────────────┐
-│  Gemini API 생성 의료 일러스트  │
-│  ──────────────────────────  │
-│  메인 텍스트 (IBM Plex Sans KR) │
-│  서브 내용 3~4줄              │
-│  ──────────────────────────  │
-│     UD 유디치과 로고 (중앙)     │
-└─────────────────────────────┘
+```javascript
+// 수정 후
+const lang = frontmatter.lang || 'ko';
+// ...
+const effectiveLang = lang; // 이중 선언 제거
 ```
 
-## 결과물: 재사용 가능한 파이프라인
+두 번째 문제는 파일 경로였다. `blog-factory/devto/`에 파일이 있었는데, 워크플로우가 감시하는 경로는 `src/content/blog/**`이었다. 경로가 달라서 트리거 자체가 안 됐다. EN 파일 2개를 `src/content/blog/`에 복사하고 main에 push했다.
 
-세션이 끝날 때 남은 것:
+워크플로우가 자동으로 트리거됐다.
 
-- `generate-blog-cards` 커맨드: 시술명 입력 → HTML 템플릿 렌더링 → Gemini API 의료 일러스트 생성 → Playwright PNG 캡처
-- `write-dental-blog` 커맨드: 위 커맨드를 내부적으로 호출하며 블로그 글 구조 설계까지
-- 재사용 가능한 이미지 캐시: 30~50개 배경 이미지를 처음에 생성해두고 재조합
-- `BLOG-DESIGN-GUIDELINE.md`: S급 래퍼런스에서 추출한 구조 패턴 문서
+## 429 Rate Limit, 그리고 완료
 
-Gemini API로 생성한 의료 일러스트는 "이 이미지는 수술 과정 이해를 돕기 위한 예시입니다" 문구와 함께 삽입된다. 실사 사진 대신 생성 이미지를 쓰는 게 명확히 낫다는 판단이었다.
+첫 번째 글(Claude Agent SDK)은 발행 성공. 두 번째 글(Harness CI/CD)은 `429 Too Many Requests`로 실패했다. DEV.to API가 짧은 시간에 연속 요청을 받으면 막는다.
 
-## 병렬 세션에서 진행된 다른 작업
+수동으로 재트리거했다.
 
-같은 기간에 다른 세션들도 돌아갔다.
+```bash
+gh workflow run publish-to-devto.yml
+```
 
-**spoonai 이미지 깨짐 수정**: CDN에서 HTML 파일이 `.jpg`로 저장되는 버그. 4개 파일의 `image` frontmatter를 제거하고, SKILL.md에 이미지 검증 로직을 추가했다. 중복 기사 4건(같은 주제가 3~4일 연속 발행된 것)도 정리했다.
+두 번째 시도에서 통과. 두 글 모두 DEV.to에 올라갔다.
 
-**jidonglab SEO 강화**: `robots.txt`, sitemap, JSON-LD, RSS, OpenSearch까지. 두 사이트(jidonglab + spoonai)를 동시에 업데이트했다. 168번의 도구 호출, 42분.
+실제 수정 도구 사용: Bash 14번, Read 2번, Edit 1번. 핵심 버그 수정은 파일 하나, 한 줄이었다. 나머지는 확인 작업이다.
 
-**refmade 모바일 수정**: 42개 iframe(각 1440×6000px)을 모바일에서 로드하면 Safari가 메모리 초과로 탭을 kill → reload 루프에 빠진다. `useIsMobile` hook으로 768px 미만에서는 썸네일 PNG를 사용하도록 전환했다. 진단에서 수정까지 10분이 안 걸렸다.
+## 커버 이미지 정리
 
-## Claude Code 활용 관점에서 정리
+별도 세션에서 `blog-factory/devto/` 파일들의 `cover_image` 필드를 정리했다. Cloudflare R2에 이미지가 없는 상태에서 R2 URL이 frontmatter에 남아있었다.
 
-이번 세션들에서 패턴으로 굳어진 것들:
+```yaml
+# 정리 전
+cover_image: https://r2.jidonglab.com/images/hero-image.png
 
-**Background Task는 필수다.** 300개 데이터 수집 같은 I/O 집약 작업을 Claude가 직접 처리하면 컨텍스트를 낭비한다. 스크립트를 작성하고 Background로 실행한 뒤 완료 알림을 받는 방식이 훨씬 효율적이다.
+# 정리 후 (필드 제거)
+```
 
-**이미지 피드백은 텍스트보다 빠르다.** "로고가 흐릿하다"는 텍스트 설명보다 스크린샷 하나가 문제를 더 정확하게 전달한다. Claude Code가 이미지를 직접 읽을 수 있다는 점을 적극적으로 활용했다.
+본문 내 `![...]` 히어로 이미지 태그도 같이 제거했다. 이미지 없이 발행하는 게 깨진 URL보다 낫다.
 
-**컨텍스트 관리는 사용자 몫이다.** `/compact` 타이밍을 잘 잡는 게 중요하다. 너무 이르면 필요한 컨텍스트가 사라지고, 너무 늦으면 Claude가 이전 결정을 잊어버린다. 25시간 세션에서 3번이 적당했다.
+## 자동화가 잘 된다는 착각
+
+이번 작업에서 얻은 것은 코드 변경보다 인식의 전환이다.
+
+GitHub Actions 워크플로우를 만들어두고 "자동화 됐다"고 생각했다. 실제로는 3개월간 조용히 실패하고 있었다. 성공 알림은 없었고, 실패 알림을 설정하지 않았으니 아무것도 몰랐다.
+
+자동화 파이프라인에는 두 가지가 필요하다. 실행됐는지 확인하는 로그, 그리고 실패했을 때 알려주는 알림. `gh run list`로 최근 실행 상태를 주기적으로 확인하는 습관이 이것보다 빠르다.
+
+```bash
+# 워크플로우 실행 상태 확인
+gh run list --workflow=publish-to-devto.yml --limit=5
+```
+
+그리고 Claude에게 "API 키 찾아봐"를 주면 가능한 경로를 전부 소진한다. 그게 틀린 접근은 아닌데, 더 빠른 방법은 "키가 없으면 GitHub Actions로 발행할 수 있는지 먼저 확인해"처럼 대안 전략까지 지시하는 것이다.
+
+> 자동화가 잘 되어 있다는 착각이 제일 위험하다.
