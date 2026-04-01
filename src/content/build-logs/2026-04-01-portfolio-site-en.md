@@ -1,174 +1,164 @@
 ---
-title: "I Analyzed 330 Naver Dental Blogs in One Day Using Claude Code — Here's the Full Pipeline"
+title: "330 Naver Blogs Scraped + Full SEO/AEO Overhaul — 3 Sessions, 604 Tool Calls"
 project: "portfolio-site"
 date: 2026-04-01
 lang: en
 pair: "2026-04-01-portfolio-site-ko"
-tags: [claude-code, automation, seo, naver, dental, gemini]
-description: "3 sessions, 604 tool calls, 13-hour sprint. How Claude Code scraped 330 blogs, extracted S-grade patterns, and built a dental marketing automation pipeline."
+tags: [claude-code, seo, aeo, automation, naver-api, scraping]
+description: "Parsed 330 dental blogs via Naver API to extract top-ranking patterns, overhauled jidonglab SEO/AEO. 3 sessions, 604 tool calls, 13 hours."
 ---
 
-604 tool calls. Three sessions. One day. The longest session ran 13 hours and 13 minutes — 422 tool calls without stopping.
+The longest session today ran 13 hours and 13 minutes. 422 tool calls. I parsed 330 Naver blog posts, designed a dental blog auto-generation pipeline from scratch, and simultaneously overhauled SEO/AEO for jidonglab and spoonai.
 
-The goal: build a dental blog ranking automation pipeline for Naver (Korea's dominant search engine). Scrape the top-performing blogs, extract structural patterns, generate HTML card templates, and cache AI-generated images. One day, zero prior code.
+**TL;DR** Session 2 strengthened search visibility with `llms-full.txt`, sitemap, and structured data. Session 3 analyzed 330 Naver blog structures and produced 8 HTML blog card templates based on S-tier patterns.
 
-**TL;DR** — Claude Code built a complete dental content pipeline in a single day: data collection → pattern analysis → template generation → image caching. The data showed that top-ranked posts have 27+ components, 36+ images, and follow a specific content sequence. We built templates that replicate it.
+## The Telegram 409 That Kept Coming Back (15 min, 14 tool calls)
 
-## The Day Started With a Telegram 409 Conflict (15 min, 14 tool calls)
+Session 1 lasted 15 minutes. Same problem as yesterday, same day.
 
-First prompt of the day:
-
-```
-텔래그램 설정 다시 해줘 지금 메세지가 안돼
-(Fix the Telegram setup, messages aren't working)
-```
-
-Simple enough. But Claude pulled the MCP server logs and found `409 Conflict`. The same bot token was being polled from two simultaneous sessions — the `fakechat` plugin had just been installed, which spun up a second connection.
-
-The fix: release the polling lock, close the other session. Done in 14 tool calls (Bash: 10, Read: 3, Skill: 1).
-
-What made this fast: Claude read `~/.claude/channels/telegram/.env` directly and reconstructed the full state — token status, DM policy, allowlist — without needing to reproduce the bug. The config file was the source of truth.
-
-## Broken Images Were Actually HTML Files Saved With `.jpg` Extensions (42 min, 168 tool calls)
-
-Session two:
+I had just installed the `fakechat` plugin, so Claude initially connected it to the Telegram issue — they were completely unrelated. The actual cause was in the MCP server logs:
 
 ```
-spoonai 이미지 다 깨져서 올라가 있고, 중복되는 기사들도 있어
-(All spoonai images are broken, and there are duplicate articles)
+409 Conflict: Terminated by other getUpdates request;
+make sure that only one bot instance is running
 ```
 
-The cause: the image generation script was silently swallowing errors and writing raw HTTP response bodies to disk with `.jpg` extensions. Of five image files, four were HTML. `anthropic-mythos-01.jpg` was a 919-byte error page. The fix was adding response validation to the skill config.
+Every time a Claude Code session restarts, the Telegram MCP server spawns a new instance. If the previous process is still alive, Telegram's Bot API throws a conflict — only one `getUpdates` long-poll connection is allowed at a time. Releasing the polling lock and restarting via `/reload-plugins` fixed it.
 
-Four duplicate articles (the same piece appearing three times) were handled by stripping the `image` field from frontmatter. Eight files, same pattern — batch-fixed with Edit.
+> When Telegram MCP stops responding, check for duplicate processes before touching config. `ps aux | grep "bun server.ts"` tells you how many instances are running.
 
-Then scope expanded. Next prompt:
+## Full SEO/AEO Overhaul (42 min, 168 tool calls)
 
-```
-AI 검색결과 / 구글검색결과에 자주 노출될 수 있는 모든 효과적인 전략 적용해줘
-(Apply every effective strategy for ranking in AI and Google search results)
-```
+Session 2 started with fixing broken images on spoonai and ended with a full AI search visibility strategy rollout.
 
-Claude worked through the full SEO stack: `robots.txt` improvements, `sitemap.xml.ts` generation, JSON-LD structured data injected into `Base.astro`, `feed.xml` / `llms-full.txt` / `opensearch.xml` added to spoonai, canonical URL config in `next.config.ts`.
+### Why the Images Were Broken
 
-168 tool calls. Read fired 37 times — every file was read before being modified. That discipline is consistent across all three sessions.
+Four article thumbnails had been saved as HTML files. `anthropic-mythos-01.jpg` was 919 bytes — if a `.jpg` is under 1KB, it's HTML. The image generation script was silently swallowing Gemini API errors and writing the raw HTTP response body to disk.
 
-## The 13-Hour Session: 330 Naver Blogs, Fully Analyzed (422 tool calls)
+Two fixes: removed the `image` field from frontmatter on 8 broken articles — a missing image is better than a broken one. Added response file size validation to SKILL.md.
 
-Session three started with a single Naver blog URL:
+Four duplicate articles existed (Harvey AI was collected three times across 03-27, 03-29, 03-30) because deduplication was checking titles, not URLs. Slightly different titles slip through.
 
-```
-https://blog.naver.com/choijc07/224228016203
-```
+### llms-full.txt and AI Crawler Access
 
-Initial ask: "Build a comparison table of the top 10 results for implants in Bundang." That escalated. By the end, the pipeline covered 16 regions × 7 dental procedures × top 3 results = 336 posts collected and analyzed.
+One prompt — "apply every effective strategy to maximize AI search result exposure" — had Claude modify 14 files and create 7 new ones.
 
-### contextzip Was Eating the API Responses
+Three core changes:
 
-After getting a Naver API key, the first script run returned nothing. `contextzip` — a token-compression proxy that sits between Claude and shell output — was compressing the API responses before Claude could read them.
+**`/llms-full.txt` route**: a new endpoint that exports full markdown content structured for LLM crawlers. Perplexity, ChatGPT, and other AI search engines prioritize this file when indexing.
 
-Workaround: redirect output to a file, use the Read tool.
-
-```bash
-# contextzip compresses stdout — pipe to file instead
-curl "https://openapi.naver.com/..." > /tmp/naver_results.json
-```
-
-This became the standard pattern for the rest of the session. Python scripts write to files; Claude reads them with Read. Large HTML parses, API responses, analysis output — everything went through files. A token-saving optimization had broken an entire category of tasks, and the fix was five minutes once the cause was clear.
-
-### Background Tasks for Parallel Collection
-
-Scraping 330 blogs sequentially would have been painfully slow. Claude switched to background task execution:
+**AI crawler allow rules in `robots.txt`**:
 
 ```
-<task-notification>
-<summary>Background command "Run full dental blog collection pipeline" completed (exit code 0)</summary>
-</task-notification>
+User-agent: GPTBot
+Allow: /
+
+User-agent: Claude-Web
+Allow: /
+
+User-agent: PerplexityBot
+Allow: /
 ```
 
-While collection ran in the background, HTML template work continued in parallel. This is why TaskUpdate appears 33 times in the stats — tracking pipeline state across concurrent work streams.
+**JSON-LD structured data in `Base.astro` and `PostLayout.astro`**: Article, BreadcrumbList, and WebSite schemas. `sitemap.xml.ts` replaces Astro's auto-generated sitemap — each post's `date` now maps to `lastmod`.
 
-### `/compact` Saved the Session Mid-Sprint
+## The Dental Blog Pipeline (13 hours, 422 tool calls)
 
-Around hour nine, context hit its limit. Running `/compact` produced a summary that preserved the critical state: S-grade patterns extracted so far, which regions were complete, what was left to do.
+Session 3 was the main event. Read 170, Bash 102, Edit 75, Write 48.
 
-```
-This session is being continued from a previous conversation that ran out of context.
-The summary covers: 330+ posts collected across 16 regions × 7 treatments...
-```
+### From One URL to 330 Blog Posts
 
-One `/compact` in 13 hours. The session never lost its thread. The quality of the summary determines whether you can keep going — this one held up.
+It started with a single Naver blog URL. That turned into "compare top 10 Bundang implant posts," which became a pipeline collecting the top 3 results across 16 regions × 7 procedures — 336 posts total.
 
-### What the #1 Ranking Blog Actually Looks Like
+Naver blogs use an iframe structure. The main URL is a 3KB wrapper; the actual content lives at the `PostView` URL. Claude's first Bash call pulled 292KB of HTML.
 
-The top Bundang implant blog had 27 components, 36 images, and 26 slides. Claude parsed the HTML and extracted the component sequence:
-
-```
-OTHER→TEXT→QUOTE→(TEXT↔IMAGE)×7→MORE_SLIDE...
-```
-
-Repeating this across all 330 posts and cross-referencing against ranking position revealed the S-grade pattern: the top 20% of posts share a specific content structure that lower-ranked posts don't follow. Read fired 170 times during this phase — every parsed HTML file was read back to verify the extraction.
-
-### Image Caching: Pre-Generate Once, Reuse Forever
-
-The original approach called Gemini's API fresh for every blog card. The request that changed it:
-
-```
-매번 API를 호출해서 그림을 그리는 게 아니라, 처음에 수십 가지의 그림을 그려놓고
-HTML로 다른 텍스트를 넣어서 재사용하는 식으로
-(Instead of calling the API every time, pre-generate dozens of images
-and reuse them with different text injected via HTML)
-```
-
-Claude designed a three-layer caching system. First, `generate_illustrations.py` pre-generates 30–50 base images via Gemini. Second, `assets/manifest.json` caches the image inventory. Third, blog card generation uses cache-first lookup — only calling the API when the requested image doesn't exist.
+macOS `grep` doesn't support `-P` (Perl regex), so Claude switched to Python immediately after seeing the error — no instruction needed:
 
 ```python
-# generate_illustrations.py — cache-first strategy
-def get_or_generate(prompt_key, output_path):
+import re
+from collections import Counter
+
+with open('sample_postview.html') as f:
+    html = f.read()
+
+classes = re.findall(r'class="([^"]*)"', html)
+counter = Counter()
+for c in classes:
+    for cls in c.split():
+        counter[cls] += 1
+print(counter.most_common(20))
+```
+
+`se-text-paragraph` appeared 272 times, `se-module-image` 84 times. The Naver SmartEditor 3 structure pattern was now visible.
+
+### Working Around contextzip
+
+Naver API responses were disappearing. `contextzip` was compressing them to save tokens. The workaround: save to file first, then read with the Read tool.
+
+```bash
+# contextzip compresses responses — results vanish
+# save to file and read separately
+curl "https://openapi.naver.com/..." > /tmp/naver_results.json
+# then use the Read tool
+```
+
+The same pattern handled all 300 HTML parse operations.
+
+### Background Task + /compact
+
+Collecting 330 blogs ran as a Background Task — other work continued while collection ran in parallel. That's why `TaskUpdate` appears 33 times in the log.
+
+As the session stretched on, context hit its limit. Running `/compact` preserved the critical context (S-tier patterns, analysis state, next steps) in the summary, and the session continued without losing its thread. One `/compact` across 13 hours. A good summary means no interruption to flow.
+
+### S-Tier Patterns and Image Caching Strategy
+
+The top-ranked Bundang implant blog had 27 components, 36 images, and 26 slides. Analyzing all 330 posts the same way, the top 20% shared patterns that became `BLOG-DESIGN-GUIDELINE.md`, then a Claude Code skill. Now `/write-dental-blog` generates guideline-based posts in one command.
+
+The image system was designed around pre-generation rather than on-demand: generate 30–50 base images with Gemini API upfront, cache them in `assets/manifest.json`, and use cache-first lookup during card generation.
+
+```python
+def get_or_generate(prompt_key: str, output_path: Path) -> Path:
     if output_path.exists():
         return output_path  # cache hit
     return generate_with_gemini(prompt_key, output_path)
 ```
 
-Pre-generation ran as a background task. While 30–50 images were being generated, HTML template work ran in parallel.
+### The Quality Feedback Loop
 
-### The Feedback Loop That Took Most of the Day
-
-First draft cards shipped. Feedback came back:
+After the first draft of blog cards came back:
 
 ```
-폰트 / 다크네이비 톤 / 로고이미지 제대로 안 써져 있고 / 그림생성한것도 다 별로야
-(Font / dark navy tone / logo not rendering correctly / generated images are all bad)
+font / dark navy tone / logo image isn't working properly / the generated images are all bad
 ```
 
-Then:
-
 ```
-로직 처음부터 다시 짜.
-(Rewrite the logic from scratch.)
+rewrite the logic from scratch.
 ```
 
-Claude treated this as a full rewrite, not incremental edits. Edit fired 75 times during this phase — font replacement, color contrast, logo positioning, image captions. The final output is 8 card variants for implant posts: title, checklist, procedure steps, three info+image variants (bone graft, digital guide, aftercare), doctor introduction, legal disclaimer, and CTA.
+75 of the Edit calls were concentrated in this feedback loop. The final output: 8 card types for an implant post — title, checklist, procedure steps, info+image cards (bone graft, digital guide, aftercare), doctor profile, legal notice, CTA.
 
-## Tool Usage Breakdown
+## Tool Call Breakdown
 
-| Tool | Count | Primary Use |
-|------|-------|-------------|
-| Read | 210 | Verify HTML parse output, config files |
-| Bash | 164 | Python scripts, curl, file operations |
-| Edit | 101 | HTML card revisions, skill config updates |
-| Write | 53 | New file creation |
-| TaskUpdate | 33 | Background task state management |
+```
+Total: 604 tool calls (3 sessions)
+- Read:       210 (35%) — HTML parse results, config files
+- Bash:       164 (27%) — Python scripts, API calls
+- Edit:       101 (17%) — HTML card revisions, SKILL.md updates
+- Write:        53 (9%) — new file creation
+- TaskUpdate:   33 (5%) — background task status
+- TaskCreate:   15 (2%) — background task spawning
+- Agent:         6 (1%) — parallel subagent processing
+```
 
-Read dominates at 210. The "read before you write" principle shows up directly in the stats. Exploration (Read + Bash: 374) outpaced implementation (Edit + Write: 154) by 2.4×. The session was mostly investigation, not code generation.
+Read 35%, Bash 27%. Exploration (Read + Bash) outpaced implementation (Edit + Write) by 2.4×. Makes sense for a session that was primarily parsing 300 HTML files.
 
 ## What This Session Confirmed
 
-**Claude Code handles large-scale exploratory work well.** Analyzing 330 blogs and extracting patterns didn't require a detailed spec upfront — the data shaped the direction. The pipeline emerged from what the data showed, not from what was planned in advance.
+When `contextzip` compresses API responses in the environment, saving large results to a file first and reading with the Read tool is the safe pattern. Diagnosing disappearing responses costs time.
 
-**Visual quality feedback still requires a human.** "These images are all bad" and "rewrite the logic from scratch" aren't things that can be expressed as code. Claude iterated fast once the feedback arrived — but the 13-hour length reflects how many feedback loops ran. Each round of "here's the new output, what's wrong with it" added time.
+Visual quality judgment requires a human. "The images are all bad" can't be encoded in a script. The 13-hour session stretched because the feedback loop ran multiple times. Next time: share reference images at the draft stage before generating anything.
 
-**Silent failures in tooling compound fast.** The `contextzip` collision was the most interesting friction point. A token-saving optimization broke an entire category of tasks. Debugging it took less than five minutes because Claude read the actual config rather than guessing. The lesson: when output disappears unexpectedly, the proxy layer is worth checking first.
+The Background Task + `/compact` combination holds up for long sessions. Work in parallel while collection runs, compress when context fills, continue without losing state. That's how a 13-hour session finishes as a single coherent thread.
 
 ---
 
