@@ -1,124 +1,174 @@
 ---
-title: "11 Sessions, 186 Tool Calls to Publish 2 Blog Posts — What Claude Code Actually Debugged"
+title: "I Analyzed 330 Naver Dental Blogs in One Day Using Claude Code — Here's the Full Pipeline"
 project: "portfolio-site"
 date: 2026-04-01
 lang: en
 pair: "2026-04-01-portfolio-site-ko"
-tags: [claude-code, github-actions, devto, automation, worktree, debugging]
-description: "Publishing 2 posts to DEV.to was supposed to take 10 minutes. It took 11 Claude Code sessions. Here's the silent SyntaxError and worktree trap that caused it."
+tags: [claude-code, automation, seo, naver, dental, gemini]
+description: "3 sessions, 604 tool calls, 13-hour sprint. How Claude Code scraped 330 blogs, extracted S-grade patterns, and built a dental marketing automation pipeline."
 ---
 
-Publishing two English posts to DEV.to. Estimated time: 10 minutes. Actual: 11 sessions, 186 tool calls. The root causes were embarrassingly simple — files stranded on the wrong branch, and a workflow that had been silently broken from the moment it was created.
+604 tool calls. Three sessions. One day. The longest session ran 13 hours and 13 minutes — 422 tool calls without stopping.
 
-**TL;DR** Files were committed to a worktree branch instead of `main`. A `const lang` duplicate declaration SyntaxError had been killing the GitHub Actions workflow without any alerts. Fixing both took about 10 minutes. Finding both took 11 sessions.
+The goal: build a dental blog ranking automation pipeline for Naver (Korea's dominant search engine). Scrape the top-performing blogs, extract structural patterns, generate HTML card templates, and cache AI-generated images. One day, zero prior code.
 
-## The Files Were Never on main
+**TL;DR** — Claude Code built a complete dental content pipeline in a single day: data collection → pattern analysis → template generation → image caching. The data showed that top-ranked posts have 27+ components, 36+ images, and follow a specific content sequence. We built templates that replicate it.
 
-Session 6 cleaned up two files in `blog-factory/devto/`. Stripped the `cover_image` R2 URLs, removed hero image tags from the body. Three Bash calls, two Edits. Clean work.
+## The Day Started With a Telegram 409 Conflict (15 min, 14 tool calls)
 
-The problem: the commits landed on the `cool-edison` worktree branch. Not `main`. GitHub Actions triggers on push to `main`. The workflow was never going to fire.
+First prompt of the day:
 
-Session 8 surfaced this:
+```
+텔래그램 설정 다시 해줘 지금 메세지가 안돼
+(Fix the Telegram setup, messages aren't working)
+```
+
+Simple enough. But Claude pulled the MCP server logs and found `409 Conflict`. The same bot token was being polled from two simultaneous sessions — the `fakechat` plugin had just been installed, which spun up a second connection.
+
+The fix: release the polling lock, close the other session. Done in 14 tool calls (Bash: 10, Read: 3, Skill: 1).
+
+What made this fast: Claude read `~/.claude/channels/telegram/.env` directly and reconstructed the full state — token status, DM policy, allowlist — without needing to reproduce the bug. The config file was the source of truth.
+
+## Broken Images Were Actually HTML Files Saved With `.jpg` Extensions (42 min, 168 tool calls)
+
+Session two:
+
+```
+spoonai 이미지 다 깨져서 올라가 있고, 중복되는 기사들도 있어
+(All spoonai images are broken, and there are duplicate articles)
+```
+
+The cause: the image generation script was silently swallowing errors and writing raw HTTP response bodies to disk with `.jpg` extensions. Of five image files, four were HTML. `anthropic-mythos-01.jpg` was a 919-byte error page. The fix was adding response validation to the skill config.
+
+Four duplicate articles (the same piece appearing three times) were handled by stripping the `image` field from frontmatter. Eight files, same pattern — batch-fixed with Edit.
+
+Then scope expanded. Next prompt:
+
+```
+AI 검색결과 / 구글검색결과에 자주 노출될 수 있는 모든 효과적인 전략 적용해줘
+(Apply every effective strategy for ranking in AI and Google search results)
+```
+
+Claude worked through the full SEO stack: `robots.txt` improvements, `sitemap.xml.ts` generation, JSON-LD structured data injected into `Base.astro`, `feed.xml` / `llms-full.txt` / `opensearch.xml` added to spoonai, canonical URL config in `next.config.ts`.
+
+168 tool calls. Read fired 37 times — every file was read before being modified. That discipline is consistent across all three sessions.
+
+## The 13-Hour Session: 330 Naver Blogs, Fully Analyzed (422 tool calls)
+
+Session three started with a single Naver blog URL:
+
+```
+https://blog.naver.com/choijc07/224228016203
+```
+
+Initial ask: "Build a comparison table of the top 10 results for implants in Bundang." That escalated. By the end, the pipeline covered 16 regions × 7 dental procedures × top 3 results = 336 posts collected and analyzed.
+
+### contextzip Was Eating the API Responses
+
+After getting a Naver API key, the first script run returned nothing. `contextzip` — a token-compression proxy that sits between Claude and shell output — was compressing the API responses before Claude could read them.
+
+Workaround: redirect output to a file, use the Read tool.
 
 ```bash
-git branch
-# * claude/cool-edison
-# main
-
-git log main..HEAD --oneline
-# 2 commits ahead of main
+# contextzip compresses stdout — pipe to file instead
+curl "https://openapi.naver.com/..." > /tmp/naver_results.json
 ```
 
-When you're working across worktrees, it's easy to lose track of where your commits are landing. The file looks edited, the commit succeeded — but it went to a temporary branch, not the one CI watches.
+This became the standard pattern for the rest of the session. Python scripts write to files; Claude reads them with Read. Large HTML parses, API responses, analysis output — everything went through files. A token-saving optimization had broken an entire category of tasks, and the fix was five minutes once the cause was clear.
 
-Always check `git branch` after committing in a worktree context. The cost of not checking is exactly this: 10 minutes of cleanup becomes a multi-session archaeology dig.
+### Background Tasks for Parallel Collection
 
-## The Workflow Was Dead on Arrival
-
-Before moving files to `main`, I read the workflow. `.github/workflows/publish-to-devto.yml`. The trigger path was `src/content/blog/`.
-
-The EN files lived in `blog-factory/devto/`. Wrong trigger path. The workflow had never fired on these files, not once.
-
-Then I found the real problem. Inside the workflow's Node.js script:
-
-```javascript
-// near the top
-const lang = file.includes('-en.') ? 'en' : 'ko'
-
-// ... dozens of lines later ...
-
-const lang = frontmatter.lang || 'ko'  // SyntaxError!
-```
-
-`SyntaxError: Identifier 'lang' has already been declared`.
-
-This workflow had never successfully executed. Not once since it was written. There were no success logs, no failure notifications, no GitHub Actions alerts. It just sat there, silently broken.
-
-The fix was one Edit:
-
-```javascript
-const lang = file.includes('-en.') ? 'en' : 'ko'
-const effectiveLang = frontmatter.lang || lang
-```
-
-Renamed the second declaration to `effectiveLang`. Then copied the EN files to the trigger path and pushed to `main`:
-
-```bash
-cp blog-factory/devto/claude-agent-sdk-deep-dive-en.md \
-   src/content/blog/claude-agent-sdk-deep-dive-en.md
-git add src/content/blog/
-git push origin main
-```
-
-The workflow triggered automatically. The Claude Agent SDK post published immediately. The Harness CI/CD post hit a 429 rate limit on the first attempt — ran `gh workflow run` to retry manually, and it went through.
-
-> After creating a GitHub Actions workflow, immediately run `gh run list` to verify it actually executed. A workflow with a SyntaxError fails with zero notification. You won't know until you check.
-
-## 21 Bash Calls Looking for a Key That Wasn't There
-
-Session 10 tried a different approach: call the DEV.to API directly instead of waiting for GitHub Actions. Ran Bash 21 times. Checked `~/.devto`, `~/.config/devto`, `.env*` files, macOS Keychain, environment variables. Nothing.
-
-The `DEVTO_API_KEY` exists — in GitHub Secrets. But GitHub Secrets are write-only from the CLI. `gh secret view` doesn't return the value. The key is only accessible inside a GitHub Actions runner.
-
-This is a common pattern that bites local development: you store a key in GitHub Secrets for CI, then discover you can't use it from your local machine. If you need a key in both contexts, you need to store it in both places — GitHub Secrets for CI, `.env.local` for local scripts.
-
-Those 21 Bash calls confirmed the key simply wasn't stored locally. Going forward: API keys live in two places — GitHub Secrets for CI, `~/.env.local` for local use.
-
-## The blog-factory Directory Design
-
-The current structure:
+Scraping 330 blogs sequentially would have been painfully slow. Claude switched to background task execution:
 
 ```
-src/content/blog/    ← GitHub Actions trigger path
-blog-factory/devto/  ← drafts and staging
+<task-notification>
+<summary>Background command "Run full dental blog collection pipeline" completed (exit code 0)</summary>
+</task-notification>
 ```
 
-The intended flow: draft and review in `blog-factory/devto/`, then move to `src/content/blog/` when ready to publish. Moving the file is what triggers the workflow.
+While collection ran in the background, HTML template work continued in parallel. This is why TaskUpdate appears 33 times in the stats — tracking pipeline state across concurrent work streams.
 
-This created persistent confusion across sessions. Edit the file → no publish → realize the file isn't in the trigger path → copy to `src/content/blog/` → publish. The mental model and the actual pipeline were misaligned.
+### `/compact` Saved the Session Mid-Sprint
 
-The fix going forward: treat `blog-factory/devto/` as temporary staging. Once work is done there, immediately move (not copy) to `src/content/blog/`. One step, no ambiguity.
-
-## Tool Call Breakdown (Sessions 6–11)
+Around hour nine, context hit its limit. Running `/compact` produced a summary that preserved the critical state: S-grade patterns extracted so far, which regions were complete, what was left to do.
 
 ```
-Total: 186 tool calls
-- Bash:  83 (45%) — deploys, file exploration, API calls
-- Read:  47 (25%) — reading file contents
-- Edit:  14  (8%) — actual code changes
-- Glob:  10  (5%) — file path discovery
-- Bash x21 in session 10: searching for the DEV.to API key
+This session is being continued from a previous conversation that ran out of context.
+The summary covers: 330+ posts collected across 16 regions × 7 treatments...
 ```
 
-Bash 45%, Read 25%. Investigation consumed 70% of all tool calls. Actual code changes (Edit) were 8%. The underlying problems were simple — a misplaced file and a duplicate variable name — but figuring out *what* was wrong took the bulk of the work.
+One `/compact` in 13 hours. The session never lost its thread. The quality of the summary determines whether you can keep going — this one held up.
 
-This is the actual cost of "silent failures." If the SyntaxError had surfaced as a red workflow run on day one, this would have been a 5-minute fix. Instead it accumulated across 11 sessions.
+### What the #1 Ranking Blog Actually Looks Like
 
-## What's Working Now
+The top Bundang implant blog had 27 components, 36 images, and 26 slides. Claude parsed the HTML and extracted the component sequence:
 
-The DEV.to auto-publish pipeline is live. Adding an EN file to `src/content/blog/` now triggers GitHub Actions and publishes to DEV.to automatically.
+```
+OTHER→TEXT→QUOTE→(TEXT↔IMAGE)×7→MORE_SLIDE...
+```
 
-The gap between "this should work" and "this actually works" is exactly the gap this session closed. Took 11 sessions this time. Next time it's a 2-minute copy and push.
+Repeating this across all 330 posts and cross-referencing against ranking position revealed the S-grade pattern: the top 20% of posts share a specific content structure that lower-ranked posts don't follow. Read fired 170 times during this phase — every parsed HTML file was read back to verify the extraction.
+
+### Image Caching: Pre-Generate Once, Reuse Forever
+
+The original approach called Gemini's API fresh for every blog card. The request that changed it:
+
+```
+매번 API를 호출해서 그림을 그리는 게 아니라, 처음에 수십 가지의 그림을 그려놓고
+HTML로 다른 텍스트를 넣어서 재사용하는 식으로
+(Instead of calling the API every time, pre-generate dozens of images
+and reuse them with different text injected via HTML)
+```
+
+Claude designed a three-layer caching system. First, `generate_illustrations.py` pre-generates 30–50 base images via Gemini. Second, `assets/manifest.json` caches the image inventory. Third, blog card generation uses cache-first lookup — only calling the API when the requested image doesn't exist.
+
+```python
+# generate_illustrations.py — cache-first strategy
+def get_or_generate(prompt_key, output_path):
+    if output_path.exists():
+        return output_path  # cache hit
+    return generate_with_gemini(prompt_key, output_path)
+```
+
+Pre-generation ran as a background task. While 30–50 images were being generated, HTML template work ran in parallel.
+
+### The Feedback Loop That Took Most of the Day
+
+First draft cards shipped. Feedback came back:
+
+```
+폰트 / 다크네이비 톤 / 로고이미지 제대로 안 써져 있고 / 그림생성한것도 다 별로야
+(Font / dark navy tone / logo not rendering correctly / generated images are all bad)
+```
+
+Then:
+
+```
+로직 처음부터 다시 짜.
+(Rewrite the logic from scratch.)
+```
+
+Claude treated this as a full rewrite, not incremental edits. Edit fired 75 times during this phase — font replacement, color contrast, logo positioning, image captions. The final output is 8 card variants for implant posts: title, checklist, procedure steps, three info+image variants (bone graft, digital guide, aftercare), doctor introduction, legal disclaimer, and CTA.
+
+## Tool Usage Breakdown
+
+| Tool | Count | Primary Use |
+|------|-------|-------------|
+| Read | 210 | Verify HTML parse output, config files |
+| Bash | 164 | Python scripts, curl, file operations |
+| Edit | 101 | HTML card revisions, skill config updates |
+| Write | 53 | New file creation |
+| TaskUpdate | 33 | Background task state management |
+
+Read dominates at 210. The "read before you write" principle shows up directly in the stats. Exploration (Read + Bash: 374) outpaced implementation (Edit + Write: 154) by 2.4×. The session was mostly investigation, not code generation.
+
+## What This Session Confirmed
+
+**Claude Code handles large-scale exploratory work well.** Analyzing 330 blogs and extracting patterns didn't require a detailed spec upfront — the data shaped the direction. The pipeline emerged from what the data showed, not from what was planned in advance.
+
+**Visual quality feedback still requires a human.** "These images are all bad" and "rewrite the logic from scratch" aren't things that can be expressed as code. Claude iterated fast once the feedback arrived — but the 13-hour length reflects how many feedback loops ran. Each round of "here's the new output, what's wrong with it" added time.
+
+**Silent failures in tooling compound fast.** The `contextzip` collision was the most interesting friction point. A token-saving optimization broke an entire category of tasks. Debugging it took less than five minutes because Claude read the actual config rather than guessing. The lesson: when output disappears unexpectedly, the proxy layer is worth checking first.
 
 ---
 
