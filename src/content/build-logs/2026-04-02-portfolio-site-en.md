@@ -1,129 +1,114 @@
 ---
-title: "My DEV.to Auto-Publish Pipeline Was Silently Failing for 3 Months — One `const lang` Line"
+title: "31 Tool Calls to Find Nothing: Claude Code Chased the Wrong Lead for 3 Days"
 project: "portfolio-site"
 date: 2026-04-02
 lang: en
 pair: "2026-04-02-portfolio-site-ko"
-tags: [claude-code, github-actions, automation, debugging]
-description: "Claude spent 8 hours hunting an API key that didn't exist locally. The real bug was a `const lang` double declaration that blocked execution for 3 months."
+tags: [claude-code, github-actions, devto, automation, debugging]
+description: "My DEV.to auto-publish pipeline was silent for 3 days. 31 tool calls hunting an API key before finding the real bug: a duplicate const declaration in the workflow."
 ---
 
-My DEV.to publish workflow had been silently failing for 3 months. I didn't know. No alerts, no logs I was watching — just a GitHub Actions run that would trigger, parse the script, and immediately die with a `SyntaxError` before doing anything.
+For 3 days, my DEV.to auto-publish pipeline produced nothing. GitHub Actions appeared to run. No error emails. No failure notices. Just silence — while a `SyntaxError` was quietly killing every execution before it could do anything useful.
 
-**TL;DR** A `const lang` double declaration caused a Node.js SyntaxError that killed every workflow run at parse time. Claude spent 8 hours searching for a local API key that was stored in GitHub Secrets (write-only). The actual fix was one line. The real lesson was about trusting automation too blindly.
+**TL;DR**: A duplicate `const lang` declaration in a GitHub Actions inline script caused a parse-time `SyntaxError` on every run. Claude Code spent 31 tool calls across an entire session chasing the wrong hypothesis (missing API key) before a second session identified the real problem in minutes.
 
-## Claude Made 28 Bash Calls Looking for a Key That Wasn't There
+## 4 Parallel Searches, 0 Results
 
-The first prompt was straightforward:
+The first debugging session started with what seemed like the obvious question: where is the DEV.to API key?
 
-> Publish the two articles in `blog-factory/devto/` to DEV.to using the API. Find the API key in environment variables or config files.
+Claude Code launched 4 background tasks simultaneously:
 
-Claude went hunting. 28 Bash calls later, here's what it checked:
-
-- `~/.devto`, `~/.config/devto` — not found
-- `~/.env.local` — only `ANTHROPIC_API_KEY`
-- All `.env*` files in the project — not found
-- macOS Keychain — not found
-- Full environment variable scan — not found
-
-It did find `DEVTO_API_KEY` in GitHub Secrets:
-
-```bash
-gh secret list
-# ✓ DEVTO_API_KEY  Updated 3 months ago
-# Value: not readable
+```
+Background: "Find scripts with DEV.to references"
+Background: "Find env files excluding backups"
+Background: "Find JSON files with DEV.to references"
+Background: "Find blog publishing scripts"
 ```
 
-GitHub Secrets are write-only by design. The CLI can confirm a secret exists, but it can't return the value. After exhausting every path, Claude concluded: "The key doesn't exist locally. Please provide it directly."
+All four came back empty. The key wasn't in `~/.devto`. Not in `~/.config/devto`. Not in any `.env*` file in the project. Not in macOS Keychain. The only secret in `~/.env.local` was `ANTHROPIC_API_KEY`.
 
-This is Claude Code doing exactly what it's designed to do — exhaust every reasonable option before asking. The problem was the prompt itself. A better version would have been: "If you can't find the API key locally, check whether we can publish via GitHub Actions instead." That single redirect would have saved the whole session.
+`gh secret list` confirmed `DEVTO_API_KEY` existed in GitHub Secrets — but that's as far as it goes. Secrets are write-only by design. You can prove a secret exists, you cannot read its value via CLI.
 
-## The Actual Bug: `const lang` Declared Twice
+Final tally: 28 Bash calls, 2 Read, 1 Glob. **31 tool calls to confirm the key wasn't local.** If I'd looked at the workflow run history first, I'd have cut this session in half.
 
-In the next session, the approach changed. Instead of hunting the key, I opened the workflow file first.
+## The Real Problem Was One Line
 
-`.github/workflows/publish-to-devto.yml` contained an inline Node.js script. Inside that script:
+Second session. Different framing in the prompt — check the workflow before touching anything else:
+
+```
+1. Read .github/workflows/publish-to-devto.yml
+2. Verify files exist on main branch
+3. Check gh run list for execution history
+```
+
+The diagnosis came fast. Inside the workflow's inline Node.js script, `const lang` was declared twice in the same function scope:
 
 ```javascript
-// top of script
-const lang = frontmatter.lang || 'ko';
+// First declaration — fine
+const lang = file.frontmatter.lang || 'ko';
 
-// ... 40 lines later ...
+// ... dozens of lines of logic ...
 
-const lang = effectiveLang; // SyntaxError: Identifier 'lang' has already been declared
+// Second declaration — SyntaxError
+const lang = effectiveLang;
 ```
 
-Same scope. Same `const`. Two declarations. Node.js catches this at parse time — the script never even starts executing. This workflow had been broken since it was written, failing silently on every push for 3 months.
+In Node.js strict mode — which GitHub Actions uses for inline scripts — re-declaring a `const` in the same scope throws a `SyntaxError` at **parse time**. The script never starts executing. No success log. No failure log with a useful message. The workflow shows as "completed" with no actionable output.
 
-The fix:
+This is a bug that will never surface locally. Local dev environments don't run the same strict mode configuration as GitHub Actions' Node.js runtime. The CI environment and your laptop are different runtimes, and that gap is easy to forget.
 
-```javascript
-const lang = frontmatter.lang || 'ko';
-// ...
-const effectiveLang = lang; // renamed to avoid re-declaration
+The fix was one line: rename the second declaration from `lang` to `effectiveLang`.
+
+## The Files Were in the Wrong Directory Too
+
+Fixing the SyntaxError uncovered a second problem. The workflow's push trigger was watching `src/content/blog/**`, but the EN articles I wanted to publish were sitting in `blog-factory/devto/`.
+
+The workflow had never been triggered by those files — even if the script had been working the whole time.
+
+One prompt handled both:
+
+```
+Copy both EN files to src/content/blog/, push to main → auto-trigger
 ```
 
-One line. That's it.
+After the push, the workflow fired automatically. First post (`claude-agent-sdk-deep-dive-en.md`) published successfully. Second post (`harness-cicd-deep-dive-en.md`) hit a DEV.to API `429 Too Many Requests` — the API rate-limits rapid consecutive publishes.
 
-## The Second Problem: Wrong File Path
-
-With the SyntaxError fixed, the next issue surfaced. The workflow trigger was watching:
-
-```yaml
-on:
-  push:
-    paths:
-      - 'src/content/blog/**'
-```
-
-But the articles were sitting in `blog-factory/devto/`. Different directory — the trigger never fired even when the script was working.
-
-Copied both EN files into `src/content/blog/`, pushed to main. The workflow triggered automatically.
-
-## 429, Then Done
-
-First article (Claude Agent SDK) — published successfully.
-
-Second article (Harness CI/CD) — `429 Too Many Requests`. DEV.to's API rate-limits rapid consecutive requests.
-
-Waited, then manually re-triggered:
+Manual re-run resolved it:
 
 ```bash
 gh workflow run publish-to-devto.yml
 ```
 
-Second attempt passed. Both articles live on DEV.to.
+Both posts live on DEV.to.
 
-Total tool calls for the actual fix: 14 Bash, 2 Read, 1 Edit. The real work was one file, one line. Everything else was verification.
+## 9 Tool Calls to Clean Up cover_image
 
-## Cover Image Cleanup
-
-In a separate session, cleaned up the `cover_image` fields in `blog-factory/devto/` frontmatter. Images were referenced from Cloudflare R2, but the files didn't exist there yet.
+After the publish, one leftover issue: both files had `cover_image` fields pointing to Cloudflare R2 URLs where no actual files existed yet.
 
 ```yaml
 # before
-cover_image: https://r2.jidonglab.com/images/hero-image.png
+cover_image: https://r2.jidonglab.com/images/hero-post.png
 
-# after (field removed)
+# after — field removed entirely
 ```
 
-Also removed the inline `![...]` hero image tags from the body. Publishing without images beats publishing with broken URLs.
+Claude Code also stripped inline hero image tags from the body text. 2 Edit calls, 3 Bash, 2 Glob, 2 Read — **9 tool calls total** to clean both files.
 
-## The Illusion of Working Automation
+Publishing without a cover image is better than publishing with a broken image URL.
 
-The real takeaway here isn't about a SyntaxError. It's about a false sense of security.
+## What I'd Do Differently
 
-I built the GitHub Actions workflow, pushed it, and mentally filed it under "done — automated." Three months of silent failures proved that wrong. There were no success notifications to watch. I hadn't set up failure alerts. I had no idea.
-
-A reliable automation pipeline needs two things: logs that confirm execution happened, and alerts that fire when it doesn't. A quick `gh run list` habit catches this faster than any post-mortem:
+**Start with workflow run history, not credential hunting.** A missing API key and a crashing workflow script look identical from the outside — nothing gets published. The difference is visible in `gh run list` before you burn a session on exhaustive filesystem searches. This is the first command I run now:
 
 ```bash
-gh run list --workflow=publish-to-devto.yml --limit=5
+gh run list --limit 10
 ```
 
-And when prompting Claude to find something it can't reach locally, give it an escape route. "If you can't find the key, pivot to X" turns an 8-hour exhaustive search into a 2-minute redirect.
+**Parallel background tasks multiply speed, not correctness.** Running 4 searches simultaneously is useful when the hypothesis is right. When the hypothesis is wrong, parallel means you confirm the wrong answer faster. The bottleneck wasn't search speed — it was the search target.
 
-> The most dangerous automation is the kind you believe is working.
+**GitHub Actions inline scripts need local validation.** The `const` re-declaration would have been caught immediately with `node --check workflow-script.js`. A 5-second static check could have saved the 3 days.
+
+> The hardest bugs to find are the ones that look like success — a process that runs, completes, and does nothing.
 
 ---
 
