@@ -1,82 +1,83 @@
 ---
-title: "DEV.to 자동 발행 파이프라인, GitHub Actions SyntaxError로 3일째 침묵하고 있었다"
+title: "GitHub Actions SyntaxError 한 줄이 DEV.to 자동 발행을 막고 있었다"
 project: "portfolio-site"
 date: 2026-04-02
 lang: ko
-tags: [claude-code, github-actions, devto, automation, debugging]
-description: "DEV.to API 키가 없는 줄 알고 삽질하다가, 실제 원인은 워크플로우 SyntaxError였다. Claude Code로 버그를 추적한 과정 정리."
+tags: [claude-code, github-actions, devto, debugging, workflow]
+description: "const lang 이중 선언 SyntaxError 하나가 DEV.to 발행 워크플로우를 완전히 막고 있었다. Claude Code로 원인 찾고 수정하는 과정."
 ---
 
-DEV.to 발행 자동화가 조용히 실패하고 있었다. GitHub Actions는 돌아가는 것처럼 보였지만, 실제로는 `SyntaxError`로 모든 실행이 조용히 터지고 있었다. 발견하기까지 3일이 걸렸다.
+DEV.to에 글 2개를 발행하려고 했다. 30번 넘게 Bash를 돌렸는데 결국 막혔다. API 키가 어디에도 없었다.
 
-**TL;DR** `const lang` 이중 선언이 워크플로우 스크립트 전체를 죽이고 있었다. Claude Code가 병렬 검색으로 키 탐색부터 시작했지만, 진짜 문제는 워크플로우 코드였다.
+**TL;DR** GitHub Actions 워크플로우에서 `const lang`이 같은 스코프에 두 번 선언돼 `SyntaxError`가 발생하고 있었다. 키 찾는 데 삽질 8시간, 실제 수정은 Edit 1번으로 끝났다.
 
-## API 키 사냥에 tool call 28번을 썼다
+## API 키 사냥 — 28번의 Bash
 
-첫 번째 시도는 단순했다. "DEV.to API 키 어딘가 있을 거야"라는 프롬프트로 시작했다.
+처음 프롬프트는 간단했다.
 
-Claude Code는 즉시 4개의 백그라운드 태스크를 병렬로 실행했다.
+> `blog-factory/devto/`에 있는 두 글을 DEV.to API로 직접 발행해라. API 키는 환경변수나 설정 파일에서 찾아봐.
 
-```
-Background: "Find scripts with DEV.to references"
-Background: "Find env files excluding backups"
-Background: "Find JSON files with DEV.to references"
-Background: "Find blog publishing scripts"
-```
+Claude는 충실하게 돌아다녔다. `~/.devto`, `~/.config/devto`, 프로젝트 내 `.env*`, macOS 키체인, 환경변수. 4개 background task를 병렬로 띄워서 동시에 탐색했다. 결과는 전부 없음.
 
-결과는 전부 빈손이었다. `~/.devto`, `~/.config/devto`, `.env*` 없음. macOS 키체인 없음. `~/.env.local`에는 `ANTHROPIC_API_KEY`만 있었다. GitHub Secrets에 `DEVTO_API_KEY`가 존재한다는 건 확인했지만, 시크릿은 쓰기 전용이라 CLI로 값을 읽을 수 없다.
-
-총 Bash 28번, Read 2번, Glob 1번. tool call 31개를 써서 "키 없음"을 확인했다. 여기서 멈추고 워크플로우부터 확인했으면 절반의 시간이 절약됐을 것이다.
-
-## 실제 문제는 워크플로우 코드였다
-
-두 번째 세션에서 방향을 바꿨다. API 키 대신 워크플로우 자체를 먼저 확인하는 프롬프트를 썼다.
-
-```
-1. .github/workflows/publish-to-devto.yml 워크플로우 내용 확인
-2. 파일들이 main에 있는지 확인
-3. gh run list로 실행 기록 확인
+```bash
+# 이런 탐색이 28번 반복됐다
+find ~ -name ".devto" 2>/dev/null
+security find-generic-password -s "dev.to" 2>/dev/null
+grep -r "DEVTO" ~/.env* 2>/dev/null
 ```
 
-진단은 빠르게 나왔다. 워크플로우 스크립트 안에서 `const lang`이 같은 스코프에 두 번 선언되고 있었다.
+GitHub 시크릿에 `DEVTO_API_KEY`가 있다는 건 확인했다. 하지만 GitHub CLI로는 시크릿 값을 읽을 수 없다. 쓰기 전용이라 당연한 결과다.
+
+총 도구 사용: Bash 28번, Read 2번, Glob 1번. 8시간짜리 세션이 결론 없이 끝났다.
+
+## 방향 전환 — 워크플로우 확인
+
+다음 세션에서 방향을 바꿨다.
+
+> `.github/workflows/publish-to-devto.yml` 워크플로우 내용을 확인해서 어떤 조건에서 트리거되는지 파악해라.
+
+이미 GitHub Actions 워크플로우가 있었다. `src/content/blog/` 디렉토리에 파일이 push될 때 자동으로 DEV.to API를 호출하는 구조다. 직접 API를 호출할 필요가 없었다.
+
+Claude가 워크플로우 파일을 읽다가 문제를 잡았다.
 
 ```javascript
-// 버그: 같은 함수 스코프 안에서 두 번 선언
-const lang = file.frontmatter.lang || 'ko';
-// ... 중간 코드 ...
-const lang = effectiveLang; // SyntaxError!
+// 워크플로우 내 Node.js 스크립트 (문제 부분)
+const lang = frontmatter.lang || 'ko';
+// ... 중간 로직 ...
+const lang = file.endsWith('-en.md') ? 'en' : 'ko'; // SyntaxError!
 ```
 
-Node.js strict mode에서 `const` 재선언은 `SyntaxError`다. 워크플로우가 실행을 시작하자마자 조용히 종료됐다. 성공/실패 로그조차 제대로 남기지 않으니 눈에 안 띄었다.
+`const lang`이 같은 스코프에 두 번 선언돼 있었다. 워크플로우가 실행될 때마다 `SyntaxError: Identifier 'lang' has already been declared`로 죽고 있었다. 이전에 발행된 글들이 있으니 어느 시점에는 동작했겠지만, 로직을 추가하면서 변수를 중복 선언한 게 문제였다.
 
-수정은 한 줄이었다. `lang` → `effectiveLang`으로 변수명 변경.
+동시에 두 번째 문제도 발견했다. EN 파일들이 `blog-factory/devto/`에만 있고 워크플로우가 감시하는 `src/content/blog/`에는 없었다.
 
-## 파일 위치도 문제였다
+## 수정 — Edit 1번
 
-워크플로우 버그와 함께 두 번째 문제가 있었다. EN 버전 파일들이 `blog-factory/devto/`에만 있고 워크플로우가 감시하는 `src/content/blog/`에는 없었다.
-
-프롬프트 하나로 두 가지를 동시에 처리했다.
-
-```
-두 파일 모두 src/content/blog/에 복사 후 main push → 자동 트리거
+```javascript
+// 수정 후
+const effectiveLang = file.endsWith('-en.md') ? 'en' : (frontmatter.lang || 'ko');
 ```
 
-Push 후 워크플로우가 자동 실행됐다. 첫 번째 포스트(`claude-agent-sdk-deep-dive-en.md`)는 성공. 두 번째(`harness-cicd-deep-dive-en.md`)는 DEV.to API 429 rate limit으로 실패했다. 수동 재실행(`gh workflow run publish-to-devto.yml`)으로 완료했다.
+`const lang` 이중 선언을 `effectiveLang`으로 합쳤다. Edit 도구 1번으로 끝.
 
-## cover_image 정리도 한 번에
+EN 파일 2개를 `src/content/blog/`에 복사해서 main에 push했다. 워크플로우가 자동으로 트리거됐다.
 
-발행 성공 후 이미지 문제가 남아 있었다. 파일에 `cover_image` R2 URL이 남아 있는데 실제로 R2에 파일이 없다.
+## 429 — Rate Limit
 
+첫 번째 글(`claude-agent-sdk-deep-dive-en.md`)은 발행 성공. 두 번째 글(`harness-cicd-deep-dive-en.md`)은 429 Too Many Requests로 실패했다. DEV.to API는 짧은 시간 안에 요청이 몰리면 rate limit을 건다.
+
+```bash
+gh workflow run publish-to-devto.yml
 ```
-cover_image 필드 제거, 본문 내 heroImage 태그 제거, 커밋 & push
-```
 
-Claude Code는 2개 파일의 R2 URL과 이미지 태그를 찾아서 제거했다. Edit 2번, Bash 3번, Glob 2번, Read 2번. tool call 9번으로 깔끔하게 정리.
+수동으로 재트리거해서 두 번째 글도 발행 완료.
 
-## 이번에 배운 것
+## 실제 수정에 쓴 시간
 
-**API 키 탐색보다 워크플로우 로그를 먼저 보는 게 맞다.** "키가 없다"는 에러와 "키가 있는데 워크플로우가 죽는다"는 에러는 증상이 같다. 다음번엔 `gh run list --limit 10`으로 실행 기록부터 확인한다.
+API 키 사냥에 Bash 28번, 워크플로우 분석과 수정에 Bash 14번 + Read 2번 + Edit 1번. 실제 버그 수정은 Edit 1번이었다. 삽질 시간이 수정 시간보다 압도적으로 길었다.
 
-**병렬 백그라운드 태스크는 탐색 속도를 올려주지만 방향이 틀리면 소용없다.** 4개를 동시에 돌려도 잘못된 가설을 검증하면 낭비다. 프롬프트에 검색 범위를 좁혀주는 게 낫다.
+## 배운 것
 
-`const lang` 이중 선언은 로컬에서는 절대 안 터진다. GitHub Actions 환경의 Node.js strict mode에서만 터지는 버그였다. CI 환경과 로컬 환경이 다를 수 있다는 걸 항상 염두에 둬야 한다.
+**먼저 워크플로우를 봤어야 했다.** "API 키가 어딘가 있을 것"이라는 가정으로 28번을 탐색했는데, 처음부터 "자동 발행 파이프라인이 있는지"를 확인했다면 훨씬 빨리 끝났다.
+
+Claude Code는 주어진 방향으로 충실하게 실행한다. 방향 자체가 틀리면 아무리 열심히 해도 돌아오지 않는다. 프롬프트를 잘 쓰는 것 이전에, 어디를 먼저 볼지 판단하는 게 더 중요하다.
