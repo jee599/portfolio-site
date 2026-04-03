@@ -1,137 +1,103 @@
 ---
-title: "Remote-Controlling Claude Code via Telegram: 7 Sessions, 670 Tool Calls, One iOS App"
+title: "From .docx to iOS App Skeleton in 6 Hours: 316 Tool Calls with Claude Code"
 project: "portfolio-site"
 date: 2026-04-04
 lang: en
 pair: "2026-04-04-portfolio-site-ko"
-tags: [claude-code, ios, swiftui, subagent, harness-pattern, telegram, uddental]
-description: "One day: dental site redesign, PG contract prep, and a full iOS app from a docx spec. 7 sessions, 670 tool calls, all triggered from Telegram."
+tags: [claude-code, ios, swiftui, tca, subagent, cloverfield, uddental]
+description: "Dropped a Word spec file, got an iOS app skeleton in 6 hours. 316 tool calls, 34 sub-agents, and one extended Xcode fight."
 ---
 
-Seven sessions. 670 tool calls. Over half of those — 300 — happened in a single session building an iOS app from scratch using a Word document as the only spec. Most of the day was spent sending short Telegram messages.
+316 tool calls. 19 files created. 6 hours and 4 minutes. All from dropping a single `.docx` file.
 
-**TL;DR**: The Telegram → Claude Code remote control pattern is now a stable part of my workflow. I documented the harness design pattern in CLAUDE.md, and used parallel subagent dispatch to complete Phase 1 of a GPS-based iOS app called Cloverfield.
+**TL;DR** Hand Claude a Word spec document and run the `subagent-driven-development` skill — it handles planning through feature implementation in parallel. The catch: Xcode still needs a human, and AI-generated images need a rethink.
 
-## Sending "안녕" to Start a Claude Code Session
+## The Entire Input Was One Word File
 
-Session 1 kicked off with a Telegram message. The Claude Code Telegram plugin receives messages and routes them to the active session. The full thread went from `안녕` (hello) all the way to `agentcrow 지워줘` (remove agentcrow).
+`/Users/jidong/Downloads/cloverfield-proposal-v3.docx` — that was it. A detailed spec for a GPS-based four-leaf clover hunting app, complete with splash motion specs, haptic timing, and an AI-First resource strategy.
 
-```
-커피챗 프로젝트로 가줘
-아그리고 지금 전체폴더 컨텍스트에 불필요한거 있지 agentcrow 지워줘
-```
+Claude read the file and immediately proposed a Phase structure. It split the 8-week MVP into Week 1-2 / 3-4 / 5-6 chunks and generated a planning document for each phase under `docs/superpowers/plans/`. The `writing-plans` skill kicked in with this framing:
 
-The core value of this pattern: **location independence**. From a bathroom, while commuting — send a single project name like `uddental` and Claude loads that project's context and waits. No lengthy explanation needed. One word switches the context.
+> "Planning all of Phase 1 at once is too large. Plan Week 1-2 first, then plan the next phase after completion."
 
-The downside is real. Telegram messages are short and context-free, so Claude often asks for clarification. Pasting long error logs is also painful over Telegram.
+That framing mattered. Instead of one giant plan, each phase got its own document. Research for TCA's latest API and XcodeGen setup ran in parallel — both agents came back with results simultaneously.
 
-## Ripping Out AgentCrow and Documenting the Harness Pattern
+## What `subagent-driven-development` Actually Does
 
-The main task in Session 1 was a `CLAUDE.md` overhaul. AgentCrow — the previous agent dispatch system — was removed entirely. In its place, I formally documented the harness design pattern in the global config.
+When you run this skill, Claude becomes a pure orchestrator. It delegates each feature task to an independent sub-agent, collects the results, and advances to the next batch.
 
-The conversation that triggered it:
+Tasks that ran in parallel during this session:
 
-```
-하네스 디자인은? 서브에이전트 + 하네스 디자인이 가능해? 아니면 불필요해
-```
+- `Research TCA latest API` + `Research XcodeGen setup` (simultaneously)
+- `Implement Task 4: SplashView` + `Task 5: HealthKitClient` + `Task 6: MotionClient` (simultaneously)
+- `W5-6 Task 1: WeatherClient` + `Task 2: CloverStore` + `Task 3: RevealFeature` + `Task 4: GardenFeature` + `Task 5: ProfileFeature` (5 at once)
 
-The harness pattern separates roles cleanly. `Explore` agents do read-only research. `general-purpose` agents handle file modifications. `code-reviewer` agents validate after implementation. The main thread only orchestrates and makes final decisions. This is what landed in `CLAUDE.md`:
+Each agent created files and committed. `CloverEngine`, `LocationClient`, `PickingFeature`, `PocketFeature` — 19 files over 6 hours. The main thread did nothing but receive task notifications and dispatch the next batch.
 
-```markdown
-### Role Division (Harness Pattern)
-- Research: Explore (read-only, codebase + web search)
-- Implementation: general-purpose (file writes included)
-- Verification: code-reviewer (runs after implementation)
-- Main thread: orchestrator only — judgment, coordination, final decisions
-```
+Tool call breakdown: Bash 95 · Read 56 · Edit 27 · Agent 33.
 
-The AgentCrow hook was also removed from `settings.json`. A JSON formatting error crept in mid-edit and had to be fixed. 33 Bash calls and 5 Edits for what's essentially a config file — tool calls add up fast even on non-code work.
+One issue worth flagging: code style drifted between agents. `WithViewStore` deprecation warnings appeared across multiple files. If you don't specify version and pattern explicitly in the sub-agent prompt — something like "TCA 1.7+, use `@ObservableState`" — each agent picks its own version baseline.
 
-## uddental: 171 Tool Calls, Full Site Redesign
+## The Xcode Wall
 
-Session 3 started with a single word: `uddental`. The `uddental-site` skill loaded automatically, the project context was ready, and the instruction that followed was minimal:
+The code arrived fast. Xcode did not cooperate.
 
-```
-지금 걸로 배포해주는데, 디자인 좀 더 큼직큼직 임팩트 있게 바꿔줘
-일단 해봐 그리고 다른 페이지들도 메인 페이지 디자인처럼 바꿔줘 일관되게
-```
+**Signing error.** `Signing for "Cloverfield" requires a development team.` You have to select the development team in the Xcode GUI. No automation path exists.
 
-Claude asked for approval before touching anything. Hero section: `70-80vh → 90vh`. Headlines: `5xl → 7xl`. Section padding: `py-16 → py-32`. Once approved, 10 files were modified in parallel. Final count: Edit 76, Bash 47, Read 23, Write 14. **171 tool calls**.
+**AppIcon error.** `None of the input catalogs contained a matching app icon set named "AppIcon".` Resolved by generating `Contents.json`.
 
-Mid-session the dev server crashed. `npm error code ENOENT` — Claude had run npm from the wrong directory and couldn't find `/Users/jidong/package.json`. Specifying the project path explicitly fixed it.
-
-A new `FloatingSchedule.tsx` component was also built in this session — a floating panel showing weekly clinic schedules by doctor, with a close button. Mobile responsiveness was left as a question at the end of the session, which carried into Session 6.
-
-Session 6 catalogued 24 mobile responsiveness issues and patched 7 core files. One notable fix: inline hex opacity syntax like `${doc.accent}0a` doesn't work with Tailwind dynamic values — it was converted to `rgba()`.
-
-## Cloverfield: From a docx Spec to a SwiftUI iOS App
-
-Session 7 was the centerpiece of the day. **300 tool calls. 5 hours and 55 minutes.**
-
-The input: `/Users/jidong/Downloads/cloverfield-proposal-v3.docx`. A GPS-based four-leaf clover hunting app for iOS. The spec included the Phase 1 MVP scope, motion specs, timeline, and a budget breakdown ($134 total). The instruction was short:
-
-```
-하나씩 phase 별로 구현 - 확인 해주면서 진행해줘
-```
-
-Claude first loaded the `brainstorming` skill to clarify requirements, then the `writing-plans` skill to produce an implementation plan. Then it switched to `subagent-driven-development` and dispatched one agent per task.
-
-**Subagent task breakdown:**
-- Task 1: XcodeGen project structure setup
-- Task 2: `CloverEngine` (clover generation logic)
-- Task 3: `LocationClient` (TCA DependencyKey)
-- Task 4: `SpriteKit FieldScene` + `SplashView`
-- Task 5: `HealthKitClient`, `MotionClient`
-- Task 6: `PickingFeature`, `PocketFeature`, `RevealFeature`
-- Task 7: `WeatherClient`, `CloverStore` (SwiftData), `GardenFeature`
-
-Each agent completed its task independently and committed. Task notifications arrived in the main thread with commit hashes: 7bc8285, e8d5c24, f3f33a7... Out of order, because they ran in parallel.
-
-## Three Things That Broke
-
-**Xcode Simulator install.** After `xcode-select --install`, the iOS 26.4 Simulator download failed with exit code 70. Switched to iOS 17.0 Simulator — fixed. This one required manual intervention; the user had to find the solution themselves (`못찾겠어` — "can't figure it out").
-
-**HealthKit entitlement error.** First run after a successful build:
-
+**HealthKit entitlement error.** Crashed at runtime:
 ```
 NSError(domain: "com.apple.healthkit", code: 4,
   userInfo: ["NSLocalizedDescription": "Missing com.apple.developer.healthkit entitlement."])
 ```
+`FieldFeature.swift:50`'s `Effect.run` threw instead of swallowing the error. Fixed by adding HealthKit permissions to `.entitlements`.
 
-`HealthKitClient` was calling real HealthKit APIs in the simulator. Added `com.apple.developer.healthkit` to `.entitlements` and added a mock data fallback for simulator builds.
+**iOS 26.4 Simulator error.** `Redownload iOS 26.4 Simulator and try again.` Worked around by targeting the iOS 17.0 simulator. Finding the right simulator download required manual intervention — Claude responded with "I can't find it."
 
-**Transparent background on clover images.** Generated clover images via the Gemini API — they came out with white backgrounds instead of transparent ones.
+**`UIColor.blended` doesn't exist.** An agent used a non-existent API. `UIColor` has no `blended(withFraction:of:)` method. Manual fix required.
 
-```
-일단 이게 배경이 투명이 아니라 안되고, 매번 다른 네잎을 생성해야해서
-어떤식으로 구현할지 고민해봐야돼 수십만개의 네잎이 표현될 수 있게
-```
+## Why Gemini Image Generation Didn't Work
 
-The fix: replace images with procedural code. SpriteKit `SKShapeNode` draws four leaves programmatically, using a random seed to vary shape each time. The ratio of three-leaf to four-leaf clovers is tuned so roughly 1–2 four-leaf clovers appear per screen.
+After feedback that the UI felt sterile, the plan was to generate assets via Gemini API. Handed over the API key with instructions to keep regenerating until satisfied. The result in one line:
 
-## What Parallel Subagents Actually Buy You
+> "The images look identical. This is terrible."
 
-Session 7 used the most agent dispatches of any session so far. A significant share of those 300 tool calls are `Agent` invocations. Each agent works in an isolated context, completes its task, and commits. The main thread receives notifications and dispatches the next agent.
+The generated clover assets weren't transparent-background PNGs. Dropping them into `Assets.xcassets` created background color conflicts on screen. The pivot: draw procedurally with SwiftUI `Canvas`. That became `ProceduralCloverView.swift`.
 
-The payoff: **the main context doesn't get polluted**. When building an entire iOS project in one session, loading every file into the main context hits the token limit fast. Scoping each subagent to specific files keeps each one focused and the main thread clean.
+The clover field logic also had a structural problem. A field of three-leaf clovers needs rare four-leaf clovers mixed in randomly — but you can't manage hundreds of thousands of clover instances as image assets. The solution was seed-based procedural generation, with probability tuned to produce one or two four-leaf clovers per screen.
 
-The cost: agent output isn't perfectly consistent. `WithViewStore` deprecation warnings appeared across multiple files — each agent had a slightly different understanding of which TCA APIs to use. The fix is to put explicit version constraints in the subagent prompt: "TCA 1.7+, use `@ObservableState`."
+## Side Session: uddental Mobile in 48 Minutes
 
-## Design Polishing Is Just Iteration
+Session 3 was a separate project — mobile responsiveness fixes for the uddental dental clinic site. 48 minutes, 116 tool calls.
 
-```
-지금 전체적으로 ui / icon / 내부 이미지 다 최악이야
-```
+A missing `FloatingSchedule` import in `layout.tsx` was breaking the build. Catalogued 24 mobile issues, modified 9 files. In `doctors/page.tsx`, a hex opacity template literal pattern (`${doc.accent}0a`) was failing to parse in some browsers — converted to `rgba()` format. Deployed immediately after the fixes.
 
-Late in Session 7, three parallel agents were dispatched to redesign `FieldView`, `PocketView`, and `SplashView` with a warm, healing aesthetic. Design tokens — `Clover.Colors.cream`, `Clover.Colors.sage` — were defined in a shared file and referenced across all views.
+## Session 1 Note: How Claude Code Skills Are Scoped
 
-The Gemini image generation API key (`AIzaSyD...`) was pasted directly into the chat in this session. Model selection mattered: `imagen-3.0-generate-001`, not `gemini-2.0-flash-exp`. Generated images went into `Assets.xcassets`.
+Quick reference for how skill scope works:
 
-First feedback after the redesign: `그림 바뀐 거 하나도 없는데? 최악이야` — "the images didn't change at all, this is terrible." Xcode cache. Deleting `DerivedData` and running a clean build showed all the changes.
+| Location | Scope |
+|----------|-------|
+| `~/.claude/skills/` | Global |
+| `~/.claude/plugins/` (marketplace) | Global |
+| `{project}/.claude/skills/` | Project-only |
 
----
+When moving to a new machine, you need the entire `~/.claude/` directory. Both the `enabledPlugins` list in `settings.json` and the actual plugin code in `plugins/marketplaces/` need to travel together for the environment to be identical.
 
-What 7 sessions produced: CLAUDE.md migrated to the harness pattern, uddental fully redesigned with mobile responsiveness, coffeechat PG contract reply drafted, Cloverfield iOS Phase 1 skeleton complete. Each session started with a few Telegram messages and shipped an independent result.
+## Today's Numbers
+
+| Metric | Value |
+|--------|-------|
+| Total sessions | 3 |
+| Total tool calls | 437 |
+| Cloverfield session | 316 tool calls, 6h 4m |
+| Files created | 19 |
+| Files modified | 21 |
+| Sub-agent dispatches | 34 |
+| Top tools | Bash 111 · Read 85 · TaskUpdate 72 · Edit 52 |
+
+Spec document to app skeleton in a single day is possible. Xcode still needs a human in the loop.
 
 ---
 
