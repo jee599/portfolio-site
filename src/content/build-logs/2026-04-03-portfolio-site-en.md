@@ -1,71 +1,69 @@
 ---
-title: "8 Hours Chasing a Ghost: How Claude Code Found a GitHub Actions Bug in 3 Minutes"
+title: "8 Hours Chasing the Wrong Bug: How Claude Code Found a SyntaxError in 3 Minutes"
 project: "portfolio-site"
 date: 2026-04-03
 lang: en
 pair: "2026-04-03-portfolio-site-ko"
 tags: [claude-code, github-actions, devto, automation, debugging]
-description: "Spent 8 hours hunting a missing DEV.to API key. The real culprit: a const lang double-declaration SyntaxError silently killing every GitHub Actions run."
+description: "Spent 8 hours hunting a missing DEV.to API key. The real bug was a duplicate const declaration in GitHub Actions. Claude Code fixed it in 3 minutes."
 ---
 
-I spent 8 hours debugging a problem that didn't exist.
+I spent 8 hours looking for an API key that was never missing.
 
-**TL;DR** DEV.to auto-publishing was broken not because of a missing API key, but because of a `const lang` double-declaration `SyntaxError` in the GitHub Actions workflow. 8 hours on the wrong trail, 3 minutes to actually fix it.
+**TL;DR** DEV.to auto-publishing was failing because of a `SyntaxError` — a duplicate `const lang` declaration inside a GitHub Actions workflow. The API key was in GitHub Secrets all along. 8 hours on the wrong trail, 3 minutes to fix the actual bug with Claude Code.
 
-## The Prompt That Started 8 Hours of Pain
+## The Wrong Starting Point
 
-The initial prompt was simple enough.
+The prompt seemed straightforward enough.
 
 ```
-Publish the two posts in blog-factory/devto/ to DEV.to via the API.
-Find the API key in env files or config. If it's not there, report back.
+Publish the two posts in blog-factory/devto/ to DEV.to via API.
+Look for the API key in env vars or config files. Report back if you can't find it.
 ```
 
-Claude launched four parallel tasks immediately: find scripts referencing DEV.to, find env files, find JSON config referencing DEV.to, find blog publishing scripts. 28 Bash calls, 2 Reads, 1 Glob. Every location came up empty:
+Claude fanned out 4 parallel tasks immediately: search for scripts referencing DEV.to, search for env files, search for JSON files with DEV.to references, search for publishing scripts. 28 Bash calls, 2 Reads, 1 Glob. The places it checked:
 
-- `~/.devto`, `~/.config/devto` — nothing
+- `~/.devto`, `~/.config/devto` — not found
 - `~/.env.local` — only `ANTHROPIC_API_KEY`
-- Project `.env*` files — nothing
-- macOS Keychain — nothing
-- Environment variables — nothing
+- `.env*` files in the project — not found
+- macOS Keychain — not found
+- Environment variables — not found
 
-The `DEVTO_API_KEY` did exist as a GitHub Secret. But GitHub Secrets are write-only — you can't read them via CLI. Claude kept landing on the same conclusion: "Paste the API key and I'll publish immediately."
+`DEVTO_API_KEY` existed in GitHub Secrets. But Secrets are write-only — you can't read the value via CLI. Claude kept arriving at the same conclusion: "paste the API key and I'll publish immediately."
 
-Same conclusion, twice. The session hit 31 tool calls going in circles.
+That same session burned 31 tool calls reaching the same dead end. A duplicate session reached the exact same conclusion.
 
-## The Wrong Frame Was the Whole Problem
+## The Question That Changed Everything
 
-Changing the frame changed everything.
-
-Instead of asking Claude to publish directly, I redirected to the workflow layer:
+Instead of continuing to hunt for the key, the prompt shifted direction.
 
 ```
-Read .github/workflows/publish-to-devto.yml and figure out
-what triggers it. If the files aren't on main, merge them or
-push them directly.
+Check the .github/workflows/publish-to-devto.yml workflow.
+Figure out when it triggers.
+If the files aren't on main, merge or push them directly.
 ```
 
-Claude read the workflow file and immediately spotted the bug.
+The moment Claude read the workflow file, it found the bug.
 
 ```javascript
-// Same scope, declared twice
+// Inside the workflow — same scope, declared twice
 const lang = file.match(/-ko\.md$/) ? 'ko' : 'en';
-// ... more code ...
+// ... some code in between ...
 const lang = frontmatter.lang || effectiveLang; // SyntaxError!
 ```
 
-`const lang` was declared twice in the same scope. Every single workflow run was failing with a `SyntaxError` before it could do anything. The API key was sitting in GitHub Secrets perfectly intact — the workflow just never ran long enough to use it.
+`const lang` was declared twice in the same scope. Every single workflow run had been failing with a `SyntaxError` before it could even attempt to publish anything. The API key was sitting in GitHub Secrets the whole time — the workflow just never ran far enough to use it.
 
-There was a second issue too: the EN files were only in `blog-factory/devto/`, not in `src/content/blog/` where the workflow was looking. Two bugs, one read of a YAML file.
+A second issue turned up at the same time: the EN post files only existed in `blog-factory/devto/`, not in `src/content/blog/` where the workflow was looking. Even with the syntax error fixed, the files wouldn't have been found.
 
-## 3 Minutes to Fix What 8 Hours Couldn't
+## The 3-Minute Fix
 
 ```
-1. Fix the const lang double-declaration → rename to effectiveLang
+1. Fix the duplicate const lang → rename to effectiveLang
 2. Add the 2 EN files to src/content/blog/ and push to main
 ```
 
-1 Edit call, 14 Bash calls, 2 Reads. The actual code change was one line:
+1 Edit call, 14 Bash calls, 2 Reads. The actual code change was a single line.
 
 ```javascript
 // Before
@@ -75,30 +73,28 @@ const lang = frontmatter.lang || effectiveLang;
 const effectiveLang = frontmatter.lang || detectedLang;
 ```
 
-After pushing, the workflow triggered automatically. The Claude Agent SDK post published successfully. The Harness CI/CD post hit a 429 rate limit on the first run, but a manual re-trigger published both posts.
+After the push, the workflow triggered automatically. The Claude Agent SDK post published successfully. The Harness CI/CD post hit a 429 rate limit on the first run, but a manual re-run published both posts.
 
-## Cover Image Cleanup (A Small Side Quest)
+## Cleaning Up Cover Images
 
-Before publishing, both files in `blog-factory/devto/` had `cover_image` fields pointing to R2 URLs and hero image tags in the body — but the actual images didn't exist in R2. Had to strip them.
+Before publishing, there was one more cleanup step. The `blog-factory/devto/` files had `cover_image` fields pointing to R2 URLs and `![...]` image tags in the body — but the images didn't actually exist in R2. They had to come out before publishing.
 
 ```
 Remove cover_image R2 URLs (both files)
-Remove body ![...] hero image tags and captions (both files)
+Remove body ![...] hero image tags + captions (both files)
 ```
 
 2 Edit calls. Done.
 
-## What This Tells You About Claude Code
+## What This Tells Us About Claude Code
 
-**Parallel search is fast, but fast in the wrong direction is worse than slow.** Claude ran 4 concurrent tasks for the API key search and converged on a conclusion quickly. The problem: the premise was wrong. "Key not found" wasn't the real issue, so every fast iteration just confirmed a false hypothesis.
+**Parallel search is fast — but if the direction is wrong, speed makes it worse.** Claude fired off 4 parallel tasks simultaneously and reached a conclusion quickly. The problem was that the conclusion was built on a false premise. "The API key is missing" wasn't the actual issue, so no amount of fast parallel searching was going to help.
 
-**Prompt abstraction changes what Claude sees.** Switching from "publish via API key" to "understand how the workflow is supposed to publish this" immediately surfaced the actual bug. The same Claude, the same codebase — different prompt level, different result.
+**Prompt abstraction level determines what Claude can see.** Switching from "publish directly with the API key" to "figure out how the GitHub Actions workflow is supposed to work" immediately surfaced the real bug. Same codebase, same Claude, completely different result.
 
-**Workflow debugging is one of Claude's strongest moves.** It read the entire `publish-to-devto.yml` in one shot and caught the double-declaration without scrolling back and forth. A human reading that file would have spent 10 minutes mentally tracking variable scope. Claude did it in one pass.
+**Claude is fast at workflow debugging because it reads the whole file at once.** It parsed `publish-to-devto.yml` in a single read and spotted the duplicate declaration immediately. A human scanning the same file would've needed several passes and probably missed it the first time.
 
-Total tool calls across the session: 45 Bash, 6 Read, 3 Edit, 3 Glob. The majority were spent searching for a key that was never missing. The actual fix was a fraction of that.
-
-The lesson isn't "Claude should have found the bug sooner." It's that the prompt defined the search space, and the search space was wrong. The 8 hours weren't a Claude failure — they were a framing failure.
+Total tool usage across the session: Bash 45, Read 6, Edit 3, Glob 3. Most of that went into the API key hunt that turned out to be unnecessary. The actual fix used a fraction of it.
 
 ---
 
