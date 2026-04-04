@@ -1,103 +1,94 @@
 ---
-title: "From .docx to iOS App Skeleton in 6 Hours: 316 Tool Calls with Claude Code"
+title: "One Word Doc to iOS App in 6 Hours: Claude Code Multi-Agent Pipeline (316 Tool Calls)"
 project: "portfolio-site"
 date: 2026-04-04
 lang: en
 pair: "2026-04-04-portfolio-site-ko"
-tags: [claude-code, ios, swiftui, tca, subagent, cloverfield, uddental]
-description: "Dropped a Word spec file, got an iOS app skeleton in 6 hours. 316 tool calls, 34 sub-agents, and one extended Xcode fight."
+tags: [claude-code, subagent, ios, swiftui, tca, parallel-agents]
+description: "Dropped a Word spec file. 6 hours later, a SwiftUI + TCA iOS app skeleton built itself. Here's the brainstorm → plan → subagent skill chain that made it happen."
 ---
 
-316 tool calls. 19 files created. 6 hours and 4 minutes. All from dropping a single `.docx` file.
+I dropped a single Word file into Claude Code. `cloverfield-proposal-v3.docx` — a product spec for a GPS-based four-leaf clover collecting app. 6 hours and 4 minutes later, Xcode showed a successful build.
 
-**TL;DR** Hand Claude a Word spec document and run the `subagent-driven-development` skill — it handles planning through feature implementation in parallel. The catch: Xcode still needs a human, and AI-generated images need a rethink.
+**TL;DR** Chain three Claude Code skills — `brainstorming` → `writing-plans` → `subagent-driven-development` — with parallel research agents, and you can go from a product spec to working code in one session. The catch: Xcode environment setup is still human territory.
 
-## The Entire Input Was One Word File
+## How the Skill Chain Turns a Spec into Code
 
-`/Users/jidong/Downloads/cloverfield-proposal-v3.docx` — that was it. A detailed spec for a GPS-based four-leaf clover hunting app, complete with splash motion specs, haptic timing, and an AI-First resource strategy.
+The moment the session started, three skills fired in sequence.
 
-Claude read the file and immediately proposed a Phase structure. It split the 8-week MVP into Week 1-2 / 3-4 / 5-6 chunks and generated a planning document for each phase under `docs/superpowers/plans/`. The `writing-plans` skill kicked in with this framing:
+First, `brainstorming` read the spec and asked exactly one clarifying question: monorepo or separate client/server? One answer, scope locked. Then `writing-plans` broke an 8-week MVP into three plan files (Week 1-2 / 3-4 / 5-6) and dropped them into `docs/superpowers/plans/`. Each file came with target file paths, TCA reducer structure, and test strategy already written out.
 
-> "Planning all of Phase 1 at once is too large. Plan Week 1-2 first, then plan the next phase after completion."
+Once the plans existed, `subagent-driven-development` started dispatching individual tasks to subagents. `CloverEngine`, `LocationClient`, `HealthKitClient`, `MotionClient`, `SplashView`, and `FieldScene` landed in commits nearly simultaneously. The main thread only orchestrated.
 
-That framing mattered. Instead of one giant plan, each phase got its own document. Research for TCA's latest API and XcodeGen setup ran in parallel — both agents came back with results simultaneously.
+The tool call distribution tells the whole story: Bash 95, Read 56, Agent 33, Edit 27 — 316 total. Agent appears 33 times at the top level, but each subagent ran dozens of its own tool calls internally. That's where the number climbs.
 
-## What `subagent-driven-development` Actually Does
+## Two Research Agents Running in Parallel
 
-When you run this skill, Claude becomes a pure orchestrator. It delegates each feature task to an independent sub-agent, collects the results, and advances to the next batch.
+Before writing the Week 1-2 plan, research ran first. TCA (The Composable Architecture) breaks its API across versions — `WithViewStore` was deprecated in 1.7 and replaced by `@ObservableState`. XcodeGen's `project.yml` schema needed direct verification too.
 
-Tasks that ran in parallel during this session:
+Two subagents went out in parallel:
 
-- `Research TCA latest API` + `Research XcodeGen setup` (simultaneously)
-- `Implement Task 4: SplashView` + `Task 5: HealthKitClient` + `Task 6: MotionClient` (simultaneously)
-- `W5-6 Task 1: WeatherClient` + `Task 2: CloverStore` + `Task 3: RevealFeature` + `Task 4: GardenFeature` + `Task 5: ProfileFeature` (5 at once)
-
-Each agent created files and committed. `CloverEngine`, `LocationClient`, `PickingFeature`, `PocketFeature` — 19 files over 6 hours. The main thread did nothing but receive task notifications and dispatch the next batch.
-
-Tool call breakdown: Bash 95 · Read 56 · Edit 27 · Agent 33.
-
-One issue worth flagging: code style drifted between agents. `WithViewStore` deprecation warnings appeared across multiple files. If you don't specify version and pattern explicitly in the sub-agent prompt — something like "TCA 1.7+, use `@ObservableState`" — each agent picks its own version baseline.
-
-## The Xcode Wall
-
-The code arrived fast. Xcode did not cooperate.
-
-**Signing error.** `Signing for "Cloverfield" requires a development team.` You have to select the development team in the Xcode GUI. No automation path exists.
-
-**AppIcon error.** `None of the input catalogs contained a matching app icon set named "AppIcon".` Resolved by generating `Contents.json`.
-
-**HealthKit entitlement error.** Crashed at runtime:
 ```
-NSError(domain: "com.apple.healthkit", code: 4,
-  userInfo: ["NSLocalizedDescription": "Missing com.apple.developer.healthkit entitlement."])
+🐦 AgentCrow — dispatching 2 agents:
+1. @research → "Research TCA latest @ObservableState API patterns for 1.7+"
+2. @research → "Research XcodeGen project.yml schema for iOS 17+ targets"
 ```
-`FieldFeature.swift:50`'s `Effect.run` threw instead of swallowing the error. Fixed by adding HealthKit permissions to `.entitlements`.
 
-**iOS 26.4 Simulator error.** `Redownload iOS 26.4 Simulator and try again.` Worked around by targeting the iOS 17.0 simulator. Finding the right simulator download required manual intervention — Claude responded with "I can't find it."
+Both results came back, plan writing started immediately. Sequential would've added 10 minutes. Parallel made it free.
 
-**`UIColor.blended` doesn't exist.** An agent used a non-existent API. `UIColor` has no `blended(withFraction:of:)` method. Manual fix required.
+## The Parts Claude Code Can't Touch
 
-## Why Gemini Image Generation Didn't Work
+Code generation was fast. The runtime environment was not.
 
-After feedback that the UI felt sterile, the plan was to generate assets via Gemini API. Handed over the API key with instructions to keep regenerating until satisfied. The result in one line:
+**Signing.** "Signing for Cloverfield requires a development team." This is a GUI operation — Xcode Signing & Capabilities, pick an account from a dropdown. No file edit solves it.
 
-> "The images look identical. This is terrible."
+**Simulator.** iOS 26.4 Simulator download failed with exit code 70. Switched to iOS 17.0. "No supported iOS devices are available" kept appearing. Found the device selector dropdown by sharing a screenshot.
 
-The generated clover assets weren't transparent-background PNGs. Dropping them into `Assets.xcassets` created background color conflicts on screen. The pivot: draw procedurally with SwiftUI `Canvas`. That became `ProceduralCloverView.swift`.
+**HealthKit entitlement.**
 
-The clover field logic also had a structural problem. A field of three-leaf clovers needs rare four-leaf clovers mixed in randomly — but you can't manage hundreds of thousands of clover instances as image assets. The solution was seed-based procedural generation, with probability tuned to produce one or two four-leaf clovers per screen.
+```
+NSError(
+  domain: "com.apple.healthkit",
+  code: 4,
+  userInfo: ["NSLocalizedDescription": "Missing com.apple.developer.healthkit entitlement."]
+)
+```
 
-## Side Session: uddental Mobile in 48 Minutes
+`FieldFeature.swift` threw an unhandled error from `Effect.run`. HealthKit needs a provisioning profile and entitlements file — code alone isn't enough. Added fallback handling to `HealthKitClient`'s live implementation to mock data in the simulator.
 
-Session 3 was a separate project — mobile responsiveness fixes for the uddental dental clinic site. 48 minutes, 116 tool calls.
+All three blockers had the same shape: they live outside the filesystem. Claude Code edits files. Xcode configuration lives in GUI state, Apple's signing infrastructure, and device management. That boundary is real and worth knowing before you start.
 
-A missing `FloatingSchedule` import in `layout.tsx` was breaking the build. Catalogued 24 mobile issues, modified 9 files. In `doctors/page.tsx`, a hex opacity template literal pattern (`${doc.accent}0a`) was failing to parse in some browsers — converted to `rgba()` format. Deployed immediately after the fixes.
+## Generating App Images with Gemini Inside the Session
 
-## Session 1 Note: How Claude Code Skills Are Scoped
+No images meant empty boxes everywhere in the UI. One instruction — "use Gemini API with a precise prompt to generate images" — kicked off Gemini API calls directly inside the Claude Code session.
 
-Quick reference for how skill scope works:
+Gave it the API key and had it look up the latest available model. The plan: generate clover-themed healing images and write them directly into Assets.
 
-| Location | Scope |
-|----------|-------|
-| `~/.claude/skills/` | Global |
-| `~/.claude/plugins/` (marketplace) | Global |
-| `{project}/.claude/skills/` | Project-only |
+First results missed. Opaque backgrounds instead of transparent PNGs. Clover style didn't match the app's visual tone. The fix was to split the approach: use Gemini for background and atmospheric assets, draw the clover itself procedurally in `ProceduralCloverView.swift`. SpriteKit's `CloverNode` generates three-leaf and four-leaf clovers at random ratios, tuned so 1-2 four-leaf clovers appear per screen.
 
-When moving to a new machine, you need the entire `~/.claude/` directory. Both the `enabledPlugins` list in `settings.json` and the actual plugin code in `plugins/marketplaces/` need to travel together for the environment to be identical.
+## Session 3: 48 Minutes on Mobile Responsive
 
-## Today's Numbers
+Same day, after the iOS session wrapped, a 48-minute session on the uddental site's mobile layout.
 
-| Metric | Value |
-|--------|-------|
-| Total sessions | 3 |
-| Total tool calls | 437 |
-| Cloverfield session | 316 tool calls, 6h 4m |
-| Files created | 19 |
-| Files modified | 21 |
-| Sub-agent dispatches | 34 |
-| Top tools | Bash 111 · Read 85 · TaskUpdate 72 · Edit 52 |
+Called the `uddental-site` skill. It immediately identified the project location and stack, then surfaced 24 issues across 7 core files. The critical ones: a `FloatingSchedule` import error that was breaking the build entirely, spacing adjustments changing `gap-12` to `gap-6` on mobile, and converting hex opacity notation (`${accent}0a`) to `rgba()`.
 
-Spec document to app skeleton in a single day is possible. Xcode still needs a human in the loop.
+116 tool calls, Read 28, Edit 25 — nearly equal. Read enough first, then edit. Build passed, deployed, session done.
+
+## Where Claude Code Skills Actually Live — Session 1
+
+Session 1 was a 3-minute question: "Where are Claude Code skills stored?"
+
+```
+~/.claude/skills/          # global skills
+~/.claude/plugins/         # plugin skills (marketplace)
+{project}/.claude/skills/  # project-local skills
+```
+
+Project-local skills only apply inside that directory. Moving your setup to a new machine or project requires the full `~/.claude/` directory — `settings.json` with `enabledPlugins`, plugin code under `plugins/marketplaces/`, and `CLAUDE.md`. Skills without plugins are half the setup.
+
+Environment portability matters more than it looks like upfront.
+
+> The skill chain isn't a tool — it's a workflow. Respect the order: brainstorm → plan → implement. The quality of each step depends on the one before it.
 
 ---
 

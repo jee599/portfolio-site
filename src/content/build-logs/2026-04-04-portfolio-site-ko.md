@@ -1,94 +1,86 @@
 ---
-title: "docx 기획서 → iOS 앱 뼈대, 6시간 316 tool calls"
+title: "기획서 docx 한 장으로 iOS 앱 빌드까지, Claude Code 서브에이전트 파이프라인 (316 tool calls)"
 project: "portfolio-site"
 date: 2026-04-04
 lang: ko
-tags: [claude-code, ios, swiftui, tca, subagent, cloverfield, uddental]
-description: "Word 기획서 파일 하나를 드롭했더니 Claude가 XcodeGen 셋업부터 SwiftUI 피처까지 혼자 돌렸다. 6시간, 316 tool calls, 19개 파일 생성. Xcode 삽질 포함."
+tags: [claude-code, subagent, ios, swiftui, tca, parallel-agents]
+description: "Word 기획서를 넘겼더니 6시간 만에 SwiftUI + TCA iOS 앱 뼈대가 나왔다. brainstorm → writing-plans → subagent-driven-development 스킬 체인과 316 tool calls 과정 공개."
 ---
 
-Word 파일 한 장을 던졌을 뿐이다. 6시간 뒤에 iOS 앱 뼈대가 완성됐다.
+Word 파일 하나를 드롭했다. `cloverfield-proposal-v3.docx`. GPS 기반 네잎클로버 수집 힐링 앱 기획서다. 6시간 4분 뒤, Xcode에서 빌드 성공 알림이 떴다.
 
-**TL;DR** `.docx` 기획서를 컨텍스트로 주고 `subagent-driven-development` 스킬을 태우면, Claude가 플래닝부터 피처 구현까지 병렬로 돌린다. 단, Xcode 삽질과 이미지 품질 문제는 여전히 사람이 개입해야 한다.
+**TL;DR** Claude Code 스킬 체인(brainstorm → writing-plans → subagent-driven-development)에 병렬 리서치 에이전트를 붙이면 기획서에서 코드까지 원패스가 가능하다. 단, Xcode 환경 설정은 여전히 인간이 직접 손봐야 한다.
 
-## docx 하나로 앱을 시작하는 법
+## docx → 구현 계획 → 코드, 스킬 체인이 작동하는 방식
 
-`/Users/jidong/Downloads/cloverfield-proposal-v3.docx` — 이게 전부였다. GPS 기반 네잎클로버 수집 힐링 앱 기획서. 스플래시 모션 스펙, 햅틱 타이밍, AI-First 리소스 전략까지 담긴 상세한 문서.
+세션을 시작하자마자 스킬 체인이 순서대로 실행됐다.
 
-Claude는 파일을 읽고 바로 Phase 구조를 제안했다. 8주 MVP를 Week 1-2 / 3-4 / 5-6으로 쪼개고, 각 주차마다 구현 계획 문서를 `docs/superpowers/plans/`에 생성했다. `writing-plans` 스킬이 실행되면서 이렇게 됐다:
+먼저 `brainstorming` 스킬이 기획서를 읽고 질문을 한 번만 던졌다. "모노레포로 갈지, 클라이언트/서버 분리할지?" 한 마디로 정리하고 구현 범위를 확정했다. 그다음 `writing-plans` 스킬이 8주 치 MVP를 Week 1-2 / 3-4 / 5-6으로 나눠 구현 계획서 3개를 `docs/superpowers/plans/`에 떨궜다. 각 파일에는 손댈 파일 경로, TCA 리듀서 구조, 테스트 방법까지 담겼다.
 
-> "Phase 1 전체를 한 번에 계획하면 너무 크다. Week 1-2만 먼저 계획하고, 완료 후 다음 주차를 계획한다."
+계획서가 완성되자 `subagent-driven-development` 스킬이 개별 태스크를 서브에이전트로 던지기 시작했다. `CloverEngine`, `LocationClient`, `HealthKitClient`, `MotionClient`, `SplashView`, `FieldScene`이 거의 동시에 커밋됐다. 메인 스레드는 조율만 했다.
 
-이게 핵심이다. 한 번에 다 짜려 하지 않고 주차 단위로 쪼갠 것. TCA 최신 API와 XcodeGen 셋업 리서치도 병렬로 돌렸다 — 두 에이전트가 동시에 결과를 갖고 돌아왔다.
+이 세션에서 도구 사용 분포가 작업 방식을 그대로 보여준다. Bash 95회, Read 56회, Agent 33회, Edit 27회. Agent가 33회인데 서브에이전트가 태스크마다 내부적으로 수십 번씩 돌리니 실제 총 tool calls는 316회였다.
 
-## subagent-driven-development 스킬이 하는 일
+## TCA 최신 API, 리서치 에이전트 2개 병렬로
 
-스킬을 태우면 Claude는 오케스트레이터로만 행동한다. 각 피처 태스크를 독립 서브에이전트에게 위임하고, 결과를 받아서 다음 단계로 넘긴다.
+Week 1-2 계획을 쓰기 전에 리서치를 먼저 돌렸다. TCA(The Composable Architecture)는 버전마다 API가 크게 달라진다. `WithViewStore`가 1.7에서 deprecated되고 `@ObservableState`로 교체됐다. XcodeGen도 `project.yml` 스키마를 직접 확인해야 했다.
 
-이번 세션에서 병렬로 실행된 태스크들:
+서브에이전트 2개를 병렬로 던졌다. "Research TCA latest API"와 "Research XcodeGen setup"이 동시에 돌았다. 두 결과가 돌아오자마자 바로 계획서 작성에 들어갔다. 순서대로 했으면 추가 10분이 걸렸을 리서치가 병렬로 처리됐다.
 
-- `Research TCA latest API` + `Research XcodeGen setup` (동시)
-- `Implement Task 4: SplashView` + `Task 5: HealthKitClient` + `Task 6: MotionClient` (동시)
-- `W5-6 Task 1: WeatherClient` + `Task 2: CloverStore` + `Task 3: RevealFeature` + `Task 4: GardenFeature` + `Task 5: ProfileFeature` (5개 동시)
-
-각 에이전트는 파일을 생성하고 커밋까지 완료한다. `CloverEngine`, `LocationClient`, `PickingFeature`, `PocketFeature` — 6시간 동안 19개 파일이 생겼다. 메인 스레드는 task-notification을 받아 다음 배치를 배포하는 역할만 했다. Bash 95회, Read 56회, Edit 27회, Agent 33회.
-
-에이전트 간에 코드 스타일이 미묘하게 달라지는 문제는 있었다. `WithViewStore` deprecated 경고가 여러 파일에서 나왔다. 서브에이전트 프롬프트에 "TCA 1.7 이상, `@ObservableState` 사용"처럼 버전과 패턴을 명시하지 않으면 각 에이전트가 다른 버전 기준으로 코드를 쓴다.
-
-## Xcode 삽질 로그
-
-코드는 빠르게 나왔지만 Xcode가 발목을 잡았다.
-
-**Signing 에러.** `Signing for "Cloverfield" requires a development team.` Xcode GUI에서 직접 개발팀을 선택해야 한다. 자동화 불가.
-
-**AppIcon 에러.** `None of the input catalogs contained a matching app icon set named "AppIcon".` `Contents.json` 생성으로 해결.
-
-**HealthKit entitlement 에러.** 런타임에 터졌다.
 ```
-NSError(domain: "com.apple.healthkit", code: 4,
-  userInfo: ["NSLocalizedDescription": "Missing com.apple.developer.healthkit entitlement."])
+🐦 AgentCrow — dispatching 2 agents:
+1. @research → "Research TCA latest @ObservableState API patterns for 1.7+"
+2. @research → "Research XcodeGen project.yml schema for iOS 17+ targets"
 ```
-`FieldFeature.swift:50`의 `Effect.run`이 에러를 삼키지 않고 던졌다. `.entitlements`에 HealthKit 권한을 추가해서 해결.
 
-**iOS 26.4 Simulator 에러.** `Redownload iOS 26.4 Simulator and try again.` iOS 17.0 시뮬레이터로 내려서 우회. 시뮬레이터 다운로드는 사용자가 직접 찾아야 했다 — `못찾겠어`라는 메시지가 나왔다.
+## Xcode 환경 설정, 이건 Claude가 못 해주는 영역
 
-**`UIColor.blended` 없음.** 에이전트가 존재하지 않는 API를 사용했다. `UIColor`에는 `blended(withFraction:of:)` 같은 메서드가 없다. 수동으로 수정.
+코드 생성은 빠르게 됐는데 실행 환경이 문제였다. 이슈가 연달아 터졌다.
 
-## 이미지 생성: Gemini API의 한계
+첫 번째는 signing 문제. "Signing for Cloverfield requires a development team." 개발팀 계정을 Xcode Signing & Capabilities에서 직접 선택해야 한다. Claude가 파일로 해결할 수 없는 GUI 작업이다.
 
-UI가 너무 딱딱하다는 피드백 이후 Gemini API로 이미지를 생성하려 했다. API 키를 건네주고 "만족할 때까지 다시 뽑아라"고 했는데, 결과는 한마디로 정리됐다:
+두 번째는 시뮬레이터 문제. iOS 26.4 Simulator를 다운로드하다 exit code 70으로 실패했다. iOS 17.0 시뮬레이터로 전환했고, "No supported iOS devices are available" 에러가 계속 나왔다. Xcode 상단 디바이스 선택 드롭다운이 어디 있는지 스크린샷을 공유하면서 찾았다.
 
-> "그림 바뀐 거 하나도 없는데? 최악이야"
+세 번째는 HealthKit entitlement 에러.
 
-생성된 클로버 이미지가 투명 배경이 아니었다. `Assets.xcassets`에 박아넣었지만 앱 화면에서 배경색과 충돌했다. 결국 SwiftUI `Canvas`로 절차적으로 그리는 방향으로 전환했다. `ProceduralCloverView.swift`가 그 결과물이다.
+```
+NSError(
+  domain: "com.apple.healthkit",
+  code: 4,
+  userInfo: ["NSLocalizedDescription": "Missing com.apple.developer.healthkit entitlement."]
+)
+```
 
-클로버 자체도 구조적 문제가 있었다. 세잎 클로버 필드에서 네잎이 랜덤으로 섞여 나와야 하는데, 수십만 개의 클로버를 이미지 에셋으로 관리할 수 없다. 시드값 기반 절차적 생성으로 구현했다 — 화면당 1~2개 비율로 네잎이 나오도록 확률 조정.
+`FieldFeature.swift`에서 `Effect.run`이 unhandled error를 던졌다. HealthKit은 단순 코드 추가가 아니라 프로비저닝 프로파일과 엔타이틀먼트 파일이 필요하다. 시뮬레이터에서는 HealthKit 데이터를 목킹하도록 `HealthKitClient`의 라이브 구현에 fallback 처리를 추가했다.
 
-## uddental 모바일 반응형: 48분
+## Gemini API로 이미지 생성, 세션 안에서
 
-세션 3은 별도 프로젝트인 uddental 치과 사이트 모바일 이슈 수정이었다. 48분, 116 tool call.
+UI 이미지가 없으니 앱이 빈 박스 투성이였다. "Gemini 사용해서 정밀한 프롬프트로 이미지 뽑아"라는 한 줄 지시로 Gemini API 호출을 Claude Code 세션 안에서 바로 돌렸다.
 
-`layout.tsx`에서 존재하지 않는 `FloatingSchedule` 임포트가 빌드 에러를 내고 있었다. 24개 모바일 이슈를 목록으로 정리하고 9개 파일을 수정했다. `doctors/page.tsx`에서 hex opacity 템플릿 리터럴 패턴(`${doc.accent}0a`)이 일부 브라우저에서 파싱이 안 됐다 — `rgba()` 형태로 변환해서 해결. 수정 후 바로 배포까지 완료.
+API 키를 주고 최신 모델을 검색해서 쓰도록 했다. 클로버 힐링 톤 이미지를 Assets에 직접 박는 방식이다. 결과물이 처음엔 기대에 못 미쳤다. 투명 배경 PNG가 아닌 불투명 배경 이미지가 나왔고, 클로버 자체가 앱 톤과 맞지 않았다.
 
-## 세션 1 메모: Claude Code 스킬 구조
+결론: Assets 이미지는 Gemini로 뽑고, 클로버 자체는 `ProceduralCloverView.swift`에서 코드로 그리는 방식으로 분리했다. SpriteKit `CloverNode`가 세잎/네잎을 랜덤 비율로 생성하고, 화면당 1~2개 네잎클로버가 섞이도록 확률을 조정했다.
 
-짧게 정리. 스킬 위치에 따라 적용 범위가 다르다:
+## 같은 날 uddental 모바일 반응형 수정
 
-| 위치 | 적용 범위 |
-|------|-----------|
-| `~/.claude/skills/` | 글로벌 |
-| `~/.claude/plugins/` (마켓플레이스) | 글로벌 |
-| `{프로젝트}/.claude/skills/` | 해당 프로젝트만 |
+세션 2가 끝나고 48분짜리 세션 3이 있었다. uddental 사이트 모바일 반응형 점검이다.
 
-다른 머신으로 환경을 옮길 때는 `~/.claude/` 전체를 가져가야 한다. `settings.json`의 `enabledPlugins` 목록과 `plugins/marketplaces/`의 실제 플러그인 코드가 함께 있어야 동일한 환경이 된다.
+`uddental-site` 스킬을 호출하자 프로젝트 위치와 기술 스택을 즉시 파악하고 24개 이슈 목록을 뽑았다. 핵심은 7개 파일이었다. `FloatingSchedule` 임포트 에러(빌드 자체가 깨져 있었다), `gap-12`를 모바일에서 `gap-6`으로 좁히는 간격 조정, hex opacity 표기(`${accent}0a`)를 `rgba()`로 변환하는 작업이다.
 
-## 오늘의 숫자
+116 tool calls 중 Read 28회, Edit 25회로 거의 같은 비율이다. 먼저 충분히 읽고 수정한다는 패턴이 수치로 보인다. 빌드 성공 확인 후 배포까지 한 세션에서 끝냈다.
 
-- 총 세션: 3개
-- 총 tool call: 437회
-- Cloverfield 세션 단독: 316 tool calls, 6시간 4분
-- 생성 파일: 19개 / 수정 파일: 21개
-- 서브에이전트 dispatch: 34회
-- 도구 순위: Bash 111회 → Read 85회 → TaskUpdate 72회 → Edit 52회
+## Claude Code 스킬 저장 구조 — 세션 1에서 배운 것
 
-기획서 → 앱 뼈대까지 하루에 가능하다. 단, Xcode는 여전히 사람 손이 필요하다.
+세션 1은 3분짜리 질문 세션이었다. "Claude skills는 어디에 저장돼?"
+
+```
+~/.claude/skills/          # 글로벌 스킬
+~/.claude/plugins/         # 플러그인 스킬 (마켓플레이스)
+{project}/.claude/skills/  # 프로젝트 로컬 스킬
+```
+
+프로젝트 `.claude/skills/`는 해당 디렉토리 안에서만 적용된다. 다른 머신이나 다른 프로젝트로 환경을 옮길 때 `~/.claude/` 전체가 필요하다. `settings.json`의 `enabledPlugins`, `plugins/marketplaces/`의 플러그인 코드, `CLAUDE.md`까지 세트로 가야 한다.
+
+환경 이식성이 생각보다 중요했다. 플러그인 없이 스킬만 복사하면 반쪽짜리다.
+
+> 스킬 체인은 도구가 아니라 워크플로우다. brainstorm → plan → implement 순서를 지키면 삽질이 줄어든다.
