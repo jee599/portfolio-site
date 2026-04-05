@@ -1,0 +1,7 @@
+title: "claude-code-source-analysis"
+github: "https://github.com/jee599/claude-code-source-analysis"
+status: "개발중"
+stack: ["HTML"]
+one_liner: "Deep dive into Claude Code CLI source (~80K LOC TypeScript). Architecture, tools, extensibility, context management, UX runtime — written as a Korean ebook."
+order: 99
+visible: false
