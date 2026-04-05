@@ -1,54 +1,52 @@
 ---
-title: "670 Tool Calls, 48 Hours: Building an S-Grade Dental Blog Image Pipeline in 4 Rounds"
+title: "670 Tool Calls in 48 Hours: How I Built an AI-Undetectable Dental Image Pipeline"
 project: "portfolio-site"
 date: 2026-04-06
 lang: en
 pair: "2026-04-06-portfolio-site-ko"
-tags: [claude-code, multi-agent, gemini, image-pipeline, skill, naver-seo]
-description: "How I built a pipeline generating 25 dental blog images at S-grade quality: 670 tool calls, 3 parallel cross-validation agents, Gemini Pro/Flash routing, and 4 iterative rounds."
+tags: [claude-code, multi-agent, gemini, image-pipeline, naver-seo]
+description: "Building a pipeline to auto-generate 25 dental blog images: 3 parallel validation agents, Gemini Pro/Flash routing by type, and 4 iteration rounds to reach AI-detectability score 9.1/10."
 ---
 
-48 hours, 30 minutes. 670 tool calls. A new personal record for a single session.
+670 tool calls. 48 hours and 30 minutes. The longest single session I've ever run — and it wasn't debugging. It was building a pipeline that auto-generates 25 images per dental blog post, at a quality level where human reviewers can't tell the difference.
 
-The goal was specific: build a pipeline that auto-generates 25 images per dental blog post at what Naver SEO practitioners call "S-grade" quality. Not just working — indistinguishable from human-produced content.
+**TL;DR**: Three subagents doing parallel cross-validation every round. Gemini Pro for anatomy illustrations, Flash for text cards. Four rounds of iteration before the average AI-detectability score hit 9.1/10. The meta-lesson: skill files have to be living documents or the pipeline forgets what it learned between rounds.
 
-**TL;DR**: Deployed 3 parallel subagents for cross-validation per round, routed Gemini Pro vs Flash by image type, and iterated through 4 rounds before hitting an average AI-detectability score of 9/10. The key insight: skill files have to evolve in real time, or the pipeline regresses.
+## A Single Word Kicked Off 38 Minutes and 133 Tool Calls
 
-## The One-Word Prompt That Started a 38-Minute Session
-
-Session 1 began with a single word.
+Session 1 started with one word.
 
 ```
 spoonai
 ```
 
-Claude pulled two related projects from memory and asked for clarification. The follow-up came fast:
+Claude found two related projects in memory and asked what I wanted. Then the actual instruction arrived:
 
 ```
 Check if there's room for design improvements,
-fix the translation feature to work perfectly,
-apply both strategy and technical SEO for Google and AI search
+fix the translation feature so it works properly,
+apply both strategy and technical fixes for Google and AI search SEO
 ```
 
-Three domains in one message: design, i18n, and SEO. Rather than context-switching, Claude dispatched 3 Explore agents in parallel to map the current state. When the results came back, a critical bug surfaced immediately.
+Three domains at once: design, i18n, SEO. Instead of handling them sequentially, Claude dispatched three Explore agents in parallel to map the current state. When results came back, a critical bug surfaced.
 
-`lib/content.ts:133` — `getPostSlugs()` was filtering with `!f.includes("-en")`, which silently dropped every English file. `getAllPosts("en")` was returning an empty array, so every `/posts/..-en` URL was returning 404. The translation "not working" wasn't a UI problem at all — it was a content loader bug.
+`getPostSlugs()` at `lib/content.ts:133` was filtering files with `!f.includes("-en")` — silently dropping every English post. `getAllPosts("en")` returned an empty array, which meant every `/posts/..-en` URL was a 404. The translation feature wasn't broken in the UI. The content loader was eating the data before the UI ever saw it.
 
-38 minutes. 133 tool calls. Edit ×63, Bash ×37, Read ×27. 22 files modified.
+38 minutes, 133 tool calls. Edit ×63, Bash ×37, Read ×27. 22 files modified.
 
-## 670 Tool Calls: Building the Dental Image Pipeline
+## The 48-Hour Build: Automated Images for Naver S-Tier Dental Blogs
 
 Session 2 was the main event.
 
-The objective: an automated image generation pipeline for 3 Naver S-grade dental blog posts — implant bone grafting, gum disease, and pediatric dentistry. 25 images per post: 6 text cards, 6 3D medical illustrations, and photo-style composite cards.
+Three Naver dental blog posts — implant bone grafting, gum disease, pediatric dentistry. Each post needed 25 images: 6 text cards, 6 3D medical illustrations, and real-photo composite cards. The quality bar was "S-tier" by Naver SEO standards — images that look like they were produced by a professional medical graphic design team.
 
-### The Parallel Cross-Validation Pattern
+### Why Three Agents Validating the Same Output
 
-Every quality pass ran in a separate context. This prompt appeared repeatedly across rounds:
+Every quality pass ran in a separate context with this prompt pattern:
 
 ```
 Evaluate with a fresh context,
-compare against S-grade reference examples,
+compare against S-tier reference examples,
 have 3 agents cross-validate
 ```
 
@@ -56,90 +54,94 @@ Three agents per round, fixed roles:
 
 - SEO/algorithm validation agent
 - Medical accuracy + quality validation agent
-- S-grade design/visual standards agent
+- S-tier design/visual standards agent
 
-Running 3 agents against the same output simultaneously keeps the main context clean. Results surfaced as score tables only: `001 implant: SEO 7/10, medical 9/10, visual 8/10`. That's all that needed to come back to the main thread.
+The reason for separate contexts: if validation runs in the same thread that did the generation, it inherits all the biases and blind spots from that generation pass. Fresh context, different angle, same files — that's what catches things the original agent rationalized away.
 
-### Gemini Pro / Flash Routing
+Results came back as score tables only. `001 implant: SEO 7/10, medical 9/10, visual 8/10`. The main thread never needed to process full agent output — just the numbers.
 
-The early rounds just used Gemini. Round 2 added a routing rule:
+### Routing Gemini Pro and Flash by Image Type
+
+Early rounds used Gemini without differentiation. Round 2 made this explicit:
 
 ```
-Use both Pro and Flash, route based on required image quality
+Use Pro and Flash differently based on the image quality needed
 ```
 
-The split was by image type. Medical illustrations (anatomy, alveolar bone cross-sections, implant placement sequences) → Gemini 2.0 Pro. Text cards (hero, FAQ, CTA, disclaimers) → Gemini 2.0 Flash. Pro produces better output but is slower and more expensive. Using it for flat card layouts wastes both.
+The split logic: medical illustrations (anatomy diagrams, alveolar bone cross-sections, implant placement sequences) → Gemini 2.0 Pro. Text cards (hero, FAQ, CTA, disclaimers) → Gemini 2.0 Flash. Pro is slower and costs more. Running it on flat card backgrounds with a few lines of text is pure waste.
 
-This branching logic landed in `pipeline.py`'s `build_template_variables()` — file name patterns determine the image type, which determines the model.
+This branching landed in `build_template_variables()` in `pipeline.py`. Filename patterns encode the image type, which determines the model. No manual intervention per image.
 
-### Round 1 → Round 4: Getting to 9/10
+### Four Rounds to 9.1/10
 
-Round 1's biggest problem was the 3D CGI aesthetic. Blue glows, exaggerated specularity, robotic textures. Average AI-detectability score: 6–7/10.
+Round 1's failure mode was obvious once you saw it: 3D CGI aesthetic. Blue glows, exaggerated specularity, plastic-looking textures. Average AI-detectability score: 6–7/10. Looked like a hospital website from 2018.
 
-Round 2 caught a `viewport` bug. The HTML template had `body height: 860px` fixed, but hero image capture was set to `clip height=1075`. Result: 215px of white background at the bottom of every hero image. Also fixed a logo double-render bug on text cards.
+Round 2 fixed a `viewport` measurement bug. The HTML template had `body height: 860px` hardcoded, but the Playwright capture was set to `clip height=1075`. That 215px gap rendered as white background on every hero image. Also caught a logo double-exposure bug on text cards where the logo was composited twice.
 
-Round 3 switched the medical illustration style to Gray's Anatomy textbook style — simplified anatomical line art instead of 3D CGI. AI-detectability scores jumped to 8–9/10.
+Round 3 was the style shift that moved the needle. Switched medical illustration style from 3D CGI to Gray's Anatomy textbook — simplified anatomical line art, muted palette, clean labels. AI-detectability scores jumped to 8–9/10 immediately.
 
-Round 4 was final tuning.
+Round 4 was calibration:
 
 ```
 AI detectability needs to be 9+ across the board
 ```
 
-Three agents independently scored the same 25 images. When scores converged, the batch passed. When they diverged, the lowest-scoring items got identified and revised. Final result: 25-image average AI-detectability score of 9.1/10.
+Three agents scored the same 25 images independently. When scores converged → batch passes. When scores diverged → identify the lowest-scoring items, fix them, re-score. Final output: 25 images averaging 9.1/10.
 
-### Skill Files as Living Documents
+### The Skill File Is the Memory
 
-`naver-dental-blog/SKILL.md` and `dental-blog-image-pipeline/SKILL.md` were updated 7 times during this session. Every round, learnings went directly into the skill files.
-
-```
-Update skills with everything learned so far, then what's left? Keep going.
-```
-
-Deferring skill updates to "later" means starting from scratch in the next session. S-grade benchmarks discovered mid-session, failed prompt patterns, bug fixes — all of it needs to land in the skill file immediately. That's what makes the pipeline compound instead of reset.
-
-Things added to `pipeline.py` across rounds:
-
-- `parse_image_tags()` — parser for `<!-- IMAGE: -->` tags
-- `build_template_variables()` — file-name-based Pro/Flash routing
-- CTA card differentiation — file-name branching to prevent repeated CTA template reuse
-- `viewport` fix → `overflow: hidden` applied globally across HTML templates
-
-## Why Are There 3 Retry Rounds?
-
-This came up mid-session:
+`naver-dental-blog/SKILL.md` and `dental-blog-image-pipeline/SKILL.md` were updated 7 times during this session. The prompt that triggered each update:
 
 ```
-Why does it run 3 times?
+Update the skill with everything we've learned so far, then tell me what's left and continue
 ```
 
-Three retry loops was an initial design mistake. The image generation API occasionally fails, so retry logic was necessary — but the code was hardwired to always run 3 times. Success or failure, it ran 3 rounds. Fixed: exit on first success, retry only on failure.
+Deferring skill updates to "after the session" means the next session relearns everything from scratch. S-tier quality benchmarks, failed prompt patterns, bug fixes discovered mid-run — all of it needs to be written into the skill while the context is hot. That's how the pipeline compounds across sessions instead of resetting.
 
-## Rollback: When the Previous Version Was Better
+Additions to `pipeline.py` across rounds:
 
-Near round 5, a full redesign pass ran on one card.
+- `parse_image_tags()` — parser for `<!-- IMAGE: -->` tags in blog markdown
+- `build_template_variables()` — filename-based Pro/Flash model routing
+- CTA card differentiation — filename branching so the same CTA template doesn't repeat across posts
+- `viewport` fix → `overflow: hidden` applied across all HTML templates
+
+## The Bug Nobody Asked About
+
+Midway through the session:
+
+```
+Why does it run 1st, 2nd, 3rd attempts every time?
+```
+
+Three nested retry loops in the pipeline — a mistake from the initial scaffolding. The intent was: if the image generation API fails, retry. The implementation was: always run three times, regardless. Success on attempt 1? Still runs 2 and 3. Failed on all 3? Runs 3 more.
+
+After the fix: exit on first success, retry only on failure. Simple, but it halved runtime.
+
+## Rollback Without Git Is Not a Strategy
+
+Near round 5, a full redesign pass ran on a card set.
 
 ```
 Image #9 — the version right before this was better. Roll it back.
 ```
 
-There was no rollback path. The agents had been writing files directly. No git commits for intermediate states, no backup copies before the redesign. Once overwritten, the previous version was gone.
+No rollback path existed. The agents had been writing files directly, bypassing git. No intermediate commits, no per-round output directories, no `.bak` files before overwrites. Once a redesign runs, the previous version is gone.
 
-This was the most expensive mistake in the session. The pipeline needed either `.bak` backups before any overwrite, or round outputs saved to separate directories. Running a full redesign without a snapshot means no recovery option.
+This was the most expensive mistake of the session — not in API cost, but in lost work. A pipeline that destructively overwrites files needs a recovery mechanism before it runs redesigns. Either `.bak` copies created pre-write, or round outputs saved to versioned subdirectories.
 
-## 670 Tool Calls, Almost No Edit
+## What 670 Tool Calls Without Edit Looks Like
 
-Of the 670 tool calls, Edit was barely used. Bash to run Python scripts, Agent to dispatch subagents, Write to replace files wholesale. The majority of work was pipeline execution and validation — not code editing.
+Of 670 tool calls, Edit appeared rarely. The breakdown was Bash running Python scripts, Agent spawning subagents, Write replacing entire files. The pipeline was mostly being executed and validated — not coded.
 
-Scope assignment is the critical discipline when running multiple agents. "Score these 3 files independently" dispatches 3 agents that each read and evaluate the same files. No overlapping write scopes means parallel execution is safe. In this session, the validation agents were read-only throughout, so there were zero conflicts.
+The discipline that makes parallel agents safe: scope assignment. "Score these 3 files independently" dispatches 3 agents that read and evaluate the same files, write nothing. No overlapping write scopes means no conflicts. In this session, validation agents were read-only throughout, so parallel execution stayed clean across all four rounds.
 
 ---
 
 ## Related Posts
 
-- [Building a Dental Clinic Site in 8 Minutes with Claude Code Frontend](/posts/2026-03-16-uddental-en)
+- [Building a Dental Clinic Site in 8 Minutes with Claude Code](/posts/2026-03-16-uddental-en)
 - [Hiring 10 Agents to Build a Mentoring Platform: 6 Sessions, 1,289 Tool Calls](/posts/2026-03-15-coffee-chat-en)
-- [Blog Automation Pipeline: Turning 105 Session Logs into Build Logs with Claude Code](/posts/2026-03-15-portfolio-site-en)
+- [Blog Automation Pipeline: Turning 105 Session Logs into Build Logs](/posts/2026-03-15-portfolio-site-en)
 
 ---
 
