@@ -1,123 +1,76 @@
 ---
-title: "docx 기획서 한 장으로 iOS 앱 뼈대 세우기: 서브에이전트 병렬 구현 패턴"
+title: "병렬 에이전트 32개로 치과 블로그 3편 + 3D 이미지 18장 찍어내기"
 project: "portfolio-site"
 date: 2026-04-05
 lang: ko
-tags: [claude-code, ios, swiftui, tca, subagent, naver-blog, uddental]
-description: "docx 기획서 업로드 하나로 iOS 앱 구조 전체를 세웠다. 6시간, 316 tool calls, 서브에이전트 병렬 패턴으로 SwiftUI + TCA 스켈레톤 완성. 삽질 포함 전부 기록."
+tags: [claude-code, multi-agent, naver-blog, gemini, image-generation]
+description: "uddental 프로젝트에서 Claude Code 병렬 에이전트로 치과 블로그 3편을 작성하고 Gemini로 3D 일러스트 18장을 생성했다. 227 tool calls, 에이전트 32번 호출, 교차 검증 3라운드."
 ---
 
-기획서 docx 파일 하나를 Claude에 던졌다. 6시간 뒤에 SwiftUI + TCA 프로젝트 뼈대가 완성됐다. 스플래시, HealthKit 걸음 트래킹, SpriteKit 풀밭, 클로버 뽑기, 리빌, 정원, 프로필 — 7개 피처가 커밋 단위로 쌓였다. tool calls 316번, Agent 33번.
+227번의 tool call. 에이전트 32번 호출. 그리고 최종 결과물: 치과 블로그 3편, 3D 일러스트 18장, 모바일 반응형 수정 11개 파일.
 
-**TL;DR**: 기획서가 상세할수록 첫 프롬프트가 짧아진다. 피처별 서브에이전트를 독립 태스크로 쪼개면 병렬 실행이 가능하다. Xcode 삽질은 세션 밖에서 해결해야 한다.
+**TL;DR** uddental 프로젝트에서 Claude Code 병렬 에이전트를 최대한 활용해 네이버 치과 블로그 콘텐츠 파이프라인을 구축했다. 단순 글쓰기가 아니라 SEO, 의료법, 디자인 3개 관점의 교차 검증까지 자동화했다.
 
-## docx 파일 하나에서 시작
+## 모바일부터 잡고 시작했다
 
-첫 프롬프트는 파일 경로 하나였다.
-
-```
-/Users/jidong/Downloads/cloverfield-proposal-v3.docx
-```
-
-Claude가 읽었다. GPS 기반 네잎클로버 수집 힐링 앱. iOS 네이티브(SwiftUI 17+) + TCA + SpriteKit + SwiftData. 클라우드는 Cloudflare Workers + D1 + R2. MVP $134, 월 $10–15. 스크린별 모션 스펙이 햅틱 타이밍까지 나와 있었다.
-
-다음 프롬프트: "하나씩 phase 별로 구현 — 확인해주면서 진행해줘."
-
-Claude는 brainstorming 스킬을 호출했다. 기획서가 이미 구체적이라 대화는 짧았다. 확인한 것 두 가지 — 프로젝트 위치(`/Users/jidong/Projects/Cloverfield/`)와 Week 단위 스코프 분리. 그 다음 writing-plans 스킬로 Week 1–2, 3–4, 5–6 구현 계획을 3개 파일로 만들었다.
-
-## 서브에이전트 병렬 구현 패턴
-
-계획이 나오자 subagent-driven-development 스킬을 불렀다. 피처당 에이전트 하나. 독립 태스크면 병렬로, 의존성 있으면 순차로.
-
-Week 1–2에서 리서치 에이전트 2개를 먼저 병렬로 돌렸다.
-
-- `Research TCA latest API` — TCA 1.7 이상 `@ObservableState` 패턴 확인
-- `Research XcodeGen setup` — `project.yml` 구조와 빌드 설정
-
-리서치 결과가 오면 계획에 반영하고, 구현 에이전트를 태스크별로 디스패치했다.
+세션 시작은 단순한 프롬프트였다.
 
 ```
-Task 4: SplashView  →  commit 7bc8285
-Task 5: HealthKitClient  →  commit e8d5c24
-Task 6: MotionClient  →  commit feat: MotionClient...
+모바일 화면에서 제대로 나오게 모두 확인해줘
 ```
 
-각 에이전트가 파일을 만들고 커밋하면 태스크 알림이 돌아왔다. 메인 컨텍스트는 요약만 받았다. 에이전트 간 파일 충돌을 막으려면 스코프가 겹치지 않아야 한다 — 피처 디렉토리 단위로 경계를 잡는 게 핵심이다.
+Next.js 15 + Tailwind 기반의 uddental 사이트. 처음엔 가볍게 봤는데 코드를 읽어보니 24개의 모바일 이슈가 나왔다. `layout.tsx`에는 존재하지 않는 `FloatingSchedule` 컴포넌트 임포트가 있어서 빌드 에러가 나는 상태였고, 각 페이지마다 데스크탑 전용 `gap-12`, `px-10` 같은 값들이 박혀 있었다.
 
-Week 3–4에서는 CloverEngine, LocationClient, SpriteKit FieldScene, PickingFeature, PocketFeature를 동시에 돌렸다. 5개 에이전트가 5개 커밋을 만들었다.
+11개 파일을 수정해서 빌드를 통과시켰다. `doctors/page.tsx`에서는 hex opacity 표기 문제도 있었다. `${doc.accent}0a` 형태로 쓴 게 일부 브라우저에서 파싱이 안 됐는데, `rgba()`로 변환해서 해결했다.
 
-## Xcode 삽질: 세션 밖의 시간들
+모바일 수정 자체보다 **Claude가 코드를 읽고 이슈 목록을 먼저 정리한 다음 수정하는 흐름**이 효율적이었다. Read 63번, Edit 34번의 비율이 그걸 보여준다. 코드를 충분히 읽고 나서 편집한다.
 
-빌드가 처음 깨진 건 세 가지 이유였다.
+## 치과 블로그를 어떻게 "S급"으로 만드나
 
-1. `WithViewStore` deprecated — TCA 1.7에서 `@ObservableState`로 마이그레이션 필요
-2. `AppIcon` 에셋 누락 — `Contents.json`이 없어서 빌드 실패
-3. 서명 팀 미설정 — `Signing for "Cloverfield" requires a development team`
-
-Claude가 1번과 2번은 고쳤다. 3번은 Xcode GUI에서 직접 선택해야 했다. iOS 시뮬레이터 다운로드는 exit code 70으로 실패했다. 결국 iOS 17.0 시뮬레이터를 직접 받아서 연결했다.
-
-HealthKit 엔티틀먼트 에러도 나왔다.
+모바일 수정 후 본론이 시작됐다.
 
 ```
-NSError(
-  domain: "com.apple.healthkit",
-  code: 4,
-  userInfo: ["NSLocalizedDescription": "Missing com.apple.developer.healthkit entitlement."]
-)
+블로그 글 쓰자 지금까지 쓴거랑 스킬 확인해주고, 래퍼런스 모아놓은 거 확인해줘
 ```
 
-앱 설정에서 HealthKit capability를 수동으로 켜야 했다. Claude는 에러 메시지를 읽고 방법을 알려줬지만, Xcode 설정 파일을 직접 수정하는 건 사용자 몫이었다.
+`naver-dental-blog` 스킬과 S급 블로그 래퍼런스 분석 결과를 먼저 확인했다. 주제 3개를 정했다: 임플란트 뼈이식(001), 잇몸 출혈·치주질환(002), 소아치과 첫 방문(003).
 
-빌드 성공 메시지를 확인한 건 세션 시작 6시간 뒤였다.
+각 포스트 스펙: 5,000~6,000자, H2 7~8개, IMAGE 태그 22~25개, 격식체, 의료광고법 준수.
 
-## 디자인 이터레이션: "너무 딱딱해"
+여기서 병렬 에이전트를 제대로 써먹었다. 3편을 동시에 작성시켰다. 에이전트 3개가 각자 블로그 하나씩 맡았고, 결과는 task notification으로 차례로 올라왔다.
 
-빌드가 되고 나서 시뮬레이터로 첫 화면을 봤다. 사용자 피드백: "이미지가 없어? 그리고 UI 더 고도화해야 할 것 같은데." "폰트랑 디자인 더 애플스럽고 힐링되게 못해? 너무 딱딱해."
+작성이 끝나면 바로 교차 검증을 돌렸다. 검증도 병렬이다. SEO/알고리즘 에이전트, 의료법/퀄리티 에이전트, S급 디자인 에이전트 — 세 관점에서 동시에 채점했다. 단일 에이전트가 순차로 검토하는 것보다 훨씬 빠르고 맹점이 줄었다.
 
-디자인 이터레이션도 에이전트로 처리했다.
+첫 라운드에서 002, 003은 IMAGE 태그 수가 부족했고 SEO 키워드 밀도도 낮았다. 수정 → 재검증 사이클을 3번 반복했다.
 
-- `Polish FieldView warm healing design`
-- `Polish PocketView warm healing`
-- `Polish SplashView warm healing`
+## 스킬이 안 되면 스킬을 고친다
 
-크림 베이지 배경, 따뜻한 초록 계열, SF Rounded 폰트. `DesignSystem.swift`에 컬러 토큰을 모아서 모든 뷰가 같은 팔레트를 쓰도록 했다.
-
-그다음 피드백: "세잎 클로버 중에 네잎이 섞여있는 걸로 해줘 랜덤 배치해서, 화면당 한~2개로." SpriteKit `CloverNode`에서 랜덤 시드 기반으로 4번째 잎 생성 여부를 결정하는 코드를 추가했다.
-
-## uddental: 모바일 반응형 + 블로그 3편 병렬 작성
-
-같은 날 세션 3에서 uddental 사이트 모바일 반응형 점검을 했다. Read 47회로 전체 컴포넌트를 스캔하고 24개 이슈를 발견했다. 핵심은 `FloatingSchedule` 미존재 임포트(빌드 에러), `gap-12` → 모바일 `gap-6`, CTA 버튼 패딩 조정이었다.
-
-빌드 성공 후에는 네이버 치과 블로그 3편을 병렬로 작성했다.
+교차 검증을 돌리다가 이상한 점을 발견했다.
 
 ```
-Agent "Write blog 001 implant bone graft"
-Agent "Write blog 002 gum disease"
-Agent "Write blog 003 pediatric dentistry"
+이전 작업에서 스킬 수정안했어? 왜 계속 평가가 안나와?
 ```
 
-3개 에이전트가 동시에 돌았다. 각각 5,000–6,000자, 네이버 알고리즘 스펙(H2 7–8개, 키워드 밀도, 이미지 태그 22–25개)을 기준으로 작성했다.
+에이전트가 제대로 채점을 못 하는 이유가 있었다. `naver-dental-blog/SKILL.md`에 평가 기준이 명시되어 있지 않았다. 에이전트는 스킬 파일에 있는 것만 따른다. 기준이 없으면 채점도 없다.
 
-작성 완료 후 교차 검증을 3개 에이전트로 돌렸다 — 의료법 준수, S급 디자인 기준, 네이버 SEO 알고리즘. 피드백을 받아서 수정하고, 수정 후 다시 18개 항목 체크리스트로 재검증했다. 003편이 18/18으로 통과했고, 001, 002는 1–2개 항목을 추가로 수정했다.
+스킬 파일에 S급 벤치마크 강제 규정, 의료법 체크리스트, 키워드 밀도 기준 등 7개 섹션을 추가했다. `dental-blog-image-pipeline/SKILL.md`도 함께 업그레이드했다. 스킬을 쓰면서 스킬을 개선하는 피드백 루프다.
 
-마지막으로 Gemini API로 3D 일러스트를 생성했다. 에이전트 3개가 편당 6장씩, 총 18장을 병렬로 뽑았다. 뼈이식 단면 구조, 잇몸 출혈 원인, 유치 맹출 순서 같은 주제를 의료 3D 일러스트 스타일로.
+스킬 업그레이드 후 재검증. 최종 18점 체크리스트 결과: 001은 17/18, 002는 16/18, 003은 18/18.
 
-## 통계로 보면
+## Gemini로 3D 일러스트 18장
 
-| 세션 | 시간 | tool calls | 주요 도구 |
-|------|------|-----------|---------|
-| 스킬 시스템 Q&A | 3분 | 5 | Glob, Read |
-| Cloverfield iOS 앱 | 6시간 4분 | 316 | Bash(95), Read(56), Agent(33) |
-| uddental + 블로그 | 20시간 35분 | 170 | Read(47), Edit(29), Agent(25) |
+텍스트만으론 부족하다고 판단해서 이미지 생성을 추가했다.
 
-Agent 도구가 58회 호출됐다. 리서치, 구현, 검증을 에이전트로 분리하면 메인 컨텍스트가 오케스트레이터 역할만 한다. 컨텍스트가 깨끗할수록 다음 판단이 정확해진다.
+```
+Gemini로 3D 일러스트 실제 생성 이미지 생성해서 쓰고, 3 사용해서 비교해
+```
 
-TaskUpdate 72회는 서브에이전트 태스크 상태를 추적한 것이다. 병렬로 돌리면 언제 끝나는지 알 수 없으니 알림 방식이 필수다.
+`gemini-2.0-flash-image` 모델로 포스트당 6장씩, 총 18장. 에이전트 3개가 병렬로 생성했다. 재시도 없이 전부 1회에 성공했다. `dental-blog-image-pipeline/scripts/pipeline.py`가 IMAGE 태그를 파싱해서 Gemini API를 호출하고 결과를 저장한다. 파일 크기 5KB 이상이면 성공으로 판별하는 로직이 들어 있다.
 
-## 기획서 품질이 구현 속도를 결정한다
+최종 3D 일러스트 퀄리티 평가 9.0/10. 에이전트 코멘트: "용인/동백 로컬 치과 블로그 기준 상위 10% 수준."
 
-Cloverfield 세션에서 brainstorming이 짧게 끝난 이유는 기획서가 이미 모션 스펙, 햅틱 타이밍, 예산까지 다 담고 있었기 때문이다. 기획서의 밀도가 첫 프롬프트의 길이를 결정한다.
+## 이번 세션에서 배운 것
 
-반대로 Xcode 설정과 시뮬레이터 연결은 Claude가 해줄 수 없는 영역이다. GUI 인터랙션이 필요한 작업, 개발자 계정 설정, 엔티틀먼트 활성화 — 이 세 가지는 사용자가 직접 해야 한다. 세션 밖에서 30분이 나갔다.
+병렬 에이전트는 독립 작업에 쓸 때만 효과가 있다. 3편의 블로그를 동시에 쓸 수 있었던 건 각 포스트가 완전히 독립적이었기 때문이다. 교차 검증이 효과적이었던 것도 SEO, 의료법, 디자인이 서로 다른 관점이라서다. 파일 범위가 겹치는 수정 작업에서는 에이전트 스코프를 명확히 나눠야 한다.
 
-서브에이전트 패턴은 독립성이 전제다. 같은 파일을 두 에이전트가 건드리면 충돌이 난다. 피처 디렉토리 단위로 스코프를 명확히 지정하고, 에이전트 프롬프트에 "수정 범위: 이 디렉토리만"을 명시하는 게 기본이다.
+도구 사용 통계: Read 63, Edit 34, Agent 32, Bash 31, TaskUpdate 24. Read가 가장 많다. 코드를 충분히 읽어야 제대로 된 수정이 나온다는 걸 숫자로 확인했다.
