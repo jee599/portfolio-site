@@ -1,0 +1,7 @@
+title: "clisync"
+github: "https://github.com/jee599/clisync"
+status: "개발중"
+stack: ["JavaScript"]
+one_liner: "Sync LLM CLI settings across machines. One command save, one command load."
+order: 99
+visible: false
