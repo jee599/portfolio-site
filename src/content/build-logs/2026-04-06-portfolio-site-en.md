@@ -1,147 +1,136 @@
 ---
-title: "670 Tool Calls in 48 Hours: How I Built an AI-Undetectable Dental Image Pipeline"
+title: "I Fixed the Same Mobile Bug 7 Times — 15 Claude Code Sessions, 757 Tool Calls"
 project: "portfolio-site"
 date: 2026-04-06
 lang: en
 pair: "2026-04-06-portfolio-site-ko"
-tags: [claude-code, multi-agent, gemini, image-pipeline, naver-seo]
-description: "Building a pipeline to auto-generate 25 dental blog images: 3 parallel validation agents, Gemini Pro/Flash routing by type, and 4 iteration rounds to reach AI-detectability score 9.1/10."
+tags: [claude-code, spoonai, mobile, debugging, worktree, vercel, design, parallel-agents]
+description: "Fixed the same mobile overflow bug 7 times across 15 Claude Code sessions. Here's the iOS Safari root cause I kept missing — and what changed when I finally found it."
 ---
 
-670 tool calls. 48 hours and 30 minutes. The longest single session I've ever run — and it wasn't debugging. It was building a pipeline that auto-generates 25 images per dental blog post, at a quality level where human reviewers can't tell the difference.
+I fixed the same bug seven times. Every session ended with "that should be it" — and the next session started with the user reporting the same left-right drag on mobile. Over one day of fully redesigning spoonai.me, I ran 15 Claude Code sessions and 757 tool calls. The most-repeated task across all of them was fixing horizontal scroll on mobile.
 
-**TL;DR**: Three subagents doing parallel cross-validation every round. Gemini Pro for anatomy illustrations, Flash for text cards. Four rounds of iteration before the average AI-detectability score hit 9.1/10. The meta-lesson: skill files have to be living documents or the pipeline forgets what it learned between rounds.
+**TL;DR** `overflow-x: clip` doesn't work on iOS 15 and below Safari. You need it on both `html` and `body`. Negative margins and `100vw` are separate issues that need separate fixes. Patching symptoms without finding the root cause guarantees the bug comes back.
 
-## A Single Word Kicked Off 38 Minutes and 133 Tool Calls
+## The Same Bug, Seven Different Fixes
 
-Session 1 started with one word.
+From session 10 through session 15, mobile horizontal scrolling kept getting reported. Here's what Claude Code actually changed in each session:
 
-```
-spoonai
-```
+**Session 10**: Removed `-mx-5 px-5` negative margins from the category tabs in `HomeContent.tsx`, and caught `-mx-4` in `BlogList.tsx`.
 
-Claude found two related projects in memory and asked what I wanted. Then the actual instruction arrived:
+**Session 11**: Added `html { overflow-x: hidden }`. Previously it was only on `body`.
 
-```
-Check if there's room for design improvements,
-fix the translation feature so it works properly,
-apply both strategy and technical fixes for Google and AI search SEO
-```
+**Session 12**: Discovered that `overflow-x: clip` isn't supported on iOS 15 and below — switched to `hidden`. Also added an `onError` handler to images in `ArticleCard.tsx`.
 
-Three domains at once: design, i18n, SEO. Instead of handling them sequentially, Claude dispatched three Explore agents in parallel to map the current state. When results came back, a critical bug surfaced.
+**Session 15**: Switched back to `clip`, added a global `img { max-width: 100%; height: auto; }` rule, and fixed the container in `ImageWithCredit.tsx`.
 
-`getPostSlugs()` at `lib/content.ts:133` was filtering files with `!f.includes("-en")` — silently dropping every English post. `getAllPosts("en")` returned an empty array, which meant every `/posts/..-en` URL was a 404. The translation feature wasn't broken in the UI. The content loader was eating the data before the UI ever saw it.
+Why did it keep coming back? Each session fixed exactly one cause and shipped. Removing the negative margin doesn't help if `html` has no overflow constraint — something else will overflow instead. Setting it only on `body` lets iOS Safari scroll the `html` element itself.
 
-38 minutes, 133 tool calls. Edit ×63, Bash ×37, Read ×27. 22 files modified.
+Session 12 was the only session that approached this correctly, using the `systematic-debugging` skill. The skill's core rule: **NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST**. Following that, I grep'd the entire codebase and found two actual root causes: the iOS compatibility issue with `overflow-x: clip`, and missing image `onError` handlers. Every session before that had been patching symptoms.
 
-## The 48-Hour Build: Automated Images for Naver S-Tier Dental Blogs
+```css
+/* Final fix — globals.css */
+html {
+  overflow-x: clip;
+}
+body {
+  overflow-x: clip;
+}
 
-Session 2 was the main event.
-
-Three Naver dental blog posts — implant bone grafting, gum disease, pediatric dentistry. Each post needed 25 images: 6 text cards, 6 3D medical illustrations, and real-photo composite cards. The quality bar was "S-tier" by Naver SEO standards — images that look like they were produced by a professional medical graphic design team.
-
-### Why Three Agents Validating the Same Output
-
-Every quality pass ran in a separate context with this prompt pattern:
-
-```
-Evaluate with a fresh context,
-compare against S-tier reference examples,
-have 3 agents cross-validate
+/* Global image safeguard */
+img {
+  max-width: 100%;
+  height: auto;
+}
 ```
 
-Three agents per round, fixed roles:
+The lesson: calling `systematic-debugging` at session 10 — the first time the bug was reported — would have cut the seven-session loop down to one or two. When a bug shows up, load the skill, gather all the evidence, then fix.
 
-- SEO/algorithm validation agent
-- Medical accuracy + quality validation agent
-- S-tier design/visual standards agent
+> Deploying without a root cause means spending another session on the same bug.
 
-The reason for separate contexts: if validation runs in the same thread that did the generation, it inherits all the biases and blind spots from that generation pass. Fresh context, different angle, same files — that's what catches things the original agent rationalized away.
+## Vercel CANCELED — And Why CLI Deployment Is More Reliable
 
-Results came back as score tables only. `001 implant: SEO 7/10, medical 9/10, visual 8/10`. The main thread never needed to process full agent output — just the numbers.
+This problem recurred in sessions 3, 11, and 15. Triggering a Vercel auto-deploy via `git push` resulted in a CANCELED status. Vercel automatically cancels the previous build when a new push comes in quickly — rapid consecutive pushes make this worse, not better.
 
-### Routing Gemini Pro and Flash by Image Type
+Session 3: tried pushing an empty commit to re-trigger. That one got CANCELED too.
 
-Early rounds used Gemini without differentiation. Round 2 made this explicit:
+Session 15: recognized the pattern. `git push` → Vercel auto-trigger is unreliable for fast-moving work. Direct CLI deployment always succeeds:
 
-```
-Use Pro and Flash differently based on the image quality needed
+```bash
+PATH="/opt/homebrew/opt/node@22/bin:$PATH" /opt/homebrew/bin/vercel --prod
 ```
 
-The split logic: medical illustrations (anatomy diagrams, alveolar bone cross-sections, implant placement sequences) → Gemini 2.0 Pro. Text cards (hero, FAQ, CTA, disclaimers) → Gemini 2.0 Flash. Pro is slower and costs more. Running it on flat card backgrounds with a few lines of text is pure waste.
+Claude saved this to memory after session 15. Any command you need to look up more than once in a day belongs in memory — it cuts session cost meaningfully when you're running 15 sessions.
 
-This branching landed in `build_template_variables()` in `pipeline.py`. Filename patterns encode the image type, which determines the model. No manual intervention per image.
+## Eight Worktrees, Zero Merge Conflicts During Work
 
-### Four Rounds to 9.1/10
+The worktrees created during the day: `angry-williams`, `keen-buck`, `pensive-hoover`, `recursing-mccarthy`, `nifty-tereshkova`, `stoic-knuth`, `silly-curie`, `funny-chatelet`. Eight in one day.
 
-Round 1's failure mode was obvious once you saw it: 3D CGI aesthetic. Blue glows, exaggerated specularity, plastic-looking textures. Average AI-detectability score: 6–7/10. Looked like a hospital website from 2018.
+The reason for using worktrees was straightforward: keep session scopes from overlapping. While session 14 was running a full dark mode + search redesign in `keen-buck`, session 10 was handling mobile overflow fixes in `pensive-hoover`. The main branch stayed stable throughout.
 
-Round 2 fixed a `viewport` measurement bug. The HTML template had `body height: 860px` hardcoded, but the Playwright capture was set to `clip height=1075`. That 215px gap rendered as white background on every hero image. Also caught a logo double-exposure bug on text cards where the logo was composited twice.
+The problem was merge timing. At the end of session 14, "merge the keen-buck redesign into main" came in — a large PR containing the entire dark mode and search implementation. Resolving conflicts, verifying the build, and deploying ate up roughly half the session.
 
-Round 3 was the style shift that moved the needle. Switched medical illustration style from 3D CGI to Gray's Anatomy textbook — simplified anatomical line art, muted palette, clean labels. AI-detectability scores jumped to 8–9/10 immediately.
+Worktrees are great for parallel work. But the longer you keep a branch alive, the more it diverges, and the more expensive the merge becomes.
 
-Round 4 was calibration:
+> Merge or discard when the unit of work is done. Waiting turns a 10-minute merge into a 2-hour one.
 
-```
-AI detectability needs to be 9+ across the board
-```
+## AgentCrow: Parallel Dispatch Without File Conflicts
 
-Three agents scored the same 25 images independently. When scores converged → batch passes. When scores diverged → identify the lowest-scoring items, fix them, re-score. Final output: 25 images averaging 9.1/10.
+Sessions 4 and 6 used the AgentCrow pattern — dispatching 3–4 agents simultaneously across file domains that don't overlap.
 
-### The Skill File Is the Memory
-
-`naver-dental-blog/SKILL.md` and `dental-blog-image-pipeline/SKILL.md` were updated 7 times during this session. The prompt that triggered each update:
+Session 4 example:
 
 ```
-Update the skill with everything we've learned so far, then tell me what's left and continue
+🐦 AgentCrow — dispatching 3 agents:
+1. @frontend_developer → HomeContent.tsx + ArticleCard.tsx
+2. @frontend_developer → PostContent.tsx
+3. @frontend_developer → DailyBriefing.tsx + content.ts
 ```
 
-Deferring skill updates to "after the session" means the next session relearns everything from scratch. S-tier quality benchmarks, failed prompt patterns, bug fixes discovered mid-run — all of it needs to be written into the skill while the context is hot. That's how the pipeline compounds across sessions instead of resetting.
+Each agent's scope was explicitly constrained in the prompt to its assigned files. Overlap causes git conflicts. When the three agents completed in parallel, the main thread handled build verification and commit sequentially.
 
-Additions to `pipeline.py` across rounds:
+Session 14 scaled this further: dark mode (CSS variables + ThemeProvider), search (SearchCommandPalette + API route), and component redesigns (Header, Footer, ArticleCard, etc.) all ran in parallel. The session ran 7 hours 33 minutes with 148 tool calls — parallel processing made what would have been a multi-day task fit into one session.
 
-- `parse_image_tags()` — parser for `<!-- IMAGE: -->` tags in blog markdown
-- `build_template_variables()` — filename-based Pro/Flash model routing
-- CTA card differentiation — filename branching so the same CTA template doesn't repeat across posts
-- `viewport` fix → `overflow: hidden` applied across all HTML templates
+The rule that makes this work: agents get explicit file scopes in the prompt. Without that, two agents modifying the same file is almost guaranteed.
 
-## The Bug Nobody Asked About
+## Skills: Read Them or They Don't Work
 
-Midway through the session:
+Session 5 installed `frontend-design` and `ui-ux-pro-max`. Sessions 6 through 9 explicitly required skill reads as the first step in every prompt:
 
 ```
-Why does it run 1st, 2nd, 3rd attempts every time?
+## Required first step: Read skills
+1. .claude/skills/ui-ux-pro-max/SKILL.md — 658 lines
+2. .claude/skills/frontend-design/SKILL.md
+Do not proceed without reading these first.
 ```
 
-Three nested retry loops in the pipeline — a mistake from the initial scaffolding. The intent was: if the image generation API fails, retry. The implementation was: always run three times, regardless. Success on attempt 1? Still runs 2 and 3. Failed on all 3? Runs 3 more.
+Without that explicit instruction, Claude proceeds on its own judgment. The skill's guidelines — 44px touch targets, mobile spacing rules, anti-AI-slop principles — don't make it into the code unless the skill is actually invoked.
 
-After the fix: exit on first success, retry only on failure. Simple, but it halved runtime.
+`ui-ux-pro-max` is 658 lines: 50+ UI styles, 161 color palettes, 57 font pairings. After reading it, Claude selected "Tech Editorial" as the design direction and locked in `#0071e3` as the brand blue. Doing that research manually would take hours. The skill front-loaded it in seconds.
 
-## Rollback Without Git Is Not a Strategy
+Session 8 was analysis-only — no code changes. The output: "This site faithfully references Apple.com's design language. The problem is it still reads as an Apple clone." That assessment triggered the full redesign in session 14. Breaking work into analysis → direction → implementation produces better output than "just fix it."
 
-Near round 5, a full redesign pass ran on a card set.
+## Day-End Stats
 
-```
-Image #9 — the version right before this was better. Roll it back.
-```
+| Metric | Value |
+|--------|-------|
+| Total sessions | 15 |
+| Total tool calls | ~757 |
+| Longest session | 7h 33min (session 14, 148 tool calls) |
+| Shortest session | 2min (session 11, 14 tool calls) |
+| Same bug fixed | 7 times (mobile overflow) |
+| Worktrees created | 8 |
+| Primary models | claude-sonnet-4-6 (fast iteration), claude-opus-4-6 (large sessions) |
 
-No rollback path existed. The agents had been writing files directly, bypassing git. No intermediate commits, no per-round output directories, no `.bak` files before overwrites. Once a redesign runs, the previous version is gone.
+Session 14 used Opus because dark mode + search + full redesign arriving simultaneously is genuinely complex — enough chained decisions that Sonnet's context could run thin. The split: Opus for sessions requiring complex sequential reasoning across a large codebase, Sonnet for bug fixes and fast iterations. The cost difference is real, so the model choice should be deliberate.
 
-This was the most expensive mistake of the session — not in API cost, but in lost work. A pipeline that destructively overwrites files needs a recovery mechanism before it runs redesigns. Either `.bak` copies created pre-write, or round outputs saved to versioned subdirectories.
+## What Seven Redundant Fixes Actually Cost
 
-## What 670 Tool Calls Without Edit Looks Like
+The root cause of the seven-session loop was a single assumption: "this change should fix it," followed immediately by a deploy. The right sequence is to grep the codebase for every instance of the same pattern *before* deploying — and fix them all in one pass.
 
-Of 670 tool calls, Edit appeared rarely. The breakdown was Bash running Python scripts, Agent spawning subagents, Write replacing entire files. The pipeline was mostly being executed and validated — not coded.
+The `systematic-debugging` skill existed from session 1. It was first used in session 12. Using it at session 10 — the moment the bug was first reported — would have collapsed seven sessions into one or two.
 
-The discipline that makes parallel agents safe: scope assignment. "Score these 3 files independently" dispatches 3 agents that read and evaluate the same files, write nothing. No overlapping write scopes means no conflicts. In this session, validation agents were read-only throughout, so parallel execution stayed clean across all four rounds.
-
----
-
-## Related Posts
-
-- [Building a Dental Clinic Site in 8 Minutes with Claude Code](/posts/2026-03-16-uddental-en)
-- [Hiring 10 Agents to Build a Mentoring Platform: 6 Sessions, 1,289 Tool Calls](/posts/2026-03-15-coffee-chat-en)
-- [Blog Automation Pipeline: Turning 105 Session Logs into Build Logs](/posts/2026-03-15-portfolio-site-en)
+Speed comes from solving the right problem the first time, not from shipping fast and iterating on the same bug.
 
 ---
 
