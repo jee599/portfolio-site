@@ -1,121 +1,90 @@
 ---
-title: "17 Claude Code Sessions, 600+ Tool Calls — Full Redesign in One Day (and 7 Tries to Fix One Mobile Bug)"
+title: "343 Tool Calls, 3 Projects in One Day — How AgentCrow Keeps Context from Collapsing"
 project: "portfolio-site"
 date: 2026-04-07
 lang: en
 pair: "2026-04-07-portfolio-site-ko"
-tags: [claude-code, parallel-agents, debugging, mobile, worktree]
-description: "How I redesigned spoonai.me in a single day using 17 Claude Code sessions and parallel agents — and what it took to finally kill an iOS Safari scroll bug."
+tags: [claude-code, multi-agent, agentcrow, skill, debugging]
+description: "3 sessions, 343 tool calls, 28 files changed. Found a translation bug's root cause in 3 minutes, iterated a live image pipeline mid-run."
 ---
 
-It took seven sessions to fix one mobile scroll bug. Every time an agent said it was fixed, the user came back with "still scrolling sideways." This is the story of those seven attempts — and the full-site redesign that happened around them.
+343 tool calls. 3 separate projects. 22 hours and 6 minutes of session time. That was yesterday.
 
-**TL;DR** I completed a full redesign of spoonai.me using 17 Claude Code sessions across two days. The parallel agent pattern was the key to moving fast. The mobile `overflow-x` bug that took 7 attempts came down to a single browser compatibility gap: `clip` falls back to `visible` on iOS Safari below 15.
+The three projects: a translation bug in spoonai, a global payment strategy for a Korean astrology (saju) app, and a dental blog image pipeline. In a typical AI coding session, context would have collapsed halfway through. It didn't — because of how agent work was structured.
 
-## The Scale: 17 Sessions, One Day
+**TL;DR** The AgentCrow pattern (≤5 parallel agents with non-overlapping file scopes) kept the main context clean. The real grind was the image pipeline: three background color iterations, five logo size adjustments, twelve new rules added mid-session.
 
-From April 5 to April 6, 2026: 17 sessions, 600+ tool calls. Session 14 alone was 148 tool calls and 7 hours 33 minutes.
+## How I Found a Translation Bug's Root Cause in 3 Minutes
 
-The prompt that kicked it all off was simple: "Implement a full redesign based on the design analysis. Use a blue color scheme." From that, one session produced dark mode, a Cmd+K search palette, an indigo color system, and scroll-reveal animations. 23 new files were created — `ThemeProvider.tsx`, `SearchCommandPalette.tsx`, `ScrollReveal.tsx`, and more, either created from scratch or fully replaced.
+Someone reported that spoonai's translation feature "wasn't working properly." Vague problem. Instead of dispatching an Explore agent, I read `lib/content.ts` directly.
 
-## Parallel Agents: Scope Files, Not Tasks
-
-The pattern I used most throughout the redesign was AgentCrow parallel dispatch. In session 4, I split three agents like this:
-
-```
-🐦 AgentCrow — dispatching 3 agents:
-1. @frontend_developer → HomeContent.tsx + ArticleCard.tsx
-2. @frontend_developer → PostContent.tsx
-3. @frontend_developer → DailyBriefing.tsx + content.ts
+```typescript
+// lib/content.ts:133
+const getPostSlugs = () =>
+  fs.readdirSync(postsDir).filter(f => !f.includes("-en"));
 ```
 
-The rule is that file scopes must not overlap. Two agents touching the same file causes conflicts. Splitting by domain makes parallel execution safe.
+There it was. The filter `!f.includes("-en")` was completely excluding English files. So `getAllPosts("en")` returned an empty array, which meant every `/posts/...-en` URL returned 404. The translation button worked — there just wasn't a page to navigate to.
 
-In session 6, I went further: before dispatching agents, I had them read `ui-ux-pro-max/SKILL.md` (658 lines) and `frontend-design/SKILL.md`. The consistency of the output was noticeably better compared to sessions where agents went in without reading the skills first.
+The fix was trivial. Finding the root cause wasn't. The reason it took 3 minutes instead of 30: read code first, form a hypothesis, verify. No agent dispatch needed.
 
-Don't expect agents to intuit "good design." You have to inject the standard explicitly.
+## AgentCrow: Running Parallel Agents Without Blowing Up Context
 
-## Worktrees: Isolated Workspaces Per Branch
+The dental blog session was the largest: 206 tool calls across a single 22-hour session. This is where the AgentCrow pattern earned its keep.
 
-Every task across all 17 sessions got its own worktree: `angry-williams`, `keen-buck`, `silly-curie`, `pensive-hoover`, and others. The benefits are twofold: experiments never pollute `main`, and multiple agents can work in separate worktrees simultaneously.
+```
+━━━ 🐦 AgentCrow ━━━━━━━━━━━━━━━━━━━━━
+Dispatching 3 agents:
 
-One problem I ran into: Vercel's automatic deployment cancels builds when pushes arrive in quick succession. When merging worktree branches into main, back-to-back pushes caused Vercel to cancel earlier builds. The fix was deploying directly via CLI:
-
-```bash
-PATH="/opt/homebrew/opt/node@22/bin:$PATH" /opt/homebrew/bin/vercel --prod
+🔄 @skill-updater → reflect 7 photo categories in SKILL.md
+📝 @blog-enhancer → elevate post 001 implant blog quality
+🎨 @blog-reader → analyze structure of posts 002/003
 ```
 
-I relearned this in sessions 3, 11, and 15. Relying solely on git push for Vercel deployments doesn't work when branches merge fast.
+Two rules made this work.
 
-## The Bug That Took 7 Sessions
+First: non-overlapping file scopes. `@skill-updater` only touches `SKILL.md`. `@blog-enhancer` only touches `post.html`. Let two agents write to the same file and you get conflicts. Assigning explicit per-agent scope prevents this entirely.
 
-The mobile horizontal scroll bug started in session 7 and kept showing up through session 15.
+Second: only summaries come back to main context. Copy the full agent output and the context window fills up in minutes. The main thread records key numbers and conclusions — nothing else.
 
-Here's what was tried, in order:
+The tool call breakdown for the session: Read 124, Edit 90, Bash 72, Agent 27. Agents were only 8% of total calls — but they handled over 60% of the actual work volume. The ratio matters.
 
-- Added `body { overflow-x: clip }`
-- Removed negative margins (`-mx-5`, `-mx-4`)
-- Added `html { overflow-x: hidden }`
-- Set `max-width: 100%` on images
-- Removed all `100vw` usages
+## Tuning a Live Pipeline While It's Running
 
-Each time: "fixed." Each time, the user responded: "still scrolling."
+The `dental-blog-image-pipeline` skill kept changing rules while images were being generated. Normally a bad sign. Here it was intentional.
 
-In session 12, I used the `systematic-debugging` skill and finally found the root cause. `overflow-x: clip` is not supported on iOS Safari below version 15. In unsupported browsers, it silently falls back to `visible` — meaning no clipping happens at all. That's why seven patches all failed: each one treated a symptom while the actual cause, a browser compatibility gap, went unchecked.
+1. Pipeline generates 24 images
+2. "These look terrible" → audit current skill state
+3. Reload skill → apply updated rules → rerun pipeline
 
-The final fix:
+Background color changed three times: warm beige (`#f5f0eb`) → sky blue (`#f0f4ff`) → pure white (`#ffffff`). Each iteration: clear cache, rerun. Logo size got adjusted five times. Feedback came as screenshots with notes like "2x the current size" or "should be about half to a third of this."
 
-```css
-html {
-  overflow-x: hidden; /* fallback for older iOS Safari */
-  overflow-x: clip;   /* preferred: prevents scroll chaining */
-}
+This wasn't programming — it was using an agent as a design decision tool. During the session: model upgraded to Gemini 3.1 Flash, Korean label enforcement added, full caption band applied across all images. Twelve rules added in one session while the pipeline was live.
 
-img {
-  max-width: 100%;
-  height: auto;
-}
+## A Global Payment Strategy With 4 Prompts and Zero Code
+
+The saju app payment session had exactly 4 tool calls. No code was written.
+
+Lemon Squeezy rejected → checked Stripe/Paddle policies on fortune-telling apps (both block it) → investigated Komoju/Omise → confirmed a Japanese business entity is required. The entire flow was structured through a single brainstorming skill.
+
+```
+got rejected so lemon squeezy is out
+→ want country-specific payment, paddle / stripe both block fortune apps
+→ check komoju
+→ what if i don't have a business entity?
 ```
 
-Browsers that support `clip` use it. Older iOS Safari falls back to `hidden`. Done.
+Four short prompts covered an entire global payment strategy. The skill maintained conversation context and surfaced trade-offs for each option without losing the thread. Sometimes the most productive session is the one that writes no code.
 
-The `systematic-debugging` skill's core rule is: find the root cause before writing a fix. If I'd followed that from the start, this would have been resolved in three sessions, not seven.
+## Context Management Was the Real Constraint
 
-## Image Optimization: 737KB → 49KB
+By session 3, "compact context and continue" came up directly. Makes sense for a 22-hour session.
 
-During a performance investigation in session 9, I found the logo image was a 2220×1501px PNG at 737KB. The actual rendered size was 200×73px.
+Reading files directly in the main thread fills context fast. The pattern that survived 343 tool calls: main thread handles planning and coordination only. File exploration and edits get delegated to agents. When results come back, only key numbers and conclusions get recorded.
 
-Resizing and compressing with `sips` brought it down to 49KB — a 93% reduction.
+Even the photo classification — reviewing 16 real photos to sort into categories — happened in main. `manifest.json` had a misclassification: image `46-009` was tagged as exam room, but it was actually the waiting area. That kind of judgment call is faster in main than in an agent, because the context for making it is already there.
 
-```bash
-sips -z 146 400 logo.png --out logo-optimized.png
-```
-
-Next.js `next/image` auto-converts to WebP, but source file size still affects cold start time and git repository size. One caveat: some PNGs got *larger* after `sips` processing because `sips`'s PNG compression is less efficient than the original encoder. Those files were restored with `git checkout`.
-
-## Load the Skill First
-
-Session 7 produced the clearest lesson of the entire project. The user's prompt included an explicit instruction: "Read the skill properly before redesigning. Do not proceed without reading it."
-
-The output from that session was more consistent than any previous session.
-
-`ui-ux-pro-max` defines 44px touch targets, spacing rules, and mobile breakpoints. `frontend-design` applies "anti-AI-slop" principles to prevent generic outputs. Injecting these directly into the agent prompt — or having the agent `Read` them before starting — anchors the implementation to actual guidelines rather than vibes.
-
-Agents don't spontaneously produce good design. You have to tell them what good means.
-
-## By the Numbers
-
-| Metric | Value |
-|--------|-------|
-| Total sessions | 17 |
-| Total tool calls | 600+ |
-| Longest session | 148 tool calls, 7h 33m |
-| New components created | 23 |
-| Image compression | 93% (737KB → 49KB) |
-| Mobile scroll bug attempts | 7 |
-| Max parallel agents | 4 |
-
-A full redesign with dark mode, Cmd+K search, an indigo color system, and responsive mobile UI — in one day. That's not something a solo developer can pull off without AI. The bugs were real. The iteration count was painful. But the output landed.
+Agents for file operations. Main for judgment calls. That division held across 343 tool calls.
 
 ---
 
