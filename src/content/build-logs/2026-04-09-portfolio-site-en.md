@@ -1,144 +1,125 @@
 ---
-title: "I Fixed the Same Bug 6 Times in One Day: iOS overflow-x, 624 Tool Calls, and a Full Redesign"
+title: "I Fixed the Same Bug 5 Times — Claude Code Debugging and a Full Redesign in One Day"
 project: "portfolio-site"
 date: 2026-04-09
 lang: en
 pair: "2026-04-09-portfolio-site-ko"
-tags: [claude-code, debugging, mobile, design, worktree, multi-agent]
-description: "14 sessions, 624 tool calls, one day. How a mobile scroll bug turned into 6 separate fixes — and what I learned about Claude Code worktrees."
+tags: [claude-code, debugging, mobile, design, parallel-agents]
+description: "14 sessions, 624 tool calls, 39 files changed in one day. How I kept fixing the same overflow-x bug until systematic debugging finally worked."
 ---
 
-14 sessions. 624 tool calls. And I fixed the same bug six times.
+14 sessions. 624 tool calls. 39 files changed. That's what April 6th looked like.
 
-Not six *different* bugs — the same one. Horizontal scroll on iOS Safari. Every time I pushed a fix, it came back. By session 6, I started wondering if I was the bug.
+**TL;DR** The same mobile horizontal scroll bug appeared 5 times across separate sessions. I fixed the symptom each time until session 11, when systematic debugging finally found the real cause. In between, I installed design skills, ran a full redesign with dark mode and Cmd+K search, and used parallel agents to cut main context overhead.
 
-**TL;DR** On 2026-04-06, spoonai.me logged 624 tool calls across 14 Claude Code sessions. The root cause of the mobile overflow bug wasn't one thing — it was three overlapping issues, including an iOS Safari compatibility gap that I kept missing across different worktrees. I also shipped a full redesign (dark mode, Cmd+K command palette, indigo color system) in the same day. Here's the breakdown.
+## I Fixed the Same Bug 5 Times
 
-## Why the Same Bug Needed Six Fixes
+The horizontal scroll bug followed me all day. I thought I had it solved in session 1. It came back in session 2. Then sessions 4, 6, and 11.
 
-The progression looked like this:
+Each fix I applied:
 
-1. **Session 1**: Added `body { overflow-x: clip }` — seemed to work
-2. **Session 2**: Added `html { overflow-x: hidden }` — worktree didn't have session 1's fix
-3. **Session 3**: Applied `img { max-width: 100%; height: auto }` globally
-4. **Session 4**: Removed `-mx-5 px-5` negative margin in `HomeContent.tsx`
-5. **Session 5**: Removed `-mx-4` from `BlogList.tsx`
-6. **Session 6**: Fixed hardcoded `width={640}` in `ImageWithCredit.tsx`
+- **Session 1**: Added `overflow-x: clip`. Didn't know iOS 15 and below Safari falls back `clip` to `visible`.
+- **Session 2**: Added `html { overflow-x: hidden }` + global `img { max-width: 100% }`. Applying clip only on `body` is ignored when `html` scrolls.
+- **Session 6**: Swapped body's `clip` for html's `hidden` — same fix, different direction.
+- **Session 11**: Found the actual root cause — negative margins. `-mx-5 px-5` in `HomeContent.tsx:98` and `-mx-4` in `BlogList.tsx:33`.
 
-Three root causes, not one.
+Every time I patched the symptom, it surfaced somewhere else. Session 11 was when I properly applied the `systematic-debugging` skill, and that's when I found the source.
 
-**Root cause 1: iOS 15 compatibility.** `overflow-x: clip` falls back to `visible` on iOS 15 and below Safari. I caught this in session 1, but session 2 was running in a different worktree — no visibility into the previous fix, so the diagnosis started fresh.
-
-**Root cause 2: Layer structure.** Even with `overflow-x: clip` on `body`, mobile Safari scrolls the `html` element when the viewport overflows. You need to block it at the root. I didn't confirm this until session 6.
-
-**Root cause 3: Negative margins.** The category tab bar used `-mx-5 px-5` for a full-bleed effect — pushing 16px past the viewport on each side. Under `overflow-x: hidden` it was invisible. Under certain layout conditions, it wasn't.
-
-The full fix list, confirmed in session 11:
-
-```
-1. HomeContent.tsx:98 — remove -mx-5 px-5
-2. BlogList.tsx:33 — remove -mx-4
-3. globals.css — add overflow-clip-margin, word-break: break-word
-4. layout.tsx — overflow-x: clip on both html and body
+```bash
+grep -r "\-mx-\|\-ml-\|\-mr-\|w-screen\|100vw" components/
 ```
 
-If I'd had this list in session 1, it would have taken two sessions, not six. The real problem wasn't Claude's diagnosis — it was that worktrees don't share context. Each worktree starts cold, with no awareness of what a parallel session already changed.
+One command. Two negative margin instances found. If I had run this in session 1, the bug would have died there.
 
-## How the Systematic Debugging Skill Actually Changes Behavior
+The lesson isn't about CSS. It's about the debugging habit: **search for the pattern across the codebase before patching the symptom**. `overflow-x` bugs are almost always caused by something wider than the viewport — negative margins, `100vw` widths, or elements that overflow their container. Grep for those patterns first.
 
-Every bug session auto-loaded `superpowers:systematic-debugging`. The core principle:
+## Installing Design Skills and the Full Redesign
 
-> "NO FIXES WITHOUT ROOT CAUSE INVESTIGATION FIRST"
+In session 5, I installed `frontend-design` and `ui-ux-pro-max` skills from the Superpowers skill registry:
 
-The difference is measurable. Without the skill: "fix horizontal scroll" → Claude adds `overflow: hidden` in one line, done. With the skill loaded: Claude runs Grep across all components for `100vw`, `-mx-`, `w-screen`, checks whether `position: fixed` elements are overflowing the viewport, then proposes changes.
+```bash
+npx skills add anthropics/claude-code --skill frontend-design
+```
 
-Session 1 logged 54 tool calls: Bash 22, Read 13, Edit 8. More Reads than Edits. That ratio — reading more than writing — is what the skill produces.
+`ui-ux-pro-max` is 658 lines: 50+ UI styles, 161 color palettes, 57 font pairings, 99 UX guidelines. After installation, I copied it to `~/.claude/skills/` globally so it's available across all projects.
 
-The discipline is real but it has limits. If two sessions run independently in separate worktrees and both start cold, the skill gives each session the same investigation framework. What it can't do is remember that session 1 already checked `overflow-x: clip` compatibility and ruled it in as the fix.
+After reading the skill, Claude Opus gave this diagnosis:
 
-## Escaping the "Apple Clone" Trap with Two Design Skills
+> "You're stuck in Apple clone territory. Modern tech sites like Vercel, Linear, and Raycast have distinct brand identities."
 
-Sessions 3, 8, 9, 12, and 14 were design-focused — roughly 330 tool calls combined.
+The accent color was `#0071e3` — Apple blue. The layout followed apple.com structure. Pretendard font, `#fbfbfd` background, hairline borders. I had faithfully copied Apple's visual grammar without realizing it.
 
-Before session 9, I installed `ui-ux-pro-max` and `frontend-design`, and set up every design session to read both before starting. Session 9 was analysis-only first:
+The diagnostic was accurate. The fix was a full rebrand.
 
-> "This site faithfully references Apple's design language — Pretendard font, `#fbfbfd` background, `#0071e3` brand color, hairline borders, backdrop-blur header. The visual grammar is clean and consistent. The problem is it reads as an Apple clone."
+## One Opus Session, Complete Redesign: Dark Mode + Cmd+K Search
 
-That framing unlocked session 12: a full redesign. 7 hours 33 minutes. 148 tool calls — the largest single session of the day.
+Session 12 was the largest and most complex: 148 tool calls, 7 hours 33 minutes.
 
-Direction: deep indigo (`#4f46e5`) base, CSS variable migration, dark mode system, Cmd+K command palette. Tool breakdown: Edit 43, Bash 34, Read 30, Write 15. The Write count is high because 22 new files were created: `ThemeProvider.tsx`, `SearchCommandPalette.tsx`, `ScrollReveal.tsx`, and others.
+In a single session, I implemented dark mode, a Cmd+K command palette search, an indigo (`#4f46e5`) color system, tab transition animations, a table of contents, and social share buttons. The implementation uses CSS variables for dark/light switching, so `prefers-color-scheme` is supported automatically.
 
-The leverage from loading two design skills: I didn't need to specify color codes, font pairings, or component patterns in the prompt. "Full redesign in indigo blue" was enough — the skills supplied the palette, the pairing choices, and the token naming conventions. Claude applied them coherently across the system without being micromanaged.
+Dark mode that respects system preferences — zero JavaScript needed for the initial render.
 
-## Worktrees at Scale: 12 Branches and the Vercel CANCELED Loop
+Session 14 used 3 parallel agents for the remaining design improvements:
 
-Over the course of the day, 12+ worktrees were active: `recursing-mccarthy`, `funny-chatelet`, `inspiring-babbage`, `keen-buck`, and others.
+```
+🐦 AgentCrow — Dispatching 3 agents:
+1. @frontend_developer → HomeContent.tsx + ArticleCard.tsx (hero, brand colors, TOP badge)
+2. @frontend_developer → PostContent.tsx (social share, TOC, source link styles)
+3. @frontend_developer → DailyBriefing.tsx + content.ts (value proposition, layout)
+```
 
-Two Vercel problems repeated:
+Each agent had non-overlapping file scope — no merge conflicts, no coordination overhead. All three ran concurrently. Main session tool calls for that phase: 9.
 
-**Problem 1: Consecutive push cancellation.** Vercel auto-cancels a running build when a new push arrives. With multiple worktrees pushing to the same project, builds were constantly stepping on each other.
+This is the pattern worth internalizing: **define scopes that don't intersect, then fire in parallel**. The agents handled ~40–50 tool calls each. That's roughly 800 tool calls kept out of the main context window.
 
-**Problem 2: Branch isolation.** Worktree branches aren't `main`. Vercel's automatic deployments only trigger on the production branch — so worktree pushes just sat there.
+## Vercel CANCELED: The Rapid Push Trap
 
-The fix was direct deployment:
+Vercel builds were showing CANCELED all day. My first assumption was a build error.
+
+The actual cause: Vercel automatically cancels in-progress builds when a new push arrives. Push two commits in quick succession — both get canceled.
+
+Two solutions:
+
+Deploy directly via CLI, bypassing the webhook:
 
 ```bash
 PATH="/opt/homebrew/opt/node@22/bin:$PATH" /opt/homebrew/bin/vercel --prod
 ```
 
-For cases where changes were already on `main` but Vercel wasn't triggering, session 4 used an empty commit:
+Or push a single commit and wait for the build to complete before pushing again.
+
+For the rest of the day, I left `git push` in CANCELED state and used `vercel --prod` for every deployment. Once I understood the cause, the fix took 30 seconds.
+
+## 93% Image Compression with sips
+
+During session 10 performance work, I checked the logo image and found a 2220×1501px PNG. Display size: 200×73px — the source was 11x larger than needed.
 
 ```bash
-git commit --allow-empty -m "chore: trigger build"
-git push
+sips -Z 400 public/images/logo.png
 ```
 
-Both are workarounds, not solutions. The cleaner approach would be: finish all worktree work, merge to `main`, then do one clean push. Instead, the day involved iterative merges and pushes that created the cancellation loop.
+737KB → 49KB. 93% reduction. Next.js converts to WebP before serving, but an oversized source file still hurts cold start times and inflates the git repository.
 
-## Parallel Agent Dispatch: AgentCrow in Action
+One caveat: when I tried resizing other post images, some came out *larger* after resizing. PNG compression can produce larger files at lower resolutions depending on image content. Check whether converting to JPEG first makes sense before batch-resizing with `sips`.
 
-Session 14 dispatched 3 agents in parallel using the AgentCrow pattern:
+## Tool Usage Stats
 
-```
-🐦 AgentCrow — dispatching 3 agents:
-1. @frontend_developer → HomeContent.tsx + ArticleCard.tsx
-2. @frontend_developer → PostContent.tsx
-3. @frontend_developer → DailyBriefing.tsx + content
-```
-
-The key is non-overlapping file scope. Each agent gets a domain that doesn't touch the others, so they can run concurrently without merge conflicts. Session 14 shows 26 tool calls in the main thread, but the actual work was multiplied across three agents.
-
-This is where the worktree context-loss problem is partially mitigated: if you're dispatching parallel agents for *new* work (not fixing the same bug), the parallel pattern works well. It's retrofitting parallel agents onto a debugging loop that creates confusion.
-
-## Day Stats
-
-| Metric | Count |
-|---|---|
-| Sessions | 14 |
-| Total tool calls | 624 |
+| Tool | Count |
+|------|-------|
 | Bash | 218 |
 | Read | 173 |
 | Edit | 100 |
 | TodoWrite | 38 |
+| Glob | 25 |
 | Write | 17 |
 | Agent | 16 |
 | Grep | 15 |
-| Files modified | 39 |
-| New files created | 17 |
 
-Bash is more than double Edit. The dominant activity pattern isn't writing code — it's run → check → run again. That's what debugging days look like in tool call terms.
+Agent at 16 calls — mostly sessions 12 and 14. Each agent handled 40–50 tool calls on average, keeping ~800 calls out of the main context.
 
-## What Actually Needs to Change
+Grep at 15 is the telling number. It's the lowest count, and it's the tool that would have killed the overflow-x bug in session 1. The correlation is not a coincidence.
 
-Fixing the same bug six times isn't a Claude Code quality problem. It's a workflow problem. Worktrees are designed to be isolated — that's their value for parallel feature work. But for debugging, isolation means each session re-diagnoses from scratch.
-
-Two rules that would have cut this to two fixes:
-
-1. **Merge before the next debugging session.** If session 1's fix is on `main`, session 2 starts with it already applied and doesn't redo the same investigation.
-
-2. **Include previous fix history in the prompt.** "We already tried `overflow-x: clip` on `body`, it didn't fully work. Root cause is iOS 15 fallback. Focus on `html`-level and negative margin sources." Four sentences of context would have avoided four sessions.
-
-Claude Code's memory doesn't cross worktrees. That's by design. Working with it means treating cross-session context as your responsibility, not the tool's.
+When debugging layout issues, `grep` for the pattern class before touching any CSS. When something keeps recurring across sessions, that's the signal that you're fixing symptoms, not causes. Use systematic search before applying any patch.
 
 ---
 
