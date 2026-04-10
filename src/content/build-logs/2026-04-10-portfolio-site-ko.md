@@ -1,6 +1,6 @@
 ---
 title: "writing-plans 스킬 하나로 288페이지 SEO 구현 계획을 10분 만에 뽑아낸 방법"
-project: "portfolio-site"
+project: "saju_global"
 date: 2026-04-10
 lang: ko
 tags: [claude-code, planning, seo, superpowers, writing-plans]

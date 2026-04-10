@@ -1,94 +1,85 @@
 ---
-title: "Claude Code Planned 288 SEO Pages in 10 Minutes — Before Writing a Single Line"
+title: "How I Generated a 288-Page SEO Implementation Plan in 10 Minutes with Claude Code"
 project: "portfolio-site"
 date: 2026-04-10
 lang: en
 pair: "2026-04-10-portfolio-site-ko"
 tags: [claude-code, planning, seo, superpowers, writing-plans]
-description: "23 tool calls, 13 reads, 3 parallel agents — and zero files modified. How the writing-plans skill turns Claude Code into a planner before a coder."
+description: "Claude Code's writing-plans skill produced a 288-page SEO plan in 10 min — 23 tool calls, 13 reads, 3 parallel agents. Planning first is always faster."
 ---
 
-23 tool calls. 10 minutes. Zero files modified. That's what it took Claude Code to produce a complete, executable implementation plan for 288 SEO landing pages.
+Asking Claude Code to implement 288 pages directly would have taken hours. Asking it to write a plan first took 10 minutes — and zero source files were modified in the process.
 
-**TL;DR** The `writing-plans` skill forces Claude Code to understand your codebase before touching anything. 13 Read calls, 4 Glob calls, 3 parallel sub-agents — all just to produce a single plan file. That upfront investment is what makes the actual implementation session fast and clean.
+**TL;DR** The `writing-plans` skill makes Claude Code read the entire codebase before touching a single file, then produces a standalone, execution-ready plan. Separating planning from implementation is consistently faster end-to-end.
 
-## 288 Pages and a Spec Doc That Won't Tell You Where to Start
+## 288 SEO Pages and a Spec Doc That Won't Tell You Where to Start
 
-The `saju_global` project needed compatibility SEO landing pages. The math: 12 zodiac signs × 12 zodiac signs = 144 pairs, doubled for directionality = 288 pages. A spec document existed, but it didn't say which files to touch, how to wire up routing, or how the new pages should fit with existing patterns.
+The `saju_global` project needed SEO landing pages for zodiac compatibility. 12 zodiac signs × 12 zodiac signs = 144 combinations, doubled for directionality = 288 pages. A spec doc existed, but the questions that actually matter before writing code were unanswered: which files to touch, how to integrate with existing routing, how to fit the new pages into the content collection schema.
 
-The prompt was deliberately simple:
+The prompt was deliberately minimal:
 
 ```
-Implement 288 SEO compatibility landing pages for the saju_global project.
+Implement 288 SEO compatibility landing pages in the saju_global project.
 Spec: docs/superpowers/specs/2026-04-09-seo-compatibility-pages-design.md
 ```
 
-If Claude Code had jumped straight to implementation here, this would have gone sideways. It didn't. It loaded the `writing-plans` skill instead.
+Jumping straight to implementation from here is a reliable way to end up mid-refactor three hours later. Claude Code loaded the `writing-plans` skill instead.
 
 ## What writing-plans Does Under the Hood
 
-The moment the skill loads, Claude Code shifts into research mode. Before a single implementation file is touched, it collects the full context it needs to write a plan that can stand on its own.
+Once the skill loads, Claude Code enters a full context-gathering phase before any implementation begins. In this session: 23 tool calls total — 13 `Read`, 4 `Glob`, 3 `Agent`, 1 `Skill`, 1 `Bash`, 1 `Write`. More than half the session was spent reading, not writing.
 
-In this session, 23 total tool calls broke down like this:
+Three agents ran in parallel, each exploring a different domain of the codebase:
 
-| Tool  | Count | Purpose                              |
-|-------|-------|--------------------------------------|
-| Read  | 13    | Existing routes, components, schemas |
-| Glob  | 4     | File discovery and pattern matching  |
-| Agent | 3     | Parallel codebase exploration        |
-| Skill | 1     | Loading writing-plans                |
-| Bash  | 1     | Verification                         |
-| Write | 1     | Producing the plan file              |
+| Agent | Domain |
+|-------|--------|
+| #1 | Routing patterns and dynamic route structure |
+| #2 | Existing SEO component architecture |
+| #3 | Content collection schema and static path generation |
 
-More than half the session was spent just reading. The 3 parallel agents each tackled a different domain simultaneously — routing patterns, existing SEO component architecture, and content collection schema. Instead of doing those explorations sequentially, they ran concurrently and merged their findings.
+Instead of sequential exploration, all three ran concurrently and merged findings. The resulting plan contains:
 
-What the resulting plan contains:
+- Every file to create or modify, with explicit reasons for each change
+- Ordered execution steps guided by DRY and YAGNI
+- Verification approach for each phase
+- Commit boundaries — how to split 288 pages into reviewable chunks
 
-- Every file to create or modify, with the reason why
-- Step-by-step execution order designed around DRY and YAGNI
-- Testing approach for each phase
-- Commit granularity — how to split the work into atomic, reviewable chunks
+The skill's core constraint is "zero context assumed." The plan must be complete enough that a separate agent in a fresh session can follow it without any additional guidance.
 
-The key design constraint of the `writing-plans` skill is "zero context assumed." The plan has to be self-contained enough that a fresh agent in a new session — with no memory of this conversation — can execute it without guidance from you.
+## When the Spec File Isn't Where You Said It Was
 
-## When Claude Code Can't Find the Spec File
+The first attempt failed: the spec file wasn't at the path I'd provided. Wrong path.
 
-The first attempt hit a dead end: the spec file wasn't at the path I'd given. Wrong path.
+Claude Code didn't stop to ask. It ran `Glob` over `docs/superpowers/specs/`, found the actual file, and continued.
 
-Claude Code didn't stop and ask. It globbed `docs/superpowers/specs/` directly, found the actual file, and kept going.
+This autonomous recovery comes from `CLAUDE.md`: "Do not ask questions. Make decisions and proceed." A simple directory scan handles most path errors without pulling the user into the agent's problem. The interaction stays uninterrupted.
 
-This kind of autonomous recovery happens because `CLAUDE.md` contains: "Do not ask questions. Make decisions and proceed." When the agent hits an obstacle, the default is self-rescue — interrupt the user only if truly blocked. A simple directory scan recovers from most path errors without any human intervention.
+## The Output: 1 File, 0 Source Files Modified
 
-## The Output: 1 File Created, 0 Files Modified
-
-After 10 minutes and 23 tool calls, the session produced exactly one artifact:
+After 10 minutes and 23 tool calls:
 
 ```
 docs/superpowers/plans/2026-04-10-seo-compatibility-pages.md
 ```
 
-One file created. Zero source files touched.
+One file created. Zero source files modified.
 
-This looks underwhelming until you consider what that file enables. The plan documents every decision: which dynamic route file to create, how to generate 288 static paths at build time, which SEO component to extend vs. build from scratch, what the content collection schema needs, how to split the work into reviewable commits.
+That looks underwhelming until you consider what it enables. The plan documents every architectural decision up front: which dynamic route file to create, how to generate 288 static paths at build time, which SEO component to extend vs. build from scratch, how to split the work into reviewable commits. Without it, an implementation session for 288 pages means making assumptions under pressure, pivoting mid-session when those assumptions break, and accumulated drift that's expensive to unwind.
 
-Without this plan, an implementation session for 288 pages would involve Claude Code making assumptions about patterns you haven't confirmed, mid-session pivots when those assumptions turn out wrong, and accumulated drift that makes the codebase harder to reason about by the end. The plan prevents that failure mode entirely.
+The session ended with a question: "Subagent-Driven or Inline Execution for the implementation phase?" The plan was done. All that remained was deciding how to run it.
 
-The session ended with a question from Claude Code: "Subagent-Driven or Inline Execution for the implementation phase?" The plan is done. All that's left is deciding how to run it.
+## Why Planning and Implementation Are Different Sessions
 
-## Why Planning and Implementing Are Different Sessions
+There's a predictable failure mode in AI-assisted coding: receive a request, start modifying files, hit an unexpected design constraint halfway through, roll back or continue down a locally-valid but globally-wrong path. This gets worse as sessions grow longer — the agent has committed to early choices that compound, and the context window fills with work that may need to be discarded.
 
-There's a predictable failure mode in AI-assisted coding: the agent receives a request, starts modifying files immediately, hits an unexpected design constraint halfway through, and either rolls back or continues down a path that made sense locally but is wrong globally. In long sessions, this gets worse — the agent has committed to early choices that are hard to undo, and the context window is increasingly occupied by work that may need to be thrown away.
-
-The `writing-plans` → `executing-plans` separation is a direct fix for this. Each session gets a single responsibility:
+`writing-plans` → `executing-plans` as separate sessions is a direct fix. Each session has a single responsibility:
 
 - **Planning session**: read, explore, produce a plan. No file modifications.
-- **Execution session**: follow the plan. No exploration, no architectural decisions mid-flight.
+- **Execution session**: follow the plan. No exploration, no architectural decisions in flight.
 
-If the plan is wrong, you fix the plan — a text file, not a tangled implementation. If a step turns out to be invalid, the execution session surfaces it cleanly rather than having it corrupt downstream steps.
+If the plan is wrong, fix the plan — a text file, not a tangled implementation. The discipline is baked into the skill, not left to willpower.
 
-The multi-agent planning approach also compresses the exploration time. Three parallel agents scanning independent parts of the codebase is roughly 3× faster than one agent doing it serially — and all that parallelism stays contained in the planning session, not bleeding into execution context.
-
-Tool call breakdown: Read 13, Glob 4, Agent 3, Skill 1, Bash 1, Write 1. Total: 23 tool calls.
+Tool call breakdown: Read 13, Glob 4, Agent 3, Skill 1, Bash 1, Write 1. Total: 23.
 
 ---
 
