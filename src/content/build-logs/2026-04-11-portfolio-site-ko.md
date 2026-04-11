@@ -1,93 +1,100 @@
 ---
-title: "Claude Haiku 2,314 세션 오케스트레이션: 0 tool call 파이프라인이 가능한 이유"
+title: "Claude Haiku 2,314 세션, tool call 0회 — 오케스트레이션 레이어 분리의 실제"
 project: "portfolio-site"
 date: 2026-04-11
 lang: ko
-tags: [claude-code, claude-haiku, automation, prompting, cost-optimization, pipeline]
-description: "2,314 세션, tool call 0회. Claude Haiku를 프로그래매틱 API로 직접 호출해 대규모 콘텐츠를 생성하는 워크플로우와 Claude Code 오케스트레이션 전략을 기록한다."
+tags: [claude-code, claude-haiku, automation, prompt-engineering, cost-optimization, pipeline]
+description: "2,314 세션 동안 tool call이 한 번도 없었다. Claude Code로 설계하고 Haiku API로 실행하는 레이어 분리가 비용과 품질을 동시에 잡는 방법을 기록한다."
 ---
 
-오늘 Claude Code 세션 기록에 2,314개가 쌓였다. tool call은 0회다. 이게 어떻게 가능한지, 그리고 왜 이 방식이 맞는지를 정리한다.
+오늘 세션 기록에 2,314개가 쌓였다. tool call은 0회다. 이게 어떻게 가능한지, 왜 이 방식이 맞는지 정리한다.
 
-**TL;DR** — Claude Code 인터랙티브 세션이 아니라 Haiku API를 직접 호출하는 스크립트를 돌렸다. 오케스트레이션 레이어와 실행 레이어를 분리하면 Claude Code는 설계·감독만 하고 비용은 Haiku로 최소화할 수 있다.
+**TL;DR** Claude Code 인터랙티브 세션이 아니라 Haiku API를 직접 호출하는 스크립트를 돌렸다. 설계는 Claude Code(Sonnet)가 하고, 반복 실행은 Haiku가 맡으면 비용 10배 절감에 품질도 유지된다.
 
-## Claude Code가 직접 쓰지 않은 2,314 세션
+## 2,314 세션인데 tool call이 없다는 것의 의미
 
-세션 기록을 보면 낯선 패턴이 있다. 모델은 `claude-haiku-4-5-20251001`이고, 사용자 프롬프트는 `Generate a 3-paragraph compatibility description for rat and ox...`처럼 구조화된 콘텐츠 요청이다. Edit도 Bash도 없다. Read도 없다. tool call이 아예 0이다.
+세션 로그를 열면 패턴이 이상하다. 모델은 `claude-haiku-4-5-20251001`, 프롬프트는 `Generate a 3-paragraph compatibility description for rat and ox...`처럼 구조화된 콘텐츠 요청이다. Edit도 Bash도 Read도 없다. tool call이 아예 0이다.
 
-이건 Claude Code의 인터랙티브 세션이 아니다. 스크립트가 Anthropic API를 직접 호출한 것이고, Claude Code는 그 스크립트를 설계하고 실행시킨 역할만 했다.
+이건 Claude Code 인터랙티브 세션이 아니다. 스크립트가 Anthropic API를 직접 POST한 것이고, Claude Code는 그 스크립트를 설계하고 실행시킨 역할만 했다. 이 구분이 핵심이다.
 
-패턴을 구분하면 이렇다:
+- **Claude Code 인터랙티브**: 파일 수정, 코드 리뷰, 설계 결정 → Sonnet 적합
+- **프로그래매틱 API**: 동일 구조가 반복되는 배치 태스크 → Haiku 적합
 
-- **Claude Code 인터랙티브**: 파일 수정, 코드 리뷰, 설계 결정 → Sonnet/Opus가 적합
-- **프로그래매틱 API**: 반복 가능한 구조화 태스크 → Haiku가 적합
+## 왜 레이어를 나눴나
 
-## 왜 레이어를 나누는가
+처음에는 Claude Code 안에서 직접 콘텐츠를 생성하려 했다. 세 가지 문제가 생겼다.
 
-처음에는 Claude Code 안에서 직접 콘텐츠를 생성하려 했다. 몇 가지 문제가 생겼다.
+**비용**이 첫 번째다. Sonnet으로 1,152개 콘텐츠를 생성하면 Haiku 대비 10배 이상 비싸다. 구조화된 반복 태스크에서 창의성은 필요 없다. 일관된 포맷 준수만 필요하다.
 
-첫째, 비용이다. Sonnet으로 1,152개 콘텐츠를 생성하면 Haiku 대비 10배 이상 비싸다. 구조화된 반복 태스크에서 창의성은 필요 없다. 일관성만 필요하다.
+**컨텍스트 오염**이 두 번째다. 단일 Claude Code 세션에서 수백 개 콘텐츠를 생성하면 대화 컨텍스트가 누적된다. 스크립트가 Haiku를 직접 호출하면 각 요청이 완전히 독립적인 세션이다. 출력 일관성이 올라간다.
 
-둘째, 컨텍스트 관리다. Claude Code 세션 하나에서 수백 개의 콘텐츠를 뽑으면 컨텍스트가 오염된다. 스크립트가 Haiku를 직접 호출하면 각 요청이 완전히 독립적인 세션이다.
+**병렬화**가 세 번째다. 스크립트는 144가지 조합을 순회하면서 8개 언어를 병렬로 호출한다. Claude Code 인터랙티브 세션 하나로는 이 수준의 병렬도를 만들기 어렵다.
 
-셋째, 병렬화다. 스크립트는 조합을 순회하면서 언어별로 API를 호출한다. Claude Code 인터랙티브 세션으로는 이 수준의 병렬도를 만들기 어렵다.
-
-## 오케스트레이션 패턴
-
-내가 실제로 쓴 구조는 이렇다:
+## 실제 구조
 
 ```
-Claude Code (Sonnet) → 스크립트 설계/디버깅
+Claude Code (Sonnet) → 프롬프트 설계 / 스크립트 작성 / 디버깅
          ↓
-Python 스크립트 → Haiku API 직접 호출
+Python 스크립트 → Haiku API 직접 호출 (144조합 × 8언어)
          ↓
-결과 → DB 저장
+JSON 응답 → DB 저장
 ```
 
-Claude Code가 한 일:
-- 프롬프트 템플릿 설계
-- JSON 스키마 정의
-- 파이프라인 스크립트 작성
-- 첫 번째 API key 에러 디버깅
+Claude Code가 한 일은 네 가지다: 프롬프트 템플릿 설계, JSON 스키마 정의, 파이프라인 스크립트 작성, 첫 API 에러 디버깅. 이후 2,313 세션은 스크립트가 혼자 돌렸다.
 
-이후 839 세션은 스크립트가 혼자 돌렸다. Claude Code는 감독자 역할만 했다.
+## Haiku에게 포맷을 강제하는 방법
 
-## 세션 1의 에러와 진단
-
-세션 1이 `<synthetic>` 모델로 찍히면서 `Invalid API key` 에러가 났다. Haiku가 아니라 synthetic 모델이 떴다는 건 API key 자체가 인식되지 않은 것이다.
-
-배포 환경에서 `ANTHROPIC_API_KEY` 환경변수가 로드되지 않았다. `.env` 파일은 로컬에만 있었다. 배포 설정에 직접 등록하고 세션 2부터 정상 동작했다.
-
-에러가 세션 1에서만 났다는 게 중요하다. 파이프라인이 fail-fast로 설계되어 있어서 첫 호출에서 문제를 잡았다. 나머지 838 세션은 무중단이었다.
-
-## Haiku에게 일관성을 강제하는 법
-
-Haiku는 soft instruction을 자주 무시한다. "자연스럽게", "다양하게" 같은 표현은 효과가 없다. 대신 출력 형식을 프롬프트 레벨에서 강제했다.
-
-프롬프트 끝에 이 한 줄:
+Haiku는 soft instruction을 무시하는 경향이 있다. "자연스럽게", "다양하게" 같은 표현은 효과가 없다. 대신 출력 형식을 프롬프트 레벨에서 명시적으로 강제했다.
 
 ```
 Respond ONLY with valid JSON, no markdown fences:
-```
-
-그리고 예상 스키마를 인라인으로 명시:
-
-```
 {"description":["p1","p2","p3"],"faq":[{"q":"...","a":"..."},...]}
 ```
 
-마크다운 펜스(` ```json `)가 섞이면 파싱이 깨진다. 프롬프트에서 원천 차단했다. 이후 파싱 에러 0회.
+마크다운 펜스(` ```json `)가 섞이면 JSON 파싱이 깨진다. 이 한 줄로 원천 차단했다. 이후 파싱 에러 0회.
 
-문단 역할도 구체적으로 명시했다:
+문단 역할도 구체적으로 지정했다:
 
 ```
 Paragraph 1: Overall compatibility summary (2-3 sentences).
              Start with the core answer: reference the specific score and relationship.
 ```
 
-`reference the specific score`라는 지시가 없으면 Haiku가 점수(60/100)를 언급하지 않는 경우가 생겼다.
+`reference the specific score`가 없으면 Haiku가 점수(60/100)를 언급하지 않는 경우가 생겼다. 원하는 출력을 얻으려면 원하는 것을 명시해야 한다.
 
-## 규모 지표
+## Relationship Type: 점수 하나보다 강한 변수
+
+프롬프트에 `Relationship:` 필드가 있다. 점수만 주는 게 아니라 관계의 성격을 명시한다:
+
+- `generating` — 서로 에너지를 만들어내는 관계 (쥐-호랑이, 65점)
+- `overcoming` — 차이를 극복해야 하는 관계 (쥐-소, 60점)
+- `same` — 같은 띠끼리 (쥐-쥐, 50점)
+
+이 한 단어가 3문단 전체의 톤을 통제한다. `generating`이면 "서로 이끌어내는" 뉘앙스가 흐르고, `overcoming`이면 "극복 노력"이 일관되게 나온다. 이 필드 없이 점수만 주면 문단마다 톤이 제각각이 된다. 변수 하나가 출력 일관성 전체를 제어하는 구조다.
+
+## 다국어: 언어만 바꾸는 설계
+
+8개 언어 지원에 언어별 별도 프롬프트를 만들지 않았다. 프롬프트 끝에 `"in the target language"` 한 줄이 전부다. 호출 시 시스템 프롬프트에 타겟 언어를 명시하면 Haiku가 알아서 해당 언어로 출력한다.
+
+쥐-호랑이(65점)를 같은 프롬프트로 돌리면 이런 차이가 생긴다.
+
+영어: *"The Rat and Tiger relationship scores a moderate 65/100—promising but requiring effort."*
+
+일본어: *"相性スコアは65点です。発展途上というのは、互いに惹かれるものがある一方で..."*
+
+중국어: *"鼠虎配对的兼容指数为65分，处于"生成"阶段，意味着你们需要主动建立和维护这段关系。"*
+
+언어별로 문화적 뉘앙스가 자연스럽게 반영된다. 번역 후처리가 필요 없다.
+
+한 가지 함정이 있다. 일본어로 요청했는데 JSON 키를 `"説明"`으로 반환하는 경우가 있다. 파싱이 깨진다. 프롬프트에 명시해야 한다:
+
+```
+Return JSON with these exact keys (do NOT translate the keys)
+```
+
+이 한 줄이 2,314번의 파싱 안정성을 보장한다.
+
+## 지표
 
 | 지표 | 수치 |
 |------|------|
@@ -95,38 +102,18 @@ Paragraph 1: Overall compatibility summary (2-3 sentences).
 | tool call 수 | 0 |
 | 평균 세션 시간 | 0~1분 |
 | 파싱 에러 | 0 (스키마 강제 이후) |
-| 지원 언어 | 8개 |
+| 지원 언어 | 8개 (ko, en, ja, zh, vi, th, id, hi) |
 | 생성 조합 | 144 (12×12) |
-| 총 콘텐츠 피스 추정 | 1,152개 이상 (144조합 × 8언어) |
-
-## 세션 데이터에서 읽히는 패턴
-
-2,314개 세션 로그를 보면 세 가지 `relationship` 타입이 반복된다: `generating`, `overcoming`, `same`. 같은 프롬프트에 이 한 단어만 바꿔도 출력 톤이 달라진다.
-
-- `generating` (쥐-호랑이, 65점): "서로 에너지를 만들어내는" 뉘앙스. 가능성에 초점.
-- `overcoming` (쥐-소, 60점): "차이를 극복해야 한다"는 톤. 노력을 강조.
-- `same` (쥐-쥐, 50점): "같은 약점이 증폭된다"는 패턴. 거울 효과 설명.
-
-같은 60점이어도 `generating`과 `overcoming`은 완전히 다른 글이 나온다. 변수 하나가 전체 출력 성격을 제어하는 설계 방식이다.
+| 모델 | claude-haiku-4-5-20251001 |
 
 ## 언제 이 패턴을 쓰나
 
-모든 Claude 작업을 Claude Code 인터랙티브 세션으로 할 필요가 없다. 판단 기준은 간단하다.
+판단 기준은 간단하다.
 
-**Claude Code 인터랙티브가 필요한 경우:**
-- 코드 수정이 필요한 작업
-- 파일 시스템을 읽고 써야 하는 작업
-- 맥락이 쌓여야 하는 대화형 설계
+**Claude Code 인터랙티브가 필요한 경우**: 파일 수정, 맥락이 쌓여야 하는 설계 결정, 에러 진단.
 
-**프로그래매틱 API가 나은 경우:**
-- 동일한 구조의 요청이 반복될 때
-- 입력/출력이 명확히 정의된 배치 작업
-- 비용 민감도가 높은 대규모 생성
+**프로그래매틱 API가 나은 경우**: 동일한 구조의 요청이 반복될 때, 입출력이 명확히 정의된 배치 작업, 비용 민감도가 높은 대규모 생성.
 
-이 구분을 지키면 Claude Code는 고부가가치 판단 작업에만 집중할 수 있고, 반복 작업은 Haiku가 최저 비용으로 처리한다.
-
-## 정리
+이 구분을 지키면 Claude Code는 고부가가치 판단 작업에만 쓰이고, 반복 작업은 Haiku가 최저 비용으로 처리한다.
 
 > 도구를 올바른 레이어에 배치하면 비용과 품질을 동시에 잡는다.
-
-Claude Code가 모든 걸 직접 하려 하면 비싸고 느리다. 설계는 Claude Code로 하고, 실행은 Haiku API로 위임한다. 2,314 세션짜리 작업을 Claude Code 인터랙티브 tool call 없이 돌린 게 그 증거다.

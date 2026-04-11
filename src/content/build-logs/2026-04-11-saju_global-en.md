@@ -1,24 +1,24 @@
 ---
-title: "Pre-generating 2,313 Multilingual Compatibility Texts with Claude Haiku — One Prompt, 8 Languages"
+title: "2,313 Multilingual Content Pieces in One Day — One Prompt, 8 Languages, Claude Haiku"
 project: "saju_global"
 date: 2026-04-11
 lang: en
 pair: "2026-04-11-saju_global-ko"
 tags: [claude-api, haiku, content-generation, i18n, prompt-engineering]
-description: "144 zodiac pairs × 8 languages = 2,313 Claude Haiku API calls, done in one day. One prompt template, zero per-language duplication."
+description: "Pre-generated a Chinese Zodiac compatibility DB across 144 sign pairs × 8 languages using 2,313 Claude Haiku API calls — one prompt template, zero per-language customization."
 ---
 
-2,313 Claude Haiku API calls. One day. 8 languages. That's how the entire Chinese zodiac compatibility database for `saju_global` got pre-generated.
+2,313 Claude Haiku API calls. One day. Eight languages. That's how long it took to pre-generate an entire Chinese Zodiac compatibility database for `saju_global`.
 
-**TL;DR** — A single prompt template with "in the target language" as the only language directive covered all 8 languages. Pre-generating into a DB beat on-demand LLM generation for both UX and cost. Model choice: Haiku — format compliance is the job here, not creativity. No reason to pay for Sonnet.
+**TL;DR** One prompt template with a single `"in the target language"` instruction covers all 8 languages. Haiku was the right model — format compliance matters more than creativity here. Pre-generation beats on-demand for both UX and cost.
 
-## What Needed to Get Built
+## Why 2,313 Sessions
 
-`saju_global` needed **Chinese Zodiac compatibility** content. 12 signs × 12 signs = 144 pairs. Each pair gets a 3-paragraph description plus 3 FAQ Q&A entries. The app supports 8 languages: Korean, English, Japanese, Simplified Chinese, Vietnamese, Thai, Indonesian, and Hindi.
+The Chinese Zodiac has 12 signs. 12 × 12 = 144 compatibility pairs. Each pair needs a 3-paragraph description plus 3 FAQ entries. The app supports 8 languages: Korean, English, Japanese, Simplified Chinese, Vietnamese, Thai, Indonesian, and Hindi.
 
-Generating on-demand means every user waits on an LLM response. **Pre-generating into a DB** was the obvious call — and that decision locked in the entire prompt design strategy.
+144 pairs × 8 languages = 1,152 base content pieces. Add FAQs and the number climbs past 2,000. Writing this manually would take months. The only viable path was full automation.
 
-144 pairs × 8 languages = 1,152 content pieces. Add FAQs and the session count reaches 2,313. Writing this by hand would take months. The API pipeline did it in a day.
+The key design decision: **pre-generate everything into the DB rather than generate on-demand**. On-demand means every user waits for an LLM response. Pre-generation means instant loads and zero per-request cost at runtime. That decision also changed how the prompts had to be designed.
 
 ## The Prompt That Ran 2,313 Times
 
@@ -38,92 +38,82 @@ Paragraph 3: Potential challenges and advice (2-3 sentences).
 Also generate 3 FAQ Q&A pairs about this combination.
 ```
 
-Three variables: `{sign_a}`, `{sign_b}`, `{score}/{relationship_type}`. The language directive is just **"in the target language"** — one line, 8 languages covered. No separate prompt per language. The target language is injected at the application layer per request, alongside the prompt. Haiku handles the rest.
+Three variables: `{sign_a}`, `{sign_b}`, `{score}/{relationship_type}`. The phrase **"in the target language"** does all the i18n work. No per-language prompt variants. No translation post-processing.
 
-## The `Relationship` Field Is Doing More Work Than It Looks
+## The `relationship_type` Field Changes Everything
 
-The `Relationship:` field in the prompt isn't just a label — it's a consistency anchor.
+The `Relationship:` field in the prompt isn't just metadata — it fundamentally shapes the output quality.
 
-Each pair is classified into one of three types:
+Three relationship types were defined:
 
-- `generating` — the pairing creates energy between the two signs (e.g., Rat + Tiger, 65/100)
-- `overcoming` — fundamental differences that require deliberate effort to bridge (e.g., Rat + Ox, 60/100)
-- `same` — same sign pairing (e.g., Rat + Rat, 50/100)
+- `generating` — signs that energize each other (e.g., Rat-Tiger, 65 points)
+- `overcoming` — signs that need to bridge differences (e.g., Rat-Ox, 60 points)
+- `same` — same sign pairing (e.g., Rat-Rat, 50 points)
 
-One word shifts the entire output. With `Relationship: generating`, all three paragraphs carry a "drawing out potential" undercurrent. With `overcoming`, the challenge-and-growth arc runs consistently from paragraph one through three.
+One word makes a measurable difference. With `Relationship: generating`, the model weaves a consistent "pulling each other forward" narrative across all three paragraphs. With `overcoming`, the theme of bridging gaps and effort runs through the whole piece. Without this field, the same numerical score produces inconsistent tone — paragraph 1 might be optimistic, paragraph 3 pessimistic, with no coherent thread.
 
-Without this field, the same score produces inconsistent tone — one paragraph optimistic, the next cautionary, the third neutral. The relationship type is the thread that holds all three paragraphs together.
+The relationship type acts as a soft constraint that keeps the entire output tonally unified.
 
 ## Why Haiku, Not Sonnet
 
-Every session ran on `claude-haiku-4-5-20251001`. Three reasons:
+Every session used `claude-haiku-4-5-20251001`. Three reasons:
 
-**Speed.** Most sessions completed in under a minute. Running 2,313 calls in parallel wasn't a bottleneck.
+**Speed**: Most sessions completed in under a minute. With parallel execution, 2,313 calls finished in a fraction of the time you'd expect.
 
-**Cost.** This task isn't about creativity — it's about **consistent format compliance**. The output structure is fixed: 3 paragraphs, then 3 FAQ pairs. Haiku follows structured prompts reliably. Paying for Sonnet or Opus to do this is wasteful.
+**Cost**: The task isn't creative writing — it's structured content generation. The requirement is "produce exactly 3 paragraphs and 3 FAQs in the right format." Haiku handles format compliance without issues. Spending on Sonnet or Opus for this would be pure waste.
 
-**Multilingual quality.** Session logs showed natural output across all 8 languages — including Devanagari script for Hindi, Thai script, and natural Japanese. Haiku didn't hallucinate or code-switch. Every language came back clean.
+**Multilingual quality**: The output quality across all 8 languages held up. Korean, Japanese, Chinese, Hindi (Devanagari script), Thai, Vietnamese, Indonesian — all produced natural, coherent text. The session logs showed no language-specific degradation.
 
-For tasks where "3 structured paragraphs, consistent tone" is the success criterion, Haiku is the right model. Know the job before picking the tool.
+## 0 Tool Calls Across 2,313 Sessions
 
-## Why Every Session Logged 0 Tool Calls
+Every session shows `tool calls: 0`. That's expected — this isn't a Claude Code file-editing workflow.
 
-Every session logged `tool calls: 0`. Expected — this wasn't a Claude Code file-editing workflow.
+The actual pipeline: a script generates all 144 × 8 language combinations, POSTs each to the Claude API directly, and writes the JSON response to the database. Claude Code was used to **write the pipeline script itself**. The content generation loop runs independently on the server. No file reads, no edits, no tool use — just structured API calls.
 
-The actual pipeline: a script generates the full list of 144 combinations × 8 languages, POSTs each combination directly to the Claude API, and writes the response JSON to the DB. Claude Code was used to **write the pipeline script itself** — not to run the content generation loop. The loop runs independently on the server.
+## Same Pair, 8 Different Voices
 
-This distinction matters for cost accounting. Zero tool calls means session cost is purely prompt + completion tokens, no overhead from file reads or edits.
+Run Rat-Tiger (65 points, generating) through 8 languages and you get 8 culturally distinct texts from one prompt.
 
-## Same Pair, 8 Languages — How the Nuance Shifts
+English is direct: *"The Rat and Tiger relationship scores a moderate 65/100—promising but requiring effort."*
 
-Rat + Tiger (65/100, `generating`) across all 8 languages produced genuinely different text — not just translated words, but culturally tuned framing.
+Japanese softens the delivery: *"相性スコアは65点です。発展途上というのは、互いに惹かれるものがある一方で、ものの見方や行動パターンに根本的な違いが存在するということです。"*
 
-English came back direct: "The Rat and Tiger relationship scores a moderate 65/100—promising but requiring effort."
+Chinese is pragmatic: *"鼠虎配对的兼容指数为65分，处于"生成"阶段，意味着你们需要主动建立和维护这段关系。"*
 
-Japanese softened the framing: "相性スコアは65点です。発展途上というのは、互いに惹かれるものがある一方で、ものの見方や行動パターンに根本的な違いが存在するということです。"
-
-Chinese leaned practical: "鼠虎配对的兼容指数为65分，处于"生成"阶段，意味着你们需要主动建立和维护这段关系。"
-
-The prompt didn't change. Cultural register shifted naturally by language. No language-specific instructions needed — the model's multilingual training does the heavy lifting. That's exactly the behavior "in the target language" is designed to unlock.
+No per-language customization in the prompt. The cultural adaptation happens automatically. That's the most surprising result of this experiment — language alone carries enough cultural context to differentiate the output naturally.
 
 ## The JSON Key Translation Trap
 
-One pitfall with multilingual bulk generation that's easy to miss: LLMs occasionally translate JSON keys when the output language isn't English.
+Bulk multilingual generation has a reliable failure mode: you ask for Japanese output and get `"説明"` as a JSON key instead of `"description"`. The model occasionally translates the keys along with the content.
 
-Ask for Japanese output without explicit instructions, and you might get `"説明"` instead of `"description"` as a key. That breaks every downstream parser.
-
-The fix is one line in the prompt:
+The fix is explicit instruction in the prompt:
 
 ```
 Return JSON with these exact keys (do NOT translate the keys):
 {"description": [...], "faq": [{"q": "...", "a": "..."}]}
 ```
 
-Explicit. Unambiguous. That single instruction locked in parsing stability across all 2,313 sessions. Without it, you're playing whack-a-mole with JSON parsing errors at bulk scale.
+Without this line, JSON parsing breaks intermittently across a large batch. One explicit instruction stabilizes parsing across all 2,313 calls.
 
 ## The Numbers
 
 | Metric | Value |
-|---|---|
+|--------|-------|
 | Total sessions | 2,313 |
 | Time per session | 0–1 min |
 | Tool calls per session | 0 |
 | Languages covered | 8 (ko, en, ja, zh, vi, th, id, hi) |
-| Zodiac pairs | 144 |
-| Content per pair | 3 paragraphs + 3 FAQ pairs |
+| Sign combinations | 144 |
+| Content per combination | 3 paragraphs + 3 FAQ pairs |
 | Model | claude-haiku-4-5-20251001 |
 
-## What to Take From This
+## What Transfers to Other Projects
 
-**One prompt, one language directive.** "In the target language" covers 8 languages. No per-language duplication.
-
-**Relationship type is a consistency multiplier.** Score alone lets tone drift across paragraphs. A named relationship type locks the narrative arc end to end.
-
-**Know when Haiku is enough.** If the task is structured output compliance — not open-ended creativity — Haiku delivers. Don't over-spend on model capability the task doesn't need.
-
-**Explicitly block JSON key translation.** One line prevents bulk parsing failures at scale. Add it every time.
-
-**Pre-generation beats on-demand when content is finite.** Users get instant responses; you pay once. Both UX and cost win.
+- **One prompt, one language instruction.** `"in the target language"` scales to any number of languages without prompt duplication.
+- **Semantic labels improve coherence more than numeric scores alone.** A `relationship_type` field (or equivalent categorical context) gives the model a consistent narrative frame across a multi-paragraph output.
+- **Match model to task requirements.** When the requirement is format compliance over creative quality, Haiku is the right call. Don't pay for capabilities you don't need.
+- **Anchor JSON keys explicitly.** In bulk multilingual generation, `"do NOT translate the keys"` is not optional — it's load-bearing.
+- **Pre-generation vs. on-demand is a real architectural choice.** When content is finite and enumerable, pre-generation wins on UX, cost, and reliability.
 
 ---
 
