@@ -1,17 +1,17 @@
 ---
-title: "Claude Haiku 839 세션 오케스트레이션: 0 tool call 파이프라인이 가능한 이유"
+title: "Claude Haiku 2,314 세션 오케스트레이션: 0 tool call 파이프라인이 가능한 이유"
 project: "portfolio-site"
 date: 2026-04-11
 lang: ko
 tags: [claude-code, claude-haiku, automation, prompting, cost-optimization, pipeline]
-description: "839 세션, tool call 0회. Claude Haiku를 프로그래매틱 API로 직접 호출해 대규모 콘텐츠를 생성하는 워크플로우와 Claude Code 오케스트레이션 전략을 기록한다."
+description: "2,314 세션, tool call 0회. Claude Haiku를 프로그래매틱 API로 직접 호출해 대규모 콘텐츠를 생성하는 워크플로우와 Claude Code 오케스트레이션 전략을 기록한다."
 ---
 
-오늘 Claude Code 세션 기록에 839개가 쌓였다. tool call은 0회다. 이게 어떻게 가능한지, 그리고 왜 이 방식이 맞는지를 정리한다.
+오늘 Claude Code 세션 기록에 2,314개가 쌓였다. tool call은 0회다. 이게 어떻게 가능한지, 그리고 왜 이 방식이 맞는지를 정리한다.
 
 **TL;DR** — Claude Code 인터랙티브 세션이 아니라 Haiku API를 직접 호출하는 스크립트를 돌렸다. 오케스트레이션 레이어와 실행 레이어를 분리하면 Claude Code는 설계·감독만 하고 비용은 Haiku로 최소화할 수 있다.
 
-## Claude Code가 직접 쓰지 않은 839 세션
+## Claude Code가 직접 쓰지 않은 2,314 세션
 
 세션 기록을 보면 낯선 패턴이 있다. 모델은 `claude-haiku-4-5-20251001`이고, 사용자 프롬프트는 `Generate a 3-paragraph compatibility description for rat and ox...`처럼 구조화된 콘텐츠 요청이다. Edit도 Bash도 없다. Read도 없다. tool call이 아예 0이다.
 
@@ -91,13 +91,23 @@ Paragraph 1: Overall compatibility summary (2-3 sentences).
 
 | 지표 | 수치 |
 |------|------|
-| 총 세션 수 | 839 |
+| 총 세션 수 | 2,314 |
 | tool call 수 | 0 |
 | 평균 세션 시간 | 0~1분 |
 | 파싱 에러 | 0 (스키마 강제 이후) |
 | 지원 언어 | 8개 |
 | 생성 조합 | 144 (12×12) |
-| 총 콘텐츠 피스 추정 | 1,152개 이상 |
+| 총 콘텐츠 피스 추정 | 1,152개 이상 (144조합 × 8언어) |
+
+## 세션 데이터에서 읽히는 패턴
+
+2,314개 세션 로그를 보면 세 가지 `relationship` 타입이 반복된다: `generating`, `overcoming`, `same`. 같은 프롬프트에 이 한 단어만 바꿔도 출력 톤이 달라진다.
+
+- `generating` (쥐-호랑이, 65점): "서로 에너지를 만들어내는" 뉘앙스. 가능성에 초점.
+- `overcoming` (쥐-소, 60점): "차이를 극복해야 한다"는 톤. 노력을 강조.
+- `same` (쥐-쥐, 50점): "같은 약점이 증폭된다"는 패턴. 거울 효과 설명.
+
+같은 60점이어도 `generating`과 `overcoming`은 완전히 다른 글이 나온다. 변수 하나가 전체 출력 성격을 제어하는 설계 방식이다.
 
 ## 언제 이 패턴을 쓰나
 
@@ -119,4 +129,4 @@ Paragraph 1: Overall compatibility summary (2-3 sentences).
 
 > 도구를 올바른 레이어에 배치하면 비용과 품질을 동시에 잡는다.
 
-Claude Code가 모든 걸 직접 하려 하면 비싸고 느리다. 설계는 Claude Code로 하고, 실행은 Haiku API로 위임한다. 839 세션짜리 작업을 Claude Code 인터랙티브 세션 없이 돌린 게 그 증거다.
+Claude Code가 모든 걸 직접 하려 하면 비싸고 느리다. 설계는 Claude Code로 하고, 실행은 Haiku API로 위임한다. 2,314 세션짜리 작업을 Claude Code 인터랙티브 tool call 없이 돌린 게 그 증거다.

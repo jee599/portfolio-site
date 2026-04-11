@@ -1,56 +1,45 @@
 ---
-title: "839 Sessions, 0 Tool Calls: Separating Claude Code Orchestration from Haiku Execution"
+title: "2,314 Claude Haiku Sessions, Zero Tool Calls: Separating Orchestration from Execution"
 project: "portfolio-site"
 date: 2026-04-11
 lang: en
 pair: "2026-04-11-portfolio-site-ko"
-tags: [claude-code, claude-haiku, automation, cost-optimization, pipeline]
-description: "839 Claude sessions, zero tool calls. How separating orchestration from execution cuts costs while scaling content generation with Haiku API."
+tags: [claude-code, claude-haiku, automation, cost-optimization, pipeline, prompting]
+description: "2,314 Haiku API sessions, 0 tool calls. How I split Claude Code orchestration from programmatic execution to generate 1,152+ content pieces at minimum cost."
 ---
 
-839 sessions in the Claude Code history. Zero tool calls.
+My Claude Code session history shows 2,314 entries. Tool calls: 0. No file edits, no bash commands, no reads. Just structured API calls generating content at scale.
 
-Not a bug. Not a misconfiguration. By design.
+Here's how that's possible — and why it's the right architecture.
 
-**TL;DR** — Instead of generating content inside Claude Code's interactive session, I wrote a Python script that calls the Haiku API directly. Claude Code (Sonnet) handled design and debugging. Haiku ran 839 independent API sessions to generate structured multilingual content. Separating orchestration from execution cuts costs by 10x and keeps Claude Code's context clean.
+**TL;DR** — Instead of generating content inside a Claude Code interactive session, I wrote a script that calls the Haiku API directly. Claude Code (Sonnet) designed and debugged the script. Haiku ran 2,314 API calls independently. Result: 1,152+ content pieces across 8 languages, with Claude Code never touching a single file during execution.
 
-## What 839 Sessions Without a Single Tool Call Looks Like
+## What 2,314 Sessions With Zero Tool Calls Actually Looks Like
 
-The session history is immediately strange. The model is `claude-haiku-4-5-20251001`. The user prompts look like this:
+The session log has an unusual pattern. Model: `claude-haiku-4-5-20251001`. User prompt: `Generate a 3-paragraph compatibility description for rat and ox...`. No Edit calls. No Bash. No Read. Tool call count: zero.
 
-```
-Generate a 3-paragraph compatibility description for rat and ox.
-Paragraph 1: Overall compatibility summary (2-3 sentences).
-             Start with the core answer: reference the specific score and relationship.
-...
-Respond ONLY with valid JSON, no markdown fences:
-{"description":["p1","p2","p3"],"faq":[{"q":"...","a":"..."},...]}
-```
+This isn't a Claude Code interactive session. A Python script is calling the Anthropic API directly. Claude Code designed and launched that script — but the 2,314 content generation calls happened entirely outside of it.
 
-No Edit calls. No Bash executions. No Read operations. Every session is just a user prompt and a model response.
+The distinction matters:
 
-This isn't Claude Code running interactively. A Python script was calling the Anthropic API directly. Claude Code's only role was designing that script and launching it. Once the script started, Claude Code stepped back entirely.
+- **Claude Code interactive**: file edits, code review, architectural decisions → Sonnet or Opus
+- **Programmatic API**: repeatable structured tasks → Haiku
 
-The distinction between these two modes is the foundation of the whole pattern:
+Conflating the two is the mistake most people make when they first use Claude Code for content pipelines.
 
-- **Claude Code interactive session**: file edits, code review, architecture decisions, debugging — Sonnet or Opus
-- **Programmatic API call**: structured, repeatable output tasks — Haiku
+## Why Split the Layers at All
 
-Conflating the two is the mistake most people make when they first start using Claude Code for content pipelines.
+My first instinct was to generate content directly inside Claude Code. That hit three walls fast.
 
-## Why Splitting the Layers Matters
+**Cost.** Generating 1,152 content pieces with Sonnet costs roughly 10× more than Haiku for equivalent structured output. Structured repetitive tasks don't need creativity — they need consistency. Paying for a more capable model here is just waste.
 
-The obvious approach is to generate everything inside a Claude Code session. I did this in early experiments. Three problems killed it.
+**Context window pollution.** Running hundreds of generation requests inside a single Claude Code session means all that output accumulates in the conversation context. By the 50th request, the model carries the weight of the previous 49. A script calling Haiku directly gives each request a completely clean, isolated session — no carryover, no drift.
 
-**Cost at scale.** The task was generating 1,152 content pieces — compatibility descriptions and FAQ entries for every combination of 12 zodiac signs, in 8 languages. Generating that with Sonnet costs roughly 10x more than Haiku for equivalent structured output. When the task is purely mechanical — consistent format, no creative judgment required — paying for a more capable model is waste. The model's job here isn't to be smart. It's to be consistent.
-
-**Context window pollution.** Running hundreds of generation requests inside a single Claude Code session means all that output accumulates in the conversation context. By the 50th request, the model is carrying the weight of the previous 49. Each subsequent generation starts with a polluted context window that wasn't designed to hold content data. A script calling Haiku directly gives each request a completely clean, isolated session — no carryover, no drift.
-
-**Parallelism and control.** The script iterates over every sign-combination × language pair and fires independent API calls. It can retry failures, log errors per request, and resume from where it left off without touching a Claude Code session. Replicating this kind of batch control inside an interactive session is messy. The scripting layer handles it naturally.
+**Parallelism and control.** The script iterates over all zodiac combinations and fires independent API calls per language. It can retry failures, log errors per request, and resume from where it left off without touching a Claude Code session. That level of batch control is difficult to replicate inside an interactive session.
 
 ## The Actual Orchestration Architecture
 
-The full pipeline looks like this:
+The full pipeline:
 
 ```
 Claude Code (Sonnet)
@@ -65,57 +54,51 @@ Python script (runs independently)
   → parses JSON response
   → writes to database
          ↓
-838 additional Haiku sessions
+Remaining 2,313 Haiku sessions
   → no Claude Code involvement
 ```
 
-What Claude Code actually contributed to this pipeline was about 4 things: designing the prompt template structure, defining the expected JSON schema, writing the script that drives the pipeline, and debugging the single error that appeared in session 1. After that, 838 sessions ran autonomously.
+What Claude Code actually contributed: designing the prompt template structure, defining the expected JSON schema, writing the pipeline script, and debugging the one error in session 1. After that, the remaining sessions ran autonomously. Claude Code was the architect, not the laborer.
 
-The supervisory role is real but narrow. Claude Code is the architect, not the laborer. This is the correct mental model for any content pipeline.
+## Session 1 Failed — And That Was the Right Design
 
-## Session 1: The Error That Validated the Design
+Session 1 logged as `<synthetic>` model with an `Invalid API key` error. When a synthetic model appears instead of Haiku, it means the API key wasn't recognized at the routing layer at all.
 
-Session 1 shows a `<synthetic>` model tag and an `Invalid API key` error.
+The root cause: `ANTHROPIC_API_KEY` wasn't set in the deployment environment. The `.env` file only existed locally and hadn't been registered in the production config. The fix was adding the environment variable directly to the deployment settings. Session 2 ran cleanly.
 
-A `<synthetic>` model appearing in session logs means the API key was never recognized — the request didn't reach the model routing layer at all. The root cause: `ANTHROPIC_API_KEY` wasn't set in the deployment environment. The `.env` file was local-only and hadn't been registered in the production configuration.
+The important part: the error surfaced in session 1, not session 500. The pipeline was designed to fail fast — the first call exposed the problem. A silent failure mode that logs a warning and continues would have produced thousands of sessions of garbage data before anyone noticed. Fail-fast caught the misconfiguration before a single bad row was written.
 
-The fix was straightforward: add the environment variable directly to the deployment settings. Session 2 onward worked without issue.
-
-What matters here isn't the bug itself — it's where it surfaced. The error appeared in session 1, not session 500. The pipeline was designed to be fail-fast: if the very first API call fails, the entire run aborts immediately. This is non-negotiable for any batch pipeline running at this scale.
-
-A silent failure mode — where session 1 returns empty output, logs a warning, and continues — would have produced 838 sessions of garbage data before anyone noticed. Fail-fast caught the environment misconfiguration before a single row of bad data was written.
-
-The remaining 838 sessions ran without interruption.
+The remaining sessions ran without interruption.
 
 ## Forcing Consistency Out of Haiku
 
-Haiku is cheap and fast, but it ignores vague instructions. "Write naturally" produces inconsistent output. "Vary your phrasing" gets interpreted differently on each call. Soft guidance is wasted tokens.
+Haiku ignores soft instructions. Phrases like "write naturally" or "vary your phrasing" have no effect. Soft guidance is wasted tokens.
 
-The solution is format enforcement at the prompt level, not the instruction level.
+The solution is format enforcement at the prompt level.
 
-**Blocking markdown fences.** The last line of every prompt:
+**Block markdown fences.** One line at the end of every prompt:
 
 ```
 Respond ONLY with valid JSON, no markdown fences:
 ```
 
-Without this, Haiku frequently wraps responses in ` ```json ` code blocks. That's valid when a human is reading the output, but it breaks `json.loads()` in the script. Explicit prohibition in the prompt eliminates the issue entirely. Parse error rate after adding this line: zero.
+Without this, Haiku frequently wraps responses in ` ```json ` code blocks. That's fine for human readers, but it breaks `json.loads()` in the script. Explicit prohibition eliminates the issue. Parse error rate after adding this line: zero.
 
-**Inline schema definition.** Immediately after the instruction, provide the exact schema:
+**Provide an inline schema example.** Immediately after the instruction:
 
 ```
 {"description":["p1","p2","p3"],"faq":[{"q":"...","a":"..."},...]}
 ```
 
-This does two things: it removes ambiguity about the expected structure, and it anchors Haiku's output format to a concrete example. Haiku is a strong few-shot learner. Showing the schema is more effective than describing it.
+Showing the schema is more effective than describing it. Haiku is a strong few-shot learner — a concrete example anchors the output format reliably.
 
-**Explicit role assignments per paragraph.** Generic paragraph instructions produce generic output:
+**Assign explicit roles per paragraph.** Generic instructions produce generic output:
 
 ```
-# Bad
+# Vague
 Write 3 paragraphs about compatibility.
 
-# Good
+# Specific
 Paragraph 1: Overall compatibility summary (2-3 sentences).
              Start with the core answer: reference the specific score and relationship.
 Paragraph 2: Communication and daily interaction patterns.
@@ -124,62 +107,66 @@ Paragraph 3: Long-term potential and key friction points.
              End with a concrete recommendation.
 ```
 
-The difference between these two approaches is significant. Without `reference the specific score`, Haiku would sometimes describe compatibility in general terms without mentioning the numerical score that the application needed to display. Explicit role definitions remove the model's discretion on structure — they specify not just what to write about, but how to lead each section.
-
-The result: 839 structured JSON responses with no deviation from schema and no parse failures after the formatting rules were established.
+Without `reference the specific score`, Haiku would sometimes describe compatibility in general terms without mentioning the numerical score (e.g., 60/100) that the application needed to display. One specific instruction eliminates that ambiguity entirely.
 
 ## Scale Metrics
 
 | Metric | Value |
 |--------|-------|
-| Total sessions | 839 |
+| Total sessions | 2,314 |
 | Tool calls | 0 |
 | Avg session duration | 0–1 min |
 | Parse errors | 0 (after schema enforcement) |
 | Languages supported | 8 |
 | Zodiac combinations | 144 (12×12) |
-| Total content pieces | 1,152+ |
+| Estimated content pieces | 1,152+ (144 × 8 languages) |
 | Model | claude-haiku-4-5-20251001 |
 
-The numbers tell the story. 839 sessions with zero tool calls means 839 clean, isolated, fast API calls — none of the overhead of a full Claude Code interactive session. The pipeline ran to completion without human intervention after the session 1 fix.
+## One Variable Controls the Entire Output Tone
+
+The 2,314 session logs repeat three `relationship` types: `generating`, `overcoming`, `same`. Swapping that single parameter changes the entire narrative character of the output.
+
+- `generating` (rat–tiger, 65 pts): framed around shared energy and possibility
+- `overcoming` (rat–ox, 60 pts): framed around effort and bridging differences
+- `same` (rat–rat, 50 pts): framed around mirrored weaknesses amplifying each other
+
+Two pairs can share an identical 60-point score but produce completely different articles depending on the relationship type. One variable controls the entire narrative shape. That's intentional prompt architecture — not luck.
 
 ## The Decision Framework: When to Use Which Pattern
 
-Not every Claude task belongs in an interactive session. The decision rule comes down to what the task actually requires.
+Not every Claude task belongs in an interactive session.
 
 **Use Claude Code interactive when the task involves judgment or filesystem access:**
-- The task requires reading existing code and understanding its context
-- The task requires modifying files based on what's already there
-- The task involves architectural decisions that need back-and-forth refinement
-- The task requires accumulated context — each step informs the next
+- Reading existing code and understanding its context
+- Modifying files based on current state
+- Architectural decisions requiring back-and-forth refinement
+- Accumulated context where each step informs the next
 
 **Use programmatic Haiku API when the task is batch and mechanical:**
-- The same request structure applies to many different inputs (a template with variable substitution)
-- Input/output pairs are well-defined and consistent across the batch
-- The volume is large enough that model cost is a significant factor
-- Parallelism matters — each request is independent and can run concurrently
+- The same request structure applies to many different inputs
+- Input/output schema is fixed and well-defined across the batch
+- Volume is large enough that model cost matters
+- Each request is independent and stateless
 
 The test is simple: could you write the task as a function with parameters? If yes, it belongs in a script calling Haiku. If the task requires reading the current state of a file to know what to do next, it belongs in a Claude Code session.
 
-Following this split keeps Claude Code focused on what it's actually good at — judgment, context-aware decisions, and system design. Haiku handles the mechanical execution at minimum cost.
-
 ## What This Architecture Gets You
 
-The 0-tool-call pipeline isn't just a cost optimization. It's a cleaner architecture.
+The 0-tool-call pipeline isn't just cost optimization. It's a cleaner architecture.
 
-Each Haiku session is stateless and isolated. If one fails, it doesn't affect the others. The script can log the failure, skip that combination, and continue. You get full observability per request — response time, parse success, output length — without any of it touching the Claude Code context window.
+Each Haiku session is stateless and isolated. If one fails, it doesn't affect the others. The script logs the failure, skips that combination, and continues. You get full observability per request — response time, parse success, output length — without any of it touching the Claude Code context window.
 
-Claude Code stays clean. The interactive session remains focused on design decisions and debugging. It never accumulates hundreds of generated content pieces in its context. When you return to the session, the context is exactly where you left it: the script, the schema, the architecture.
+Claude Code stays clean. The interactive session remains focused on design and debugging. It never accumulates 1,152 generated content pieces in its context. When you return to the session, the context is exactly where you left it.
 
-The separation also makes iteration faster. If the prompt template needs adjustment, you change one string in the script and re-run the affected combinations. You're not trying to modify prompt behavior mid-session while the model is already holding 300 generated responses in context.
+The separation also makes iteration faster. Adjusting the prompt template means changing one string in the script and re-running the affected combinations — not trying to modify behavior mid-session while the model holds hundreds of generated responses in context.
 
 ## The Principle
 
 > Put the right tool at the right layer. Cost and quality aren't a trade-off when the architecture is correct.
 
-Trying to do everything inside Claude Code's interactive session is expensive, slow, and eventually breaks down as context fills up. Designing the pipeline with Claude Code and executing it with direct Haiku API calls is the correct division of responsibility.
+Trying to do everything inside Claude Code's interactive session is expensive, slow, and eventually breaks down as context fills up. Designing with Claude Code and executing with direct Haiku API calls is the correct division of responsibility.
 
-839 sessions with zero tool calls isn't a curiosity. It's a signal that the architecture is working as intended.
+2,314 sessions with zero tool calls isn't a curiosity. It's a signal that the architecture is working as intended.
 
 ---
 
