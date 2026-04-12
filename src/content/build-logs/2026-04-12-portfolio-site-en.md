@@ -1,137 +1,139 @@
 ---
-title: "How Claude Sonnet Turns Raw Git Commits into Blog Posts: Inside the generate-build-log Pipeline"
+title: "288 SEO Landing Pages from 5 Lines of Input — Claude Code Multi-Agent Automation"
 project: "portfolio-site"
 date: 2026-04-12
 lang: en
 pair: "2026-04-12-portfolio-site-ko"
-tags: [claude-code, claude-api, automation, github-actions, content-pipeline]
-description: "When 3+ commits accumulate, Claude Sonnet auto-generates a build log. How the pipeline works, why I moved from GitHub Actions cron to local launchd, and what broke."
+tags: [claude-code, seo, automation, subagent, saju_global]
+description: "Generated 288 SEO compatibility landing pages using Claude Code's writing-plans + subagent-driven-development skill chain. 171 tool calls, 0 manual code."
 ---
 
-Four consecutive commits reading `feat: build logs 2026-04-11 (2 posts, auto)` — same day, same message, four times. That's not a feature. That's a broken trigger. It's what prompted me to tear open `generate-build-log.yml` and audit the whole thing from scratch.
+171 tool calls. 67 hours 26 minutes of session time. My total input: five lines of text.
 
-**TL;DR** When 3 or more commits accumulate in a tracked project, Claude Sonnet analyzes the commit data and auto-generates a build log in markdown. The pipeline moved from GitHub Actions cron to local launchd, and a `[skip-log]` pattern prevents infinite loops.
+That's the summary of how I generated 288 SEO landing pages for the `saju_global` project. I didn't write a single line of code directly. The entire implementation ran through Claude Code's skill chain, with me showing up at three checkpoints to type "looks good."
 
-## What the Pipeline Actually Does
+**TL;DR** The `writing-plans` → `subagent-driven-development` skill chain can fully delegate large-scale content generation. You set the direction, agents do the rest — including planning, branching, scripting, executing, reviewing, and merging.
 
-`generate-build-log.yml` reads `src/content/projects/*.yaml` to get the list of registered projects. For each project, it fetches commits from the GitHub repo that landed after the last build log was generated. Fewer than 3 commits? Skip. 3 or more? Pass the commit data to Claude Sonnet and write a markdown post.
+## Why 288 Pages, and Why Automate It
 
-The data structure going into Claude looks like this:
+`saju_global` is a Korean astrology app. Compatibility readings between zodiac signs (12 × 12 = 144 pairs × 2 directions = 288 unique combinations) are high-traffic, long-tail SEO targets. Each page needs unique structured content — not just a template swap.
 
-```json
-{
-  "project": "Saju Global",
-  "slug": "saju_global",
-  "date": "2026-04-12",
-  "commits": [
-    { "sha": "abc1234", "message": "feat: add zodiac compatibility content", "author": "jidong" }
-  ],
-  "stats": { "totalCommits": 15, "filesChanged": 42, "additions": 1200, "deletions": 80 },
-  "changedFiles": ["src/lib/compatibility.ts", "src/pages/compat/[pair].astro"]
-}
-```
+If I wrote each page manually at 30 minutes per page, that's 144 hours. I spent roughly 30 minutes total, including monitoring.
 
-Commit hash, message, changed files, additions and deletions — that's it. No source code. Claude infers *how AI was used in this work* purely from commit messages and file patterns, then writes it up as a blog post.
+The spec was already written: `docs/superpowers/specs/2026-04-09-seo-compatibility-pages-design.md`. The question was just execution.
 
-## Why the System Prompt Is 160 Lines Long
+## From Spec to Plan: What `writing-plans` Actually Does
 
-This isn't "write me a blog post." The system prompt is 160 lines of detailed instructions.
-
-One of the core directives:
-
-> "The commit data below is **context**, not content. Don't write a commit changelog. Write an educational blog post about **how AI was used during this work** — what prompting techniques were applied, what tools and patterns proved effective."
-
-Bad build log titles are listed explicitly as negative examples:
+My opening prompt was exactly this:
 
 ```
-❌ "[Saju App] Add new feature + 8 more"
-❌ "2026-03-09 saju app update"
-✅ "The Prompt Pattern That Handled i18n Across 8 Languages at Once with Claude Code"
+Implement 288 SEO compatibility landing pages in the saju_global project.
+Spec: docs/superpowers/specs/2026-04-09-seo-compatibility-pages-design.md
 ```
 
-The output format is enforced too. Claude must write `<!-- META: {"title": "...", "slug": "kebab-case"} -->` on the first line so the pipeline can parse it. Frontmatter is assembled by the pipeline itself — not delegated to the model.
+Claude fired the `writing-plans` skill first. It didn't just read the spec — it explored the existing codebase (20 Read calls, 4 Glob calls, dozens of Bash calls) to understand actual file structure, naming conventions, and existing patterns before writing a single line of the plan.
 
-Model: `claude-sonnet-4-20250514`. Build logs aren't simple text generation — they require inferring intent and pattern from sparse commit data. Haiku doesn't have enough reasoning depth for this.
+This matters. A plan built only from the spec describes what to build. A plan built from the spec *plus* the existing code describes what to build *and how it fits into what already exists*. The resulting plan landed at `docs/superpowers/plans/` with bite-sized tasks, dependency order, and clear acceptance criteria.
 
-## The Trigger Bug That Caused Four Duplicate Posts
+After the plan was ready, Claude asked: "Subagent-Driven (recommended) or Inline?" I typed `1`.
 
-The original setup had both `push` and `schedule` triggers active simultaneously. When the pipeline auto-committed a new build log, that commit fired a `push` event — which re-triggered the workflow. The `[skip-log]` tag was supposed to prevent this, but `skipPatterns` filtering happened inside the pipeline logic, not at the GitHub Actions trigger level. So the loop ran freely.
+## The Execution Layer: `subagent-driven-development`
 
-The fix: remove the GitHub Actions cron entirely. The current `generate-build-log.yml` makes this explicit in the comments:
+The `subagent-driven-development` skill took over. It:
 
-```yaml
-on:
-  workflow_dispatch:
-  # push trigger removed — managed by local launchd cron
-  # schedule removed — no longer auto-running from GitHub Actions
+1. Checked the `main` branch state
+2. Created a `seo-compat-pages` git worktree
+3. Initialized a task tracker
+4. Started dispatching fresh subagents per independent task
+
+The core of the work was a content generation script. Claude launched it as a background task:
+
+```bash
+nohup npx tsx scripts/generate-compat-content.ts > /tmp/compat-gen.log 2>&1 &
+echo "Started PID=$!"
+sleep 3
+head -20 /tmp/compat-gen.log
 ```
 
-Now a local `launchd` job triggers `workflow_dispatch` on a schedule. There's an additional reason to prefer this: GitHub Actions disables scheduled workflows on repos with no recent activity. Local cron doesn't have that quirk.
+Critically, it didn't tail the log and wait. It registered this as a `TaskCreate` background task and continued with other work while waiting for a completion notification. The session wasn't blocked. Long-running work ran in parallel with other tasks.
 
-## How a saju_global Build Log Gets Made
+This pattern — background script + `TaskCreate` + completion callback — is how the skill chain handles work that takes hours without requiring you to babysit it.
 
-As of today (2026-04-12), the `saju_global` project has run 2,357 Claude Haiku API sessions. Each session: 0 tool calls, pure text generation. The job is filling 144 zodiac compatibility pairs × 8 languages = 1,152 content blocks.
+## My Role in 171 Tool Calls
 
-Those sessions produce commits in the `saju_global` repo. Once the commit count crosses the threshold, `generate-build-log.yml` pulls that commit data and passes it to Claude Sonnet. Sonnet looks at the pattern — bulk multilingual content generation via Haiku — and writes the post that became `2026-04-12-saju_global-ko.md`.
+Here's every meaningful input I made during the entire session:
 
-The pipeline finds its own material and writes its own posts. It's a content flywheel that runs on git history.
+1. Initial task prompt (with spec path)
+2. `1` — choosing subagent-driven mode
+3. `merge it yourself then run the script again` — trigger worktree merge + second script run
+4. `is it going okay?` × 2 — status checks
+5. Domain/email follow-up (unrelated thread — more on this below)
 
-## What Happens When the Claude API Fails
+Zero of the 171 tool calls were initiated by me.
 
-If the API key is missing or the call fails, a code-based fallback generates a minimal post:
+## Tool Usage Breakdown
 
-```javascript
-const typeLabels = {
-  feat: 'New feature', fix: 'Bug fix',
-  refactor: 'Code refactoring', chore: 'Maintenance',
-};
-logTitle = `[${title}] ${today} — ${typeLabels[dominantType]} + ${relevantCommits.length} more`;
+Bash dominated at 59% — mostly background script execution, log checks, and git operations. The 17 Agent calls represent 17 fresh subagent dispatches. Each subagent ran in its own context, executed a specific task, and returned only results to the main thread. That's why the main context stayed clean across a 67-hour session.
+
+| Tool | Count | % |
+|------|-------|---|
+| Bash | 101 | 59% |
+| Read | 20 | 12% |
+| Agent | 17 | 10% |
+| TaskUpdate | 14 | 8% |
+| TaskCreate | 7 | 4% |
+| Glob | 4 | 2% |
+| Write | 3 | 2% |
+| Skill | 2 | 1% |
+
+Bash at 59% says something important about this task: it was more "execute and verify" than "write code." The agents were primarily running scripts, checking output, confirming file counts, and validating data shape.
+
+## The Full Skill Chain Flow
+
+```
+User prompt (1 line)
+  └─ writing-plans skill
+       └─ Codebase exploration (Read/Glob/Bash)
+       └─ Plan file created (docs/superpowers/plans/)
+            └─ subagent-driven-development skill
+                 └─ git worktree created
+                 └─ Task tracker initialized
+                 └─ Subagent dispatch × 17
+                      └─ Individual task execution
+                      └─ Spec compliance review
+                      └─ Code quality review
+                 └─ Worktree merge
 ```
 
-Commits get bucketed by type and written as a flat list. The data is preserved, but it's not readable content. The quality gap between Claude-generated and fallback posts is large enough that the API key is effectively a hard requirement.
+Once this chain runs, the human only appears at checkpoints. Type "is it going okay?" and you get a task tracker summary. The chain handles the rest.
 
-## What I'd Change
+## The Failure Mode: Mixing Contexts Breaks Everything
 
-### 1. Structured Outputs Instead of Regex Parsing
+Mid-session, while the background script was running, I dropped in unrelated topics: a domain email notification ("you were supposed to send payment status emails every morning") and a domain consolidation request ("merge everything under fortunelab").
 
-Right now the pipeline forces Claude to write `<!-- META: {...} -->` in a custom format and parses it with regex. Using Anthropic's `tool_use` or Structured Outputs would return JSON directly:
+Claude responded twice with some version of `I'm confused — what exactly do you want me to do?`
 
-```json
-{
-  "title": "Build log title",
-  "slug": "build-log-slug",
-  "body": "Markdown body..."
-}
-```
+The cause is straightforward. When an unrelated context lands in the middle of an active multi-task session, the model doesn't know whether to respond to the ongoing work or the new request — especially when the new message is short and context-dependent (`manage it from Gabia`, `what does this have to do with coffeechat?`). These messages only make sense with prior context, and in a 67-hour session, context compression had already kicked in and dropped earlier conversation chunks.
 
-No parsing failures. No brittle regex.
+The fix: don't mix threads. New topic = new session. If something comes up while a background task is running, open a fresh session and let the current one finish.
 
-### 2. Per-Project Thresholds
+## What Got Built
 
-The 3-commit threshold is too low. A project like `saju_global` runs thousands of API calls that don't map cleanly to code commits. A project driven by API calls has a completely different commit pattern than one driven by feature development. Thresholds should be configurable per project in the YAML definition.
+- `apps/web/data/zodiac-compat-content.json` — structured content for all 288 compatibility combinations
+- `docs/superpowers/plans/2026-04-10-seo-compatibility-pages.md` — the implementation plan Claude generated
+- Worktree `STATUS.md` — per-task progress tracker showing completion state
 
-### 3. Auto-Generate English Versions
+288 pages. Each with unique content. Generated, reviewed, and merged without a human writing a single function.
 
-Right now only `-ko.md` gets auto-generated. English versions for DEV.to are manual. The same commit data can drive two parallel Claude calls — one in Korean, one in English. Two model calls, double the cost, but the content actually reaches English-speaking readers.
+## Takeaways
 
-## What This Pipeline Taught Me
+**The skill chain works at scale.** `writing-plans` → `subagent-driven-development` is purpose-built for large content generation tasks. The plan phase produces a structured task list; the subagent phase executes it without holding the main context hostage.
 
-**Commit messages are richer than they look.** Claude Sonnet can reconstruct a coherent narrative about *how* work was done from nothing more than message strings and file paths. The key is a system prompt that redirects from "what happened" to "how AI was used."
+**Background scripts + TaskCreate is the right pattern for long jobs.** Don't tail logs in-session. Register the process as a background task and let the notification system tell you when it's done.
 
-**Trigger design determines pipeline stability.** The `push + schedule` combination is an obvious loop in hindsight, but it's easy to miss when building incrementally. Any pipeline that commits its own output needs the trigger to be external and isolated.
+**Bash at 59% means this was an execution task, not a coding task.** When the ratio is that high, you're not writing software — you're orchestrating a pipeline. Claude Code handles both, but understanding which mode you're in helps you structure the session correctly.
 
-**The 3-commit threshold is a number that needs to match the project.** It's not a universal rule — it's a parameter that should reflect the commit velocity and nature of each tracked repo.
-
-**Fallback preserves data, not value.** The fallback exists so nothing is lost when the API is unavailable. It isn't meant to produce content worth reading. Real value comes from the Sonnet-generated version.
-
-<details>
-<summary>Related files</summary>
-
-`.github/workflows/generate-build-log.yml` — build log auto-generation workflow
-`src/content/projects/*.yaml` — registered project definitions
-`src/content/build-logs/` — generated build log markdown files
-
-</details>
+**One session, one topic.** Multi-hour sessions with context compression are fragile when you inject unrelated requests. The compression is non-negotiable — the session discipline is under your control.
 
 ---
 

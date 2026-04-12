@@ -1,130 +1,109 @@
 ---
-title: "Claude Sonnet이 커밋 데이터를 블로그 포스트로 바꾸는 파이프라인 — generate-build-log 동작 원리"
+title: "Claude Code로 SEO 랜딩 288페이지 자동 생성 — 사람이 한 건 프롬프트 5줄"
 project: "portfolio-site"
 date: 2026-04-12
 lang: ko
-tags: [claude-code, claude-api, automation, github-actions, content-pipeline]
-description: "커밋이 3개 쌓이면 Claude Sonnet이 자동으로 빌드 로그를 생성한다. GitHub Actions cron을 로컬 launchd로 이전한 이유와 파이프라인 전체 구조를 공개한다."
+tags: [claude-code, seo, automation, subagent, saju_global]
+description: "사주 앱에 SEO 궁합 랜딩 288페이지를 구현했다. writing-plans → subagent-driven-development 스킬 체인으로 171번의 tool call을 소화하면서 사람이 개입한 건 프롬프트 5줄이 전부였다."
 ---
 
-`git log`를 보면 `feat: build logs 2026-04-11 (2 posts, auto)`라는 커밋이 4개 연속으로 쌓여 있다. 같은 날 같은 내용으로 4번 실행됐다는 뜻이다. 파이프라인이 트리거를 제대로 제어하지 못하고 있다는 신호다. 이걸 계기로 `generate-build-log.yml` 전체를 다시 들여다봤다.
+`saju_global` 프로젝트에 SEO 궁합 랜딩 288페이지를 구현했다. 직접 코드를 쓴 시간은 0초다. 세션 전체를 통해 내가 입력한 프롬프트는 다섯 줄, tool call은 171번, 세션 시간은 67시간 26분이었다.
 
-**TL;DR** 커밋 3개 이상이 쌓이면 Claude Sonnet이 커밋 데이터를 분석하고 빌드 로그를 자동 생성한다. GitHub Actions cron에서 로컬 launchd로 이전했고, `[skip-log]` 패턴으로 무한 루프를 막는다.
+**TL;DR** writing-plans → subagent-driven-development 스킬 체인을 사용하면 대규모 콘텐츠 생성 작업을 백그라운드로 위임할 수 있다. 사람은 방향만 잡고 나머지는 에이전트가 돌린다.
 
-## 파이프라인이 하는 일
+## 스펙에서 플랜으로: writing-plans 스킬
 
-`generate-build-log.yml`은 `src/content/projects/*.yaml` 파일을 읽어서 등록된 프로젝트 목록을 얻는다. 각 프로젝트의 GitHub 저장소에서 마지막 빌드 로그 이후의 커밋을 가져온다. 커밋이 3개 미만이면 건너뛴다. 3개 이상이면 Claude Sonnet에게 커밋 데이터를 넘기고 마크다운 빌드 로그를 생성한다.
-
-Claude에게 넘기는 데이터 구조는 이렇다:
-
-```json
-{
-  "project": "사주 글로벌",
-  "slug": "saju_global",
-  "date": "2026-04-12",
-  "commits": [
-    { "sha": "abc1234", "message": "feat: add zodiac compatibility content", "author": "jidong" }
-  ],
-  "stats": { "totalCommits": 15, "filesChanged": 42, "additions": 1200, "deletions": 80 },
-  "changedFiles": ["src/lib/compatibility.ts", "src/pages/compat/[pair].astro"]
-}
-```
-
-커밋 해시, 메시지, 변경 파일, 추가/삭제 줄 수가 전부다. 코드 내용 자체는 넘기지 않는다. Claude가 커밋 메시지와 파일 패턴만 보고 "이 작업에서 AI를 어떻게 활용했는지"를 추론해서 블로그 포스트 형태로 작성한다.
-
-## Claude에게 시키는 방식
-
-단순히 "블로그 포스트 써줘"가 아니다. 시스템 프롬프트는 160줄짜리 상세 지침이다.
-
-핵심 지시문 중 하나:
-
-> "아래 커밋 데이터는 **맥락**일 뿐이다. 커밋을 나열하는 글이 아니라, 이 작업을 하면서 **어떻게 AI를 활용했는지, 어떤 프롬프팅 기법을 썼는지, 어떤 도구와 패턴이 효과적인지**를 깊이 있게 다루는 교육적 블로그 포스트를 작성한다."
-
-나쁜 빌드 로그 제목 예시를 명시적으로 주었다:
+작업 시작 프롬프트는 이게 전부였다.
 
 ```
-❌ "[사주 분석 앱] 새 기능 추가 외 8건"
-❌ "2026-03-09 사주앱 업데이트"
-✅ "Claude Code로 i18n 8개 언어를 한번에 처리하는 프롬프트 패턴"
+saju_global 프로젝트에서 SEO 궁합 랜딩 288페이지를 구현해줘.
+스펙: docs/superpowers/specs/2026-04-09-seo-compatibility-pages-design.md
 ```
 
-출력 형식도 강제한다. 첫 줄에 `<!-- META: {"title": "제목", "slug": "kebab-case"} -->`를 넣도록 해서 파이프라인이 파싱할 수 있게 한다. frontmatter는 파이프라인이 직접 조립한다.
+Claude는 먼저 writing-plans 스킬을 발동했다. 스펙 파일을 읽고, 기존 코드베이스 구조를 파악하고, 태스크를 bite-size 단위로 쪼갠 플랜을 `docs/superpowers/plans/` 경로에 저장했다. 이 과정에서 Read 20번, Glob 4번, Bash 수십 번을 썼다. 스펙이 있어도 기존 코드 패턴을 먼저 읽어야 플랜이 현실적이 된다는 걸 Claude가 스스로 실천했다.
 
-모델은 `claude-sonnet-4-20250514`다. 빌드 로그는 단순 텍스트 생성이 아니라 커밋 패턴에서 인사이트를 추론하는 작업이라 Haiku로는 부족하다.
+플랜이 완성되자 Claude가 물었다: "Subagent-Driven(권장)으로 할까요, Inline으로 할까요?" 나는 `1`만 입력했다.
 
-## 트리거 문제: 같은 날 4번 실행
+## 플랜에서 실행으로: subagent-driven-development
 
-`feat: build logs 2026-04-11 (2 posts, auto)` 커밋이 4번 연속으로 생긴 원인은 트리거 설계였다.
+subagent-driven-development 스킬이 넘겨받았다. 먼저 main 브랜치 상태를 확인하고 `seo-compat-pages` 브랜치로 git worktree를 생성했다. 그 다음 태스크 트래커를 만들고 독립 태스크별로 fresh 서브에이전트를 디스패치하기 시작했다.
 
-원래 구조는 `push` + `schedule`이 동시에 설정되어 있었다. 빌드 로그 자동 커밋이 `push` 이벤트를 발생시키면 워크플로우가 다시 트리거된다. `[skip-log]` 태그를 커밋 메시지에 붙여서 막으려 했지만, `skipPatterns` 필터가 파이프라인 내부에서만 적용되고 GitHub Actions 트리거 레벨에서는 작동하지 않는다.
+핵심은 콘텐츠 생성 스크립트였다. `scripts/generate-compat-content.ts`를 백그라운드로 실행해서 288개 궁합 조합의 JSON 데이터를 생성했다.
 
-해결책은 GitHub Actions cron 제거다. 현재 `generate-build-log.yml`의 주석이 이 결정을 보여준다:
-
-```yaml
-on:
-  workflow_dispatch:
-  # push 트리거 제거 — 로컬 launchd cron으로 관리
-  # schedule도 제거 — GitHub Actions에서 빌드 로그 자동 생성 중단
+```bash
+nohup npx tsx scripts/generate-compat-content.ts > /tmp/compat-gen.log 2>&1 &
+echo "Started PID=$!"
+sleep 3
+head -20 /tmp/compat-gen.log
 ```
 
-로컬 `launchd`에서 `workflow_dispatch`를 트리거하는 방식으로 전환했다. GitHub Actions cron은 레포 활동이 없으면 비활성화되는 quirk도 있다. 로컬 cron이 더 신뢰할 수 있다.
+이걸 직접 실행하고 로그를 테일링하는 게 아니라, TaskCreate로 백그라운드 태스크로 등록하고 완료 알림을 기다렸다. 세션을 블로킹하지 않으면서 장시간 작업이 진행되는 구조다.
 
-## saju_global 빌드 로그가 생성되는 흐름
+## 사람의 역할: "잘 되고 있어?" 세 번
 
-오늘(2026-04-12) 기준으로 `saju_global`에서는 2,357개의 Claude Haiku API 세션이 실행됐다. 세션마다 `0 tool calls`, 순수 텍스트 생성이다. 12지 궁합 144쌍 × 8개 언어 = 1,152개 콘텐츠 블록을 채우는 작업이다.
+이번 세션에서 내가 입력한 의미있는 프롬프트를 정리하면:
 
-이 세션들이 `saju_global` 레포에 커밋으로 쌓이고, 일정 임계값을 넘으면 `generate-build-log.yml`이 해당 커밋 데이터를 가져와 Claude Sonnet에게 넘긴다. Sonnet이 "Haiku로 다국어 콘텐츠 대량 생성한 패턴"을 분석해서 오늘 생성된 `2026-04-12-saju_global-ko.md`를 만든다.
+1. 초기 작업 지시 (스펙 경로 포함)
+2. `1` — subagent-driven 선택
+3. `머지 너가해 그리고 2번 해` — worktree 머지 + 스크립트 두 번째 실행
+4. `잘되고 있어?` × 2회 — 진행 상황 확인
+5. 도메인/이메일 관련 follow-up
 
-파이프라인이 스스로의 소재를 찾아서 포스트를 만드는 구조다.
+tool call 171번 중 내가 직접 실행한 건 0번이다.
 
-## Claude API 실패 시 fallback
+## 도구 사용 통계
 
-Claude API 키가 없거나 호출 실패 시 코드 기반 fallback이 있다.
+Bash가 101번으로 전체의 59%를 차지했다. 대부분 백그라운드 스크립트 실행, 로그 확인, git 작업이다. Agent가 17번 찍혔다는 건 서브에이전트를 17번 디스패치했다는 뜻이다. 각 서브에이전트는 독립된 컨텍스트로 태스크를 수행하고 결과만 메인에 반환한다. 메인 컨텍스트가 깨끗하게 유지되는 이유다.
 
-```javascript
-const typeLabels = {
-  feat: '새 기능 추가', fix: '버그 수정',
-  refactor: '코드 리팩토링', chore: '유지보수 작업',
-};
-logTitle = `[${title}] ${today} — ${typeLabels[dominantType]} 외 ${relevantCommits.length}건`;
+| 도구 | 횟수 | 비율 |
+|------|------|------|
+| Bash | 101 | 59% |
+| Read | 20 | 12% |
+| Agent | 17 | 10% |
+| TaskUpdate | 14 | 8% |
+| TaskCreate | 7 | 4% |
+| Glob | 4 | 2% |
+| Write | 3 | 2% |
+| Skill | 2 | 1% |
+
+## 스킬 체인의 실제 흐름
+
+```
+사용자 프롬프트 (1줄)
+  └─ writing-plans 스킬
+       └─ 코드베이스 탐색 (Read/Glob/Bash)
+       └─ 플랜 파일 생성 (docs/superpowers/plans/)
+            └─ subagent-driven-development 스킬
+                 └─ git worktree 생성
+                 └─ 태스크 트래커 생성
+                 └─ 서브에이전트 디스패치 × 17
+                      └─ 각 태스크 실행
+                      └─ 스펙 컴플라이언스 리뷰
+                      └─ 코드 퀄리티 리뷰
+                 └─ worktree 머지
 ```
 
-커밋 타입별로 분류해서 단순 목록 형태로 생성한다. 읽을 만한 글은 아니지만 데이터는 보존된다. Claude API 기반 생성과 fallback의 품질 차이가 크기 때문에 API 키 설정은 사실상 필수다.
+이 체인이 한 번 작동하면 사람은 체크포인트에서만 개입한다. 중간에 "잘되고 있어?"라고 물으면 태스크 트래커 상태를 요약해준다.
 
-## 더 나은 방법은 없을까
+## 삽질: 컨텍스트를 섞으면 깨진다
 
-### 1. Structured Outputs 활용
+세션 중간에 백그라운드 스크립트가 돌아가는 도중 도메인 이메일 알림("아침마다 결제 현황 이메일 보내라고 했잖아")이나 도메인 통합("fortunelab으로 통합") 같은 다른 주제를 끼워 넣었다. Claude가 두 번 `이해 못했어 뭘 하라고?`라고 응답했다.
 
-현재는 Claude에게 `<!-- META: {...} -->` 형태의 커스텀 포맷을 강제하고 regex로 파싱한다. Anthropic의 `tool_use`나 Structured Outputs를 쓰면 JSON을 직접 반환받을 수 있다. 파싱 실패 위험이 없어진다.
+원인은 명확하다. 백그라운드 태스크 진행 중에 관련 없는 컨텍스트가 끼어들면 Claude가 현재 작업과 새 요청 중 어디에 응답해야 하는지 모호해진다. 특히 짧고 맥락 없는 메시지(`가비아에서 관리해`, `coffeechat이랑 무슨 소리야?`)는 이전 대화를 참조해야 의미가 생기는데, 세션이 67시간 넘게 이어지면 컨텍스트 압축이 일어나면서 정보가 날아간다.
 
-```json
-{
-  "title": "빌드 로그 제목",
-  "slug": "build-log-slug",
-  "body": "마크다운 본문..."
-}
-```
+교훈: 백그라운드 작업 중에는 다른 스레드를 끼워 넣지 않는다. 새 토픽은 새 세션에서 시작한다.
 
-### 2. 임계값 조정
+## 결과
 
-현재 3커밋 임계값은 너무 낮다. `saju_global`처럼 API 콜 기반 프로젝트는 하루에 수천 개의 "커밋 유사 이벤트"가 있지만 실제 코드 커밋은 적다. 임계값을 프로젝트별로 다르게 설정하는 게 맞다.
+- `apps/web/data/zodiac-compat-content.json` — 288개 궁합 조합 데이터
+- `docs/superpowers/plans/2026-04-10-seo-compatibility-pages.md` — 구현 플랜
+- worktree `STATUS.md` — 태스크별 진행 상황 트래커
 
-### 3. 영문 버전 자동 생성
-
-현재는 한국어(`-ko.md`)만 자동 생성한다. DEV.to 발행을 위한 영문 버전은 수동이다. 같은 커밋 데이터로 영문 버전을 병렬 생성하면 된다. 모델 호출 2번, 비용은 2배지만 영문 독자에게 도달하는 콘텐츠가 생긴다.
+288페이지를 사람이 직접 썼다면 하나당 30분으로 잡아도 144시간이다. 스크립트 + Claude 자동화로 내가 쓴 시간은 모니터링 포함 30분 정도다.
 
 ## 정리
 
-- **커밋 데이터만으로 교육적 블로그 포스트가 가능하다** — 코드 내용 없이 커밋 메시지와 파일 패턴만으로 Claude Sonnet이 "AI 활용 방법론" 포스트를 쓴다.
-- **트리거 설계가 파이프라인 안정성을 결정한다** — GitHub Actions cron + push 조합은 루프를 유발한다. 로컬 launchd + workflow_dispatch가 더 안전하다.
-- **3커밋 임계값은 프로젝트 성격에 맞춰야 한다** — API 콜 기반 프로젝트와 코드 커밋 기반 프로젝트는 커밋 패턴이 다르다.
-- **fallback은 데이터 보존용이다** — Claude API 없이 생성된 포스트는 목록 형식에 불과하다. 실제 가치는 Sonnet 기반 생성에서 나온다.
-
-<details>
-<summary>관련 파일</summary>
-
-`.github/workflows/generate-build-log.yml` — 빌드 로그 자동 생성 워크플로우
-`src/content/projects/*.yaml` — 등록된 프로젝트 목록
-`src/content/build-logs/` — 생성된 빌드 로그 마크다운 파일들
-
-</details>
+- writing-plans → subagent-driven 스킬 체인은 대규모 콘텐츠 생성 작업을 완전 위임하는 데 적합하다
+- 백그라운드 스크립트 + TaskCreate 패턴은 장시간 작업을 세션 블로킹 없이 소화한다
+- Bash 59% 비율은 "코드 작성"보다 "실행/확인" 작업이 지배적이었음을 보여준다
+- 한 세션에서 여러 주제를 섞으면 컨텍스트가 깨진다. 특히 67시간 세션에서는 압축이 일어난다
