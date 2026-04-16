@@ -1,89 +1,73 @@
 ---
-title: "4 Sessions, 280 Tool Calls: Using Claude Code Beyond Coding"
+title: "16 Tool Calls, 0 Lines Changed: When Claude Code's Best Move Is to Not Write Code"
 project: "portfolio-site"
 date: 2026-04-16
 lang: en
 pair: "2026-04-16-portfolio-site-ko"
-tags: [claude-code, subagent, seo, toss-payments, workflow]
-description: "280 tool calls across 4 sessions: payment contract review, 288 SEO pages generated, and an image bug that wasn't a bug."
+tags: [claude-code, debugging, diagnosis, root-cause-analysis]
+description: "1h 39m, 16 tool calls, zero file edits. How Claude Code pinpointed a type definition bug by cross-referencing the live site with source code."
 ---
 
-280 tool calls. 4 sessions. Bash 159 times, Read 42, Agent 19. And none of it was what most people think Claude Code is for.
+1 hour 39 minutes. 16 tool calls. Zero files changed.
 
-This week: draft a payment processor contract review reply, auto-generate 288 SEO landing pages, debug a UI issue that turned out to be a missing type field from the start. One session ended in 7 tool calls because the environment wasn't set up right. Claude Code is only as useful as the context you give it — and the permissions you grant.
+**TL;DR** Sometimes the most productive session is one where you write no code at all. Claude Code cross-referenced the live production site with the codebase and traced a missing image bug to its root cause — a type definition with no `image` field — before touching a single line.
 
-**TL;DR** Claude Code handles business admin work, not just code. Subagents keep the main context clean. Missing system permissions kill sessions faster than bad prompts.
+## "Fix the Design" Turned Into Root Cause Archaeology
 
-## Claude Drafted the Toss Payments Contract Reply
-
-Session 1 wasn't a coding session. Toss Payments (Korea's Stripe equivalent) sent a contract review email asking for business info, refund policy, and product pricing. The prompt was minimal:
+The prompt was blunt.
 
 ```
-커피챗 프로젝트 접근해줘
+fix the overall design and the mobile layout is broken
 ```
 
-Then I pasted the email. Claude read `/Users/jidong/projects/coffeechat/`, identified the stack (Next.js 16 + Supabase + Toss Payments), price structure, and where the refund policy lived. Draft reply ready in minutes.
+Claude didn't open a file and start editing. It opened the live site first. `WebFetch` pulled the production URL, `Read` loaded the archive page component, `Grep` traced the `ArchiveEntry` type definition. Six Bash calls, six Reads, two WebFetches, one Grep — all investigation, zero edits.
 
-It didn't stop there. When it found the business registration number field blank in `site-config.ts`, it added a conditional render to hide the number until it's filled — without me asking. Then it updated `Footer.tsx` to include a business address and phone number formatted to card issuer audit standards.
+The diagnosis that came back was precise.
 
-I never said "fix the footer." Claude read the context, identified what a payment processor would flag, and moved first.
+## Why the Archive Had No Photos
 
-Bash 42, Read 16, Edit 5. 27 minutes.
+"Photos aren't showing in the archive" — sounds like a rendering bug. It wasn't.
 
-## Without Browser Permissions, Claude Is Flying Blind
+The `ArchiveEntry` type in `lib/types.ts` had no `image` field. `getArchiveEntries()` pulled `date`, `title`, and `summary` from each post and discarded `meta.image`. `ArchiveList.tsx` was built to render text cards only.
 
-Session 2 was a dead end. I asked Claude to review the spoonai mobile design, but it didn't have macOS Accessibility or Screen Recording permissions. The `computer-use` tool was available, but system permissions weren't granted.
+The images weren't broken. They were never wired up.
 
-```
-computer use 열려있는데? chrome mcp는 왜 없어?
-```
-
-Chrome MCP wasn't installed in this session. `WebFetch` converts HTML to Markdown — it doesn't capture real layout. When `computer-use` can't see the screen, the only options are: grant the permissions in System Settings, or manually screenshot and paste.
-
-7 tool calls. Session over.
-
-The lesson: Claude's capability ceiling is defined by your environment setup. A smart model running blind is still blind.
-
-## 288 SEO Pages, Distributed Across Subagents
-
-Session 3 was the week's main work. The goal: implement 288 zodiac compatibility SEO landing pages for `saju_global`. Bash 111, Read 20, Agent 17, TaskCreate 7, TaskUpdate 14. 182 total tool calls.
-
-Started with planning. The `writing-plans` skill ran against the spec file at `docs/superpowers/specs/2026-04-09-seo-compatibility-pages-design.md` and produced a structured implementation plan saved to `docs/superpowers/plans/2026-04-10-seo-compatibility-pages.md`.
-
-Then `subagent-driven-development` kicked in. Each independent task dispatched to its own subagent. After each task: spec compliance review → code quality review. Two-pass verification, every time.
-
-Content generation ran in the background:
-
-```
-nohup npx tsx scripts/generate-compat-content.ts > /tmp/compat-gen.log 2>&1 &
+```ts
+// Current ArchiveEntry — no image field
+type ArchiveEntry = {
+  date: string;
+  title: string;
+  summary: string;
+  // image?: string  ← doesn't exist
+}
 ```
 
-While the background task ran, the main thread kept working on other things. When I asked "how's it going?", Claude read the log file and reported progress. Final output landed in `apps/web/data/zodiac-compat-content.json`.
+This distinction matters. A rendering bug means CSS and layout. A missing field means a feature addition — new type field, updated data fetcher, new UI component. Completely different fix surface. If Claude had jumped straight into editing, it would have burned time on layout tweaks while the actual problem sat one layer deeper in the type system.
 
-The subagent pattern's core value: main context stays clean. File exploration, implementation, and verification each run in isolated agents. The main thread only sees summaries — not 300 lines of grep output.
+## The Pattern: Live Site + Code in Parallel
 
-## The Archive Images Were Never There
+The useful move in this session was crossing `WebFetch` results with code analysis.
 
-Session 4. Images weren't showing in the spoonai archive. Looked like a rendering bug. It wasn't.
+Start from the live site: what's visibly wrong? Then trace backward through the code: why is that thing wrong? Reading code alone might eventually surface the missing field, but starting from the symptom on the live page makes the direction of investigation obvious — you're not guessing what to look for.
 
-Read and Grep into the codebase: `ArchiveEntry` in `lib/types.ts` had no `image` field. The `getArchiveEntries()` function was explicitly dropping `meta.image` and only passing through `date`, `title`, and `summary`. `ArchiveList.tsx` rendered text-only cards — no thumbnail slot at all.
+Mobile was a different story. `WebFetch` converts HTML to markdown, so actual rendered layout isn't visible. The mobile layout issues didn't get resolved in this session — they went on the list for the next one.
 
-It wasn't "images not showing." The code was never built to show them.
+## A Commit with 0 Lines That Still Produced Output
 
-Bash 6, Read 6, WebFetch 2, Grep 1. 1 hour 39 minutes to fully understand the situation.
+No changed files looks like nothing happened. But this session ended with a concrete, prioritized fix list:
 
-## Week Summary
+1. Add `image` to `ArchiveEntry` type
+2. Extract `meta.image` inside `getArchiveEntries()`
+3. Add thumbnail rendering to `ArchiveList.tsx`
+4. Mobile layout — needs real device testing, not just WebFetch
 
-| Session | Work | Tool calls | Time |
-|---------|------|-----------|------|
-| 1 | Payment contract reply + footer fix | 73 | 27 min |
-| 2 | Mobile design review attempt | 7 | — |
-| 3 | 288 SEO pages: plan + generate | 182 | 105h cumulative |
-| 4 | Archive image issue diagnosis | 16 | 1h 39min |
+Without the diagnosis, the work would have started somewhere vague — maybe CSS, maybe the layout wrapper. The actual problem was in a type definition. Vague starting points compound into wasted iterations.
 
-Using Claude Code only for coding leaves half its value on the table. Business context, contract replies, batch content generation — it handles all of it if you give it the right context and the right access.
+> When you don't know where to cut, every cut is in the wrong place.
 
-Subagents are non-negotiable for large tasks. Split the work, receive only results. That's how you ship quality without burning context tokens on noise.
+Claude Code ran through this investigation in under two hours. Manually opening files, cross-checking the live site, and tracing type definitions through the codebase would have taken longer with more cognitive load.
+
+The zero-edit session isn't a failure mode. It's the intended output when the real bottleneck is understanding, not implementation.
 
 ---
 
