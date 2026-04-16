@@ -1,73 +1,87 @@
 ---
-title: "16 Tool Calls, 0 Lines Changed: When Claude Code's Best Move Is to Not Write Code"
+title: "16 Diagnostic Calls, 0 Files Changed: What a Claude Code Session With No Output Actually Found"
 project: "portfolio-site"
 date: 2026-04-16
 lang: en
 pair: "2026-04-16-portfolio-site-ko"
-tags: [claude-code, debugging, diagnosis, root-cause-analysis]
-description: "1h 39m, 16 tool calls, zero file edits. How Claude Code pinpointed a type definition bug by cross-referencing the live site with source code."
+tags: [claude-code, debugging, diagnosis, webfetch, spoonai]
+description: "1h 39min, 16 tool calls, 0 files modified. Diagnosing spoonai's archive and mobile issues revealed something unexpected: the 'missing images' were never implemented."
 ---
 
-1 hour 39 minutes. 16 tool calls. Zero files changed.
+1 hour 39 minutes. 16 tool calls. Zero files modified. And yet, calling this session useless would be wrong.
 
-**TL;DR** Sometimes the most productive session is one where you write no code at all. Claude Code cross-referenced the live production site with the codebase and traced a missing image bug to its root cause — a type definition with no `image` field — before touching a single line.
+**TL;DR:** This was a diagnostic session for the spoonai project — missing archive images and a broken mobile layout. The finding: it wasn't a bug. The `ArchiveEntry` type never had an `image` field to begin with. What looked like a rendering failure was actually a feature that was never implemented.
 
-## "Fix the Design" Turned Into Root Cause Archaeology
+## When "Fix Everything" Is the Worst Prompt You Can Write
 
-The prompt was blunt.
+The session started with this:
 
-```
-fix the overall design and the mobile layout is broken
-```
+> "go to the spoonai project"
 
-Claude didn't open a file and start editing. It opened the live site first. `WebFetch` pulled the production URL, `Read` loaded the archive page component, `Grep` traced the `ArchiveEntry` type definition. Six Bash calls, six Reads, two WebFetches, one Grep — all investigation, zero edits.
+Then:
 
-The diagnosis that came back was precise.
+> "fix the overall design and it's not displaying properly on mobile"
 
-## Why the Archive Had No Photos
+Claude's first response was a pushback with clarifying questions. What specifically is broken on mobile — nav menu collapse, card clipping, text overflow? Is the design direction refinement or a full redesign? Which pages are the priority?
 
-"Photos aren't showing in the archive" — sounds like a rendering bug. It wasn't.
+This wasn't Claude being difficult. "Fix the overall design" has no scope. Starting without direction means more backtracking later. By the third prompt, the real problem surfaced:
 
-The `ArchiveEntry` type in `lib/types.ts` had no `image` field. `getArchiveEntries()` pulled `date`, `title`, and `summary` from each post and discarded `meta.image`. `ArchiveList.tsx` was built to render text cards only.
+> "look at the live site and fix the design, photos not showing in the archive, and mobile display is broken"
 
-The images weren't broken. They were never wired up.
+That changed the approach entirely. Look at the live site directly, and analyze the archive code in parallel.
+
+## Using WebFetch to See What Actually Ships
+
+Bash × 6, Read × 6, WebFetch × 2. The two WebFetch calls were the core of this session.
+
+Reading the live site with `WebFetch` surfaces things that code alone can't tell you — which images are actually rendering, which elements are absent. Running code analysis and live site inspection in parallel narrows the root cause faster than either approach alone.
+
+Of the six `Read` calls, two files were critical: `lib/types.ts` and `ArchiveList.tsx`.
+
+One limitation: `WebFetch` converts HTML to text, so verifying actual mobile rendering layout isn't possible this way. The mobile bug fix wasn't resolved in this session.
+
+## The Bug That Wasn't a Bug
+
+The root cause of missing archive images was unambiguous.
+
+The `ArchiveEntry` type in `lib/types.ts` has no `image` field. The `getArchiveEntries()` function reads `meta.image` from posts and discards it — returning only `date`, `title`, and `summary`. `ArchiveList.tsx` renders text-only cards. There's no slot for a thumbnail.
 
 ```ts
-// Current ArchiveEntry — no image field
+// ArchiveEntry — no image field
 type ArchiveEntry = {
   date: string;
   title: string;
   summary: string;
-  // image?: string  ← doesn't exist
+  // image?: string  ← never existed
 }
 ```
 
-This distinction matters. A rendering bug means CSS and layout. A missing field means a feature addition — new type field, updated data fetcher, new UI component. Completely different fix surface. If Claude had jumped straight into editing, it would have burned time on layout tweaks while the actual problem sat one layer deeper in the type system.
+The photos aren't failing to render. **They were never wired up to render.** That distinction completely changes the fix. This isn't a bug — it's a missing feature. Three places need sequential changes: the type definition, the data-fetching function, and the component.
 
-## The Pattern: Live Site + Code in Parallel
+If code changes had started without this diagnosis, the session would have burned time adjusting CSS and layout, solving the wrong problem entirely.
 
-The useful move in this session was crossing `WebFetch` results with code analysis.
+## Why Zero File Changes Can Still Be a Win
 
-Start from the live site: what's visibly wrong? Then trace backward through the code: why is that thing wrong? Reading code alone might eventually surface the missing field, but starting from the symptom on the live page makes the direction of investigation obvious — you're not guessing what to look for.
+It's easy to measure Claude Code sessions by output: tool calls, files changed, commits. By those metrics, this session scores low.
 
-Mobile was a different story. `WebFetch` converts HTML to markdown, so actual rendered layout isn't visible. The mobile layout issues didn't get resolved in this session — they went on the list for the next one.
+But at the end of the session, two things were known that weren't known before. The archive image issue requires changes across three layers — type → function → component. The exact location of the mobile display problem. Without this information, the next session starts with another diagnostic pass.
 
-## A Commit with 0 Lines That Still Produced Output
+> Touching code before knowing where to look multiplies work, it doesn't reduce it.
 
-No changed files looks like nothing happened. But this session ended with a concrete, prioritized fix list:
+The value of a diagnostic session shows up in the velocity of the session that follows it.
 
-1. Add `image` to `ArchiveEntry` type
-2. Extract `meta.image` inside `getArchiveEntries()`
-3. Add thumbnail rendering to `ArchiveList.tsx`
-4. Mobile layout — needs real device testing, not just WebFetch
+## Session Stats
 
-Without the diagnosis, the work would have started somewhere vague — maybe CSS, maybe the layout wrapper. The actual problem was in a type definition. Vague starting points compound into wasted iterations.
+| Metric | Value |
+|--------|-------|
+| Session duration | 1h 39min |
+| Model | claude-opus-4-6 |
+| Total tool calls | 16 |
+| Files modified | 0 |
 
-> When you don't know where to cut, every cut is in the wrong place.
+By tool: Bash (6), Read (6), WebFetch (2), ToolSearch (1), Grep (1).
 
-Claude Code ran through this investigation in under two hours. Manually opening files, cross-checking the live site, and tracing type definitions through the codebase would have taken longer with more cognitive load.
-
-The zero-edit session isn't a failure mode. It's the intended output when the real bottleneck is understanding, not implementation.
+The WebFetch share stands out. In a situation where reading the codebase alone can't reveal current state, live site inspection was a required step, not an optional one.
 
 ---
 
