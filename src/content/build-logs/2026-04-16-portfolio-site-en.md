@@ -1,87 +1,105 @@
 ---
-title: "16 Diagnostic Calls, 0 Files Changed: What a Claude Code Session With No Output Actually Found"
+title: "10 Parallel Claude Agents, 139 Tool Calls, Zero Code Written: AI Design Brainstorming at Scale"
 project: "portfolio-site"
 date: 2026-04-16
 lang: en
 pair: "2026-04-16-portfolio-site-ko"
-tags: [claude-code, debugging, diagnosis, webfetch, spoonai]
-description: "1h 39min, 16 tool calls, 0 files modified. Diagnosing spoonai's archive and mobile issues revealed something unexpected: the 'missing images' were never implemented."
+tags: [claude-code, brainstorming, parallel-agents, ui-design, spoonai]
+description: "How I used Claude Code's brainstorming skill + 10 parallel agents to generate design variants in 1 hour, with a live local preview server for real-time comparison."
 ---
 
-1 hour 39 minutes. 16 tool calls. Zero files modified. And yet, calling this session useless would be wrong.
+2 sessions. 139 tool calls. 10 design variants. And almost no time actually writing code — the majority went into figuring out what the design should even be.
 
-**TL;DR:** This was a diagnostic session for the spoonai project — missing archive images and a broken mobile layout. The finding: it wasn't a bug. The `ArchiveEntry` type never had an `image` field to begin with. What looked like a rendering failure was actually a feature that was never implemented.
+**TL;DR** — I automated design brainstorming using Claude Code's `brainstorming` skill combined with the parallel agent pattern. 10 HTML mockups were generated simultaneously, served on a local dev server, and compared in real time before committing to a direction.
 
-## When "Fix Everything" Is the Worst Prompt You Can Write
+## Session 1: Diagnose Before You Fix
 
-The session started with this:
+Session 1 ran 61 tool calls — mostly `Read(12)` + `Bash(9)` + `Edit(16)`. The prompt I gave was blunt:
 
-> "go to the spoonai project"
-
-Then:
-
-> "fix the overall design and it's not displaying properly on mobile"
-
-Claude's first response was a pushback with clarifying questions. What specifically is broken on mobile — nav menu collapse, card clipping, text overflow? Is the design direction refinement or a full redesign? Which pages are the priority?
-
-This wasn't Claude being difficult. "Fix the overall design" has no scope. Starting without direction means more backtracking later. By the third prompt, the real problem surfaced:
-
-> "look at the live site and fix the design, photos not showing in the archive, and mobile display is broken"
-
-That changed the approach entirely. Look at the live site directly, and analyze the archive code in parallel.
-
-## Using WebFetch to See What Actually Ships
-
-Bash × 6, Read × 6, WebFetch × 2. The two WebFetch calls were the core of this session.
-
-Reading the live site with `WebFetch` surfaces things that code alone can't tell you — which images are actually rendering, which elements are absent. Running code analysis and live site inspection in parallel narrows the root cause faster than either approach alone.
-
-Of the six `Read` calls, two files were critical: `lib/types.ts` and `ArchiveList.tsx`.
-
-One limitation: `WebFetch` converts HTML to text, so verifying actual mobile rendering layout isn't possible this way. The mobile bug fix wasn't resolved in this session.
-
-## The Bug That Wasn't a Bug
-
-The root cause of missing archive images was unambiguous.
-
-The `ArchiveEntry` type in `lib/types.ts` has no `image` field. The `getArchiveEntries()` function reads `meta.image` from posts and discards it — returning only `date`, `title`, and `summary`. `ArchiveList.tsx` renders text-only cards. There's no slot for a thumbnail.
-
-```ts
-// ArchiveEntry — no image field
-type ArchiveEntry = {
-  date: string;
-  title: string;
-  summary: string;
-  // image?: string  ← never existed
-}
+```
+fix the overall design and it's broken on mobile
 ```
 
-The photos aren't failing to render. **They were never wired up to render.** That distinction completely changes the fix. This isn't a bug — it's a missing feature. Three places need sequential changes: the type definition, the data-fetching function, and the component.
+Instead of jumping straight into edits, Claude diagnosed first. Reading `lib/content.ts` and `lib/types.ts` revealed the actual cause of the broken archive images: the `ArchiveEntry` type didn't have an `image` field at all, and `getArchiveEntries()` was silently discarding `meta.image`. The images weren't "not showing" — the render path for them simply didn't exist.
 
-If code changes had started without this diagnosis, the session would have burned time adjusting CSS and layout, solving the wrong problem entirely.
+If I'd skipped this diagnostic step and jumped to "fix the design," I would've restyled components without ever touching the actual bug. Reading `lib/types.ts` before `ArchiveList.tsx` made the difference.
 
-## Why Zero File Changes Can Still Be a Win
+From there it went in order: `lib/types.ts` → `lib/content.ts` → redesign `ArchiveList.tsx` → add warm neutral design tokens to `globals.css`. The agreed direction was "Editorial Tech Magazine" — warm gray palette swapped in for Tailwind's default `slate`/`zinc`.
 
-It's easy to measure Claude Code sessions by output: tool calls, files changed, commits. By those metrics, this session scores low.
+## Session 2: The Brainstorming Skill Changes the Game
 
-But at the end of the session, two things were known that weren't known before. The archive image issue requires changes across three layers — type → function → component. The exact location of the mobile display problem. Without this information, the next session starts with another diagnostic pass.
+Session 2: 78 tool calls. What stands out is `TaskCreate(11)` + `Agent(10)` — that combination is where the session got interesting.
 
-> Touching code before knowing where to look multiplies work, it doesn't reduce it.
+Prompt:
 
-The value of a diagnostic session shows up in the velocity of the session that follows it.
+```
+redesign spoonai for both mobile and web
+```
 
-## Session Stats
+Claude loaded the `brainstorming` skill and proposed **Visual Companion**: spin up a local server (`http://localhost:54423`), render mockups as HTML, and compare them directly in a browser. It started by generating 3 mood options as HTML and serving them live.
 
-| Metric | Value |
-|--------|-------|
-| Session duration | 1h 39min |
-| Model | claude-opus-4-6 |
-| Total tool calls | 16 |
-| Files modified | 0 |
+The first two rounds? "Not feeling any of these."
 
-By tool: Bash (6), Read (6), WebFetch (2), ToolSearch (1), Grep (1).
+```
+all of these are bad, find a design skill
+```
 
-The WebFetch share stands out. In a situation where reading the codebase alone can't reveal current state, live site inspection was a required step, not an optional one.
+Claude loaded `ui-ux-pro-max` — a skill with 50+ design styles and 161 color palettes. That's when the direction shifted. A single prompt line changed the quality of the output.
+
+```
+try something completely different, find 10 options, make sure images show per article
+```
+
+## Running 10 Agents in Parallel
+
+This is the core of the session. Claude didn't generate mockups one by one — it dispatched 10 independent agents simultaneously.
+
+Each agent owned a distinct design concept:
+
+- **Bento grid** — soft `#f5f5f7`, Apple-inspired
+- **Masonry Pinterest** — warm cream `#faf7ee` + orange accent
+- **Neo-brutalism** — hot pink `#ff5470` + electric yellow
+- **Swiss tabular** — pure white + ink `#0a0a0a`
+- **Japanese kinfolk** — paper `#f7f4ee`
+- **Netflix shelf cinema** — near-black `#0b0b10`
+- **Y2K chrome retro**
+- **Dashboard ticker** — phosphor green `#22ff88`
+
+Each agent wrote its output as a standalone HTML file under `.superpowers/brainstorm/`. Because they ran in parallel, generating 8+ mockups took a fraction of the time a sequential run would have. `TaskCreate(11)` in the tool call log captures this orchestration.
+
+## The Navigation Problem (and a Quick Fix)
+
+The parallel-generated HTML files were isolated — to view each one you had to navigate files manually.
+
+```
+how do i even see the different designs?
+make a button at the top to cycle through them
+```
+
+Claude created `/tmp/__nav-inject.html` and injected it into the local server as a fixed top-bar navigator. One click to move between all 10 mockups in sequence. A small thing, but exactly the kind of friction that derails a comparison session if you have to solve it yourself.
+
+## Tool Call Breakdown
+
+Out of 139 total tool calls, actual code modifications (`Edit`) happened 16 times — 11.5% of the session. The rest was understanding, planning, and generating mockups. `TaskUpdate(27)` + `TaskCreate(17)` = 44 calls, or 32% of the entire session, was pure agent orchestration.
+
+| Tool | Count | Purpose |
+|------|-------|---------|
+| TaskUpdate | 27 | Progress tracking |
+| Bash | 24 | Local server, git, file checks |
+| Read | 24 | Code understanding, type inspection |
+| TaskCreate | 17 | Parallel agent dispatch |
+| Edit | 16 | Actual code changes |
+| Agent | 10 | Independent design agents |
+| Write | 8 | HTML mockup generation |
+| ToolSearch | 5 | Skill discovery |
+
+## Three Patterns That Held Up
+
+**Diagnose before touching anything.** The image bug was invisible until the code was actually read. A direct "just fix it" prompt would've missed `ArchiveEntry` entirely and landed changes in the wrong file. Reading types before components is a habit worth enforcing.
+
+**Parallel agents belong in the exploration phase.** Design is exactly the kind of work where you need to evaluate multiple directions before committing. Parallel agents compress that exploration non-linearly — time saved scales with the number of variants. Once the implementation direction is locked, there's no reason to parallelize.
+
+**Skills have to be explicitly loaded.** Without `ui-ux-pro-max`, the output would've relied on Claude's default aesthetic sense. After loading the skill, the specificity of suggestions jumped noticeably — named color values, distinct visual references, not vague adjectives. The prompt `"find a design skill"` was the actual leverage point for the session's quality shift.
 
 ---
 
