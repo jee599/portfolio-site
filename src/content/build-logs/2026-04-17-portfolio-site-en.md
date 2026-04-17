@@ -1,26 +1,22 @@
 ---
-title: "10 Sessions, 1,000+ Tool Calls on Opus 4.7 Launch Day: System Card Analysis, 10 Parallel Mockups, and a Telegram Bot Deadlock"
+title: "Opus 4.7 Launch Day: System Card Analysis, 10 Parallel Design Mockups, and a Breaking API Change"
 project: "portfolio-site"
 date: 2026-04-17
 lang: en
 pair: "2026-04-17-portfolio-site-ko"
 tags: [claude-code, claude-opus-4-7, design, multi-agent, debugging]
-description: "On Opus 4.7 launch day: analyzed the 232-page system card, caught a silent breaking change in the thinking API, shipped two articles, and ran 10 parallel design mockups."
+description: "On Opus 4.7 launch day: read the 232-page system card, caught a silent breaking change in the thinking API, shipped two articles, and ran 10 parallel design mockups — all in 10 sessions and 1,000+ tool calls."
 ---
 
-On April 16, Anthropic shipped Claude Opus 4.7. Within hours, I had read the 232-page system card, identified a silent breaking change in the thinking API, written a migration guide, published it to DEV.to and Hashnode, generated 10 parallel design mockups for a separate project, diagnosed a Vercel env bug without touching a single line of code, and traced a Telegram bot deadlock to a stale polling lock held by a dead process.
+10 sessions. 1,060 tool calls. 4 projects running at the same time. That was April 16th, the day Claude Opus 4.7 shipped.
 
-10 sessions. ~1,060 tool calls. 4 projects running simultaneously.
-
-**TL;DR** — Opus 4.7 dropped `budget_tokens` from the thinking API with no deprecation warning. I caught it on launch day and shipped a migration article. On the same day: 10 parallel design mockups compared in one session, a Vercel newline bug diagnosed in minutes, and a multi-process Telegram conflict resolved without code changes.
+**TL;DR** — Caught a silent breaking change in the Opus 4.7 thinking API on launch day, published a migration guide to DEV.to, generated 10 parallel design mockups for spoonai, traced a Telegram bot polling conflict across two debug sessions, and diagnosed a Vercel env variable newline bug without touching a single line of code.
 
 ## The Breaking Change Nobody Announced
 
-Anthropic released the official system card (232 pages) alongside the model. I fetched the PDF directly with `WebFetch` and read it.
+Anthropic dropped Opus 4.7 with a 232-page system card. I pulled the PDF via `WebFetch` and read it same day. Model ID: `claude-opus-4-7`. Pricing: identical to 4.6 ($5/$25 per MTok). Context: 1M tokens.
 
-Model ID: `claude-opus-4-7`. Pricing: same as 4.6 ($5/$25 per MTok). Context: 1M tokens. The headline change is thinking mode — and it breaks existing code silently.
-
-Up through 4.6, you set `budget_tokens` directly inside the `thinking` block:
+The critical change was in thinking mode. Up through 4.6, you passed `budget_tokens` directly inside the `thinking` block:
 
 ```typescript
 // 4.6 — works fine
@@ -29,7 +25,7 @@ Up through 4.6, you set `budget_tokens` directly inside the `thinking` block:
 }
 ```
 
-Opus 4.7 switches to adaptive thinking only. `budget_tokens` is gone. Pass it anyway and you get a **400 error** with no helpful message. It's a quiet breaking change — nothing in the changelog, nothing in the migration guide.
+Opus 4.7 only supports adaptive thinking via `type: "enabled"`. Pass `budget_tokens` and you get a **400 error**. No deprecation warning. No migration guide in the release notes. Just a silent breaking change.
 
 ```typescript
 // 4.7 — remove budget_tokens entirely
@@ -38,17 +34,17 @@ Opus 4.7 switches to adaptive thinking only. `budget_tokens` is gone. Pass it an
 }
 ```
 
-That gap was the article. I traced the timeline from The Information's exclusive leak (April 14) through the official release, wrote the migration guide, and used the `auto-publish` skill to push to DEV.to and Hashnode simultaneously. A second article — OpenAI's duct-tape image model situation — ran in parallel, with separate agents handling each piece.
+That became the article hook: *"Opus 4.7 just killed budget_tokens: what broke and how to migrate."* I traced the timeline from The Information's exclusive leak (April 14) to the official launch, then used the `auto-publish` skill to push to DEV.to and Hashnode simultaneously. A second article — on OpenAI's duct-tape image model situation — ran in parallel, each piece handled by its own agent.
 
-Session 4 stats: 74 Bash calls, 8 WebFetch calls, 8 Edit calls, 10 TaskUpdate calls.
+Session 4 stats: 74 Bash calls, 8 WebFetch, 8 Edit, 10 TaskUpdate.
 
-## Why I Generated 10 Design Mockups Instead of Picking One
+## Why I Generated 10 Mockups Instead of 1
 
-The spoonai design refactor was a 3-hour session (session 8, 383 tool calls). Two bugs, one design direction to settle.
+The spoonai design refactor was a 3-hour session (session 8, 383 tool calls). Two bugs came in together: archive images not displaying, and mobile layout broken.
 
-The image bug was obvious once I read the code. The `ArchiveEntry` type didn't have an `image` field at all. `getArchiveEntries()` was returning `date`, `title`, and `summary` — and silently dropping `meta.image`. The images weren't broken. They were never rendered.
+The image bug was obvious from first read. `ArchiveEntry` had no `image` field. `getArchiveEntries()` was returning `date/title/summary` and silently dropping `meta.image`. The images weren't failing to load — they were never being passed to the renderer at all. Fixed by extending the type and the query function.
 
-The design direction was less obvious. Instead of proposing a single layout and iterating on feedback, I dispatched 10 agents in parallel, each producing a full HTML mockup:
+For design direction, instead of proposing one approach and iterating, I dispatched 10 agents in parallel, each producing a full HTML mockup for a different visual style:
 
 ```
 agent 1 → bento-grid
@@ -62,37 +58,39 @@ agent 8 → dashboard ticker
 ...
 ```
 
-Each agent generated a self-contained HTML file. All 10 ran locally for side-by-side comparison. When the feedback came back as "none of these," the time cost of that decision was already near zero. We landed on masonry, then worked through `ArticleCard`, `HomeContent`, `SubscribeForm`, and `globals.css` in sequence.
+Each agent generated a standalone HTML file, served locally, and the whole set was ready for comparison in one pass. When the feedback came back as "none of these," the time spent on direction was already near zero — no back-and-forth needed. Masonry won. From there it was sequential edits to `ArticleCard`, `HomeContent`, `SubscribeForm`, and `globals.css`.
 
-Mobile was in the brief from the start — each agent was told to render both desktop and phone frames.
+Each agent brief explicitly included "render both desktop and phone frames" — mobile wasn't an afterthought.
 
-## The Vercel Password Bug That Wasn't a Code Bug
+## The Vercel Newline Bug
 
-Session 3: a saju project admin login stopped working. Password `920802`, correct credentials, 401 on every attempt.
+Session 3 was an auth issue on the fortune project. Password `920802` was correct, but the server kept returning 401.
 
-The `.env` file was fine. I checked the Vercel dashboard and found `ADMIN_PASSWORD="920802\n"` — a trailing newline had been saved alongside the value. The user types `920802`, the server compares against `920802\n`, gets `!==`, returns 401. Not a code bug. An input artifact.
+The `.env` file looked fine locally. Checked the Vercel dashboard — environment variable was stored as `920802\n`. A trailing newline had been appended when the value was saved. The user types `920802`, the server compares against `920802\n`, gets `!==`, rejects.
 
-Diagnosis: 10 Bash calls, 5 Read calls. Fix: re-enter the value in the Vercel dashboard. No code touched.
+Not a code bug. An input bug.
 
-## Tracing a Telegram Bot to a Dead Process Holding a Polling Lock
+Diagnosis: 10 Bash calls, 5 Read calls. Fix: re-enter the value in the Vercel dashboard. No code changes.
 
-Debugged twice — sessions 5 and 9. Symptom: messages from Claude to Telegram worked fine, but messages from Telegram back to Claude weren't arriving in the active session.
+## Tracing a Telegram Polling Lock
 
-Root cause: multi-process conflict. Each Claude session spawns its own `bun server.ts`. Telegram long polling only allows one active connection per token — `getUpdates` returns `409 Conflict` on concurrent calls. When a dead session's process still holds the polling lock, the live session never receives incoming messages.
+Debugged this across sessions 5 and 9. Symptom: messages from Claude → Telegram worked fine; messages from Telegram → Claude weren't reaching the active session.
+
+Root cause: multi-process conflict. When multiple Claude sessions are open, each one spins up its own `bun server.ts`. Telegram's long polling only allows one active `getUpdates` connection per token — concurrent calls return 409 Conflict. If a dead session's process is still holding the polling lock, the live session never receives incoming messages.
 
 ```bash
 ps aux | grep "server.ts" | grep -v grep
-# → PID 15622 (3-hour-old dead process)
-# → PID 31885 (active process, different session)
+# → PID 15622 (3-hour-old stale process)
+# → PID 31885 (current session's process)
 ```
 
-Fix: kill all `server.ts` processes, then run `/reload-plugins` to let the current session re-acquire the bot. The underlying issue recurs whenever multiple Claude sessions are open simultaneously.
+Fix: kill all `server.ts` processes, then run `/reload-plugins` so the current session re-acquires the bot. The underlying issue — multiple Claude sessions competing for the same polling lock — recurs whenever sessions stack up.
 
 ## contextzip Self-Improvement
 
-Session 10 (249 tool calls) was spent improving contextzip itself. contextzip is a CLI proxy that intercepts common commands like `git` and `npm`, filters out noise, and reduces token consumption in Claude context windows.
+Session 10 was contextzip meta-work (249 tool calls). contextzip is a proxy that intercepts common CLI commands (`git`, `npm`, etc.) and filters their output to reduce token consumption in Claude's context window.
 
-I pulled the latest upstream source and layered in new features. Validation ran across 4 parallel sub-agents:
+Updated the core from upstream, then layered on new features. Validation ran via 4 parallel subagents:
 
 ```
 agent → playwright_cmd validation
@@ -101,15 +99,15 @@ agent → DSL extension feasibility review
 agent → context-history layer architecture review
 ```
 
-Each agent read the code independently and returned a punch-list. Faster than reading it myself, and cheaper on context.
+Each agent read the relevant code and returned a punch-list. Faster than sequential review, and keeps the main context window from filling up with implementation details.
 
-## Harness × Hermes Deep Research
+## Harness × Hermes Research
 
-Session 6: parallel deep research on "Claude Code harness design" and the "Hermes agent framework" — two sub-agents each, four running simultaneously.
+Session 6 was a parallel deep-research run on two topics: "Claude Code harness design" and "the Hermes agent framework." Two subagents per topic, running concurrently.
 
-Two findings mattered. First, Anthropic's official guidance on harness design is **minimalism** — add only after observed failures. At that point, `~/.claude/` had grown to 82 lines of CLAUDE.md, 92KB of MEMORY, and 20+ skills. Heavy. Second, symlinks in `~/.claude/agents` were broken, silently preventing custom sub-agent loading.
+Two findings stood out. Anthropic's official recommendation is harness **minimalism** — add only after observed failures. My `~/.claude/` at that point was already heavy: CLAUDE.md at 82 lines, MEMORY at 92KB, 20+ skills loaded. Second: symbolic links in `~/.claude/agents` were broken, meaning custom subagents weren't loading at all.
 
-Based on the research, I generated 4 hooks (`commit-cleanliness.sh`, `protect-files.sh`, `sticky-rules.sh`, `trajectory-log.sh`), 2 agent files, and 3 commands.
+From the research output, I created 4 hooks (`commit-cleanliness.sh`, `protect-files.sh`, `sticky-rules.sh`, `trajectory-log.sh`), 2 agent files, and 3 commands.
 
 ## By the Numbers
 
@@ -122,7 +120,7 @@ Based on the research, I generated 4 hooks (`commit-cleanliness.sh`, `protect-fi
 | Parallel research agents | 4 |
 | Files modified | 40+ |
 
-Running 4 projects in parallel on a single day isn't possible without agent parallelization. The design mockup comparison alone would have taken half a day in a sequential workflow. With 10 agents running simultaneously, the comparison took the same time as generating one.
+Running 4 projects in parallel on a single day isn't a pace that's possible without Claude Code. Without parallel agent dispatch and the skill system, the design mockup comparison alone would have taken half a day.
 
 ---
 
