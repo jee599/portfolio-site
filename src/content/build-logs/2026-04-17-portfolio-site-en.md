@@ -1,129 +1,80 @@
 ---
-title: "9 Sessions, 1,008 Tool Calls: A Day of Dense Claude Code Work"
+title: "From Opus 4.7 Launch-Day Coverage to contextzip v0.2: 15 Claude Code Sessions in One Day"
 project: "portfolio-site"
 date: 2026-04-17
 lang: en
 pair: "2026-04-17-portfolio-site-ko"
-tags: [claude-code, opus-4-7, spoonai, contextzip, telegram, multi-agent]
-description: "On April 16, nine Claude Code sessions totaled 1,008 tool calls across 6+ hours. Opus 4.7 launch-day analysis, a full spoonai design overhaul, and contextzip validation."
+tags: [claude-code, contextzip, agents, harness, opus-4-7, auto-publish]
+description: "Analyzed Opus 4.7's 232-page system card, shipped contextzip v0.2 to 5 platforms, and built 6 agent harness types — all in 15 Claude Code sessions and 1,000+ tool calls."
 ---
 
-On April 16, I ran nine Claude Code sessions that totaled 1,008 tool calls. More than six hours of work compressed into a single date.
+On 2026-04-17, Anthropic shipped Opus 4.7. By morning, I had the 232-page system card in Claude's context. By afternoon, a DEV.to post was live. By evening, contextzip v0.2.0 binaries were on GitHub Releases for five platforms. That's 15 Claude Code sessions and over 1,000 tool calls in a single day.
 
-**TL;DR** Opus 4.7 system card analysis on launch day → DEV.to article publishing → full spoonai design refactor → parallel agent validation for contextzip. High-density day.
+**TL;DR** — Opus 4.7 analysis → breaking news published → contextzip v0.2 released → 6-agent harness built. All shipped same day.
 
-## Reading the Opus 4.7 System Card the Day It Dropped
+## How to Digest a 232-Page System Card in Under an Hour
 
-The first session was a PDF deep-dive: Claude Opus 4.7's 232-page System Card. Downloaded it fresh, split it into sections, read the critical parts. 6 tool calls, 4 minutes.
+Anthropic dropped the official system card PDF in the morning. Model ID: `claude-opus-4-7`. Pricing: $5/$25 per MTok. Context: 1M tokens, 128k max output. The biggest breaking change was **adaptive thinking** — the old `budget_tokens` parameter alone no longer works. You now need `type: "enabled"` combined with `budget_tokens`.
 
-The most practically significant finding was a behavioral change to `budget_tokens`. Starting with Opus 4.7, combining `extended_thinking` with `type: "enabled"` and a `budget_tokens` value activates **Adaptive thinking** mode — which behaves differently from the old `type: "enabled"` alone. That's a migration point for anyone using extended thinking in production.
+First session: 3 `Read` calls, 2 `Bash` calls. I passed Claude the PDF URL and told it to extract only the key sections.
 
-```python
-# Before Opus 4.7 — standard extended thinking
-"thinking": {
-    "type": "enabled",
-    "budget_tokens": 10000
-}
+You can't read 232 pages in one shot. I chunked by page range and called `Read` multiple times, going through positioning → benchmarks → alignment in sequence. Total session time: 4 minutes, 6 tool calls.
 
-# Opus 4.7 — same config now triggers Adaptive thinking
-# Verify your expected behavior hasn't changed
-```
+The next session produced the articles. Using the `auto-publish` skill, I wrote two pieces simultaneously — **an Opus 4.7 `budget_tokens` migration guide** and **an analysis of OpenAI's duct-tape era (GPT-Image-2 rumor)** — and published them to spoonai.me, DEV.to, and Hashnode. Tool usage: 74 Bash, 14 Read, 8 Edit. Session time: 1 hour 1 minute.
 
-I used this as the basis for two DEV.to articles written in parallel during session 3:
+Total time from model launch to DEV.to confirmation: ~3 hours. The bottleneck in breaking-news publishing isn't the prompt — it's sourcing. Going from The Information's exclusive leak → official launch confirmation → system card analysis consumed more than half the total time. I used `WebFetch` + `WebSearch` throughout, but fact-checking at this speed is still slow by nature.
 
-```
-Post 1: "Opus 4.7 just killed budget_tokens: what broke and how to migrate"
-Post 2: "OpenAI's Duct Tape Models: What We Know"
-```
+## contextzip v0.2: Validated by Sub-Agents, Shipped in One Session
 
-The `auto-publish` skill handled four output files in parallel across spoonai.me (Korean + English), DEV.to, and Hashnode — two agents running concurrently. Session 3: 1 hour 1 minute, Bash 74 + Edit 8 + WebFetch 8.
+contextzip is a Rust CLI that compresses Claude Code tool output and cuts token usage by 60–90%. The last release was v0.1.1. Thirty-plus commits had stacked up since then.
 
-## The Login Bug That Wasn't a Code Bug
-
-A saju (Korean astrology) project had a persistent issue: correct admin password, 401 response every time. The code was fine.
-
-```bash
-ADMIN_PASSWORD="920802\n"
-```
-
-Pasting environment variables directly into the Vercel dashboard can silently append `\n`. The user inputs `920802`; the server compares against `920802\n`; strict equality fails. Checked with `.env.vercel-check` and found `ADMIN_SESSION_SECRET` had the same issue. Fixed entirely in Bash — no code changes, 10 commands.
-
-## The spoonai Overhaul: 383 Tool Calls, 3 Hours 6 Minutes
-
-Session 7 was the heaviest. Full design refactor of spoonai.me, targeting both desktop and mobile.
-
-The starting prompt was short: "refactor spoonai design, both mobile and web." The `brainstorming` skill set direction first, then `frontend-design`, `ui-ux-pro-max`, and `audit` ran sequentially.
-
-The first round of designs got scrapped. Feedback: "too AI-mockup-ish." Four directions — Mystic Luxe, Soft Pastel, Modern Utility, Asia-Pop — rendered as HTML mockups in the browser. All of them were clichés: gradient blobs, star decorations, "VIRAL 2.4M" badges.
-
-Second round: 10 agents dispatched in parallel, each producing a different design concept as HTML.
+The upgrade session (session 7) logged **395 tool calls** — 85 Bash, 70 Edit, 40 Read. One of the core tasks was a real measurement of context footprint. I analyzed what actually consumes tokens in Claude responses across 10 sessions and 6,850 turns:
 
 ```
-01 Bento grid          06 Netflix shelf cinema
-02 Masonry (Pinterest)  07 Y2K chrome retro
-03 Neo-brutalism        08 Dashboard ticker
-04 Swiss tabular        09 Japanese kinfolk
-05 (reserved)          10 (reserved)
+Tool use (inputs)  : 46.4%  ← Edit old/new_string, Write payloads, etc.
+Tool results       : 39.4%  ← Command output, file content
+User text          : 10.1%
+Assistant text     :  4.1%  ← Claude narration, apologies, etc.
 ```
 
-Final pick: Masonry (#2). After selection, `SubscribeForm`, `ArticleCard`, `ScrollProgress`, `CountUp`, and `FloatingSubscribe` were either rewritten or created from scratch. 15+ files changed.
+Claude's own narration accounts for **4.1%**. The real compression lever is tool input/output. The `Agent` tool averaged 2.9 KB per input — the heaviest single tool. `Write` averaged 5.3 KB per input.
 
-A content bug surfaced in the same session. The daily/weekly entries in `content.ts` lines 308–354 were missing `image` fields, causing archive thumbnails to render blank. Fixed inline.
+New features (session history compression, TOML filter expansion, context-history layer, DSL extension) each got a dedicated sub-agent for validation. Four agents ran in parallel, punching through a checklist and returning results. Independent eyes catch edge cases the implementer misses.
 
-Session stats: Edit 106 + Bash 87 + TaskCreate 30 + TaskUpdate 63.
+Deployment (session 9): 33 Bash, 8 Glob, 4 Read, 1 Edit. Bumped `Cargo.toml` from 0.1.0 → 0.2.0, committed, pushed the tag. GitHub Actions built five platform binaries automatically — `linux-x86_64`, `linux-musl`, `macos-arm64`, `macos-x86_64`, `windows-x86_64` — and attached them to the release.
 
-## Two Sessions Debugging the Same Telegram Problem
+## Building the Agent Harness: 6 Types Complete
 
-Sessions 4 and 8 hit identical symptoms: sending from Claude to Telegram worked, receiving didn't.
+Session 5 kicked off with four sub-agents running parallel research on harness design principles. The conclusion was blunt: **the first principle of a harness is minimalism**. Anthropic's own recommendation is "add only after observed failure." My current `~/.claude/` was already heavy — CLAUDE.md at 82 lines, 92 KB of MEMORY files, 20+ skills.
 
-The root cause was **bot process collision**. Each Claude Code session spawns its own `bun server.ts`. Telegram's `getUpdates` is long-polling, which only one process can hold at a time. `bot.pid` manages the lock — but if a previous session's process didn't die cleanly, the new session can't take over polling.
+Session 8 added four new agent definitions:
 
-```bash
-ps aux | grep "server.ts" | grep -v grep
-# PID 15622 (3 hours old): holding lock, not polling
-# PID 31885 (21 seconds old): polling, but routing to wrong session
-```
+| Agent | Model | Role |
+|---|---|---|
+| `blog-writer` | sonnet | Drafts for 3 platforms (spoonai · naver-dental · devto) |
+| `design-reviewer` | sonnet | UI review on 5 axes, read-only |
+| `frontend-implementer` | sonnet | TS + Next.js + Tailwind implementation |
+| `content-editor` | sonnet | Strips AI clichés, copy editing |
 
-Fix sequence: kill all `server.ts` processes → delete `bot.pid` → `/reload-plugins`. The current session relaunches and acquires the lock. Two sessions, same debugging, 107 Bash calls combined.
+Combined with the existing `plan-orchestrator` and `code-verifier`, that's 6 total. The chain order is now codified in `sticky-rules.md`: implementation complete → `code-verifier` → `design-reviewer` → `content-editor`.
 
-This is a structural problem — `bot.pid` lock management needs to handle cross-session conflicts at the design level. Debugging the same issue twice is the signal.
+An agent file isn't a 400-line instruction block. Look at the format: role, model, 3–5 core constraints. That's it. Shorter files stay consistent across compaction boundaries.
 
-## Redesigning the Claude Harness: 4 Parallel Research Agents
+## 10 Mockups Generated in Parallel — and Why Most Got Scrapped
 
-Session 5 analyzed Claude Code harness design principles alongside the Hermes agent framework. Four subagents dispatched simultaneously:
+The spoonai.me design refactor (session 10, 395 tool calls) was the most direct test of parallel agent dispatch. Ten designs — bento grid, masonry, neo-brutalism, swiss tabular, japanese kinfolk, netflix cinema, Y2K chrome, dashboard ticker, and two more — each got an agent. Ten agents, ten simultaneous HTML files.
 
-```
-Agent 1 — Harness theory (Claude Code harness design principles)
-Agent 2 — Hermes identity (NousResearch framework)
-Agent 3 — Harness in practice (real-world application patterns)
-Agent 4 — Hermes application (local implementation methods)
-```
+Because each agent ran independently, all ten completed at roughly the same time. I picked masonry (#2). The other nine got dropped.
 
-Results merged into `~/.claude/plans/harness-hermes-meeting.md`. Core conclusion: **minimalism**. Anthropic's own principle is "add only after observed failure." The existing `~/.claude/` setup — CLAUDE.md at 82 lines, MEMORY at 92KB, 20+ skills — was already overloaded.
+The feedback "all of these are bad" came up twice. The first time, the mockups were dense with AI-generic clichés. The second time, the actual implementation had a bug where the `top news` badge appeared on every card. Both times, finding the root cause took longer than it should have — layout bugs are hard to diagnose from code alone. Skipping the step of running a local server and checking in a browser is not an option.
 
-Outcome: 4 new hooks, 2 new agents, 3 new commands, and a leaner CLAUDE.md. TaskCreate 14 + Write 13 + Bash 28.
+## What This Day Actually Taught Me
 
-## contextzip: Parallel Validation After Implementation
+**Parallel agents win in exploration, not execution.** Ten designs, four research threads, four validation runs — when outputs are independent, parallel dispatch cuts time dramatically. Sequential work (implement → verify → deploy) still needs sequential execution.
 
-Session 9 wrapped up contextzip — a Claude Code token-reduction CLI proxy — with parallel subagent validation after implementation was complete.
+**Tool call count is not a proxy for complexity.** Session 10 hit 395 tool calls, but most were repetitive Edit and Bash operations. Session 3 logged 147 calls and actually published three articles across three repos. What matters is the output, not the count.
 
-```
-Track 2 — punch-list verification
-Track 3 — new filter verification
-Track 4 — context-history layer verification
-Track 5 — DSL extension verification
-+ README hook analysis + v0.2 promotion strategy
-```
-
-Commit and push happened in this session. The auto-inferred git email was `jidong@jidongui-iMac.local` — corrected to `jee599@naver.com` before pushing. Session stats: 249 tool calls, 1 hour 7 minutes.
-
-## Patterns That Repeated Across the Day
-
-**Skill chaining compounds quality.** Running `brainstorming` → `frontend-design` → `audit` in sequence lets context accumulate across stages. The output quality is noticeably different from running a single skill against the whole problem.
-
-**Parallel agents are effective for validation.** After implementation, assigning different verification tracks to separate subagents delivers multi-angle review without contaminating the main context window.
-
-**The Telegram multi-session collision is structural.** Restarting doesn't fix it — `bot.pid` lock management needs to prevent cross-session conflicts by design. Debugging the same issue twice is the clearest signal that a fundamental fix hasn't been made.
+**Fact-checking can't be skipped in a breaking-news pipeline.** The Opus 4.7 post started with "just dropped" as the prompt, but publishing without verification risks shipping wrong information. The sequence — The Information leak → official launch page → system card analysis — had to happen in order.
 
 ---
 
