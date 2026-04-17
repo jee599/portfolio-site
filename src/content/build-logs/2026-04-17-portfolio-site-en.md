@@ -1,126 +1,129 @@
 ---
-title: "Opus 4.7 Launch Day: System Card Analysis, 10 Parallel Design Mockups, and a Breaking API Change"
+title: "9 Sessions, 1,008 Tool Calls: A Day of Dense Claude Code Work"
 project: "portfolio-site"
 date: 2026-04-17
 lang: en
 pair: "2026-04-17-portfolio-site-ko"
-tags: [claude-code, claude-opus-4-7, design, multi-agent, debugging]
-description: "On Opus 4.7 launch day: read the 232-page system card, caught a silent breaking change in the thinking API, shipped two articles, and ran 10 parallel design mockups — all in 10 sessions and 1,000+ tool calls."
+tags: [claude-code, opus-4-7, spoonai, contextzip, telegram, multi-agent]
+description: "On April 16, nine Claude Code sessions totaled 1,008 tool calls across 6+ hours. Opus 4.7 launch-day analysis, a full spoonai design overhaul, and contextzip validation."
 ---
 
-10 sessions. 1,060 tool calls. 4 projects running at the same time. That was April 16th, the day Claude Opus 4.7 shipped.
+On April 16, I ran nine Claude Code sessions that totaled 1,008 tool calls. More than six hours of work compressed into a single date.
 
-**TL;DR** — Caught a silent breaking change in the Opus 4.7 thinking API on launch day, published a migration guide to DEV.to, generated 10 parallel design mockups for spoonai, traced a Telegram bot polling conflict across two debug sessions, and diagnosed a Vercel env variable newline bug without touching a single line of code.
+**TL;DR** Opus 4.7 system card analysis on launch day → DEV.to article publishing → full spoonai design refactor → parallel agent validation for contextzip. High-density day.
 
-## The Breaking Change Nobody Announced
+## Reading the Opus 4.7 System Card the Day It Dropped
 
-Anthropic dropped Opus 4.7 with a 232-page system card. I pulled the PDF via `WebFetch` and read it same day. Model ID: `claude-opus-4-7`. Pricing: identical to 4.6 ($5/$25 per MTok). Context: 1M tokens.
+The first session was a PDF deep-dive: Claude Opus 4.7's 232-page System Card. Downloaded it fresh, split it into sections, read the critical parts. 6 tool calls, 4 minutes.
 
-The critical change was in thinking mode. Up through 4.6, you passed `budget_tokens` directly inside the `thinking` block:
+The most practically significant finding was a behavioral change to `budget_tokens`. Starting with Opus 4.7, combining `extended_thinking` with `type: "enabled"` and a `budget_tokens` value activates **Adaptive thinking** mode — which behaves differently from the old `type: "enabled"` alone. That's a migration point for anyone using extended thinking in production.
 
-```typescript
-// 4.6 — works fine
-{
-  thinking: { type: "enabled", budget_tokens: 5000 }
+```python
+# Before Opus 4.7 — standard extended thinking
+"thinking": {
+    "type": "enabled",
+    "budget_tokens": 10000
 }
+
+# Opus 4.7 — same config now triggers Adaptive thinking
+# Verify your expected behavior hasn't changed
 ```
 
-Opus 4.7 only supports adaptive thinking via `type: "enabled"`. Pass `budget_tokens` and you get a **400 error**. No deprecation warning. No migration guide in the release notes. Just a silent breaking change.
-
-```typescript
-// 4.7 — remove budget_tokens entirely
-{
-  thinking: { type: "enabled" }
-}
-```
-
-That became the article hook: *"Opus 4.7 just killed budget_tokens: what broke and how to migrate."* I traced the timeline from The Information's exclusive leak (April 14) to the official launch, then used the `auto-publish` skill to push to DEV.to and Hashnode simultaneously. A second article — on OpenAI's duct-tape image model situation — ran in parallel, each piece handled by its own agent.
-
-Session 4 stats: 74 Bash calls, 8 WebFetch, 8 Edit, 10 TaskUpdate.
-
-## Why I Generated 10 Mockups Instead of 1
-
-The spoonai design refactor was a 3-hour session (session 8, 383 tool calls). Two bugs came in together: archive images not displaying, and mobile layout broken.
-
-The image bug was obvious from first read. `ArchiveEntry` had no `image` field. `getArchiveEntries()` was returning `date/title/summary` and silently dropping `meta.image`. The images weren't failing to load — they were never being passed to the renderer at all. Fixed by extending the type and the query function.
-
-For design direction, instead of proposing one approach and iterating, I dispatched 10 agents in parallel, each producing a full HTML mockup for a different visual style:
+I used this as the basis for two DEV.to articles written in parallel during session 3:
 
 ```
-agent 1 → bento-grid
-agent 2 → masonry (pinterest-style)
-agent 3 → neo-brutalism
-agent 4 → swiss tabular
-agent 5 → japanese kinfolk
-agent 6 → netflix cinema
-agent 7 → Y2K chrome
-agent 8 → dashboard ticker
-...
+Post 1: "Opus 4.7 just killed budget_tokens: what broke and how to migrate"
+Post 2: "OpenAI's Duct Tape Models: What We Know"
 ```
 
-Each agent generated a standalone HTML file, served locally, and the whole set was ready for comparison in one pass. When the feedback came back as "none of these," the time spent on direction was already near zero — no back-and-forth needed. Masonry won. From there it was sequential edits to `ArticleCard`, `HomeContent`, `SubscribeForm`, and `globals.css`.
+The `auto-publish` skill handled four output files in parallel across spoonai.me (Korean + English), DEV.to, and Hashnode — two agents running concurrently. Session 3: 1 hour 1 minute, Bash 74 + Edit 8 + WebFetch 8.
 
-Each agent brief explicitly included "render both desktop and phone frames" — mobile wasn't an afterthought.
+## The Login Bug That Wasn't a Code Bug
 
-## The Vercel Newline Bug
+A saju (Korean astrology) project had a persistent issue: correct admin password, 401 response every time. The code was fine.
 
-Session 3 was an auth issue on the fortune project. Password `920802` was correct, but the server kept returning 401.
+```bash
+ADMIN_PASSWORD="920802\n"
+```
 
-The `.env` file looked fine locally. Checked the Vercel dashboard — environment variable was stored as `920802\n`. A trailing newline had been appended when the value was saved. The user types `920802`, the server compares against `920802\n`, gets `!==`, rejects.
+Pasting environment variables directly into the Vercel dashboard can silently append `\n`. The user inputs `920802`; the server compares against `920802\n`; strict equality fails. Checked with `.env.vercel-check` and found `ADMIN_SESSION_SECRET` had the same issue. Fixed entirely in Bash — no code changes, 10 commands.
 
-Not a code bug. An input bug.
+## The spoonai Overhaul: 383 Tool Calls, 3 Hours 6 Minutes
 
-Diagnosis: 10 Bash calls, 5 Read calls. Fix: re-enter the value in the Vercel dashboard. No code changes.
+Session 7 was the heaviest. Full design refactor of spoonai.me, targeting both desktop and mobile.
 
-## Tracing a Telegram Polling Lock
+The starting prompt was short: "refactor spoonai design, both mobile and web." The `brainstorming` skill set direction first, then `frontend-design`, `ui-ux-pro-max`, and `audit` ran sequentially.
 
-Debugged this across sessions 5 and 9. Symptom: messages from Claude → Telegram worked fine; messages from Telegram → Claude weren't reaching the active session.
+The first round of designs got scrapped. Feedback: "too AI-mockup-ish." Four directions — Mystic Luxe, Soft Pastel, Modern Utility, Asia-Pop — rendered as HTML mockups in the browser. All of them were clichés: gradient blobs, star decorations, "VIRAL 2.4M" badges.
 
-Root cause: multi-process conflict. When multiple Claude sessions are open, each one spins up its own `bun server.ts`. Telegram's long polling only allows one active `getUpdates` connection per token — concurrent calls return 409 Conflict. If a dead session's process is still holding the polling lock, the live session never receives incoming messages.
+Second round: 10 agents dispatched in parallel, each producing a different design concept as HTML.
+
+```
+01 Bento grid          06 Netflix shelf cinema
+02 Masonry (Pinterest)  07 Y2K chrome retro
+03 Neo-brutalism        08 Dashboard ticker
+04 Swiss tabular        09 Japanese kinfolk
+05 (reserved)          10 (reserved)
+```
+
+Final pick: Masonry (#2). After selection, `SubscribeForm`, `ArticleCard`, `ScrollProgress`, `CountUp`, and `FloatingSubscribe` were either rewritten or created from scratch. 15+ files changed.
+
+A content bug surfaced in the same session. The daily/weekly entries in `content.ts` lines 308–354 were missing `image` fields, causing archive thumbnails to render blank. Fixed inline.
+
+Session stats: Edit 106 + Bash 87 + TaskCreate 30 + TaskUpdate 63.
+
+## Two Sessions Debugging the Same Telegram Problem
+
+Sessions 4 and 8 hit identical symptoms: sending from Claude to Telegram worked, receiving didn't.
+
+The root cause was **bot process collision**. Each Claude Code session spawns its own `bun server.ts`. Telegram's `getUpdates` is long-polling, which only one process can hold at a time. `bot.pid` manages the lock — but if a previous session's process didn't die cleanly, the new session can't take over polling.
 
 ```bash
 ps aux | grep "server.ts" | grep -v grep
-# → PID 15622 (3-hour-old stale process)
-# → PID 31885 (current session's process)
+# PID 15622 (3 hours old): holding lock, not polling
+# PID 31885 (21 seconds old): polling, but routing to wrong session
 ```
 
-Fix: kill all `server.ts` processes, then run `/reload-plugins` so the current session re-acquires the bot. The underlying issue — multiple Claude sessions competing for the same polling lock — recurs whenever sessions stack up.
+Fix sequence: kill all `server.ts` processes → delete `bot.pid` → `/reload-plugins`. The current session relaunches and acquires the lock. Two sessions, same debugging, 107 Bash calls combined.
 
-## contextzip Self-Improvement
+This is a structural problem — `bot.pid` lock management needs to handle cross-session conflicts at the design level. Debugging the same issue twice is the signal.
 
-Session 10 was contextzip meta-work (249 tool calls). contextzip is a proxy that intercepts common CLI commands (`git`, `npm`, etc.) and filters their output to reduce token consumption in Claude's context window.
+## Redesigning the Claude Harness: 4 Parallel Research Agents
 
-Updated the core from upstream, then layered on new features. Validation ran via 4 parallel subagents:
+Session 5 analyzed Claude Code harness design principles alongside the Hermes agent framework. Four subagents dispatched simultaneously:
 
 ```
-agent → playwright_cmd validation
-agent → new filter effectiveness analysis
-agent → DSL extension feasibility review
-agent → context-history layer architecture review
+Agent 1 — Harness theory (Claude Code harness design principles)
+Agent 2 — Hermes identity (NousResearch framework)
+Agent 3 — Harness in practice (real-world application patterns)
+Agent 4 — Hermes application (local implementation methods)
 ```
 
-Each agent read the relevant code and returned a punch-list. Faster than sequential review, and keeps the main context window from filling up with implementation details.
+Results merged into `~/.claude/plans/harness-hermes-meeting.md`. Core conclusion: **minimalism**. Anthropic's own principle is "add only after observed failure." The existing `~/.claude/` setup — CLAUDE.md at 82 lines, MEMORY at 92KB, 20+ skills — was already overloaded.
 
-## Harness × Hermes Research
+Outcome: 4 new hooks, 2 new agents, 3 new commands, and a leaner CLAUDE.md. TaskCreate 14 + Write 13 + Bash 28.
 
-Session 6 was a parallel deep-research run on two topics: "Claude Code harness design" and "the Hermes agent framework." Two subagents per topic, running concurrently.
+## contextzip: Parallel Validation After Implementation
 
-Two findings stood out. Anthropic's official recommendation is harness **minimalism** — add only after observed failures. My `~/.claude/` at that point was already heavy: CLAUDE.md at 82 lines, MEMORY at 92KB, 20+ skills loaded. Second: symbolic links in `~/.claude/agents` were broken, meaning custom subagents weren't loading at all.
+Session 9 wrapped up contextzip — a Claude Code token-reduction CLI proxy — with parallel subagent validation after implementation was complete.
 
-From the research output, I created 4 hooks (`commit-cleanliness.sh`, `protect-files.sh`, `sticky-rules.sh`, `trajectory-log.sh`), 2 agent files, and 3 commands.
+```
+Track 2 — punch-list verification
+Track 3 — new filter verification
+Track 4 — context-history layer verification
+Track 5 — DSL extension verification
++ README hook analysis + v0.2 promotion strategy
+```
 
-## By the Numbers
+Commit and push happened in this session. The auto-inferred git email was `jidong@jidongui-iMac.local` — corrected to `jee599@naver.com` before pushing. Session stats: 249 tool calls, 1 hour 7 minutes.
 
-| | |
-|---|---|
-| Sessions | 10 |
-| Total tool calls | ~1,060 |
-| Longest session | Session 8 (3h 6min, 383 calls) |
-| Parallel design mockups | 10 |
-| Parallel research agents | 4 |
-| Files modified | 40+ |
+## Patterns That Repeated Across the Day
 
-Running 4 projects in parallel on a single day isn't a pace that's possible without Claude Code. Without parallel agent dispatch and the skill system, the design mockup comparison alone would have taken half a day.
+**Skill chaining compounds quality.** Running `brainstorming` → `frontend-design` → `audit` in sequence lets context accumulate across stages. The output quality is noticeably different from running a single skill against the whole problem.
+
+**Parallel agents are effective for validation.** After implementation, assigning different verification tracks to separate subagents delivers multi-angle review without contaminating the main context window.
+
+**The Telegram multi-session collision is structural.** Restarting doesn't fix it — `bot.pid` lock management needs to prevent cross-session conflicts by design. Debugging the same issue twice is the clearest signal that a fundamental fix hasn't been made.
 
 ---
 
