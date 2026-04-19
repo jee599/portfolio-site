@@ -1,113 +1,131 @@
 ---
-title: "Fixing a Data Bug in 24 Files While Running 3 Projects via Telegram — Claude Code Build Log"
+title: "103 Tool Calls Dissected: Running Claude Code via Telegram, MCP Disconnects, and Multi-Platform Publishing"
 project: "portfolio-site"
 date: 2026-04-19
 lang: en
 pair: "2026-04-19-portfolio-site-ko"
-tags: [claude-code, debugging, telegram, automation, spoonai]
-description: "How a wrong field value in 24 markdown files caused a UI bug — bulk fix with sed, selective staging, and running three concurrent projects via Telegram MCP."
+tags: [claude-code, telegram, mcp, automation, multi-platform]
+description: "14 of 103 tool calls went to Telegram replies — not code. Here's what a session looks like when Telegram is the Claude Code control plane."
 ---
 
-Article titles were showing up where publisher names should be. Not a component bug. A data bug — in 24 separate markdown files.
+14 out of 103 tool calls went to sending Telegram messages. Not writing code, not editing files — delivering results to a human. That's what the distribution looks like when Telegram becomes your Claude Code interface.
 
-**TL;DR** `source.title` was storing the full article headline instead of the publisher name (e.g., `CNBC`). Fixed by bulk-replacing all 24 affected files based on domain and adding explicit examples to the spec. Session two ran entirely through Telegram MCP — no Claude Code terminal open — and handled repo creation, hackathon research, and a blog publish across three projects. 174 tool calls total.
+**TL;DR** Telegram MCP receives instructions → `dentalad` GitHub repo scaffolded → MCP disconnects mid-session → reconnect → Pangyo AI event search → Claude design update published to two platforms. 41h 16m session, 5 files created.
 
-## The UI Was Fine. The Data Wasn't.
+## Why Telegram Became the Control Panel
 
-`ArticleCard.tsx:148` renders `post.source.title` next to the article date. The component logic was correct. The problem was upstream.
+Every instruction in this session arrived as a Telegram DM. "Start an English dental advertising project with git", "name it dentalad", "write a blog post about Claude's design update and publish it" — all phone messages.
 
-```yaml
-# content/posts/2026-04-16-asml-q1-2026-ai-chip-guidance-raise-ko.md
-source:
-  title: "Chip giant ASML raises 2026 guidance as AI semiconductor demand stays strong"
-  url: "https://www.cnbc.com/..."
-```
+The old workflow: sit at a terminal, type directly into Claude Code. The new one: send a message from anywhere. `claude-opus-4-7` receives the message through the Telegram MCP plugin, executes the task, and fires a completion notification back to Telegram.
 
-`source.title` should have been `CNBC`. Instead, it held the entire article headline. The auto-generation script had misread the field's intent — the spec said "title" without clarifying what kind. Between April 15–17, every generated file followed the same wrong pattern. 24 files total.
-
-The fix went in two directions. First, I updated the SKILL.md spec with an explicit example and a prohibition:
+The tool usage breakdown makes the architecture visible:
 
 ```
-source.title: "CNBC"  # publisher name only (CNBC, The Verge, TechCrunch, etc). Article headlines are not allowed here.
+Bash(41) > WebSearch(17) > mcp_telegram_reply(14) > WebFetch(11) > Read(7) > Write(5)
 ```
 
-Then I bulk-replaced all 24 files using domain-to-publisher mappings:
+Bash being first makes sense. But `mcp_telegram_reply` is third — ahead of file reads and writes. This wasn't just end-of-task pings. It was progress reporting at each stage: repo created, scaffolding done, files committed.
+
+## The dentalad Repo: Two Prompts, One Scaffold
+
+The entire instruction was: "Set up an English dental advertising project with git, one more repo."
+
+Before executing, Claude asked for name candidates over Telegram. Four options. User picked `dentalad`. Execution started immediately.
 
 ```
-cnbc.com       → CNBC
-theverge.com   → The Verge
-techcrunch.com → TechCrunch
-reuters.com    → Reuters
+~/dentalad/
+├── clinics/
+├── ads-research/
+├── site/
+├── templates/
+├── docs/
+├── README.md
+├── package.json
+└── .gitignore
 ```
 
-Commit `703f6fc` — 25 files, +26 -26.
+`github.com/jee599/dentalad` private repo created, local scaffold generated, initial commit pushed. Each step — directory structure, `git init`, remote setup, first commit — was a separate Bash call. Splitting operations this way makes error tracing straightforward: if `git remote add` fails, you know exactly where.
 
-## 83 Uncommitted Files and Selective Staging
+## What Happens When MCP Disconnects
 
-`git status` came back much longer than expected. My 26 changed files were mixed in with 57 changes from earlier sessions sitting unstaged.
+Mid-notification — right as Claude was sending the repo-creation confirmation to Telegram — the connection dropped.
 
-The uncommitted pile included:
-- Major home UI overhaul: `HomeContent.tsx` +523 lines, `ArticleCard.tsx` 293-line rewrite, `globals.css` +257 lines
-- Header/Footer/Logo/About/Archive redesigns
-- New admin auth logic
-- 3 new SNS poster scripts
-- Backfill images for 18 older article markdown files
+From inside the Claude Code session, the signal was just "server disconnected." The underlying cause isn't visible from the client side. Common culprits:
 
-~1,700 lines of diff total. Running `git push` here would merge my fix with unrelated in-progress work into one commit. I staged only my 26 files by naming them explicitly:
+- Bot token expiry or rotation
+- Network timeout on the Telegram API side
+- Plugin process crash
+- Session loss after system sleep/wake
+
+When the user asked why it disconnected, the diagnostic steps:
 
 ```bash
-git add SKILL.md content/posts/2026-04-1*.md
-git commit -m "fix: replace source.title with publisher name (24 MD files)"
+claude mcp list
+tail ~/.claude/logs/*telegram* 2>/dev/null
 ```
 
-The other 57 stayed untouched.
+Reconnection options: re-run `/telegram:configure` to revalidate the token, or restart Claude Code entirely. In this session, restart worked. The dentalad completion notification went out late — but it went out.
 
-## Vercel CANCELED — Empty Commit as a Redeploy Trigger
+The key point: **MCP disconnection doesn't kill the underlying work.** The notification failed; the repo didn't. Task execution and the notification channel are decoupled. The repo was already on GitHub before the disconnect.
 
-Right after the push, the Vercel deployment status was `CANCELED` — dropped from the build queue. The fix is simple:
+## Remote Agents Can't Reach Local MCP — and That Matters
 
-```bash
-git commit --allow-empty -m "chore: trigger redeploy"
-git push
+When a request came in to schedule regular searches for AI events in Pangyo and Seoul, examining the remote agent setup revealed a hard constraint.
+
+**Remote agents don't have access to local MCP plugins.**
+
+Agents triggered remotely via Remote Trigger can only use connectors available on claude.ai — Vercel, Gmail. The local Telegram plugin doesn't exist in that environment. A remote agent can't push results to Telegram without a separate mechanism.
+
+Two options:
+
+1. **Direct Bot API call** — embed the bot token in the trigger prompt, call `sendMessage` via `curl`. Functional, but the token sits in plaintext in the trigger config.
+2. **Gmail fallback** — route results through email.
+
+Gmail is cleaner from a security standpoint. But the user decided against scheduling the search at all. The actual results weren't actionable — the April 14 and April 17 events had already ended. The active events at the time were Snowflake Arctic Challenge, AI Co-Scientist Challenge, and two others. Nothing requiring immediate registration.
+
+## WebSearch × 17: The Multi-Platform Publishing Flow
+
+The request "publish the Claude design update to spoonai and DEV.to" drove the heaviest search activity in the session.
+
+The `/auto-publish` skill ran: take a keyword, use WebSearch to collect current source material, generate platform-optimized drafts, publish.
+
+```
+WebSearch → Anthropic blog, GitHub release notes, tech publications
+WebFetch  → Extract full body from each source
+Write     → Korean draft (spoonai.me) + English draft (DEV.to)
 ```
 
-Build went through on the second attempt. Empty commits are a reliable way to kick off a deploy without touching code.
+Two files produced:
 
-## Three Tasks Over Telegram, No Terminal Open
-
-The entire second session ran through Telegram MCP. I never opened a Claude Code terminal. The setup: send a message on Telegram, Claude executes the task, replies with the result.
-
-**New `dentalad` repo:** The request was "create a new git-connected project for dental ad work in English." After confirming the project name, Claude created `~/dentalad/` locally, initialized a private `github.com/jee599/dentalad` repo, and pushed an initial scaffold. Directory structure: `clinics/`, `ads-research/`, `site/`, `templates/`, `docs/`. The Telegram MCP connection dropped once mid-task and re-sent the completion notification after reconnecting.
-
-**Pangyo hackathon search:** 16 WebSearch calls. The April 14 and 17 events had already ended with no open registration windows. Claude returned four alternative AI hackathons with active registration instead.
-
-**Claude design blog post:** Published via the `auto-publish` skill to spoonai.me (Korean) and DEV.to (English) simultaneously. Files generated:
 - `~/spoonai-site/content/blog/2026-04-18-anthropic-claude-design-launch-2026-ko.md`
 - `~/dev_blog/posts/2026-04-18-anthropic-claude-design-launch-2026-en.md`
 
-## Numbers
+One topic, two language-specific outputs. SEO canonical points to `jidonglab.com`.
 
-| Metric | Value |
-|--------|-------|
-| Sessions | 2 (1h + 19h apart) |
-| Total tool calls | 174 |
-| Bash | 79 |
-| Read | 17 |
-| WebSearch | 16 |
-| WebFetch | 11 |
-| Grep | 8 |
-| Files modified | 2 |
-| Files created | 5 |
+The WebFetch(11) ratio is worth noting. WebSearch finds URLs; WebFetch reads the actual content. 11 fetches against 17 searches means roughly 65% of search results were actually read — full article bodies, not title skims.
 
-Bash at 79 calls (45% of total) breaks down as: `sed` for bulk MD edits, repeated `git` commands, Vercel MCP polling, and `dentalad` repo initialization. WebSearch at 16 is entirely from the hackathon research task.
+## How Many of Those 103 Calls Actually Touched Code?
 
-## Specs Need Examples, Not Just Field Names
+```
+Bash(41):  shell execution (git, npm, curl, gh CLI)
+Write(5):  new file creation
+Read(7):   file reads
+Edit(0):   zero existing file modifications
+```
 
-Auto-generated content degrades in proportion to how ambiguous the spec is. If `source.title` is described as just "title" with no example, a script will default to the most concrete thing it can find — the article headline. Field descriptions need explicit examples *and* explicit prohibitions: `"publisher name only — CNBC, The Verge, TechCrunch"` leaves no room for misinterpretation.
+Edit count: zero. No existing code was changed in this session. New repo scaffolded, new posts generated, external APIs called. Pure creation, no modification.
 
-When there's a pile of uncommitted changes in the repo, scope your staging by filename rather than reaching for `git add .`. The difference between `git add .` and `git add SKILL.md content/posts/2026-04-1*.md` is the difference between a clean commit history and a mess.
+Bash(41) dominates because most work was system operations: git commands, GitHub CLI, npm scripts, curl calls. Code editing wasn't the bottleneck — orchestration was.
 
-> Half of UI bugs are data problems. The component was fine. The frontmatter field had the wrong value.
+> In this session, Claude Code was an operator, not an editor. It wasn't writing code — it was running tools.
+
+## 5 Files From a 41-Hour Session
+
+41 hours, 16 minutes. 103 tool calls. 5 files: 3 for the dentalad scaffold, 2 blog posts.
+
+That ratio might look inefficient on paper. But most of the session was exploration and judgment: which events to track, how to configure the remote agent, what angle to take per platform. Those decisions don't produce files.
+
+The bigger shift Telegram created isn't task density — it's task timing. Instructions don't require sitting at a terminal anymore. A thought surfaces on the subway; a message goes out. Results come back to the phone. The work happens when it's relevant, not when a terminal happens to be open.
 
 ---
 
