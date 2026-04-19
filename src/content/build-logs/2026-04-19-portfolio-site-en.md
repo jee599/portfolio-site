@@ -1,131 +1,90 @@
 ---
-title: "103 Tool Calls Dissected: Running Claude Code via Telegram, MCP Disconnects, and Multi-Platform Publishing"
+title: "One Telegram Message, One GitHub Repo: Claude Code as an Async Assistant (111 Tool Calls)"
 project: "portfolio-site"
 date: 2026-04-19
 lang: en
 pair: "2026-04-19-portfolio-site-ko"
-tags: [claude-code, telegram, mcp, automation, multi-platform]
-description: "14 of 103 tool calls went to Telegram replies — not code. Here's what a session looks like when Telegram is the Claude Code control plane."
+tags: [claude-code, telegram, automation, github, claude-design]
+description: "From a single Telegram message to a scaffolded GitHub repo in under 30 minutes. What 111 tool calls across a 47-hour session actually produced."
 ---
 
-14 out of 103 tool calls went to sending Telegram messages. Not writing code, not editing files — delivering results to a human. That's what the distribution looks like when Telegram becomes your Claude Code interface.
+I sent one Telegram message: "spin up another project for dental ads, English-focused." Under 30 minutes later, `~/dentalad/` existed on disk and a private GitHub repo was live. This is what Claude Code as an async assistant looks like in practice.
 
-**TL;DR** Telegram MCP receives instructions → `dentalad` GitHub repo scaffolded → MCP disconnects mid-session → reconnect → Pangyo AI event search → Claude design update published to two platforms. 41h 16m session, 5 files created.
+**TL;DR** Delegated a full day of async tasks through a Telegram → Claude Code pipeline. 111 tool calls — nearly half split between `Bash` (41) and `WebSearch` (20). 16 Telegram replies show how much back-and-forth async delegation actually generates.
 
-## Why Telegram Became the Control Panel
+## One Message to a Live GitHub Repo
 
-Every instruction in this session arrived as a Telegram DM. "Start an English dental advertising project with git", "name it dentalad", "write a blog post about Claude's design update and publish it" — all phone messages.
+The prompt was minimal:
 
-The old workflow: sit at a terminal, type directly into Claude Code. The new one: send a message from anywhere. `claude-opus-4-7` receives the message through the Telegram MCP plugin, executes the task, and fires a completion notification back to Telegram.
+> "Create another project connected to git, dental ads in English"
 
-The tool usage breakdown makes the architecture visible:
+Claude proposed four name candidates. I replied "dentalad ok." Execution started:
 
-```
-Bash(41) > WebSearch(17) > mcp_telegram_reply(14) > WebFetch(11) > Read(7) > Write(5)
-```
+1. Created `~/dentalad/` directory
+2. Scaffolded `clinics/`, `ads-research/`, `site/`, `templates/`, `docs/`
+3. Wrote `README.md`, `package.json`, `.gitignore`
+4. Created `github.com/jee599/dentalad` as a private repo via `gh repo create`
+5. Initial commit + `git push -u origin main`
 
-Bash being first makes sense. But `mcp_telegram_reply` is third — ahead of file reads and writes. This wasn't just end-of-task pings. It was progress reporting at each stage: repo created, scaffolding done, files committed.
+A large chunk of the 41 Bash calls were consumed here, running in sequence: `gh repo create` → `git init` → `git remote add` → `git push`. My only input was confirming the name.
 
-## The dentalad Repo: Two Prompts, One Scaffold
+## When MCP Drops Mid-Session
 
-The entire instruction was: "Set up an English dental advertising project with git, one more repo."
+Partway through, the Telegram MCP server disconnected. The session received only a "disconnected" signal — no root cause, nothing visible on the client side.
 
-Before executing, Claude asked for name candidates over Telegram. Four options. User picked `dentalad`. Execution started immediately.
-
-```
-~/dentalad/
-├── clinics/
-├── ads-research/
-├── site/
-├── templates/
-├── docs/
-├── README.md
-├── package.json
-└── .gitignore
-```
-
-`github.com/jee599/dentalad` private repo created, local scaffold generated, initial commit pushed. Each step — directory structure, `git init`, remote setup, first commit — was a separate Bash call. Splitting operations this way makes error tracing straightforward: if `git remote add` fails, you know exactly where.
-
-## What Happens When MCP Disconnects
-
-Mid-notification — right as Claude was sending the repo-creation confirmation to Telegram — the connection dropped.
-
-From inside the Claude Code session, the signal was just "server disconnected." The underlying cause isn't visible from the client side. Common culprits:
+The usual suspects:
 
 - Bot token expiry or rotation
-- Network timeout on the Telegram API side
+- Temporary network interruption
 - Plugin process crash
-- Session loss after system sleep/wake
+- Session loss after system sleep
 
-When the user asked why it disconnected, the diagnostic steps:
+Reconnection was straightforward: ran `/telegram:configure` to check token state, reconnected. The dentalad completion notification went out after reconnection.
 
-```bash
-claude mcp list
-tail ~/.claude/logs/*telegram* 2>/dev/null
-```
+The lesson: the Telegram pipeline is convenient but only as reliable as the MCP connection. In long sessions, disconnects happen. Reconnection is easy, but any queued notifications need to be resent manually. Plan for the gap.
 
-Reconnection options: re-run `/telegram:configure` to revalidate the token, or restart Claude Code entirely. In this session, restart worked. The dentalad completion notification went out late — but it went out.
+## The Hard Limit of Scheduled Agents
 
-The key point: **MCP disconnection doesn't kill the underlying work.** The notification failed; the repo didn't. Task execution and the notification channel are decoupled. The repo was already on GitHub before the disconnect.
+"Search for Claude events in Pangyo on a schedule and notify me when something comes up." This hit a wall.
 
-## Remote Agents Can't Reach Local MCP — and That Matters
+Remote scheduled agents (CCR) don't have access to local MCP plugins. The connectors available on claude.ai are Vercel and Gmail — the Telegram plugin is local-only. A remote agent has no path to push results to Telegram without an external mechanism.
 
-When a request came in to schedule regular searches for AI events in Pangyo and Seoul, examining the remote agent setup revealed a hard constraint.
+Two options on the table:
 
-**Remote agents don't have access to local MCP plugins.**
+1. **Direct Telegram Bot API** — embed the bot token in the trigger prompt, call `sendMessage` via `curl`. Works, but the token lives in plaintext in the trigger config.
+2. **Gmail fallback** — route notifications through the Gmail connector already linked to claude.ai.
 
-Agents triggered remotely via Remote Trigger can only use connectors available on claude.ai — Vercel, Gmail. The local Telegram plugin doesn't exist in that environment. A remote agent can't push results to Telegram without a separate mechanism.
+Scheduled agents are powerful, but they're isolated from the local plugin ecosystem. That separation is a real constraint when Telegram is your notification layer.
 
-Two options:
+## Claude Design Blog → auto-publish
 
-1. **Direct Bot API call** — embed the bot token in the trigger prompt, call `sendMessage` via `curl`. Functional, but the token sits in plaintext in the trigger config.
-2. **Gmail fallback** — route results through email.
+"Write and post a blog about the Claude design update." Used the `auto-publish` skill to generate two files simultaneously:
 
-Gmail is cleaner from a security standpoint. But the user decided against scheduling the search at all. The actual results weren't actionable — the April 14 and April 17 events had already ended. The active events at the time were Snowflake Arctic Challenge, AI Co-Scientist Challenge, and two others. Nothing requiring immediate registration.
+- `~/dev_blog/posts/2026-04-18-anthropic-claude-design-launch-2026-en.md` (for DEV.to)
+- `~/spoonai-site/content/blog/2026-04-18-anthropic-claude-design-launch-2026-ko.md` (for spoonai.me)
 
-## WebSearch × 17: The Multi-Platform Publishing Flow
+Most of the 20 WebSearch and 14 WebFetch calls were spent here — pulling official docs, release notes, and technical blogs to fill the content. One source topic split into two platform-specific outputs. The time-per-output ratio is favorable once the pipeline is running.
 
-The request "publish the Claude design update to spoonai and DEV.to" drove the heaviest search activity in the session.
+## Session Stats
 
-The `/auto-publish` skill ran: take a keyword, use WebSearch to collect current source material, generate platform-optimized drafts, publish.
+| Metric | Value |
+|--------|-------|
+| Session duration | 47h 11min |
+| Total tool calls | 111 |
+| Bash | 41 |
+| WebSearch | 20 |
+| Telegram reply | 16 |
+| WebFetch | 14 |
+| Files created | 5 |
+| Files modified | 0 |
 
-```
-WebSearch → Anthropic blog, GitHub release notes, tech publications
-WebFetch  → Extract full body from each source
-Write     → Korean draft (spoonai.me) + English draft (DEV.to)
-```
+Bash at the top was expected. The number worth noting is 16 Telegram replies — that's how much async delegation actually produces, even in a session that feels lightweight. Instructions, confirmations, status pings, and completion notifications all go through the same channel.
 
-Two files produced:
+## What's Next
 
-- `~/spoonai-site/content/blog/2026-04-18-anthropic-claude-design-launch-2026-ko.md`
-- `~/dev_blog/posts/2026-04-18-anthropic-claude-design-launch-2026-en.md`
-
-One topic, two language-specific outputs. SEO canonical points to `jidonglab.com`.
-
-The WebFetch(11) ratio is worth noting. WebSearch finds URLs; WebFetch reads the actual content. 11 fetches against 17 searches means roughly 65% of search results were actually read — full article bodies, not title skims.
-
-## How Many of Those 103 Calls Actually Touched Code?
-
-```
-Bash(41):  shell execution (git, npm, curl, gh CLI)
-Write(5):  new file creation
-Read(7):   file reads
-Edit(0):   zero existing file modifications
-```
-
-Edit count: zero. No existing code was changed in this session. New repo scaffolded, new posts generated, external APIs called. Pure creation, no modification.
-
-Bash(41) dominates because most work was system operations: git commands, GitHub CLI, npm scripts, curl calls. Code editing wasn't the bottleneck — orchestration was.
-
-> In this session, Claude Code was an operator, not an editor. It wasn't writing code — it was running tools.
-
-## 5 Files From a 41-Hour Session
-
-41 hours, 16 minutes. 103 tool calls. 5 files: 3 for the dentalad scaffold, 2 blog posts.
-
-That ratio might look inefficient on paper. But most of the session was exploration and judgment: which events to track, how to configure the remote agent, what angle to take per platform. Those decisions don't produce files.
-
-The bigger shift Telegram created isn't task density — it's task timing. Instructions don't require sitting at a terminal anymore. A thought surfaces on the subway; a message goes out. Results come back to the phone. The work happens when it's relevant, not when a terminal happens to be open.
+- Investigate Telegram MCP auto-reconnect on disconnection
+- Populate actual content in the dentalad project
+- Design a scheduled agent + notification pipeline that doesn't depend on local Telegram MCP (decide between Bot API token approach and Gmail fallback)
 
 ---
 
