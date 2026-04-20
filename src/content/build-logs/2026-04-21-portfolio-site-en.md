@@ -1,128 +1,154 @@
 ---
-title: "20 Sub-Agents, 159 Tool Calls: Researching a Market in One Day with Claude Code"
+title: "20 Parallel Subagents, 493 Tool Calls: Launching dentalad and Automating DEV.to in One Day"
 project: "portfolio-site"
 date: 2026-04-21
 lang: en
 pair: "2026-04-21-portfolio-site-ko"
-tags: [claude-code, multi-agent, research, automation]
-description: "How I used 20 parallel sub-agents to validate a market entry hypothesis for Korean dental advertising — and why a V2 validation pass is non-negotiable."
+tags: [claude-code, multi-agent, automation, devto]
+description: "4 sessions, 493 tool calls. 20 parallel subagents produced 12 research reports, a DEV.to pipeline, and a new project repo—all in one day."
 ---
 
-20 sub-agents. 159 tool calls. A session that ran 75 hours and 57 minutes. One question: can AI break into the Korean dental advertising market?
+Four Claude Code sessions. 493 tool calls. The longest single session hit 182. By the end: a new GitHub repo, 12 dental advertising research reports, 9 auto-published DEV.to posts, a `launchd`-based publishing pipeline, and a responsive overhaul of spoonai.me.
 
-**TL;DR** — I deployed 12 research agents in parallel, then ran a second pass with 8 validation agents. The V2 pass caught a legal showstopper that would have killed the business model. Here's exactly how that worked.
+**TL;DR** The dentalad project launched in under 24 hours using 20 parallel subagents. Simultaneously: a fully automated DEV.to pipeline went live, and spoonai.me article quality got a ground-up rewrite.
 
-## The Brief That Started It
+## One Telegram Message Started a 20-Agent Research Sprint
 
-A Telegram message, roughly translated:
-
-> Research every profitable Korean company doing hospital/dental advertising. What strategies do they use? What actually drives results? Find everything I could automate or do better with AI. Use 10+ sub-agents, format as reports, push to Git, and ping me when done.
-
-The goal was market validation, not just information gathering. I dispatched 12 agents in parallel, each owning a distinct domain.
-
-## Round 1 — 12 Agents, 12 Domains
-
-| Agent | Coverage | Output |
-|-------|----------|--------|
-| 01 Top agencies | Top 10 Korean medical ad agencies | 2,636 words |
-| 02 Naver SEO | Naver ranking optimization services | ~2,800 words |
-| 03 Naver SA | PowerContent & Search Ad agencies | 3,000–3,500 words |
-| 04 SNS performance | Medical social performance agencies | ~3,200 words |
-| 05 Influencer/viral | Medical influencer marketing landscape | 2,642 words |
-| 06 Medical ad law | Korean medical advertising law (2026) | 3,163 words |
-| 07 CRM/SaaS | Hospital CRM & booking SaaS market | 2,649 words |
-| 08 Content tools | AI content generation tool landscape | 2,961 words |
-| 09 Dental specialty | Marketing strategy by dental specialty | 3,308 words |
-| 10 Global AI medical | Global AI medical marketing trends | 3,000–4,000 words |
-| 11 Top 5 deep dive | In-depth analysis of 5 profitable firms | ~3,479 words |
-| 12 Latest dental news | Korean dental industry news, 2026 | 2,688 words |
-
-Each agent had a target word count (2,500–3,500), a specific output path under `/Users/jidong/dentalad/ads-research/reports/`, and 3–5 concrete questions to answer. Because they ran in parallel, the wall-clock time for all 12 was roughly the same as running one.
-
-## Why a V2 Pass Is Not Optional
-
-After the first pass, the follow-up ask was:
-
-> Hire as many sub-agents as needed (efficiently). Validate, supplement, and improve the existing reports. My goal is to enter the existing ad industry with AI.
-
-First-pass research sweeps wide. That's a feature, but it comes with predictable failure modes:
-
-- **Stale data** — 2024 numbers presented as current 2026 figures
-- **Pricing drift** — SaaS pricing pages change constantly; agents pull cached data
-- **Legal lag** — regulatory updates that post-date the agent's training cutoff
-
-8 V2 agents addressed these directly:
-
-- `A1` Agency fact-check — expanded to 5,424 words, the largest single output
-- `A2` Naver 2026 validation — incorporated Cue algorithm changes as of 2026-04-09
-- `A3` Legal stress-test — specifically tasked to find showstoppers
-- `A4` CRM global pricing — corrected an error in Weave's base pricing
-- `A5` Content specialization ROI — recalculated using actual Claude Sonnet 4.6 API costs
-- `A6` SNS influencer risk — verified Reels CPM figures
-- `A7` Seoul dental prospect list — Top 50 clinics across 8 districts, quantitative filters applied
-- `A8` MVP architecture + cost model — rebuilt using current Claude API pricing
-
-## The Showstopper A3 Found
-
-A3 was the most important output of the entire session. The legal stress-test agent found that **CPA (cost-per-acquisition) billing is legally problematic under Korean medical advertising law** — it creates complicity risk for the ad platform if the underlying ad violates regulations.
-
-The first-pass report hadn't flagged this at all.
-
-Getting the pricing model wrong at the MVP stage doesn't just hurt margins — it can make the business impossible to operate legally. A3 returned three showstoppers. That single finding changed the shape of the product.
-
-## The Prompt Pattern That Works
-
-Vague instructions produce vague outputs. The agents that returned the best results had four things specified explicitly:
+The whole thing started with a single message:
 
 ```
-Goal: Research report on [specific domain]
-Length: 2,500–3,500 words
-Save to: /Users/jidong/dentalad/ads-research/reports/[number]-[slug].md
-Required sections: [3–5 specific questions]
+Start with ads — search all Korean companies in the hospital and dental
+ad space that are currently profitable. Use 10+ subagents, process each
+result, write it up as a report, push to git, and let me know.
 ```
 
-For A3, I added one extra instruction: "Find showstoppers — anything that would make this business legally or operationally impossible." That framing was what produced the CPA finding.
+Claude created `~/dentalad/`, wired it to a new private repo at `github.com/jee599/dentalad`, then fanned out 12 parallel research agents across distinct domains:
 
-## Final Output Structure
+- **01** — Top domestic medical ad agencies  
+- **02** — Naver SEO services  
+- **03** — Power Content (Naver's native ad format)  
+- **04** — SNS and performance marketing  
+- **05** — Influencer and viral marketing  
+- **06** — Korean Medical Advertising Act, 2026 amendments  
+- **07** — Clinic CRM and booking SaaS  
+- **08** — Content automation tools  
+- **09** — Specialty-specific dental strategies (implants, orthodontics, etc.)  
+- **10** — Global AI medical marketing  
+- **11** — Deep dive on top 5 profitable agencies  
+- **12** — Latest 2026 dental industry news  
 
+Each report ran 2,500–4,500 words. The Naver Smart Place algorithm change history was in there. So was the criminal penalty threshold for Korean Medical Advertising Act violations.
+
+## The Verification Pass Is Where It Gets Interesting
+
+After the first 12 reports landed, I ran a second pass: "hire verification subagents."
+
+Eight more agents deployed. The standout findings:
+
+**A3 — Medical Ad Law Stress Test**: Analyzed whether CPA-based fee structures (pay-per-outcome) violate the Medical Advertising Act. Found 3 showstoppers. This alone would have taken a lawyer hours.
+
+**A8 — MVP Architecture Costing**: Benchmarked actual Claude Sonnet 4.6 API pricing against the proposed service model. Real numbers, not estimates.
+
+**A7 — Lead Prospect List**: Compiled a Top 50 potential dental clinic clients across 8 Seoul districts based on publicly accessible signals.
+
+The output — `FINAL-REPORT.md`, `EXECUTIVE-SUMMARY.md`, `ACTION-ITEMS.md` — all landed in `~/dentalad/ads-research/`.
+
+> Wide-net research agents surface coverage. Focused verification agents find the holes. You need both passes to trust the output.
+
+## DEV.to Pipeline: One Hardcoded Line Was Breaking Everything
+
+While writing the Hermes 4 series (4 posts), I found a pipeline bug that had been silently killing every publish attempt.
+
+`~/dev_blog/.github/workflows/publish.yml:205`:
+
+```yaml
+# What it was doing
+"published": False  # hardcoded — ignored frontmatter entirely
+
+# What it should do
+"published": should_publish  # read from frontmatter
 ```
-dentalad/ads-research/
-├── reports/          # 12 first-pass research reports
-├── v2/               # 8 validation reports
-├── EXECUTIVE-SUMMARY.md
-├── FINAL-REPORT.md
-├── ACTION-ITEMS.md
-├── RISKS.md
-└── 00-AI-AUTOMATION-ROADMAP.md
+
+Every post with `published: true` in frontmatter was going up as a draft. One line fix.
+
+I also built `~/blog-factory/scripts/queue-publish.sh` and registered `~/Library/LaunchAgents/com.jidong.blog-queue.plist` to drain the queue every 6 hours.
+
+End result: 9 posts auto-published across a 6-hour window.
+
+- Hermes 4 series — 4 posts  
+- contextzip promo — 1 post  
+- spoonai.me intro — 1 post  
+- Latest LLM news — 3 posts  
+
+## Building Posts That Actually Convert
+
+The Hermes 4 series wasn't just a translation job. The brief was "put every copywriting technique in." That meant:
+
+- Hook title targeting frustration with GPT-4 alternatives
+- Curiosity gap in the opening paragraph
+- TL;DR up front (not buried)
+- Internal series links on every post
+- Closing CTA weaving in contextzip and spoonai.me organically
+
+For the LLM news posts, the workflow was: one research agent generates `~/blog-factory/research/llm-news-2026-04-21.md`, then 5 parallel post-writing agents draft simultaneously. Topics covered: Claude Opus 4.7 SWE-bench analysis, Adobe CX Enterprise MCP integration, Deezer AI music at 44% of catalog, Stellantis-Microsoft AI, MIT Tech Review's top 10 AI list.
+
+## spoonai.me: A Bug That Made Article Metadata Look Absurd
+
+`ArticleCard.tsx:148` was rendering the full original article title next to the date. The `source.title` field had been getting set to the full headline instead of the publisher name.
+
+```yaml
+# Wrong
+source:
+  title: "Chip giant ASML raises 2026 guidance as AI semiconductor demand stays strong"
+
+# Correct
+source:
+  title: "CNBC"
 ```
 
-`FINAL-REPORT.md` and `EXECUTIVE-SUMMARY.md` were synthesized directly from all 20 agent outputs. Action items extracted automatically.
+The fix went in two places at once. Both `~/spoonai-site/SKILL.md` and `~/.claude/skills/spoonai-daily-briefing/SKILL.md` were updated with an explicit rule: publisher name only, no article titles. That covered future generation. For the existing 24 markdown files, a bulk replacement mapped `source.url` domains to publisher names.
 
-## Tool Call Breakdown
+Backfill ran in parallel — 5 subagents split by story type: `model_release`, `product_launch`, `partnership`, `paper`, `default_news`. Each story got Korean and English versions, minimum 2 images at 800px+ JPEG. ~30 stories backfilled.
 
-| Tool | Count |
-|------|-------|
-| Bash | 49 |
-| Telegram reply | 28 |
-| WebSearch | 20 |
-| Agent | 20 |
+Responsive layout improvements also shipped in this session: `HomeContent.tsx`, `ArticleCard.tsx`, and `globals.css` updated to widen the layout on desktop and adapt properly on mobile.
+
+## Vercel CANCELED and 83 Uncommitted Changes
+
+After pushing commit `703f6fc`, the Vercel deploy sat at `CANCELED`. Root cause: Vercel cancels in-flight deploys when a newer one triggers on the same project at nearly the same time. Fixed with an empty commit to force a clean re-trigger.
+
+The harder problem was 83 uncommitted changes from multiple overlapping work streams. The diff included:
+
+- `HomeContent.tsx` +523 lines  
+- `ArticleCard.tsx` — 293-line rewrite  
+- `globals.css` +257 lines  
+- Header, Footer, Logo, About, Archive redesigns  
+- `ThemeProvider.tsx` deleted  
+
+My changes and prior session changes were mixed together. I selectively committed the 26 files I'd touched and left the other 57 untouched.
+
+## GeekNews: One Insight Worth Keeping
+
+GeekNews is sensitive to repeated self-promotion from the same author. "First 50 users free" is a one-shot card — use it once, don't repeat it. After that, the only way to justify another post is a technical writeup or experience report format. If it's not genuinely useful to readers, it won't fly.
+
+## Tool Usage Breakdown (4 Sessions Combined)
+
+| Tool | Calls |
+|---|---|
+| Bash | 211 |
+| Read | 46 |
+| Agent (subagents) | 40 |
+| Telegram reply | 34 |
+| Edit | 30 |
+| TaskUpdate | 23 |
+| WebSearch | 22 |
 | WebFetch | 16 |
-| Write | 10 |
-| Read | 7 |
-| Other | 9 |
-| **Total** | **159** |
+| **Total** | **493** |
 
-Agent × 20 = 12 first-pass + 8 V2. WebSearch and WebFetch covered event lookups, Claude Design blog sourcing, and in-agent research.
+Agent: 40 calls = 12 first-pass research + 8 verification + 5 DEV.to posts + 5 article backfill + misc.
 
-## What Parallel Agent Research Actually Teaches You
+The low Edit/Write count relative to output is the point. Repetitive, parallelizable work went to agents. Direct session work was limited to coordination, review, and anything requiring conversation context.
 
-Splitting one large research prompt into 12 focused agents isn't just faster — each agent produces higher-quality output because it isn't context-switching between domains.
-
-But running only one pass is a mistake. Numbers go stale. Laws change. Pricing pages drift. The A3 case demonstrates the cost: a single missed legal constraint was enough to invalidate a pricing model.
-
-Research agents sweep wide. Validation agents drill narrow. You need both passes to get research you can actually act on.
-
-> Sub-agents cast a wide net. Validation agents find the holes in it. Both passes together produce trustworthy output.
+> The same scope handled sequentially in a single context window would have been impossible in one day. Parallel agents aren't just faster — they make a different class of work achievable.
 
 ---
 

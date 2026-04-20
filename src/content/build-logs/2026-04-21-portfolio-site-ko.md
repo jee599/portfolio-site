@@ -1,123 +1,80 @@
 ---
-title: "서브에이전트 20개로 치과 광고 시장 리서치 — 하루 만에 보고서 12편"
+title: "서브에이전트 20개 병렬 배포 — dentalad 런칭부터 DEV.to 자동화까지"
 project: "portfolio-site"
 date: 2026-04-21
 lang: ko
-tags: [claude-code, multi-agent, research, dentalad, automation]
-description: "한국 치과 광고 시장 진입을 목표로 서브에이전트 12개를 병렬 배포했다. 1차 리서치 후 V2 검증 에이전트 8개를 추가 투입해 하루 만에 30만 자 분량의 보고서를 완성했다."
+tags: [claude-code, 서브에이전트, 자동화, dentalad, devto, spoonai]
+description: "4세션 493 tool calls. 서브에이전트 20개 병렬로 치과 광고 리서치 12편 + DEV.to 9편 자동 발행 파이프라인까지 완성한 과정. publish.yml 버그, source.title 버그, Vercel CANCELED까지 전부 기록."
 ---
 
-서브에이전트 20개, 159번의 도구 호출, 75시간 57분짜리 세션이었다. 목표는 하나 — 한국 치과 광고 시장에 AI로 진입할 수 있는지 데이터로 검증하는 것.
+이번 주 Claude Code 세션을 4개 돌렸다. 총 493번의 tool call, 가장 긴 세션은 182번. 결과물: GitHub 레포 하나 새로 뚫었고, 치과 광고 리서치 리포트 12개, DEV.to 포스트 9편, `launchd` 기반 자동 발행 파이프라인, spoonai.me 반응형 개선까지 완성했다.
 
-**TL;DR** 서브에이전트 병렬 배포로 산업 리서치를 자동화하는 구체적인 방법과, 1차 결과를 검증하는 V2 패스가 왜 필요한지 기록한다.
+**TL;DR** dentalad 프로젝트를 서브에이전트 20개 병렬로 하루 만에 런칭했다. 동시에 DEV.to 자동화 파이프라인을 구축하고 spoonai.me 기사 품질을 전면 개선했다.
 
-## "dentalad" 프로젝트 출발점
+## dentalad: 서브에이전트 20개가 하루 만에 리포트 12개를 뽑았다
 
-텔레그램 메시지:
+텔레그램 메시지 하나가 시작이었다.
 
 ```
 일단 광고부터, 현재 병원, 치과 광고하는 모든 한국 기업 중에 수익을 내는 기업들을 모두 추려서
-어떤 전략을 쓰는지, 어떤 식으로 효과를 내는지, 모든 전략들이랑 광고 효과나 방법들.
-내가 자동화할 수 있고 ai특화로 할 수 있는 걸 서칭해줘
-서브에이전트 10개 이상 쓰고 각각 결과를 가공하고 리포트 형식으로 써서 깃에 올리고 나한테도 알려줘
+어떤 전략을 쓰는지 서칭해줘. 서브에이전트 10개 이상 쓰고 각각 결과를 가공하고 리포트 형식으로
+써서 깃에 올리고 나한테도 알려줘
 ```
 
-12개 에이전트를 병렬로 배포했다. 각 에이전트는 독립적인 도메인을 맡았다.
+Claude는 `~/dentalad/` 디렉토리를 만들고 `github.com/jee599/dentalad` private 레포에 연동한 뒤, 12개 도메인을 병렬로 리서치했다. 에이전트별 역할: 01은 국내 상위 의료광고 대행사, 02는 네이버 SEO 서비스, 03은 파워컨텐츠, 04는 SNS/퍼포먼스, 05는 인플루언서/바이럴, 06은 의료광고법 2026, 07은 클리닉 CRM/예약 SaaS, 08은 콘텐츠 자동화 툴, 09는 진료과목별 특화 전략, 10은 글로벌 AI 의료 마케팅, 11은 수익 상위 5개사 딥다이브, 12는 2026년 최신 치과 뉴스.
 
-## 1차: 12개 에이전트 병렬 리서치
+각 리포트는 2,500~4,500 단어 분량이다. 네이버 스마트플레이스 알고리즘 변경 내역부터 의료법 위반 시 형사처벌 기준까지 다 들어가 있다.
 
-| 에이전트 | 커버리지 | 산출물 분량 |
-|---------|---------|------------|
-| 01 Top agencies | 한국 의료광고 대행사 Top 10 | 2,636단어 |
-| 02 Naver SEO | 네이버 상위노출 서비스 분석 | ~2,800단어 |
-| 03 Naver SA | 파워콘텐츠·SA 집행 대행사 | 3,000~3,500단어 |
-| 04 SNS performance | 의료 SNS 퍼포먼스 대행사 | ~3,200단어 |
-| 05 Influencer/viral | 의료 인플루언서 마케팅 | 2,642단어 |
-| 06 Medical ad law | 의료법·광고심의 2026 기준 | 3,163단어 |
-| 07 CRM/SaaS | 병원 CRM·예약 SaaS 시장 | 2,649단어 |
-| 08 Content tools | AI 콘텐츠 생성 도구 지형 | 2,961단어 |
-| 09 Dental specialty | 진료과목별 마케팅 전략 | 3,308단어 |
-| 10 Global AI medical | 글로벌 AI 의료 마케팅 | 3,000~4,000단어 |
-| 11 Top 5 deep dive | 수익 내는 기업 5개 심층 분석 | ~3,479단어 |
-| 12 Latest dental news | 치과 업계 최신 뉴스 2026 | 2,688단어 |
+리포트가 나온 뒤 "자료 검증/보완 서브에이전트 고용해"라고 했더니 8개를 더 뽑았다. A3는 의료광고법 스트레스 테스트 — CPA 성과보수 과금이 의료광고법 위반인지 여부를 분석했고, 쇼스토퍼 3개를 발견했다. A8은 MVP 아키텍처 비용 산정으로 Claude Sonnet 4.6 기준 API 단가를 실측했다. A7은 서울 8개 구 기준 치과 잠재 고객 Top 50 리스트를 만들었다.
 
-에이전트마다 목표 분량(2,500~3,500단어)을 지정했고, 완료 즉시 `/Users/jidong/dentalad/ads-research/reports/`에 저장했다. 12개가 모두 완료되는 데 걸린 시간은 병렬 실행 덕분에 단일 에이전트 1개 분량 정도였다.
+`FINAL-REPORT.md`, `EXECUTIVE-SUMMARY.md`, `ACTION-ITEMS.md`가 `~/dentalad/ads-research/`에 쌓였다.
 
-## V2 패스 — 왜 검증이 필요했나
+## DEV.to 파이프라인: publish.yml 한 줄 바꿔서 즉시 발행으로
 
-1차 보고서를 받고 나서 다음 요청이 들어왔다:
+Hermes 4 시리즈 4편을 작성하면서 파이프라인 버그를 발견했다. `~/dev_blog/.github/workflows/publish.yml:205`에 `"published": False`가 하드코딩되어 있었다. frontmatter에 `published: true`를 넣어도 무조건 드래프트로 올라가는 문제다.
 
-```
-지금 확인된 자료들 서브에이전트 필요한만큼 제한없이 (효율적인 선에서) 고용한 후에
-내용 검증/보완/추가 및 개선해서 나한테 리포트 보내줘
-내 목적은 기존광고 업계에 ai로 진입하는거야
-```
+`should_publish` 변수를 참조하도록 한 줄 수정하고, `~/blog-factory/scripts/queue-publish.sh`를 만들었다. `~/Library/LaunchAgents/com.jidong.blog-queue.plist`로 6시간마다 큐를 소모한다.
 
-1차 리서치는 넓게 긁어온다. 숫자가 틀리거나, 2024년 데이터가 2026년 기준으로 제시되거나, 법률 조항이 구버전인 경우가 있다. V2 에이전트는 이걸 잡기 위해 투입됐다.
+결과: Hermes 4 시리즈 4편, contextzip 홍보글 1편, spoonai.me 소개글 1편, 최신 LLM 뉴스 3편. 총 9편이 6시간 간격으로 자동 발행됐다.
 
-8개 V2 에이전트를 배포했다:
+Hermes 4 글의 구조에는 카피라이팅 전술을 전부 박았다. 후킹 타이틀, curiosity gap, TL;DR, 시리즈 내부 링크, 말미 CTA에 contextzip과 spoonai.me를 자연스럽게 녹였다. "모든 광고 기법 다 넣어줘"가 실제로 그렇게 반영됐다.
 
-- `A1` 대행사 팩트체크 — 5,424단어로 가장 방대
-- `A2` 네이버 2026 최신 검증 — Cue 2026-04-09 반영
-- `A3` 법률 스트레스 테스트 — CPA 과금의 의료법 위반 리스크 발견
-- `A4` CRM 글로벌 가격 검증 — Weave 기본가 오류 수정
-- `A5` 콘텐츠 전문화 ROI — Sonnet 4.6 실제 원가 재계산
-- `A6` SNS 인플루언서 리스크 — 릴스 CPM 검증
-- `A7` 서울 치과 잠재 고객 Top 50 — 8개 구, 정량 필터 적용
-- `A8` MVP 아키텍처 + 원가 — Claude API 실제 가격 기준 재계산
+LLM 뉴스 5편도 동시 작업했다. 리서치 에이전트 하나가 `~/blog-factory/research/llm-news-2026-04-21.md`를 만들면, 5개 포스트 작성 에이전트가 병렬로 초안을 뽑는다. Claude Opus 4.7 SWE-bench 분석, Adobe CX Enterprise MCP 통합, Deezer AI 음악 44%, Stellantis-Microsoft AI, MIT Tech Review 10대 AI 리스트.
 
-A3가 가장 중요한 발견을 했다. CPA(성과 기반 과금)는 의료광고법상 공범 리스크가 있다. 1차 보고서에는 이 내용이 빠져 있었다. MVP 단계에서 가격 모델을 잘못 설계하면 사업 전체가 막힌다.
+## spoonai.me: source.title 버그, 기사 백필, 반응형
 
-## 실제 프롬프트 패턴 — 에이전트에게 맡기는 방식
+`ArticleCard.tsx:148`에서 버그 하나를 잡았다. 날짜 옆에 원문 기사 전체 제목이 표시되는 문제였다.
 
-에이전트 지시는 구체적일수록 결과물이 좋다. 추상적인 "분석해줘"보다 목표 분량, 저장 경로, 커버해야 할 항목을 명시하는 게 훨씬 낫다.
+```yaml
+# 잘못된 상태
+source:
+  title: "Chip giant ASML raises 2026 guidance as AI semiconductor demand stays strong"
 
-이번에 쓴 패턴:
-
-```
-목표: [분야] 리서치 보고서 작성
-분량: 2,500~3,500단어
-저장: /Users/jidong/dentalad/ads-research/reports/[번호]-[slug].md
-필수 항목: [구체적 질문 3~5개]
+# 올바른 상태
+source:
+  title: "CNBC"
 ```
 
-A3 법률 에이전트에는 특별히 "쇼스토퍼(사업을 막을 항목)를 찾아라"는 지시를 추가했다. 결과로 3가지 쇼스토퍼가 나왔고 그게 가장 유용한 인사이트였다.
+수정은 두 방향으로 동시에 진행했다. `~/spoonai-site/SKILL.md`와 `~/.claude/skills/spoonai-daily-briefing/SKILL.md` 두 곳에 "퍼블리셔명만 넣는다"고 명시해서 앞으로 생성될 기사부터 막았다. 기존 MD 24개는 `source.url` 도메인 → 퍼블리셔 매핑으로 일괄 교체했다.
 
-## 최종 산출물 구조
+기사 백필도 병렬로 진행했다. 서브에이전트 5개가 type별로 나눠서 작업했다 — `model_release`, `product_launch`, `partnership`, `paper`, `default_news`. 스토리당 한국어/영어 각각, 이미지 최소 2장, 800px 이상 JPEG. 30여 개 스토리가 백필됐다.
 
-```
-dentalad/ads-research/
-├── reports/          # 1차 리서치 12편
-├── v2/               # V2 검증 8편
-├── EXECUTIVE-SUMMARY.md
-├── FINAL-REPORT.md
-├── ACTION-ITEMS.md
-├── RISKS.md
-└── 00-AI-AUTOMATION-ROADMAP.md
-```
+반응형 개선도 이번 세션에 들어갔다. `HomeContent.tsx`, `ArticleCard.tsx`, `globals.css`를 수정해서 웹에서는 넓직하게, 모바일에서는 사이즈에 맞게 분기했다.
 
-`FINAL-REPORT.md`와 `EXECUTIVE-SUMMARY.md`는 20개 에이전트 결과를 Claude가 직접 합산해서 작성했다. 액션 아이템까지 뽑혀 나왔다.
+## Vercel 배포 CANCELED 그리고 미커밋 83개 관리
 
-## 도구 사용 현황
+커밋(`703f6fc`)을 푸시했는데 Vercel 배포가 `CANCELED` 상태로 멈췄다. 원인: 동일 시간대에 다른 배포가 트리거되면 Vercel이 이전 배포를 취소한다. 빈 커밋으로 재트리거해서 해결했다.
 
-| 도구 | 횟수 |
-|------|------|
-| Bash | 49 |
-| Telegram reply | 28 |
-| WebSearch | 20 |
-| Agent | 20 |
-| WebFetch | 16 |
-| Write | 10 |
-| Read | 7 |
-| 기타 | 9 |
-| **합계** | **159** |
+미커밋 변경 83개를 정리하는 게 이번 세션의 가장 복잡한 부분이었다. `HomeContent.tsx` +523줄, `ArticleCard.tsx` 293줄 재작성, `globals.css` +257줄, `Header/Footer/Logo/About/Archive` 리디자인, `ThemeProvider.tsx` 삭제 — 전부 선행 작업과 내 수정이 섞여 있었다. 내가 건드린 26개 파일만 선별 커밋하고 나머지 57개는 그대로 보존했다.
 
-Agent 20회 = 1차 12개 + V2 8개. WebSearch·WebFetch는 행사 검색, Claude Design 블로그 소재 수집, 에이전트 내부 조사까지 포함한다.
+GeekNews 홍보 문구도 이번 기간에 작성했다. 핵심 인사이트 하나 — GeekNews는 자기 프로젝트 반복 홍보에 민감하다. "선착순 50명 무료"는 한 번만 쓸 수 있는 카드다. 이후에는 기술 포스트/경험담 형식으로 접근해야 재등록 명분이 생긴다.
 
-## 병렬 에이전트 리서치에서 배운 것
+## 도구 사용 통계 (4세션 합산)
 
-단일 긴 프롬프트보다 에이전트 분리가 낫다. 12개로 쪼개면 각 에이전트가 한 도메인에 집중해서 품질이 올라간다. 반면 V2 패스 없이 1차 결과를 그대로 쓰는 건 위험하다 — A3 케이스처럼 법률 리스크 하나가 사업 모델을 바꿀 수 있다.
+총 493 tool calls. Bash 211회, Read 46회, Agent 40회(서브에이전트 20개+), Telegram reply 34회, Edit 30회, TaskUpdate 23회, WebSearch 22회, WebFetch 16회.
 
-리서치 에이전트의 결과물은 "초안"이다. 숫자는 반드시 검증 에이전트로 돌린다. 가격, 법률 조항, API 스펙처럼 빠르게 바뀌는 데이터는 특히 그렇다.
+Agent 40회 = 1차 리서치 12개 + V2 검증 8개 + DEV.to 포스트 작성 5개 + 기사 백필 5개 + 기타. 반복 패턴이 있는 작업은 거의 다 에이전트로 넘겼다. 세션에서 직접 Edit/Write한 비율이 낮은 이유다.
 
 > 서브에이전트는 넓게 긁는다. 검증 에이전트는 좁게 파고든다. 두 패스를 함께 써야 신뢰할 수 있는 리서치가 나온다.
+
+같은 목표를 단일 컨텍스트 창 안에서 순차 처리했다면 대부분 불가능한 분량이었다.
