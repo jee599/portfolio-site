@@ -1,87 +1,100 @@
 ---
-title: "12 Parallel Claude Code Agents, 35,000 Words of Research in 3 Hours — Plus Two Pipeline Bugs"
+title: "25 Subagents at Once: Automating Korean Dental Ad Research and a 6-Hour Publish Pipeline"
 project: "portfolio-site"
 date: 2026-04-21
 lang: en
 pair: "2026-04-21-portfolio-site-ko"
-tags: [claude-code, subagent, automation, dentalad, devto, spoonai]
-description: "12 parallel Claude Code agents completed 35,000 chars of dental ad research in 3 hours. Also: a hardcoded published:False bug silently drafting every post, and a source.title display bug fixed."
+tags: [claude-code, automation, multi-agent, devto, spoonai, dentalad, build-log]
+description: "Deployed 25 Claude Code subagents in parallel to automate Korean dental market research, fixed a hardcoded draft bug, and wired a launchd-based 6-hour publish queue. 4 sessions, 493 tool calls."
 ---
 
-12 Claude Code sub-agents running in parallel produced 35,000 characters of competitive market research in 3 hours. The same work done sequentially in a single context window would have taken a full day — probably more.
+25 subagents running in parallel. 12 market research reports on the Korean dental advertising industry, produced in a single day. 493 tool calls across 4 sessions total.
 
-**TL;DR** Kicked off the `dentalad` project with 12 parallel sub-agents for domain research. Along the way, discovered a hardcoded `published: False` in `dev_blog/publish.yml` that had been silently draft-saving every post, and fixed a `source.title` display bug on spoonai.me that was rendering full article headlines next to the publication date. Four sessions, 493 tool calls total.
+**TL;DR** Launched the `dentalad` project using multi-agent research automation to map the Korean dental ad market end-to-end. Fixed a hardcoded `published: False` that had been silently turning every dev.to post into a draft. Wired a launchd-based 6-hour auto-publish queue. Patched a `source.title` rendering bug on spoonai.me where full article headlines were appearing next to timestamps.
 
-## One Telegram Message That Became a 12-Agent Research Session
+## One Telegram Message Became a 20-Agent Session
 
-The original request:
+The request came in short.
 
-> "Research all profitable Korean companies currently running hospital and dental advertising... use 10+ sub-agents, have each process its findings, write it up as a report, and commit it to git"
+> "Go through all Korean companies running hospital and dental ads, find the profitable ones, figure out what strategies they're using... use 10+ subagents, process each result, write it up in report format, push to git, and ping me when done."
 
-The key insight here is domain decomposition. A single agent doing all of this would be bottlenecked at the context window and produce shallow coverage. Splitting by domain lets each agent go deep without competing for attention.
+Direction only. No spec, no format, no scoping. Claude dispatched 12 agents in parallel:
 
-Dispatched 12 agents simultaneously, each owning a distinct slice:
-
-- `01` Top domestic medical ad agency landscape
-- `02` Naver SEO service market overview
-- `03` Naver Search Ads & Power Content agency ecosystem
-- `04` SNS performance marketing players
-- `05` Influencer & viral marketing channels
-- `06` Korean Medical Advertising Act — 2026 update
+- `01` Korean medical ad agency landscape
+- `02` Naver top-placement SEO strategy
+- `03` Naver SA & Power Content agencies
+- `04` SNS performance marketing agencies
+- `05` Influencer & viral marketing
+- `06` Medical advertising law — 2026 updates
 - `07` Hospital CRM & booking SaaS market
-- `08` AI content generation tooling
-- `09` Specialty strategies by procedure (implants, orthodontics, cosmetic)
+- `08` AI content generation tooling landscape
+- `09` Specialty-specific strategies (implants, orthodontics, cosmetic dentistry)
 - `10` Global AI medical marketing benchmarks
-- `11` Deep-dive: top 5 profitable companies
-- `12` 2026 dental industry news and trends
+- `11` Top 5 profitable dental clinics — deep dive
+- `12` 2026 dental industry news digest
 
-Each report came in at 2,500–4,500 words. All committed to `~/dentalad/ads-research/`. Wall-clock time to completion: 3 hours.
+Each agent ran WebSearch independently, then produced a 2,500–4,500 word Markdown report into `~/dentalad/ads-research/reports/`. 11 Telegram completion pings arrived in sequence. Total wall-clock time: ~3 hours.
 
-The next day, "verify and supplement" came in. Ran 8 more agents for a V2 pass — fact-checking, legal stress testing, MVP architecture costing. The critical finding from `A3-legal-stress-test.md`: CPA and performance-based billing models carry real Korean Medical Advertising Act violation risk. That's a showstopper that has to surface before finalizing any business model, not after.
+The decomposition is the core technique here. A single agent doing this sequentially would have been context-bound and shallow — each search window constrained by the previous one's framing. With 12 agents working independently, the `06` legal research agent had no reason to care what `09` was writing about dental specialties. That independence is what let both go deep.
 
-> Wide-sweep agents gather breadth. Verification agents drill narrow. Running both passes is what makes the output trustworthy enough to act on.
+The following day: "validate and supplement." Eight more agents ran a V2 pass, building out a `v2/` folder with fact-checking, legal stress testing, and MVP architecture cost modeling layered on top of the first-pass research.
 
-## `published: False` — Every Post Was a Draft and Nobody Knew
+The key output from `A3-legal-stress-test.md`: CPA and performance-based billing models carry Medical Advertising Law violation risk. This is a hard constraint — the kind that changes the entire business model calculus, not just a detail to handle later. It surfaced in pass 2, not pass 1. That's exactly what the validation pass is for.
 
-The bug only surfaced because of a "publish these immediately" request for four Hermes 4 series posts. While building a 6-hour `launchd` publish queue, actually checking whether posts went live revealed the problem.
+Five more agents synthesized the full research into a final report. First pass: 12 agents. V2 validation: 8 agents. Synthesis: 5 agents. Total: 25 agents, 52 Bash calls, 22 WebSearch calls.
 
-`dev_blog/.github/workflows/publish.yml:205`:
+> Broad-sweep agents cast the net wide. Validation agents drill narrow. You need both passes to trust the output.
+
+## `published: False` — The Pipeline Was Always in Draft Mode
+
+Tried to publish 4 posts in the Hermes 4 series immediately. Everything landing on dev.to was sitting in draft state. Posts that were supposed to be live weren't.
+
+Traced it to `dev_blog/.github/workflows/publish.yml:205`:
 
 ```yaml
-"published": False
+"published": False  # hardcoded
 ```
 
-Hardcoded. Every post going through this pipeline was landing on DEV.to as a draft — regardless of what `published: true` said in frontmatter. Posts that were supposed to be live had been sitting in draft state the whole time.
-
-The fix was a single line. `should_publish` was already being computed from frontmatter values further up in the workflow. The reference just wasn't being used at the API call site:
+Even when frontmatter had `published: true`, the workflow payload hardcoded `False`. The `should_publish` variable was already being computed correctly from frontmatter — it just wasn't being used at the API call site. One-line fix:
 
 ```python
 # Before
 payload = {
     "article": {
-        "published": False,  # hardcoded, ignored frontmatter
+        "published": False,     # ignored frontmatter entirely
     }
 }
 
 # After
 payload = {
     "article": {
-        "published": should_publish,  # read from frontmatter
+        "published": should_publish,  # reads from frontmatter
     }
 }
 ```
 
-This is the category of bug that never shows up in code review because it's not obviously wrong — `False` looks intentional, like a safety default. It only becomes visible when you're watching what actually ships.
+This is the category of bug that survives code review. `False` looks intentional — it reads like a safety default. The only way to catch it is to watch what actually ships.
 
-After the fix, set up `~/Library/LaunchAgents/com.jidong.blog-queue.plist` and `~/blog-factory/scripts/queue-publish.sh` to auto-publish on a 6-hour stagger: four Hermes 4 posts, a contextzip promo, a spoonai.me intro, and five LLM news pieces.
+After the fix, attached a 6-hour auto-publish queue. `RemoteTrigger` doesn't have access to local repos, so launchd was the right tool.
 
-## The Article Title Was Leaking Into the Date Field
+`~/Library/LaunchAgents/com.jidong.blog-queue.plist` runs `~/blog-factory/scripts/queue-publish.sh` every 6 hours:
 
-User feedback from spoonai.me:
+```xml
+<key>StartInterval</key>
+<integer>21600</integer>
+```
+
+The script reads the queue directory in order, publishes one post per invocation via the dev.to API, then moves it to a processed folder. Simple filesystem-backed FIFO queue.
+
+The 4 Hermes 4 posts went out at 6-hour intervals without any manual action. Five more LLM news posts went into the same queue. Agents write the content; launchd drains the queue on schedule. The two concerns stay fully separate.
+
+## There Was a Full Article Headline Living Next to the Date
+
+Feedback from spoonai.me:
 
 > "Why is 'Chip giant ASML raises 2026 guidance as AI semiconductor demand stays strong' showing up next to the date?"
 
-`components/ArticleCard.tsx:148` was rendering `post.source.title` next to the publication date. The component was working correctly — the data was wrong. `source.title` had the full article headline in it instead of the publisher name.
+`components/ArticleCard.tsx:148` was rendering `post.source.title` next to the publication timestamp. The component was working correctly — the data was wrong. `source.title` was being populated with the full article headline instead of the publisher name.
 
 Before:
 ```yaml
@@ -97,37 +110,42 @@ source:
   url: "https://cnbc.com/..."
 ```
 
-Fixed in two directions simultaneously. Both `~/spoonai-site/SKILL.md` and `~/.claude/skills/spoonai-daily-briefing/SKILL.md` were updated with an explicit rule: publisher name only, no article titles. That covers future generation. For the existing 24 markdown files, a bulk replacement mapped `source.url` domains to publisher names.
+Fixed in two directions simultaneously. Updated both `~/spoonai-site/SKILL.md` and `~/.claude/skills/spoonai-daily-briefing/SKILL.md` to explicitly document "publisher name only in `source.title`." That covers all future auto-generated articles. For the existing 24 Markdown files, ran a bulk replace mapping `source.url` domains to canonical publisher names: `cnbc.com` → `CNBC`, `theverge.com` → `The Verge`, `techcrunch.com` → `TechCrunch`, and so on.
 
-After pushing commit `703f6fc`, the Vercel deployment sat in `CANCELED` state. Root cause: Vercel cancels in-flight deploys when a newer deploy triggers on the same project in the same time window. Fixed with an empty commit to retrigger. Worth knowing before assuming a deploy failed for a code reason.
+After pushing commit `703f6fc`, the Vercel deployment hit `CANCELED`. Root cause: a concurrent deployment triggered at the same time and preempted the previous one. Resolved with an empty commit to retrigger. Worth knowing before assuming a `CANCELED` means a code failure.
 
-## "Just Clean Everything" — 83 Files, One Question
+The two-direction fix pattern matters. Fixing only the content leaves the skill instructions unchanged — next auto-generated article reproduces the bug. Fixing only the skill instructions leaves 24 existing files broken. Both directions are necessary.
 
-Midway through a session: "just clean everything up."
+## "Just Clean Everything" — 83 Files on the Line
+
+Mid-session: "just clean everything up."
 
 Two valid interpretations:
 
-**A.** Delete the 22 `.claude/worktrees/*` temp directories — leftover worktree copies from previous sessions. Original files untouched. Safe.
+**A.** Delete the 22 temporary folders under `.claude/worktrees/*`. Leftover copies from previous worktree sessions. No impact on any source file.
 
-**B.** `git reset --hard && git clean -fd` — wipe 83 uncommitted files, including `HomeContent.tsx` (+523 lines), `ArticleCard.tsx` (293 lines rewritten), `globals.css` (+257 lines). A full UI redesign, gone permanently.
+**B.** `git reset --hard` + `git clean -fd`. Wipes `HomeContent.tsx` (+523 lines), `ArticleCard.tsx` (293 lines), `globals.css` (+257 lines) — 83 files in total. Completely unrecoverable.
 
-Asked. Got back: "1." Went with A.
+Asked for clarification before doing anything. The answer came back: "1." Executed A.
 
-One clarifying question preserved a +1,700-line UI redesign that would have been unrecoverable. The cost of asking is near zero. The cost of silently picking the wrong interpretation is a full day of work. For irreversible operations with high blast radius, confirm scope before acting — even when the request sounds casual.
+The principle: when blast radius is irreversible and phrasing is ambiguous, the cost of confirming is near zero and the cost of getting it wrong is total. "Clean everything" doesn't resolve to a single intent from context alone. When the two interpretations differ by "temp files cleared" vs "full day of UI work permanently gone," asking is the right call regardless of how casual the request sounds.
 
-## Tool Usage Breakdown (4 Sessions, 493 Tool Calls)
+## Stats — 4 Sessions Combined
 
-| Tool | Count | Primary use |
+493 total tool calls.
+
+| Tool | Count | Primary Use |
 |---|---|---|
 | Bash | 211 | File execution, git, deploy triggers |
-| Read | 46 | Understanding existing structure |
+| Read | 46 | Understanding existing file structure |
 | Agent | 40 | Research, post writing, backfill |
-| Telegram reply | 34 | Receiving and responding to requests |
-| Edit | 30 | Targeted file modifications |
+| Telegram reply | 34 | Receiving and confirming requests |
+| Edit | 30 | File modifications |
+| WebSearch | 22 | Data gathering |
 
-Agent count of 40 breaks down as: 12 first-pass research + 8 V2 verification + 5 post drafting + 5 article backfill + other. Anything with a repeating structure gets delegated. That's why the direct Edit/Write ratio is low — the high-volume repetitive work never reaches the top-level session.
+The Agent count of 40 understates the actual work. Each dispatch internally generates dozens more tool calls — WebSearch, Read, Write — that don't appear in the top-level count. The low Edit/Write ratio reflects a deliberate choice: any task with a repeating structure gets delegated to agents rather than run inline.
 
-The pattern: use the main session for decision-making, coordination, and one-off edits. Use agents for any task with a template you can define upfront.
+The split: main session handles decisions and one-off edits; agents handle high-volume pattern work at scale. That's why 40 Agent calls can outweigh 211 Bash calls in actual throughput.
 
 ---
 
