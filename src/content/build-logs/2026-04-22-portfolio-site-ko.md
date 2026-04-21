@@ -1,89 +1,97 @@
 ---
-title: "deploy 폴더 하나로 홈 리디자인: Claude Code 에이전트 106회 tool call 기록"
+title: "Static 번들 → Astro 네이티브 홈 리빌드 — 프롬프트 3개, 106 tool calls, 14개 컴포넌트"
 project: "portfolio-site"
 date: 2026-04-22
 lang: ko
-tags: [claude-code, astro, homepage, refactor, agent-orchestration]
-description: "'deploy 폴더 내용 jidonglab에 적용해줘' 한 줄 명령이 106회 tool call, 3시간 26분짜리 세션이 됐다. 폴더 탐색부터 컴포넌트 분리, 스타일 분리까지 전 과정을 기록한다."
+tags: [claude-code, astro, react, portfolio, refactoring, home-design]
+description: "3줄짜리 프롬프트로 시작한 홈 리디자인이 14개 Astro/React 컴포넌트 전면 재건으로 끝났다. Static 번들이 왜 Astro 스택에 그대로 쓸 수 없는지, Claude가 어떻게 방향을 전환했는지 106 tool calls 기록."
 ---
 
-"deploy 폴더에 있는거 jidonglab에 다 적용해줘."
+프롬프트 3개가 106번의 tool call을 만들었다. 세션 시간은 3시간 26분. 결과물은 홈 컴포넌트 14개 전면 재건이다.
 
-이 한 줄짜리 프롬프트로 시작한 세션이 106회 tool call, 3시간 26분짜리 작업으로 이어졌다.
+**TL;DR** 기존 deploy 번들(React + Vite 스태틱)을 portfolio-site Astro 스택에 그대로 얹으려다 막혔다. Claude가 스스로 방향을 전환해 `src/components/home/`에 Astro + React 네이티브 컴포넌트 12개를 새로 짰다.
 
-**TL;DR** `~/portfolio/deploy/`에 모아둔 홈 리디자인 파일들을 portfolio-site에 통합. `src/components/home/`, `src/data/home.ts`, `src/styles/home.css` 신규 생성, `index.astro` 리팩토링 완료.
+## "deploy 폴더에 있는 거 다 적용해줘"
 
-## 에이전트가 먼저 해야 했던 것: 폴더 탐색
+세션 내내 사용자 프롬프트는 세 줄이 전부였다.
 
-`deploy` 폴더가 홈 디렉토리에 없었다. 에이전트가 `~/` 전체를 탐색해서 위치를 찾아야 했다. `jidonglab`이라는 이름도 마찬가지 — 실제 레포 이름이 `portfolio-site`라서 매핑이 필요했다.
+> "deploy 폴더에 있ㄴㄴ거 jidonglab에 다 적용해줘"
 
-```bash
-# 에이전트가 실행한 흐름 (단순화)
-find ~/ -name "deploy" -type d 2>/dev/null
-# → ~/portfolio/deploy 발견
-ls ~/portfolio/portfolio-site/src/pages/index.astro
-# → 19,200바이트 Astro 파일 존재 확인
-```
+> "예시 화면 보여줘"
 
-이 탐색에만 `Bash` + `Glob` 호출이 여러 차례 들어갔다. 명시적인 경로를 넘겨줬으면 10분을 절약했을 것이다.
+> "너추천대로해"
 
-## 기존 index.astro의 문제
+구체적인 지시가 없다. Claude는 먼저 `deploy` 폴더를 찾는 것부터 시작했다. 홈 디렉터리에 없었다. Bash 여러 회로 다른 위치도 확인해서 찾았다. 6개 파일(`app.jsx`, `data.js`, `index.html`, `styles.css`, `tech.jsx`, `thumbnails.jsx` — 약 103KB)로 구성된 Vite + React 스태틱 번들이었다.
 
-19.2K짜리 `index.astro` 파일 하나에 홈 전체가 들어 있었다. 컴포넌트 분리 없이 인라인으로 마크업이 쌓인 구조. 에이전트가 "기존 구조에 그냥 붙여넣을지 vs 컴포넌트로 쪼갤지"를 물었고, 나는 "너 추천대로 해"로 답했다.
+다음으로 "jidonglab"이 어디 있는지 파악해야 했다. `~/portfolio/portfolio-site/`가 `jidonglab.com` 레포였다. 구조 확인 결과 Astro 4 + React + Tailwind 스택으로, Content Collections까지 물고 있었다.
 
-에이전트의 선택:
+여기서 Claude가 먼저 경고를 띄웠다.
 
-- `src/components/home/` — 섹션별 컴포넌트 분리
-- `src/data/home.ts` — 하드코딩된 데이터 분리
-- `src/styles/home.css` — 홈 전용 스타일 격리
-- `index.astro` — import 껍데기로 축소
+> "기존 index.astro(19.2K의 Astro 네이티브 홈)를 간단한 redirect로 덮어쓰는 거라 꽤 파괴적이야."
 
-관심사가 나뉘면 나중에 콘텐츠는 `home.ts`만 건드리면 된다. 구조 결정을 에이전트에게 위임했는데, `deploy` 폴더 코드에 의도가 충분히 드러나 있어서 가능했던 것이다.
+git 워킹트리가 클린 상태임을 확인한 뒤 1차 적용을 진행했다. `public/jidonglab-home/`에 번들 파일 6개를 그대로 넣고, `src/pages/index.astro`를 580B짜리 redirect로 교체했다.
+
+## Static 번들의 벽
+
+"예시 화면 보여줘"가 들어왔다. 로컬 HTTP 서버를 띄우고 헤드리스 Chrome으로 스크린샷을 찍었다. 히어로 섹션은 렌더링됐다. 그런데 구조적인 문제가 있었다.
+
+deploy 번들은 독립적인 스태틱 앱이다. `index.html`이 직접 JSX를 불러오고, 빌드 결과물도 자체 번들링을 전제로 한다. portfolio-site의 Astro build 파이프라인과 맞물리지 않는다. Content Collections(`build-logs`, `tips`, `ai-news`)에 접근할 방법이 없다. 기존 `PostCard`, `ProjectCard` 컴포넌트도 쓸 수 없다.
+
+그래서 Claude가 세 번째 프롬프트 "너추천대로해"에 대한 답으로 방향을 전환했다.
+
+> "deploy 번들은 static 묶음이라 그대로 쓰면 콘텐츠 컬렉션이랑 완전히 분리됨. jidonglab의 Astro 스택 위에 네이티브로 다시 구현해야지."
+
+## 14개 파일, Astro + React 네이티브 재건
+
+`src/components/home/`을 새로 만들고 컴포넌트를 섹션별로 분리했다.
+
+| 파일 | 종류 | 역할 |
+|---|---|---|
+| `Hero.tsx` | React | 히어로 섹션 (인터랙티브) |
+| `Lab.tsx` | React | 프로젝트 갤러리 |
+| `Projects.tsx` | React | 사이드 프로젝트 리스트 |
+| `Thumbnails.tsx` | React | 썸네일 그리드 |
+| `TechBlock.tsx` | React | 기술 스택 블록 |
+| `About.astro` | Astro | About 섹션 |
+| `Footer.astro` | Astro | 푸터 |
+| `NowStrip.astro` | Astro | 현재 작업 중 표시 |
+| `ShipLog.astro` | Astro | 빌드 로그 최근 목록 |
+| `Topbar.astro` | Astro | 상단 네비게이션 |
+| `Wordmark.astro` | Astro | 로고 마크 |
+| `Writing.astro` | Astro | 포스트 목록 섹션 |
+
+`src/data/home.ts`에 하드코딩 데이터를 분리했다. `src/pages/index.astro`는 redirect 대신 이 컴포넌트들을 조합하는 페이지로 새로 작성했다.
+
+Astro 컴포넌트는 정적 HTML 렌더링, React 컴포넌트는 인터랙션이 필요한 섹션만 담당하는 구조다. `client:load` 없이 번들에 포함되지 않도록 Astro 컴포넌트 비중을 높였다.
 
 ## tool call 분포
 
-106회 중 주요 도구 비율:
+총 106 tool calls.
 
-- `Read` / `Glob` / `Grep` — 탐색 약 30회: deploy 폴더 구조 파악, 기존 코드 독해
-- `Write` / `Edit` — 실제 작업 약 40회: 컴포넌트 생성, index.astro 수정
-- `Bash` — 빌드 확인 약 20회: `astro check`, 타입 오류 확인
-- `Agent` — 독립 서브태스크 위임 약 15회
+| 도구 | 횟수 | 용도 |
+|---|---|---|
+| Bash | 40 | 폴더 탐색, 로컬 서버, 스크린샷 |
+| Read | 17 | 기존 컴포넌트·스키마 파악 |
+| Write | 15 | 신규 컴포넌트·데이터 파일 생성 |
+| TaskUpdate | 14 | 진행 추적 |
+| TaskCreate | 7 | 하위 작업 분해 |
+| ToolSearch | 4 | 도구 스키마 확인 |
+| Glob + Grep | 6 | 파일 탐색 |
 
-탐색에 전체의 30%가 소요됐다. 프로젝트 구조와 경로를 미리 컨텍스트로 넘기면 이 비율을 절반으로 줄일 수 있다.
+Edit이 0회다. 기존 파일을 수정한 게 아니라 전부 신규 Write로 만들었기 때문이다. `index.astro`는 redirect → 빈 조합 페이지 → 최종 재건 세 단계를 거쳤는데, 매번 Write로 전체를 교체했다.
 
-## 4월 17~21일 세션 전체 맥락
+Bash 40회 중 상당수가 폴더 위치 확인(세션 초반)과 로컬 서버 실행, 헤드리스 스크린샷 캡처다. Chrome DevTools Protocol로 스크롤 캡처를 시도했다가 권한 문제로 실패한 과정도 포함된다.
 
-이번 portfolio-site 작업은 총 6개 세션 중 마지막에 있었다. 나머지 세션에서 병렬로 처리한 것들:
+## 프롬프트가 짧을수록 탐색 비용이 올라간다
 
-**DEV.to 자동 발행 파이프라인** (세션 2, 148회 tool call): `launchd` plist + `publish.yml` 수정으로 6시간 간격 자동 발행 구축. `publish.yml:205`에 하드코딩된 `"published": False`를 `should_publish` 변수 참조로 바꾸는 게 핵심이었다.
+이 세션의 핵심 패턴이다. "deploy 폴더에 있는 거 다 적용해줘"라는 한 줄이 Claude에게는 다음을 의미했다.
 
-**spoonai.me 버그 수정** (세션 3, 162회 tool call): `ArticleCard.tsx:148`에서 `post.source.title`이 기사 전체 제목으로 찍히던 문제. 스킬 스펙 2곳 수정 + 기존 MD 24개 일괄 도메인→퍼블리셔명 교체.
+1. deploy 폴더가 어디 있는지 찾아라 (Bash 여러 회)
+2. jidonglab 레포가 어디 있는지 찾아라
+3. 현재 `index.astro`가 어떤 구조인지 파악해라
+4. 두 스택이 호환되는지 판단해라
+5. 안 된다면 대안을 제시하고 실행해라
 
-**치과 광고 리서치** (세션 4, 182회 tool call): 에이전트 12개 병렬 실행, 각 2,500~4,500자 리포트. `dentalad/ads-research/reports/` 아래 10여 개 파일 생성.
+짧은 프롬프트가 나쁜 건 아니다. 탐색 비용(tool calls)을 Claude가 부담하는 구조로, 사용자는 방향만 잡고 구체적인 판단은 위임하는 방식이다. "너추천대로해" 한 마디가 14개 컴포넌트 아키텍처 결정으로 이어졌다.
 
-세션별 tool call 합계만 약 600회. 같은 기간 혼자 했다면 일주일은 걸렸을 작업량이다.
-
-## 프롬프트에서 배운 것
-
-효과적이었던 것:
-
-> "너 추천대로 해"
-
-컨텍스트가 코드에 있을 때는 구조 결정을 위임해도 된다. `deploy` 폴더가 의도를 드러내고 있었기 때문에 에이전트가 합리적인 선택을 했다.
-
-실패한 패턴:
-
-> "deploy 폴더에 있는거 jidonglab에 다 적용해줘"
-
-경로 없이 이름만 넘기면 탐색 비용이 생긴다. `~/portfolio/deploy → ~/portfolio/portfolio-site` 처럼 처음부터 절대 경로를 주는 게 낫다. 에이전트가 추론할 수 있다고 해서 추론하게 두는 건 비효율이다.
-
-## 변경된 파일
-
-```
-M  src/pages/index.astro
-?? src/components/home/
-?? src/data/home.ts
-?? src/styles/home.css
-```
-
-아직 미커밋 상태. `astro build` 통과 확인 후 밀어낼 예정이다.
+> 방향만 잡고, 판단은 위임한다. 짧은 프롬프트는 탐색 비용을 올리지만 의사결정 속도를 올린다.
