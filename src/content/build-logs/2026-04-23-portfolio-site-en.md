@@ -1,145 +1,118 @@
 ---
-title: "Why I Ripped Out a Static Bundle After 3 Seconds — Homepage Redesign in 204 Tool Calls"
+title: "Reverse-Engineering Claude Design's 422-Line System Prompt and Validating 66,745 Words with 5 Parallel Agents (201 Tool Calls)"
 project: "portfolio-site"
 date: 2026-04-23
 lang: en
 pair: "2026-04-23-portfolio-site-ko"
-tags: [claude-code, astro, portfolio, design, refactoring]
-description: "A static bundle killed Content Collections. 204 Claude Code tool calls to fix it: native rebuild, reverse-engineered Claude Design prompt, full redesign."
+tags: [claude-code, multi-agent, claude-design, reverse-engineering, research-verification]
+description: "How I ran 201 tool calls across 2 sessions to reverse-engineer Claude Design's system prompt and cross-validate a 66,745-word research doc with 5 parallel agents."
 ---
 
-204 tool calls. 17 files. Two sessions adding up to over five hours. All because I told Claude to "just paste the deploy folder in."
+201 tool calls. Two sessions. A 66,745-word research document that would blow a single context window, and a 422-line system prompt from a tool that launched six days ago. Yesterday was dense.
 
-Three seconds after the redirect landed, the build logs were gone. Scroll further — no recent posts. No AI news feed. What remained was a clean hero section sitting above a void. The static bundle had severed every Content Collections connection on the homepage.
+**TL;DR** — Dispatched 5 parallel agents to cross-validate a 66,000+ word research doc and caught a reversed subject claim in the process. Then pulled apart Claude Design's published system prompt, reverse-engineered its internal architecture, and ported the reusable parts into a local CLI skill.
 
-This is what happened, and why it took two full sessions to get back to a functioning page that also looked better than what I started with.
+## Why 66,745 Words Can't Fit in One Context
 
-**TL;DR** Pasted a React bundle into `index.astro` → Content Collections severed → rebuilt 12 Astro-native components (106 tool calls, 3h 26min) → reverse-engineered Claude Design's leaked system prompt → second redesign session with 4 variants (98 tool calls, 2h 5min). Total: 204 Claude Code tool calls, 17 new files.
+The dental ad research directory at `/Users/jidong/dentalad/ads-research/` had accumulated 66,745 words across 24 documents — 12 V1 originals, 8 V2 verified versions, and 4 integrated summaries. Reading them sequentially in a single context isn't just slow; it blows the token budget entirely.
 
-## The Decision That Seemed Fine for Three Seconds
+The fix: split by domain, dispatch five agents simultaneously.
 
-The prompt was short: "Apply everything in the deploy folder to jidonglab."
+```
+1. Regulatory   — Korea AI Basic Law · FTC · Supreme Court · Medical Act
+2. Competitors  — CareLabs + Top 5 domestic + global comparables
+3. Platform     — Naver · Meta · ChatGPT market trends
+4. Unit Econ    — cost structure · pricing · MRR model
+5. Market Data  — CRM benchmarks · ROAS · LTV · TAM numbers
+```
 
-The `deploy/` folder had been built as a standalone prototype — six files totaling around 103KB: `app.jsx`, `data.js`, `index.html`, `styles.css`, `tech.jsx`, `thumbnails.jsx`. A proper home page design with a hero section, project thumbnails, tech stack block, and a footer. The intention was to promote it from prototype to production.
+Each agent independently web-searched its domain and returned a verification report. Sequential execution would've taken four to five hours. Parallel brought it inside a single session.
 
-Claude's approach: replace `src/pages/index.astro` (the existing 19.2KB homepage) with a 580-byte redirect pointing to `public/jidonglab-home/index.html`, and drop the bundle into the public directory. The hero section rendered. The screenshot looked fine.
+## What the Agents Actually Caught
 
-The problem surfaced on scroll. The homepage had been showing:
-- Recent build logs from Content Collections
-- Latest blog posts
-- AI news feed entries
-- A "now playing" strip with recent activity
+The most valuable finds weren't missing data — they were subtle factual errors that are easy to miss when reading linearly.
 
-All gone. Not broken with errors — just absent. The static bundle had no mechanism to read from Astro Content Collections. Those collections are resolved at Astro's build phase; a file sitting in `public/` is served as-is, completely outside that pipeline. The bundle was self-contained by design — built to be previewed directly in a browser — which made it useless as a live data-connected component.
+**Platform report: reversed subject.** The document claimed "ChatGPT blocked Naver." Wrong direction entirely. Naver blocked ChatGPT's crawler bots. The sentence was grammatically plausible in Korean; only an agent prompting specifically for "reasons this could be false" caught the reversal.
 
-The only real options: (a) keep the static bundle and permanently lose dynamic content, or (b) rebuild the design as Astro-native components. Option (a) wasn't a real option.
+**Regulatory report: timing conflation.** The FTC virtual persona regulation was at the administrative notice stage, not enforcement. The 5x punitive damages provision had passed legislation in 2026 Q1, but the research doc conflated the announcement date with the enforcement date. In a live business context, that distinction matters significantly.
 
-## 106 Tool Calls to Rebuild 12 Components
+The pattern that made this work:
 
-I handed back the decision: "Do whatever you recommend."
+> Verification agents should be prompted to find reasons something could be wrong — not to confirm it's right.
 
-The first step was reading the original `index.astro` to map everything the homepage needed: build logs (latest N entries, filtered by `lang`), blog posts (recent, with titles and dates), project entries, tech stack items, and the activity strip.
+"Confirm X is true" produces agreement bias. "Find reasons X might be false" produces actual verification. The prompting direction changes the output category.
 
-Data extraction first. Rather than scattering queries across components, Claude centralized static data in `src/data/home.ts` — project metadata, tech items, anything that didn't come from Content Collections. This kept Astro components focused on layout and presentation.
+## Pulling Apart Claude Design's 422-Line System Prompt
 
-The component split:
+On 2026-04-17, Anthropic Labs released `claude.ai/design`. The same day, the system prompt appeared in the `elder-plinius/CL4R1T4S` GitHub repo: `ANTHROPIC/Claude-Design-Sys-Prompt.txt` — 422 lines, roughly 73KB.
 
-**React client components** (interactive or stateful):
-- `Hero.tsx` — animated headline, CTA
-- `Lab.tsx` — project lab section
-- `Projects.tsx` — project cards with hover states
-- `TechBlock.tsx` — tech stack visualization
-- `Thumbnails.tsx` — project thumbnail grid
+The initial ask was "find Claude Design source code leaks." Short answer: there weren't any. The Claude Code TypeScript source (513,000 lines) had leaked via npm sourcemap on 2026-03-31, but that's unrelated — Design's React implementation hasn't surfaced publicly. What leaked was the system prompt and tool schema. That was enough.
 
-**Astro server components** (data-fetching, static):
-- `ShipLog.astro` — reads from Content Collections directly, renders recent build logs
-- `Writing.astro` — recent blog posts
-- `About.astro`, `Footer.astro`, `NowStrip.astro`, `Topbar.astro`, `Wordmark.astro` — layout/structure
+Reverse-engineered internal structure from the prompt:
 
-`ShipLog.astro` is the critical piece. It calls `getCollection('build-logs')`, filters by language, sorts by date, and passes entries to the template. This is what static bundles categorically cannot do — it runs at Astro's build phase, not in the browser.
+```
+claude.ai/design (Next.js / React)
+  ├── Live Preview iframe
+  ├── Tweaks panel (palette / font / density)
+  ├── Claude Opus 4.7 (model locked)
+  └── Filesystem-based project workspace
+```
 
-Tool usage for this session:
+The persona framing is precise: the model is configured as a **professional designer who uses HTML as a medium**, not a developer who writes HTML. The user is the creative director; the model is the practitioner. Everything — presentations, videos, prototypes — gets built in HTML. The key structural difference from standard Claude chat is the **filesystem-backed project workspace** with relative path references and cross-project isolation.
+
+## Porting the Reusable Parts into a Local Skill
+
+Live Preview and the Tweaks panel are host-dependent — those can't be reproduced in CLI. Four components can be:
+
+- **Question methodology** — the 10 patterns Claude Design uses to extract context before generating anything
+- **Context collection structure** — how it maps user intent to design decisions
+- **Variation generation logic** — how it frames multiple directions without defaulting to one
+- **AI-slop guards** — explicit rules to avoid generic output (excessive gradients, over-rounded corners, hollow icons)
+
+Result: `~/.claude/skills/claude-design-lite/SKILL.md`. Invoking `claude-design-lite` now runs through the same context-gathering flow without loading the full system prompt each time.
+
+The broader pattern: leaked or documented system prompts are behavioral specifications. You can replicate the core mechanic without the host environment. The interesting part of Claude Design wasn't the web UI — it was the context collection discipline and the variant generation structure.
+
+## jidonglab.com Redesign: 4 Directions at Once
+
+Immediately after the analysis, applied it. Generated four redesign directions in parallel into `~/jidonglab-redesign/`:
+
+- `v1-notebook.html` — notebook aesthetic, editorial typography
+- `v2-pro.html` — tech portfolio, dense information layout
+- `v2-studio.html` — studio feel, light card grid
+- `v3-labos.html` — experimental, system UI aesthetic
+
+The `v2-pro` direction was the strongest fit. The copy direction that emerged from the review session:
+
+> "Every day, documented. A year of commits, posts, and build logs on one screen. The slow days and the sprint days — none of it hidden."
+
+That framing locked in the heatmap section direction: a GitHub-style activity grid that aggregates commits, blog posts, and build logs as a single daily count. Wiring up live GitHub API data is next session's work.
+
+## Tool Usage Breakdown
+
+Session 1 (dentalad research verification, 3h 12m):
 
 | Tool | Calls |
 |---|---|
-| Bash | 40 |
-| Read | 17 |
-| Write | 15 |
-| TaskUpdate | 14 |
-| TaskCreate | 7 |
-| **Total** | **106** |
+| Bash | 31 |
+| Edit | 23 |
+| TaskUpdate | 18 |
+| Write | 10 |
+| TaskCreate | 9 |
 
-Time elapsed: 3 hours 26 minutes.
+Session 2 (Claude Design + redesign, 2h 5m):
 
-The rebuild covered the same surface area as the deploy bundle, but wired into the actual data model. The lesson isn't complicated: if you build a prototype outside the environment it'll live in, reintegration is a full rebuild. There's no shortcut that preserves both the design and the data connections.
+| Tool | Calls |
+|---|---|
+| Edit | 37 |
+| Bash | 24 |
+| WebSearch | 11 |
+| Write | 11 |
+| Read | 8 |
 
-## The Claude Design System Prompt That Leaked on Launch Day
+Combined: Edit 60, Bash 55, 201 total tool calls. The `TaskCreate`/`TaskUpdate` spike in session 1 reflects agent dispatch tracking. The 11 WebSearch calls in session 2 were all for Claude Design fact-checking: release date, repo source, Claude Code sourcemap incident timeline.
 
-Session two started from a different angle: "Find the leaked Claude Design code."
-
-[Claude Design](https://claude.ai/design) launched April 17, 2026 as an Anthropic Labs experiment. Pro subscription required. On launch day, the full system prompt was posted publicly — the [elder-plinius/CL4R1T4S](https://github.com/elder-plinius/CL4R1T4S) repository had 422 lines of prompt text plus tool schema definitions, approximately 73KB total.
-
-The prompt revealed Claude Design's core architecture:
-
-1. **HTML as the only native output** — Claude Design doesn't generate React or components; it outputs raw HTML/CSS/JS. The host environment handles rendering.
-2. **Pre-generation question phase** — before generating anything, the model fires a structured set of questions to gather context: purpose, audience, visual references, constraints.
-3. **AI-slop guard** — explicit instructions to avoid generic "AI aesthetic" patterns: excessive gradients, over-rounded corners, hollow icons, overly symmetrical layouts.
-4. **Variant generation** — produces multiple distinct design directions rather than a single output.
-
-Live Preview, Tweaks panel, and Design Mode are host-environment features, not model behaviors. Not reproducible locally.
-
-What was reproducible: the question technique and the variant generation workflow.
-
-I ported these into a local Claude Code skill: `~/.claude/skills/claude-design-lite/SKILL.md`. The skill triggers context collection (10 questions), then generates 4 design variants as HTML files with the AI-slop guards applied. No WebSearch, no special access — just the system prompt analysis and a `SKILL.md` file.
-
-This generalizes: leaked or documented system prompts are behavioral specifications. You can replicate the core mechanic without replicating the host environment. The interesting part of Claude Design wasn't the web UI — it was the context collection flow and the variance generation discipline.
-
-## Four Variants and the Heatmap Concept
-
-With the skill running, I submitted a jidonglab.com redesign request. Context collection fired first — 10 questions covering site purpose, primary audience, visual tone, color constraints, and content priorities.
-
-Answers: tech portfolio, Korean and global audiences, toss-green (`#00c471`) as accent, simple and opinionated, no decorative elements.
-
-Four variants generated:
-- **v1-notebook.html** — editorial, strong typography, minimal color
-- **v2-pro.html** — dark mode, dense information layout, developer-facing
-- **v2-studio.html** — light card grid, creator portfolio feel
-- **v3-labos.html** — system UI aesthetic, monospace-heavy
-
-v2-pro was the strongest fit. During review, one additional concept emerged from a prompt I wrote:
-
-> "Every day, documented. A full year of commits, posts, and build logs on a single screen. The slow days and the sprint days — none of it hidden."
-
-The idea: a GitHub contribution heatmap variant that aggregates across data sources. Instead of commits only, it would count commits + blog posts + build logs as daily activity. The visual mockup showed "2,847 total entries, 41-day longest streak."
-
-Immediate question: "Is that real data?"
-
-No. Hardcoded placeholders for the visual mockup. Making the heatmap live requires:
-- GitHub API integration for commit counts per day
-- `getCollection('build-logs')` grouped by date
-- `getCollection('ai-news')` and blog posts grouped by date
-- An aggregation layer combining all three sources
-
-That's the next concrete task: replace placeholder numbers with real API calls.
-
-## Session Stats
-
-| Session | Duration | Tool Calls | Output |
-|---|---|---|---|
-| Native component rebuild | 3h 26min | 106 | 12 components, 1 data file |
-| Claude Design reverse-engineering + redesign | 2h 5min | 98 | 1 skill, 4 HTML variants |
-| **Total** | **5h 31min** | **204** | 17 files created, 1 modified |
-
-Tool distribution across both sessions:
-- Bash: 64 calls (build checks, file operations)
-- Edit: 37 calls (targeted modifications)
-- Write: 26 calls (new file creation)
-
-The original mistake — pasting a static bundle into an Astro page — is obvious in hindsight. A file in `public/` sits outside Astro's build pipeline. Content Collections only exist within that pipeline. The combination was never going to work.
-
-The more useful pattern from this session: when a design prototype needs to graduate to production, the first question is "what data does this page need, and where does that data live in the build pipeline?" Answer that before touching any files.
-
-> Design disconnected from data is just decoration.
+19 files created, 4 modified. The bulk: 5 verification reports (`verification/01–05.md`), the claude-design-lite skill file, and the 4 HTML redesign variants.
 
 ---
 
