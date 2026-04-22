@@ -1,97 +1,80 @@
 ---
-title: "Static 번들 → Astro 네이티브 홈 리빌드 — 프롬프트 3개, 106 tool calls, 14개 컴포넌트"
+title: "홈페이지 리디자인, 프롬프트 3줄로 끝냈다 — 14개 Astro 컴포넌트 자동 생성"
 project: "portfolio-site"
 date: 2026-04-22
 lang: ko
-tags: [claude-code, astro, react, portfolio, refactoring, home-design]
-description: "3줄짜리 프롬프트로 시작한 홈 리디자인이 14개 Astro/React 컴포넌트 전면 재건으로 끝났다. Static 번들이 왜 Astro 스택에 그대로 쓸 수 없는지, Claude가 어떻게 방향을 전환했는지 106 tool calls 기록."
+tags: [claude-code, astro, home-design, refactoring]
+description: "deploy 폴더 하나 던졌더니 Claude가 14개 Astro 컴포넌트를 만들었다. 사용자 입력 3줄, 도구 호출 106번, 3시간 26분. 정적 번들을 Astro 네이티브로 변환하는 과정을 기록한다."
 ---
 
-프롬프트 3개가 106번의 tool call을 만들었다. 세션 시간은 3시간 26분. 결과물은 홈 컴포넌트 14개 전면 재건이다.
+"deploy 폴더에 있는 거 jidonglab에 다 적용해줘"
 
-**TL;DR** 기존 deploy 번들(React + Vite 스태틱)을 portfolio-site Astro 스택에 그대로 얹으려다 막혔다. Claude가 스스로 방향을 전환해 `src/components/home/`에 Astro + React 네이티브 컴포넌트 12개를 새로 짰다.
+이게 이 세션의 첫 번째 프롬프트 전문이다. 오타도 있다. 3시간 26분 뒤, 14개 파일이 새로 생겼다.
 
-## "deploy 폴더에 있는 거 다 적용해줘"
+**TL;DR** 정적 deploy 번들을 그대로 이식하는 대신 Astro 네이티브로 재구현했다. 사용자 프롬프트는 3줄, Claude의 도구 호출은 106번이었다.
 
-세션 내내 사용자 프롬프트는 세 줄이 전부였다.
+## 프롬프트가 짧을수록 Claude는 더 많이 탐색한다
 
-> "deploy 폴더에 있ㄴㄴ거 jidonglab에 다 적용해줘"
+첫 프롬프트에 맥락이 없었다. `deploy` 폴더가 어디 있는지, `jidonglab`이 어떤 경로인지 — 아무것도 없다. Claude는 탐색부터 시작했다.
 
-> "예시 화면 보여줘"
+홈 디렉토리를 뒤지고, 다른 경로도 확인하고, 결국 `deploy` 폴더를 찾았다. 내용물은 정적 HTML/CSS/JS 번들이었다. `index.html`, `app.jsx`, `styles.css`, `data.js`, `tech.jsx`, `thumbnails.jsx` — 약 103KB짜리 React 기반 홈페이지 프로토타입.
 
-> "너추천대로해"
+`jidonglab`은 이 `portfolio-site` 레포였다. `src/pages/index.astro`에 19.2KB짜리 Astro 네이티브 홈이 있었다. Content Collections 로직, PostCard, ProjectCard, build-logs/tips/ai-news 리스팅이 전부 거기 들어있었다.
 
-구체적인 지시가 없다. Claude는 먼저 `deploy` 폴더를 찾는 것부터 시작했다. 홈 디렉터리에 없었다. Bash 여러 회로 다른 위치도 확인해서 찾았다. 6개 파일(`app.jsx`, `data.js`, `index.html`, `styles.css`, `tech.jsx`, `thumbnails.jsx` — 약 103KB)로 구성된 Vite + React 스태틱 번들이었다.
+Claude의 첫 번째 판단은 단순했다. `index.astro`를 리다이렉트로 덮고, 정적 번들을 `public/` 아래에 올리는 것.
 
-다음으로 "jidonglab"이 어디 있는지 파악해야 했다. `~/portfolio/portfolio-site/`가 `jidonglab.com` 레포였다. 구조 확인 결과 Astro 4 + React + Tailwind 스택으로, Content Collections까지 물고 있었다.
+그게 첫 번째 실수였다.
 
-여기서 Claude가 먼저 경고를 띄웠다.
+## 파괴적 접근을 먼저 시도했다
 
-> "기존 index.astro(19.2K의 Astro 네이티브 홈)를 간단한 redirect로 덮어쓰는 거라 꽤 파괴적이야."
+Claude는 기존 `index.astro`(19.2KB)를 580바이트짜리 리다이렉트 코드로 덮어썼다. `public/jidonglab-home/`에 정적 파일 6개를 통째로 복사했다.
 
-git 워킹트리가 클린 상태임을 확인한 뒤 1차 적용을 진행했다. `public/jidonglab-home/`에 번들 파일 6개를 그대로 넣고, `src/pages/index.astro`를 580B짜리 redirect로 교체했다.
+워킹트리는 깨끗했고, 타겟 폴더는 비어있었다. 기술적으로 막히는 건 없었다. 그래서 진행했다.
 
-## Static 번들의 벽
+두 번째 프롬프트가 왔다.
 
-"예시 화면 보여줘"가 들어왔다. 로컬 HTTP 서버를 띄우고 헤드리스 Chrome으로 스크린샷을 찍었다. 히어로 섹션은 렌더링됐다. 그런데 구조적인 문제가 있었다.
+```
+예시 화면 보여줘
+```
 
-deploy 번들은 독립적인 스태틱 앱이다. `index.html`이 직접 JSX를 불러오고, 빌드 결과물도 자체 번들링을 전제로 한다. portfolio-site의 Astro build 파이프라인과 맞물리지 않는다. Content Collections(`build-logs`, `tips`, `ai-news`)에 접근할 방법이 없다. 기존 `PostCard`, `ProjectCard` 컴포넌트도 쓸 수 없다.
+Claude는 로컬 HTTP 서버를 올리고 스크린샷을 시도했다. Chrome이 read-tier라 직접 스크롤이 안 됐다. 헤드리스 Chrome으로 전체 페이지를 찍었다. 히어로 섹션은 렌더링이 됐다.
 
-그래서 Claude가 세 번째 프롬프트 "너추천대로해"에 대한 답으로 방향을 전환했다.
+문제는 그 다음이었다. 정적 번들은 Astro의 Content Collections와 완전히 분리된다. `build-logs`, `tips`, `ai-news` — 사이트의 핵심 콘텐츠 레이어가 전부 사라지는 구조였다.
 
-> "deploy 번들은 static 묶음이라 그대로 쓰면 콘텐츠 컬렉션이랑 완전히 분리됨. jidonglab의 Astro 스택 위에 네이티브로 다시 구현해야지."
+## "너 추천대로 해"
 
-## 14개 파일, Astro + React 네이티브 재건
+세 번째 프롬프트다.
 
-`src/components/home/`을 새로 만들고 컴포넌트를 섹션별로 분리했다.
+```
+너 추천대로 해
+```
 
-| 파일 | 종류 | 역할 |
-|---|---|---|
-| `Hero.tsx` | React | 히어로 섹션 (인터랙티브) |
-| `Lab.tsx` | React | 프로젝트 갤러리 |
-| `Projects.tsx` | React | 사이드 프로젝트 리스트 |
-| `Thumbnails.tsx` | React | 썸네일 그리드 |
-| `TechBlock.tsx` | React | 기술 스택 블록 |
-| `About.astro` | Astro | About 섹션 |
-| `Footer.astro` | Astro | 푸터 |
-| `NowStrip.astro` | Astro | 현재 작업 중 표시 |
-| `ShipLog.astro` | Astro | 빌드 로그 최근 목록 |
-| `Topbar.astro` | Astro | 상단 네비게이션 |
-| `Wordmark.astro` | Astro | 로고 마크 |
-| `Writing.astro` | Astro | 포스트 목록 섹션 |
+Claude는 이 한 줄로 방향을 결정했다. 정적 번들을 버리고 Astro 네이티브로 재구현하는 것.
 
-`src/data/home.ts`에 하드코딩 데이터를 분리했다. `src/pages/index.astro`는 redirect 대신 이 컴포넌트들을 조합하는 페이지로 새로 작성했다.
+`public/jidonglab-home/`의 디자인을 분석하고, 각 섹션을 Astro/TSX 컴포넌트로 분해했다. deploy 번들의 `data.js`를 타입스크립트로 옮기고, React 컴포넌트는 `.tsx`로, Astro 전용 레이아웃은 `.astro`로 나눴다.
 
-Astro 컴포넌트는 정적 HTML 렌더링, React 컴포넌트는 인터랙션이 필요한 섹션만 담당하는 구조다. `client:load` 없이 번들에 포함되지 않도록 Astro 컴포넌트 비중을 높였다.
+`Bash` 40번, `Read` 17번, `Write` 15번, `TaskUpdate` 14번, `TaskCreate` 7번. 총 106번의 도구 호출이 이 과정에서 나왔다.
 
-## tool call 분포
+## 14개 파일, 한 세션에 생성
 
-총 106 tool calls.
+결과물은 이렇다.
 
-| 도구 | 횟수 | 용도 |
-|---|---|---|
-| Bash | 40 | 폴더 탐색, 로컬 서버, 스크린샷 |
-| Read | 17 | 기존 컴포넌트·스키마 파악 |
-| Write | 15 | 신규 컴포넌트·데이터 파일 생성 |
-| TaskUpdate | 14 | 진행 추적 |
-| TaskCreate | 7 | 하위 작업 분해 |
-| ToolSearch | 4 | 도구 스키마 확인 |
-| Glob + Grep | 6 | 파일 탐색 |
+인터랙션이 필요한 섹션은 `.tsx`로 분리했다. `Hero.tsx`, `Lab.tsx`, `Projects.tsx`, `TechBlock.tsx`, `Thumbnails.tsx` — 클라이언트 사이드 상태가 필요한 컴포넌트들이다. 레이아웃과 리스팅은 `.astro`로 유지했다. `About.astro`, `Footer.astro`, `NowStrip.astro`, `ShipLog.astro`, `Topbar.astro`, `Wordmark.astro`, `Writing.astro`.
 
-Edit이 0회다. 기존 파일을 수정한 게 아니라 전부 신규 Write로 만들었기 때문이다. `index.astro`는 redirect → 빈 조합 페이지 → 최종 재건 세 단계를 거쳤는데, 매번 Write로 전체를 교체했다.
+`src/data/home.ts`에는 deploy 번들의 `data.js`를 타입 정의와 함께 옮겼다. 최종 `src/pages/index.astro`는 이 컴포넌트들을 조합한다. Content Collections 연결은 `ShipLog.astro`와 `Writing.astro`가 담당한다.
 
-Bash 40회 중 상당수가 폴더 위치 확인(세션 초반)과 로컬 서버 실행, 헤드리스 스크린샷 캡처다. Chrome DevTools Protocol로 스크롤 캡처를 시도했다가 권한 문제로 실패한 과정도 포함된다.
+수정된 파일은 0개, 생성된 파일은 14개다.
 
-## 프롬프트가 짧을수록 탐색 비용이 올라간다
+## 삽질의 실제 비용
 
-이 세션의 핵심 패턴이다. "deploy 폴더에 있는 거 다 적용해줘"라는 한 줄이 Claude에게는 다음을 의미했다.
+초기 파괴적 접근(리다이렉트 + 정적 번들 복사)은 커밋되지 않았다. 워킹트리가 깨끗한 상태에서 진행했고, 방향을 틀었을 때 되돌리는 건 어렵지 않았다.
 
-1. deploy 폴더가 어디 있는지 찾아라 (Bash 여러 회)
-2. jidonglab 레포가 어디 있는지 찾아라
-3. 현재 `index.astro`가 어떤 구조인지 파악해라
-4. 두 스택이 호환되는지 판단해라
-5. 안 된다면 대안을 제시하고 실행해라
+하지만 시간은 들었다. 헤드리스 스크린샷 시도, 서버 실행, 스크롤 불가 문제 파악 — 이 루프가 돌아가는 동안 Claude는 `Bash`를 40번 실행했다. 프롬프트가 더 구체적이었다면 이 탐색 비용이 줄었을 것이다.
 
-짧은 프롬프트가 나쁜 건 아니다. 탐색 비용(tool calls)을 Claude가 부담하는 구조로, 사용자는 방향만 잡고 구체적인 판단은 위임하는 방식이다. "너추천대로해" 한 마디가 14개 컴포넌트 아키텍처 결정으로 이어졌다.
+반대로, 모호한 프롬프트 덕분에 Claude가 선택지를 직접 평가하고 더 나은 방향을 골랐다는 해석도 가능하다. "너 추천대로 해"가 결국 Content Collections와 통합된 Astro 네이티브 구현으로 이어졌으니까. 처음부터 구체적인 지시를 줬다면 정적 번들 이식이라는 더 빠른 길로 갔을 수도 있다.
 
-> 방향만 잡고, 판단은 위임한다. 짧은 프롬프트는 탐색 비용을 올리지만 의사결정 속도를 올린다.
+## 모델: claude-opus-4-7
+
+이 세션은 `claude-opus-4-7`로 실행됐다. 탐색 → 시도 → 평가 → 재설계 → 구현까지 한 세션에서 처리하는 건 컨텍스트를 길게 유지해야 하는 작업이다. 106번의 도구 호출이 그걸 보여준다.
+
+3h 26min 세션, 14개 파일, 프롬프트 3줄. 이게 이번 작업의 전체 숫자다.
