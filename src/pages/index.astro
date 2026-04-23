@@ -1,391 +1,108 @@
 ---
-import Base from '../layouts/Base.astro';
-import PostCard from '../components/PostCard.astro';
-import ProjectCard from '../components/ProjectCard.astro';
-import { getCollection } from 'astro:content';
-import { getAllProjects } from '../lib/projects';
+import Hero from '../components/home/Hero';
+import Projects from '../components/home/Projects';
+import TechBlock from '../components/home/TechBlock';
+import Lab from '../components/home/Lab';
+import Topbar from '../components/home/Topbar.astro';
+import NowStrip from '../components/home/NowStrip.astro';
+import ShipLog from '../components/home/ShipLog.astro';
+import Writing from '../components/home/Writing.astro';
+import About from '../components/home/About.astro';
+import Wordmark from '../components/home/Wordmark.astro';
+import Footer from '../components/home/Footer.astro';
+import '../styles/home.css';
 
-const statusOrder: Record<string, number> = { '운영중': 0, '실험중': 1, '개발중': 2, '중단': 3 };
-const projects = (await getAllProjects()).sort((a, b) =>
-  (statusOrder[a.status] ?? 9) - (statusOrder[b.status] ?? 9) || a.order - b.order
-);
-const allBuildLogs = (await getCollection('build-logs'))
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-const buildLogs = allBuildLogs.filter((p) => p.data.lang === 'ko');
-const buildLogsEn = allBuildLogs.filter((p) => p.data.lang === 'en');
-const tips = (await getCollection('tips'))
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-const aiNews = (await getCollection('ai-news'))
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-const blogPosts = (await getCollection('blog'))
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime());
-
-type PostItem = {
-  title: string;
-  href: string;
-  date: string;
-  type: 'build-log' | 'tip' | 'blog' | 'ai-news';
-  project?: string;
-  description?: string;
-  model?: string;
-  lang?: string;
-};
-
-const allPosts: (PostItem & { lang?: string })[] = [
-  ...tips.map((p) => ({
-    title: p.data.title,
-    href: `/posts/${p.slug}`,
-    date: p.data.date.toISOString().split('T')[0],
-    type: 'tip' as const,
-  })),
-  ...aiNews.map((p) => ({
-    title: p.data.title,
-    href: `/ai-news/${p.slug}`,
-    date: p.data.date.toISOString().split('T')[0],
-    type: 'ai-news' as const,
-    description: p.data.summary,
-    model: p.data.model,
-    lang: 'all',
-  })),
-  ...blogPosts.map((p) => ({
-    title: p.data.title,
-    href: `/blog/${p.slug}`,
-    date: p.data.date.toISOString().split('T')[0],
-    type: 'blog' as const,
-    description: p.data.description,
-  })),
-].sort((a, b) => b.date.localeCompare(a.date));
-
-const featuredPost = allPosts[0];
-const recentPosts = allPosts.slice(1, 6);
-const popularPosts = [...buildLogs.slice(0, 2).map(p => ({
-  title: p.data.title,
-  href: `/posts/${p.slug}`,
-})), ...tips.slice(0, 1).map(p => ({
-  title: p.data.title,
-  href: `/posts/${p.slug}`,
-}))];
-
-const statusColors: Record<string, string> = {
-  '운영중': '#00c471',
-  '개발중': '#3b82f6',
-  '실험중': '#f59e0b',
-  '중단': '#ef4444',
-};
-
-const statusEn: Record<string, string> = {
-  '운영중': 'Live',
-  '개발중': 'In Dev',
-  '실험중': 'Beta',
-  '중단': 'Stopped',
-};
-
-const topProjects = projects.slice(0, 5);
-
-// 프로젝트별 빌드 로그 메타 (한 번만 계산)
-const logMeta: Record<string, { count: number; latestTitle?: string; latestSlug?: string }> = {};
-for (const p of projects) {
-  const logs = buildLogs.filter(l => l.data.project === p.slug);
-  const latest = logs[0];
-  logMeta[p.slug] = {
-    count: logs.length,
-    latestTitle: latest?.data.title,
-    latestSlug: latest?.slug,
-  };
-}
-const latestPosts = allPosts.slice(0, 4);
-
-const screenshotMap: Record<string, string> = {
-  'portfolio-site': '/images/projects/jidonglab.png',
-  'saju_global': '/images/projects/fortunelab.png',
-  'coffee-chat': '/images/projects/coffeechat.png',
-  'uddental': '/images/projects/uddental.png',
-  'news4ai': '/images/projects/spoonai.png',
-  'dev_blog': '/images/projects/devto.png',
-  'refmade': '/images/projects/refmade.png',
-  'cleantech': '/images/projects/cleantech.png',
-};
+const title = 'jidonglab — AI 빌더의 작업실';
+const description = '서울에서 혼자 AI 에이전트 인프라 도구를 만드는 사람의 홈. 작업, 실험, 기록, 소개.';
+const siteUrl = 'https://jidonglab.com';
 ---
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>{title}</title>
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="canonical" href={siteUrl} />
 
-<Base title="Home">
-  <!-- Hero Section — Split Layout -->
-  <section class="fade-in hero-dot-bg" style="background: #ffffff; padding: 5rem 0 4rem; position: relative;">
-    <div style="max-width: 720px; margin: 0 auto; text-align: center;">
-        <span style="display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; font-weight: 600; color: #2563eb; letter-spacing: 0.05em; padding: 0.3rem 0.75rem; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 999px; margin-bottom: 1.25rem;"
-          data-ko="1인 개발자" data-en="Solo Developer">Solo Developer</span>
-        <h1 style="font-size: clamp(2.25rem, 5vw, 3.25rem); font-weight: 800; color: #0f172a; line-height: 1.2; letter-spacing: -0.03em; margin: 0 0 1rem 0;">
-          <span data-ko="AI로 프로덕트를 만들고," data-en="Building products">Building products</span><br/>
-          <span style="color: #2563eb;" data-ko="과정을 기록한다." data-en="with AI.">with AI.</span>
-        </h1>
-        <p style="font-size: 1.05rem; color: #475569; line-height: 1.7; max-width: 560px; margin: 0 auto 2rem auto;"
-          data-ko="사주 앱, 트레이딩 봇, 커피챗 등 다양한 AI 프로덕트를 만들고, 빌드 과정을 투명하게 공개한다."
-          data-en="Building AI products like fortune apps, trading bots, and coffee chat — documenting the entire process.">
-          Building AI products like fortune apps, trading bots, and coffee chat — documenting the entire process.
-        </p>
-        <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 2rem; justify-content: center;">
-          <a href="/projects"
-            style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.7rem 1.5rem; background: #2563eb; color: #ffffff; font-size: 0.85rem; font-weight: 600; border-radius: 8px; text-decoration: none; transition: background 0.15s;"
-            onmouseover="this.style.background='#1d4ed8'"
-            onmouseout="this.style.background='#2563eb'"
-            data-ko="프로젝트 보기" data-en="View Projects">
-            View Projects
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-          </a>
-          <a href="/posts"
-            style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.7rem 1.5rem; background: #ffffff; color: #0f172a; font-size: 0.85rem; font-weight: 600; border-radius: 8px; text-decoration: none; border: 1px solid #e2e8f0; transition: all 0.15s;"
-            onmouseover="this.style.borderColor='#2563eb';this.style.color='#2563eb'"
-            onmouseout="this.style.borderColor='#e2e8f0';this.style.color='#0f172a'"
-            data-ko="블로그" data-en="Blog">
-            Blog
-          </a>
-        </div>
-        <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; font-size: 0.85rem; color: #64748b;">
-          <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #2563eb;">{projects.length}</span>
-          <span data-ko="프로젝트" data-en="projects">projects</span>
-          <span style="color: #e2e8f0;">·</span>
-          <span style="font-family: 'JetBrains Mono', monospace; font-weight: 700; color: #2563eb;">{buildLogs.length}</span>
-          <span data-ko="빌드 로그" data-en="build logs">build logs</span>
-        </div>
-    </div>
-  </section>
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content={title} />
+    <meta property="og:description" content={description} />
+    <meta property="og:url" content={siteUrl} />
+    <meta property="og:site_name" content="jidonglab" />
+    <meta property="og:locale" content="ko_KR" />
+    <meta property="og:image" content={`${siteUrl}/og/default-og.svg`} />
 
-  <!-- Stats Bar -->
-  <section class="fade-in" style="background: #f8fafc; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 1.5rem 0;">
-    <div style="max-width: 1080px; margin: 0 auto; display: flex; justify-content: center; gap: 4rem;">
-      <div style="text-align: center;">
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #2563eb;">{projects.length}</div>
-        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="프로젝트" data-en="Projects">Projects</div>
-      </div>
-      <div style="text-align: center;">
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #0f172a;">{projects.filter(p => p.status === '운영중' || p.status === '실험중').length}</div>
-        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="운영중" data-en="Active">Active</div>
-      </div>
-      <div style="text-align: center;">
-        <div style="font-family: 'JetBrains Mono', monospace; font-size: 1.75rem; font-weight: 800; color: #2563eb;">{buildLogs.length}</div>
-        <div style="font-size: 0.8rem; color: #64748b; margin-top: 0.15rem;" data-ko="빌드 로그" data-en="Build Logs">Build Logs</div>
-      </div>
-    </div>
-  </section>
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:site" content="@jidonglab" />
+    <meta name="twitter:title" content={title} />
+    <meta name="twitter:description" content={description} />
 
-  <!-- Sites I Built -->
-  <section class="fade-in stagger-1" style="background: #ffffff; padding: 4rem 0;">
-    <div style="max-width: 1080px; margin: 0 auto;">
-      <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin: 0 0 1.5rem 0;"
-        data-ko="만든 것들" data-en="What I Built">What I Built</h2>
-      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
-        {projects.filter(p => p.url).map(p => {
-          const img = screenshotMap[p.slug];
-          return (
-            <a href={p.url} target="_blank" rel="noopener" class="site-card"
-              style="display:block;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;text-decoration:none;overflow:hidden;transition:all 0.25s;"
-              onmouseover="this.style.borderColor='#93c5fd';this.style.boxShadow='0 12px 32px rgba(37,99,235,0.1)';this.style.transform='translateY(-3px)'"
-              onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow='none';this.style.transform='none'">
-              {/* Browser Chrome */}
-              <div style="display:flex;align-items:center;gap:6px;padding:0.5rem 0.75rem;background:#f8fafc;border-bottom:1px solid #e2e8f0;">
-                <span style="width:8px;height:8px;border-radius:50%;background:#ef4444;"></span>
-                <span style="width:8px;height:8px;border-radius:50%;background:#eab308;"></span>
-                <span style="width:8px;height:8px;border-radius:50%;background:#22c55e;"></span>
-                <span style="flex:1;margin-left:6px;font-size:0.6rem;font-family:'JetBrains Mono',monospace;color:#94a3b8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{p.url?.replace('https://','')}</span>
-              </div>
-              {/* Screenshot with scroll animation on hover */}
-              {img && (
-                <div style="width:100%;height:180px;overflow:hidden;background:#f8fafc;position:relative;">
-                  <img src={img} alt={p.title} loading="lazy" class="scroll-img"
-                    style="width:100%;display:block;position:absolute;top:0;left:0;" />
-                </div>
-              )}
-              <div style="padding:0.65rem 0.85rem;display:flex;align-items:center;justify-content:space-between;">
-                <div style="font-size:0.82rem;font-weight:700;color:#0f172a;">{p.title}</div>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#94a3b8" stroke-width="2" style="flex-shrink:0;"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
-              </div>
-            </a>
-          );
-        })}
-      </div>
-    </div>
-  </section>
+    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="alternate" type="application/rss+xml" title="jidonglab" href="/rss.xml" />
 
-  <!-- Open Source -->
-  <section class="fade-in stagger-1" style="background: #f8fafc; padding: 4rem 0;">
-    <div style="max-width: 1080px; margin: 0 auto;">
-      <h2 style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #64748b; margin: 0 0 1.5rem 0;"
-        data-ko="오픈소스" data-en="Open Source">Open Source</h2>
-      <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
-        {projects.filter(p => !p.url && p.github && ['contextzip', 'agentcrow'].includes(p.slug)).map(p => (
-          <a href={p.github} target="_blank" rel="noopener"
-            style="display:flex;flex-direction:column;background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;text-decoration:none;transition:all 0.2s;overflow:hidden;"
-            onmouseover="this.style.borderColor='#93c5fd';this.style.boxShadow='0 4px 16px rgba(37,99,235,0.06)'"
-            onmouseout="this.style.borderColor='#e2e8f0';this.style.boxShadow='none'">
-            {p.demo && (
-              <div style="background:#0f172a;aspect-ratio:16/9;display:flex;align-items:center;justify-content:center;border-radius:12px 12px 0 0;overflow:hidden;">
-                <img src={p.demo} alt={`${p.title} demo`} loading="lazy" style="width:100%;height:100%;object-fit:contain;" />
-              </div>
-            )}
-            <div style="display:flex;align-items:center;gap:0.75rem;padding:1.25rem;">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#64748b" style="flex-shrink:0;"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/></svg>
-              <div style="min-width:0;">
-                <div style="font-size:0.9rem;font-weight:600;color:#0f172a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{p.title}</div>
-                <div style="font-size:0.75rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:0.15rem;">{p.one_liner || p.slug}</div>
-              </div>
-            </div>
-          </a>
-        ))}
-      </div>
-    </div>
-  </section>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-  <!-- Latest Posts -->
-  <section class="fade-in stagger-2" style="background: #ffffff; padding: 4rem 0;">
-    <div style="max-width: 1080px; margin: 0 auto;">
-      <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.25rem;">
-        <h2 style="font-size: 1.25rem; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin: 0;"
-          data-ko="최근 글" data-en="Latest Posts">Latest Posts</h2>
-        <a href="/posts"
-          style="font-size: 0.8rem; font-weight: 500; color: #2563eb; text-decoration: none; transition: color 0.15s;"
-          onmouseover="this.style.color='#1d4ed8'"
-          onmouseout="this.style.color='#2563eb'"
-          data-ko="모든 글 →" data-en="All posts →">All posts →</a>
-      </div>
-      <div>
-        {latestPosts.map((post) => (
-          <div class="lang-item" data-lang={post.lang || 'all'}>
-            <PostCard
-              title={post.title}
-              href={post.href}
-              date={post.date}
-              type={post.type}
-              project={post.project}
-              description={post.description}
-              model={post.model}
-            />
-          </div>
-        ))}
-      </div>
-    </div>
-  </section>
+    <script
+      type="application/ld+json"
+      set:html={JSON.stringify({
+        '@context': 'https://schema.org',
+        '@type': 'WebSite',
+        name: 'jidonglab',
+        url: siteUrl,
+        description,
+        author: { '@type': 'Person', name: 'jidonglab', url: siteUrl },
+        inLanguage: ['ko-KR', 'en-US'],
+      })}
+    />
+  </head>
+  <body>
+    <Topbar />
+    <Hero client:load />
+    <NowStrip />
+    <Projects client:visible />
+    <TechBlock client:visible />
+    <Lab client:visible />
+    <ShipLog />
+    <Writing />
+    <About />
+    <Wordmark />
+    <Footer />
 
-  <!-- CTA Section -->
-  <section class="fade-in stagger-2" style="background: linear-gradient(to bottom, #111827, #030712); padding: 5rem 0;">
-    <div style="max-width: 1080px; margin: 0 auto; text-align: center;">
-      <h2 style="font-size: 1.75rem; font-weight: 800; color: #ffffff; letter-spacing: -0.02em; margin: 0 0 1rem 0;"
-        data-ko="더 많은 프로젝트 보기" data-en="Explore More Projects">Explore More Projects</h2>
-      <p style="font-size: 1rem; color: #94a3b8; line-height: 1.7; max-width: 480px; margin: 0 auto 2rem auto;"
-        data-ko="AI 프로덕트 빌딩의 전 과정을 프로젝트별로 확인할 수 있다."
-        data-en="Explore the full journey of building AI products, project by project.">
-        Explore the full journey of building AI products, project by project.
-      </p>
-      <div style="display: flex; justify-content: center; gap: 0.75rem; flex-wrap: wrap;">
-        <a href="/projects"
-          style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.75rem 1.75rem; background: #2563eb; color: #ffffff; font-size: 0.9rem; font-weight: 600; border-radius: 8px; text-decoration: none; transition: background 0.15s;"
-          onmouseover="this.style.background='#1d4ed8'"
-          onmouseout="this.style.background='#2563eb'"
-          data-ko="프로젝트 전체 보기" data-en="View All Projects">
-          View All Projects
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
-        </a>
-        <a href="/posts"
-          style="display: inline-flex; align-items: center; gap: 0.4rem; padding: 0.75rem 1.75rem; background: transparent; color: #94a3b8; font-size: 0.9rem; font-weight: 600; border-radius: 8px; text-decoration: none; border: 1px solid #374151; transition: all 0.15s;"
-          onmouseover="this.style.borderColor='#6b7280';this.style.color='#ffffff'"
-          onmouseout="this.style.borderColor='#374151';this.style.color='#94a3b8'"
-          data-ko="빌드 로그 읽기" data-en="Read Build Logs">
-          Read Build Logs
-        </a>
-      </div>
-    </div>
-  </section>
-</Base>
+    <script is:inline>
+      // Footer 시계 (Asia/Seoul)
+      (function () {
+        var nodes = document.querySelectorAll('[data-home-clock]');
+        if (!nodes.length) return;
+        function tick() {
+          var now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+          var hh = String(now.getHours()).padStart(2, '0');
+          var mm = String(now.getMinutes()).padStart(2, '0');
+          var txt = hh + ':' + mm;
+          nodes.forEach(function (n) { n.textContent = txt; });
+        }
+        tick();
+        setInterval(tick, 30000);
+      })();
 
-<style>
-  /* Hero dot pattern background */
-  .hero-dot-bg {
-    position: relative;
-  }
-  .hero-dot-bg::before {
-    content: '';
-    position: absolute;
-    inset: 0;
-    background-image: radial-gradient(circle, #cbd5e1 1px, transparent 1px);
-    background-size: 24px 24px;
-    mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 70%);
-    -webkit-mask-image: radial-gradient(ellipse 70% 60% at 50% 50%, black 20%, transparent 70%);
-    pointer-events: none;
-    z-index: 0;
-    opacity: 0.5;
-  }
-  .hero-dot-bg > * {
-    position: relative;
-    z-index: 1;
-  }
+      // 방문 추적 (세션 1회)
+      if (!sessionStorage.getItem('v_tracked')) {
+        fetch('/api/visitors', { method: 'POST' }).catch(function () {});
+        sessionStorage.setItem('v_tracked', '1');
+      }
 
-  /* Animations */
-  /* Screenshot scroll — only on hover, slow and smooth */
-  .scroll-img {
-    transform: translateY(0);
-    transition: transform 2s ease-in-out;
-  }
-  .site-card:hover .scroll-img {
-    transform: translateY(-300px);
-  }
-
-  /* Hero mockup hidden on mobile */
-  @media (max-width: 900px) {
-    .hero-mockup { display: none !important; }
-  }
-
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(12px); }
-    to { opacity: 1; transform: translateY(0); }
-  }
-
-  .fade-in {
-    animation: fadeIn 0.5s ease-out both;
-  }
-
-  .stagger-1 { animation-delay: 0.1s; }
-  .stagger-2 { animation-delay: 0.2s; }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.4; }
-  }
-
-  /* PostCard overrides for light blue theme */
-  :global(.post-card) {
-    border-bottom-color: #e2e8f0 !important;
-  }
-  :global(.post-card:hover .card-title) {
-    color: #2563eb !important;
-  }
-  :global(.card-title) {
-    color: #0f172a !important;
-  }
-  :global(.card-date),
-  :global(.card-model),
-  :global(.card-desc) {
-    color: #64748b !important;
-  }
-  :global(.card-project) {
-    background: #f1f5f9 !important;
-    color: #64748b !important;
-  }
-  :global(.card-badge) {
-    background: #dbeafe !important;
-    color: #2563eb !important;
-  }
-
-  /* Responsive */
-  @media (max-width: 900px) {
-    .hero-mockup {
-      display: none !important;
-    }
-  }
-
-  @media (max-width: 768px) {
-    div[style*="grid-template-columns: repeat(3"] {
-      grid-template-columns: 1fr !important;
-    }
-    div[style*="grid-template-columns: repeat(2"] {
-      grid-template-columns: 1fr !important;
-    }
-  }
-</style>
+      // 통합 admin 트래킹
+      fetch('https://admin.jidonglab.com/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ project: 'jidonglab', path: location.pathname, referrer: document.referrer }),
+        keepalive: true,
+      }).catch(function () {});
+    </script>
+    <script defer src="https://static.cloudflareinsights.com/beacon.min.js" data-cf-beacon='{"token": "CF_ANALYTICS_TOKEN"}'></script>
+  </body>
+</html>

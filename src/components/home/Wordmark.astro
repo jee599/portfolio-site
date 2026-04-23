@@ -1,0 +1,11 @@
+---
+const words = ['JIDONGLAB', 'SOLO · SEOUL', 'KR × EN', 'SHIP · ITERATE', '2026'];
+const loop = [...words, ...words, ...words];
+---
+<div class="wordmark reveal">
+  <div class="slide">
+    {loop.map((w) => (
+      <span>{w} <em>✦</em> </span>
+    ))}
+  </div>
+</div>

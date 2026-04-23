@@ -1,0 +1,22 @@
+---
+import { NOW_ITEMS } from '../../data/home';
+const loop = [...NOW_ITEMS, ...NOW_ITEMS];
+---
+<div class="container" style="padding-top: 24px;">
+  <div class="now-strip">
+    <span class="now-strip-label">
+      <span class="dot"></span>
+      NOW
+    </span>
+    <div class="now-strip-scroll">
+      <div class="now-strip-inner">
+        {loop.map((it, i) => (
+          <>
+            <span><span class="tag">{it.tag}</span> {it.txt}</span>
+            <span class="sep">·</span>
+          </>
+        ))}
+      </div>
+    </div>
+  </div>
+</div>
