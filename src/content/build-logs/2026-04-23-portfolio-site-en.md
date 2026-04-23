@@ -36,6 +36,8 @@ The most valuable finds weren't missing data — they were subtle factual errors
 
 **Regulatory report: timing conflation.** The FTC virtual persona regulation was at the administrative notice stage, not enforcement. The 5x punitive damages provision had passed legislation in 2026 Q1, but the research doc conflated the announcement date with the enforcement date. In a live business context, that distinction matters significantly.
 
+**Competitor report: new intel.** CareRabs — the dominant dental marketing platform in Korea — has been in active acquisition proceedings since October 2024. Nothing in the existing dossier mentioned this. An M&A process at the market leader changes the competitive landscape analysis considerably.
+
 The pattern that made this work:
 
 > Verification agents should be prompted to find reasons something could be wrong — not to confirm it's right.
@@ -99,6 +101,7 @@ Session 1 (dentalad research verification, 3h 12m):
 | TaskUpdate | 18 |
 | Write | 10 |
 | TaskCreate | 9 |
+| Agent | 5 |
 
 Session 2 (Claude Design + redesign, 2h 5m):
 
@@ -110,7 +113,7 @@ Session 2 (Claude Design + redesign, 2h 5m):
 | Write | 11 |
 | Read | 8 |
 
-Combined: Edit 60, Bash 55, 201 total tool calls. The `TaskCreate`/`TaskUpdate` spike in session 1 reflects agent dispatch tracking. The 11 WebSearch calls in session 2 were all for Claude Design fact-checking: release date, repo source, Claude Code sourcemap incident timeline.
+Combined: Edit 60, Bash 55, 201 total tool calls. The `TaskCreate`/`TaskUpdate`/`Agent` spike in session 1 reflects parallel agent orchestration overhead — 5 dispatched agents, each tracked independently. The 11 WebSearch calls in session 2 were all Claude Design fact-checking: release date, repo source, Claude Code sourcemap incident timeline.
 
 19 files created, 4 modified. The bulk: 5 verification reports (`verification/01–05.md`), the claude-design-lite skill file, and the 4 HTML redesign variants.
 
