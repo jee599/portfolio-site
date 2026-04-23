@@ -1,164 +1,152 @@
-import { useEffect, useState } from 'react';
 import { PROJECTS, type HomeProject } from '../../data/home';
-import { ProjectThumb } from './Thumbnails';
 
-interface CardProps {
-  p: HomeProject;
-  expanded: boolean;
-  onToggle: () => void;
-  time: number;
+type CardLang = 'ts' | 'py' | 'as' | 'rs' | 'js';
+
+interface CardMeta {
+  status: 'live' | 'oss' | 'beta';
+  statusLabel: string;
+  lang: CardLang;
+  langLabel: string;
 }
 
-function ProjectCard({ p, expanded, onToggle, time }: CardProps) {
-  const statusText =
-    p.status === 'dev' ? '개발 중' :
-    p.status === 'live' ? '운영 중' :
-    p.status === 'beta' ? '베타' : '출시 완료';
+// Bridge data-driven projects into the v2-pro card shape.
+function cardMeta(p: HomeProject): CardMeta {
+  const stackStr = p.stack.join(' ').toLowerCase();
+  let lang: CardLang = 'ts';
+  if (stackStr.includes('python')) lang = 'py';
+  else if (stackStr.includes('astro')) lang = 'as';
+  else if (stackStr.includes('rust')) lang = 'rs';
+  else if (stackStr.includes('next') || stackStr.includes('typescript')) lang = 'ts';
 
+  const ossSlugs = new Set(['agentcrow', 'contextzip']);
+  let status: CardMeta['status'];
+  let statusLabel: string;
+  if (ossSlugs.has(p.slug)) {
+    status = 'oss';
+    statusLabel = '오픈소스';
+  } else if (p.status === 'live') {
+    status = 'live';
+    statusLabel = '운영 중';
+  } else {
+    status = 'beta';
+    statusLabel = p.status === 'beta' ? '베타' : p.status === 'dev' ? '개발 중' : '아카이브';
+  }
+
+  return {
+    status,
+    statusLabel,
+    lang,
+    langLabel: p.stack.slice(0, 2).join(' · '),
+  };
+}
+
+function ProjectCard({ p }: { p: HomeProject }) {
+  const m = cardMeta(p);
+  const href = `https://github.com/jee599/${p.slug}`;
   return (
-    <article
-      className={`project-card ${expanded ? 'expanded' : ''}`}
-      data-size={p.size}
-      onClick={() => !expanded && onToggle()}
+    <a
+      className="pcard"
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={`${p.title} — ${p.taglineKo}`}
     >
-      <div className="project-thumb">
-        <ProjectThumb kind={p.thumb} time={time} />
-        <span className={`project-status status-${p.status}`}>
-          <span className="status-dot" />
-          {statusText}
+      <div>
+        <span className={`p-status ${m.status}`}>{m.statusLabel}</span>
+        <div className="p-title">{p.title}</div>
+        <p className="p-desc">{p.taglineKo}</p>
+      </div>
+      <div className="p-bot">
+        <span className="p-lang">
+          <span className={`lang-dot ${m.lang}`} />
+          {m.langLabel}
         </span>
-        <div className="thumb-meta">
-          <span className="thumb-tag">{p.idx}</span>
-          {p.stars ? <span className="thumb-tag v">★ {p.stars}k</span> : null}
-        </div>
+        <span className="lang-arr">→</span>
       </div>
-      <div className="project-body">
-        <h3 className="project-title">{p.title}</h3>
-        <p className="project-desc">
-          <span className="ko">{p.taglineKo}</span>
-          {p.tagline}
-        </p>
-        <div className="project-meta">
-          <span className="stack">{p.stack.map((s) => <span key={s}>{s}</span>)}</span>
-          {p.status === 'live' ? (
-            <span className="live-ping"><span className="d" />LIVE</span>
-          ) : (
-            <span className="num-ver">v{p.year === 2026 ? '0.' : ''}{p.year === 2026 ? (2 + (p.slug.length % 3)) : '1.0'}</span>
-          )}
-        </div>
-      </div>
-      <div className="project-expand">
-        <div className="project-expand-inner">
-          <div>
-            <h4>개요</h4>
-            <p>{p.summary}</p>
-            <p style={{ color: 'var(--text)', fontWeight: 500 }}>{p.summaryKo}</p>
-            <div className="project-actions">
-              <a
-                className="btn-ghost primary"
-                href={`https://github.com/jee599/${p.slug}`}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-              >
-                GitHub <span>↗</span>
-              </a>
-              <button className="btn-ghost" onClick={(e) => { e.stopPropagation(); onToggle(); }}>
-                닫기
-              </button>
-            </div>
-          </div>
-          <div>
-            <h4>상세</h4>
-            <ul>
-              {p.details.map((d) => (
-                <li key={d.k}><span className="k">{d.k}</span><span className="v">{d.v}</span></li>
-              ))}
-              <li><span className="k">Role</span><span className="v">{p.role}</span></li>
-            </ul>
-          </div>
-        </div>
-      </div>
-    </article>
+    </a>
   );
 }
 
 export default function Projects() {
-  const [expandedSlug, setExpandedSlug] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [yearFilter, setYearFilter] = useState<string>('all');
-  const [time, setTime] = useState(0);
-
-  useEffect(() => {
-    let raf = 0;
-    const start = performance.now();
-    const tick = () => {
-      setTime((performance.now() - start) / 1000);
-      raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-  }, []);
-
-  const filtered = PROJECTS.filter((p) => {
-    if (statusFilter !== 'all' && p.status !== statusFilter) return false;
-    if (yearFilter !== 'all' && String(p.year) !== yearFilter) return false;
-    return true;
-  });
-
-  const statuses = [
-    { k: 'all', label: '전체', count: PROJECTS.length },
-    { k: 'live', label: '운영 중', count: PROJECTS.filter((p) => p.status === 'live').length },
-    { k: 'shipped', label: '출시 완료', count: PROJECTS.filter((p) => p.status === 'shipped').length },
-    { k: 'beta', label: '베타', count: PROJECTS.filter((p) => p.status === 'beta').length },
-    { k: 'dev', label: '개발 중', count: PROJECTS.filter((p) => p.status === 'dev').length },
-  ];
-  const years = [{ k: 'all', l: '전체' }, { k: '2026', l: '2026' }, { k: '2025', l: '2025' }, { k: '2024', l: '2024' }];
+  // Featured: portfolio-site (this site itself, currently in rebuild).
+  const featured = PROJECTS.find((p) => p.slug === 'portfolio-site');
+  const rest = PROJECTS.filter((p) => p.slug !== 'portfolio-site').slice(0, 6);
 
   return (
-    <section id="work" className="section" data-screen-label="01 Work">
-      <div className="container">
-        <div className="section-head">
-          <span className="section-kicker">작업실</span>
-          <h2 className="section-title">혼자 만들어 본, 자랑스러운 9가지</h2>
-          <p className="section-sub">일부는 아직 운영 중이고, 일부는 좋은 기억으로 남아있어요. 카드를 눌러 자세히 볼 수 있어요.</p>
+    <section id="projects" className="sec">
+      <div className="sec-head">
+        <div className="sec-kicker">
+          <span className="ln" />
+          <span className="n">01</span>
+          <span>Projects · 프로젝트</span>
         </div>
-
-        <div className="projects-controls">
-          <div className="filter-group">
-            <span className="lbl">상태</span>
-            {statuses.map((s) => (
-              <button
-                key={s.k}
-                className={`chip ${statusFilter === s.k ? 'active' : ''} ${s.k !== 'all' ? `status-${s.k}` : ''}`}
-                onClick={() => setStatusFilter(s.k)}
-              >
-                {s.label}<span className="count">{s.count}</span>
-              </button>
-            ))}
-          </div>
-          <div className="filter-group">
-            <span className="lbl">연도</span>
-            {years.map((y) => (
-              <button key={y.k} className={`chip ${yearFilter === y.k ? 'active' : ''}`} onClick={() => setYearFilter(y.k)}>
-                {y.l}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        <div className="projects-grid">
-          {filtered.map((p) => (
-            <ProjectCard
-              key={p.slug}
-              p={p}
-              time={time}
-              expanded={expandedSlug === p.slug}
-              onToggle={() => setExpandedSlug((prev) => (prev === p.slug ? null : p.slug))}
-            />
-          ))}
-        </div>
+        <h2 className="sec-h">
+          실제로 <span className="mark">돌아가는 것</span>만.
+        </h2>
+        <p className="sec-desc">
+          아이디어 단계는 뺐다. 유저가 있거나 주기적으로 유지되는 것만 노출한다.
+        </p>
       </div>
+
+      {featured && (
+        <div className="featured">
+          <div>
+            <div className="f-kicker">작업 중 · Astro 리디자인</div>
+            <h3 className="f-title">
+              <a href={`https://github.com/jee599/${featured.slug}`} target="_blank" rel="noreferrer">
+                {featured.title}
+              </a>
+            </h3>
+            <p className="f-desc">
+              이 사이트 자체. Astro + React + Content Collections.
+              빌드 로그·AI 뉴스·프로젝트를 같은 스키마로 관리한다.
+              홈 섹션을 새 디자인 토큰으로 다시 짜는 중.
+            </p>
+            <div className="f-tags">
+              <span className="acid">작업 중</span>
+              {featured.stack.map((s) => (
+                <span key={s}>{s}</span>
+              ))}
+              <span>Cloudflare</span>
+            </div>
+            <a href="#logs" className="f-cta">
+              관련 빌드 로그 보기 <span>→</span>
+            </a>
+          </div>
+          <pre className="f-visual">
+{`# 어제 작업 기록
+$ git log --oneline | head
+  43bc6a0 feat: home redesign
+  14 files touched
+
+# 새로 쓴 컴포넌트
+src/components/home/
+  Hero.tsx       Lab.tsx
+  Projects.tsx   TechBlock.tsx
+
+src/components/home/
+  About.astro    Footer.astro
+  NowStrip.astro ShipLog.astro
+  Topbar.astro   Writing.astro`}
+          </pre>
+        </div>
+      )}
+
+      <div className="pgrid">
+        {rest.map((p) => (
+          <ProjectCard key={p.slug} p={p} />
+        ))}
+      </div>
+
+      <p className="sec-foot">
+        <a
+          href="/projects"
+          data-ko={`전체 프로젝트 ${PROJECTS.length}개 보기 →`}
+          data-en={`View all ${PROJECTS.length} projects →`}
+        >
+          전체 프로젝트 {PROJECTS.length}개 보기 →
+        </a>
+      </p>
     </section>
   );
 }

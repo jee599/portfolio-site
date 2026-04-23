@@ -1,47 +1,49 @@
 ---
-import { SHIP_ROWS } from '../../data/home';
+import { getCollection } from 'astro:content';
 
-const heatmap = Array.from({ length: 52 }, (_, i) =>
-  Math.abs(Math.sin(i * 0.7) * Math.cos(i * 0.3)),
-);
+const logs = (await getCollection('build-logs'))
+  .filter((p) => p.data.lang === 'ko')
+  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
+  .slice(0, 6);
+
+const fmtDate = (d: Date) => {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const dd = String(d.getDate()).padStart(2, '0');
+  return `${y}.${m}.${dd}`;
+};
 ---
-<section class="section" style="padding-top: 24px;">
-  <div class="container">
-    <div class="shiplog">
-      <h3><span class="dot"></span>SHIP LOG · 최근 커밋</h3>
-      <div class="sub">What's been pushed lately · 지난 7일간 34 commits across 6 repos</div>
-      <div class="shiplog-table">
-        <div class="th c-hash">commit</div>
-        <div class="th">when</div>
-        <div class="th">message</div>
-        <div class="th" style="text-align: right;">status</div>
-        <div class="th c-diff" style="text-align: right;">diff</div>
-        {SHIP_ROWS.map((r) => (
-          <>
-            <div class="td hash c-hash">{r.h}</div>
-            <div class="td date">{r.date}</div>
-            <div class="td msg">{r.msg}<span class="ko">· {r.ko}</span></div>
-            <div class="td status-pill">
-              <span class={`pill ${r.status}`}>
-                {r.status === 'ok' ? 'deployed' : r.status === 'build' ? 'building' : 'testing'}
-              </span>
-            </div>
-            <div class="td diff c-diff">
-              <span class="add">+{r.diff.a}</span>
-              <span class="del">−{r.diff.d}</span>
-            </div>
-          </>
-        ))}
-      </div>
-      <div class="shiplog-foot">
-        <span>contributions · last 52 weeks</span>
-        <div class="bar">
-          {heatmap.map((v, i) => (
-            <span style={`left: ${(i / 52) * 100}%; opacity: ${0.3 + v * 0.7}; height: ${40 + v * 60}%; top: ${50 - v * 30}%;`}></span>
-          ))}
-        </div>
-        <span>34 commits this week</span>
-      </div>
+<section id="logs" class="sec">
+  <div class="sec-head">
+    <div class="sec-kicker">
+      <span class="ln"></span>
+      <span class="n">02</span>
+      <span>Build Logs · 빌드 로그</span>
     </div>
+    <h2 class="sec-h">
+      <span data-ko="매 결정의 " data-en="Every decision, ">매 결정의 </span>
+      <span class="italic" data-ko="기록" data-en="logged">기록</span>
+      <span data-ko="." data-en=".">.</span>
+    </h2>
+    <p class="sec-desc" data-ko="매일 ko/en 쌍으로 작성. 성공담보다 실패의 밀도가 높다. Content Collection으로 관리한다." data-en="Daily ko/en pairs. More failures than wins. Managed via Content Collections.">
+      매일 ko/en 쌍으로 작성. 성공담보다 <strong>실패의 밀도</strong>가 높다. Content Collection으로 관리한다.
+    </p>
   </div>
+
+  <div class="logs">
+    {logs.map((log) => {
+      const type = log.data.tags?.[0] ?? 'build';
+      return (
+        <a class="log" href={`/posts/${log.slug}`}>
+          <span class="date">{fmtDate(log.data.date)}</span>
+          <span class="title">{log.data.title}</span>
+          <span class="type">{type}</span>
+        </a>
+      );
+    })}
+  </div>
+
+  <p class="sec-foot">
+    <a href="/posts" data-ko="전체 빌드 로그 보기 →" data-en="All build logs →">전체 빌드 로그 보기 →</a>
+  </p>
 </section>

@@ -1,17 +1,34 @@
 ---
 ---
-<header class="topbar">
-  <div class="topbar-inner">
-    <a href="#top" class="brand">
-      <span class="mark">j</span>
-      jidonglab
-    </a>
-    <nav class="nav">
-      <a href="#work">작업실</a>
-      <a href="#lab">실험실</a>
-      <a href="#log">기록</a>
-      <a href="#about">소개</a>
-      <a href="mailto:ji@jidonglab.com" class="nav-cta">커피 한 잔 하실래요?</a>
-    </nav>
-  </div>
+<header class="topbar" id="home-topbar">
+  <a href="#top" class="topbar-brand">
+    <span class="sq"></span>
+    Jidong Lab
+  </a>
+  <nav class="topbar-nav">
+    <a href="#now" data-ko="지금" data-en="Now">지금</a>
+    <a href="#projects" data-ko="프로젝트" data-en="Projects">프로젝트</a>
+    <a href="#logs" data-ko="빌드 로그" data-en="Build Logs">빌드 로그</a>
+    <a href="#lab" data-ko="스킬" data-en="Skills">스킬</a>
+    <a href="#about" data-ko="소개" data-en="About">소개</a>
+  </nav>
+  <a
+    href="mailto:jidongs45@gmail.com"
+    class="topbar-cta"
+    data-ko="의뢰하기 →"
+    data-en="Contact →"
+  >의뢰하기 →</a>
 </header>
+
+<script is:inline>
+  (function () {
+    var nav = document.getElementById('home-topbar');
+    if (!nav) return;
+    function onScroll() {
+      if (window.scrollY > 40) nav.classList.add('scrolled');
+      else nav.classList.remove('scrolled');
+    }
+    onScroll();
+    window.addEventListener('scroll', onScroll, { passive: true });
+  })();
+</script>

@@ -1,22 +1,50 @@
 ---
 import { NOW_ITEMS } from '../../data/home';
-const loop = [...NOW_ITEMS, ...NOW_ITEMS];
+
+const recent = NOW_ITEMS.slice(0, 4);
 ---
-<div class="container" style="padding-top: 24px;">
-  <div class="now-strip">
-    <span class="now-strip-label">
-      <span class="dot"></span>
-      NOW
-    </span>
-    <div class="now-strip-scroll">
-      <div class="now-strip-inner">
-        {loop.map((it, i) => (
-          <>
-            <span><span class="tag">{it.tag}</span> {it.txt}</span>
-            <span class="sep">·</span>
-          </>
+<section class="now" id="now">
+  <div class="now-inner">
+    <div class="now-label">
+      <span class="led"></span>
+      <span data-ko="지금 작업 중" data-en="Now building">지금 작업 중</span>
+    </div>
+    <div>
+      <p class="now-body">
+        <strong>{recent[0]?.txt ?? '작업 중'}</strong>
+        <span data-ko=" — 작업은 공개적으로 한다. 매 커밋은 기록으로 남는다." data-en=" — built in public. Every commit leaves a trace."> — 작업은 공개적으로 한다. 매 커밋은 기록으로 남는다.</span>
+      </p>
+      <div class="now-recent">
+        {recent.map((it) => (
+          <span class="item">
+            <span class="ts">{it.tag}</span>
+            <span class="t">{it.txt}</span>
+          </span>
         ))}
       </div>
     </div>
+    <div class="now-meta">
+      <span data-ko="서울 · " data-en="Seoul · ">서울 · </span>
+      <span data-now-clock>--:--:--</span> KST<br>
+      <span data-ko="자동 동기화 · git log" data-en="auto sync · git log">자동 동기화 · git log</span><br>
+      claude-opus-4.7
+    </div>
   </div>
-</div>
+</section>
+
+<script is:inline>
+  (function () {
+    var nodes = document.querySelectorAll('[data-now-clock]');
+    if (!nodes.length) return;
+    function tick() {
+      var now = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+      var hh = String(now.getHours()).padStart(2, '0');
+      var mm = String(now.getMinutes()).padStart(2, '0');
+      var ss = String(now.getSeconds()).padStart(2, '0');
+      var txt = hh + ':' + mm + ':' + ss;
+      nodes.forEach(function (n) { n.textContent = txt; });
+    }
+    tick();
+    setInterval(tick, 1000);
+  })();
+</script>

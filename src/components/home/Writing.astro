@@ -1,68 +1,63 @@
 ---
-import { getCollection } from 'astro:content';
-
-const buildLogs = (await getCollection('build-logs'))
-  .filter((p) => p.data.lang === 'ko')
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
-  .slice(0, 7);
-
-const tips = (await getCollection('tips'))
-  .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
-  .slice(0, 3);
-
-type PostRow = {
-  slug: string;
-  date: string;
-  title: string;
-  titleKo: string;
-  tag: string;
-};
-
-const fmtDate = (d: Date) => {
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const dd = String(d.getDate()).padStart(2, '0');
-  return `${y}.${m}.${dd}`;
-};
-
-const posts: PostRow[] = [
-  ...buildLogs.map((p) => ({
-    slug: p.slug,
-    date: fmtDate(p.data.date),
-    title: p.data.title,
-    titleKo: p.data.description ?? p.data.project,
-    tag: p.data.tags?.[0] ?? 'builder-log',
-  })),
-  ...tips.map((p) => ({
-    slug: p.slug,
-    date: fmtDate(p.data.date),
-    title: p.data.title,
-    titleKo: p.data.tags?.[0] ?? 'tip',
-    tag: 'tip',
-  })),
-]
-  .sort((a, b) => (a.date < b.date ? 1 : -1))
-  .slice(0, 8);
+const links = [
+  {
+    kind: 'dev.to',
+    name: 'DEV.to',
+    handle: '@jee599',
+    desc: '영문 기술 포스트. 매주 일요일 발행.',
+    href: 'https://dev.to/jee599',
+    external: true,
+  },
+  {
+    kind: 'spoonai',
+    name: 'SpoonAI',
+    handle: 'spoonai.me',
+    desc: 'AI 뉴스 자동 큐레이션. 매일 아침 KST.',
+    href: 'https://spoonai.me',
+    external: true,
+  },
+  {
+    kind: 'feed',
+    name: 'RSS',
+    handle: '/rss.xml',
+    desc: '전체 빌드 로그·AI 뉴스 피드.',
+    href: '/rss.xml',
+    external: false,
+  },
+];
 ---
-<section id="log" class="section" data-screen-label="03 Writing">
-  <div class="container">
-    <div class="section-head">
-      <span class="section-kicker">기록</span>
-      <h2 class="section-title">미래의 나에게 남기는 메모</h2>
-      <p class="section-sub">만들다가 배운 것들을 잊기 전에 적어둬요. 주로 일요일 밤에 써요.</p>
+<section id="writing" class="sec">
+  <div class="sec-head">
+    <div class="sec-kicker">
+      <span class="ln"></span>
+      <span class="n">05</span>
+      <span>Writing · 글</span>
     </div>
-    <div class="writing-list">
-      {posts.map((post) => (
-        <a class="post-row" href={`/posts/${post.slug}`}>
-          <span class="date">{post.date}</span>
-          <span class="title">
-            {post.title}
-            <span class="ko">{post.titleKo}</span>
-          </span>
-          <span class="cat">#{post.tag}</span>
-          <span class="arrow">→</span>
-        </a>
-      ))}
-    </div>
+    <h2 class="sec-h" data-ko="다른 곳에도 쓴다." data-en="Also writes here.">
+      다른 곳에도 쓴다.
+    </h2>
+    <p class="sec-desc" data-ko="플랫폼별로 톤이 다르다. 요점만 남긴 피드." data-en="Tone varies by platform. Pointers only.">
+      플랫폼별로 톤이 다르다. 요점만 남긴 피드.
+    </p>
+  </div>
+
+  <div class="writing">
+    {links.map((l) => (
+      <a
+        class="writing-link"
+        href={l.href}
+        target={l.external ? '_blank' : undefined}
+        rel={l.external ? 'noreferrer' : undefined}
+      >
+        <span class="wl-kind">{l.kind}</span>
+        <span class="wl-name">
+          {l.name}
+          <span class="arr">→</span>
+        </span>
+        <span class="wl-desc">
+          {l.handle} · {l.desc}
+        </span>
+      </a>
+    ))}
   </div>
 </section>

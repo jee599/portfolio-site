@@ -1,85 +1,85 @@
-import { useEffect, useState } from 'react';
-import { EXPERIMENTS } from '../../data/home';
-
-function LabDemo({ idx }: { idx: number }) {
-  const [t, setT] = useState(0);
-  useEffect(() => {
-    const i = setInterval(() => setT((v) => v + 1), 80);
-    return () => clearInterval(i);
-  }, []);
-
-  const demos = [
-    <svg viewBox="0 0 400 70" style={{ width: '100%', height: '100%' }}>
-      {Array.from({ length: 14 }).map((_, i) => {
-        const w = 16 + ((i * 7 + t) % 24);
-        const x = 16 + Array.from({ length: i }).reduce((s, _0, j) => s + 16 + ((j * 7 + t) % 24) + 4, 0);
-        return <rect key={i} x={x} y={22} width={w} height={26} rx="5" fill={i % 3 === 0 ? '#3182F6' : '#D1D6DB'} />;
-      })}
-    </svg>,
-    <svg viewBox="0 0 400 70" style={{ width: '100%', height: '100%' }}>
-      <rect x="16" y="24" width="370" height="10" rx="5" fill="#E5E8EB" />
-      <rect x="16" y="24" width={370 - ((t * 2) % 280) - 30} height="10" rx="5" fill="#3182F6" />
-      <text x="16" y="58" fill="#3182F6" fontFamily="Pretendard" fontSize="13" fontWeight="700">−{70 + ((t * 3) % 20)}% ↓</text>
-    </svg>,
-    <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#4E5968', padding: '14px 18px', lineHeight: 1.6, width: '100%' }}>
-      <span style={{ color: '#3182F6' }}>❯</span> saju --now<br />
-      <span style={{ color: '#191F28' }}>{'{ year: "丙午", month: "壬辰" }'}</span>
-    </div>,
-    <div style={{ padding: 16, display: 'flex', gap: 8, alignItems: 'center' }}>
-      <span style={{ padding: '6px 10px', background: 'white', border: '1px solid #E5E8EB', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>안녕하세요</span>
-      <span style={{ padding: '6px 10px', background: '#3182F6', color: 'white', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>저는 개발자</span>
-      <span style={{ padding: '6px 10px', background: 'white', border: '1px solid #E5E8EB', borderRadius: 8, fontSize: 13, fontWeight: 600 }}>입니다</span>
-    </div>,
-    <div style={{ fontFamily: 'var(--mono)', fontSize: 11, color: '#4E5968', padding: 14, lineHeight: 1.7 }}>
-      <div>22:00 · 커밋 a9f2</div>
-      <div style={{ color: '#3182F6', fontWeight: 600 }}>22:04 · "쉼표 하나 수정"</div>
-      <div>22:11 · 탭 닫음: hn</div>
-    </div>,
-    <div style={{ display: 'flex', gap: 6, padding: 14, alignItems: 'center', flexWrap: 'wrap' }}>
-      {['/ghost', '/lol', '/index2', '/old', '/wp-admin'].map((s, i) => (
-        <span
-          key={i}
-          style={{
-            fontFamily: 'var(--mono)',
-            fontSize: 11,
-            padding: '4px 8px',
-            borderRadius: 6,
-            background: i === ((t / 10) | 0) % 5 ? '#3182F6' : '#E5E8EB',
-            color: i === ((t / 10) | 0) % 5 ? 'white' : '#4E5968',
-            fontWeight: 600,
-          }}
-        >
-          {s}
-        </span>
-      ))}
-    </div>,
-  ];
-  return <div className="lab-demo">{demos[idx]}</div>;
+interface Skill {
+  name: string;
+  kind: string;
+  desc: string;
+  triggers: string[];
 }
+
+const SKILLS: Skill[] = [
+  {
+    name: 'auto-publish',
+    kind: 'skill',
+    desc: '소재 URL 하나 주면 spoonai.me · DEV.to · Hashnode 3개 플랫폼에 SEO·후킹·이미지 전략까지 포함해 자동 발행한다.',
+    triggers: ['글 써줘', '/auto-publish'],
+  },
+  {
+    name: 'spoonai-daily-briefing',
+    kind: 'cron skill',
+    desc: '매일 아침 08:00 KST에 AI 뉴스 수집·분석·포스트 생성·이메일 발송까지 자동 실행한다.',
+    triggers: ['cron: 0 8 * * *'],
+  },
+  {
+    name: 'dental-ad-ops',
+    kind: 'pipeline',
+    desc: '치과 광고 온보딩·카드 이미지·블로그·사이트 구축 파이프라인. Playwright + Gemini로 시각 에셋 자동화.',
+    triggers: ['치과 광고', '온보딩'],
+  },
+  {
+    name: 'naver-dental-blog',
+    kind: 'skill',
+    desc: '네이버 블로그 상위 노출 알고리즘 대응과 의료법 준수 자동 포스팅. 이미지 파이프라인 스킬과 연동된다.',
+    triggers: ['네이버 블로그', '치과 포스팅'],
+  },
+  {
+    name: 'claude-design-lite',
+    kind: 'skill',
+    desc: 'Claude Design(claude.ai/design)의 질문 기법·컨텍스트 수집·AI-slop 가드를 역공학해서 로컬 Claude Code로 이식했다.',
+    triggers: ['디자인해줘', '프로토타입'],
+  },
+  {
+    name: 'research',
+    kind: 'meta',
+    desc: '주제 하나 주면 4개 서브 에이전트가 병렬로 딥 리서치. 각 1,500단어 + 교차 검증.',
+    triggers: ['리서치', '/research'],
+  },
+];
 
 export default function Lab() {
   return (
-    <section id="lab" className="section alt" data-screen-label="02 Lab">
-      <div className="container">
-        <div className="section-head">
-          <span className="section-kicker">실험실</span>
-          <h2 className="section-title">일부러 덜 만든 것들</h2>
-          <p className="section-sub">주말에 장난삼아 만든 작은 실험들. 완성도보다 재미를 먼저 봤어요.</p>
+    <section id="lab" className="sec">
+      <div className="sec-head">
+        <div className="sec-kicker">
+          <span className="ln" />
+          <span className="n">03</span>
+          <span>Lab · 자체 제작 스킬</span>
         </div>
-        <div className="lab-grid">
-          {EXPERIMENTS.map((e, i) => (
-            <div className="lab-cell" key={e.num}>
-              <div className="num">{e.num}</div>
-              <h3 className="title">{e.title}</h3>
-              <p className="desc">{e.desc}</p>
-              <LabDemo idx={i} />
-              <div className="foot">
-                <span className="tag">{e.tag}</span>
-                <span className="arrow">열어보기 →</span>
-              </div>
+        <h2 className="sec-h">
+          1인 운영을 <span className="mark">가능하게 하는</span> 도구.
+        </h2>
+        <p className="sec-desc">
+          Claude Code에 직접 만들어 설치한 스킬. 반복 작업을 자동화하는 사설 툴체인이다.
+        </p>
+      </div>
+
+      <div className="lab-grid">
+        {SKILLS.map((s) => (
+          <div className="lab-card" key={s.name}>
+            <div className="l-top">
+              <div className="l-name">{s.name}</div>
+              <div className="l-kind">{s.kind}</div>
             </div>
-          ))}
-        </div>
+            <div className="l-desc">{s.desc}</div>
+            <div className="l-trigger">
+              트리거 ·{' '}
+              {s.triggers.map((t, i) => (
+                <span key={t}>
+                  <code>{t}</code>
+                  {i < s.triggers.length - 1 ? ' · ' : null}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
       </div>
     </section>
   );
