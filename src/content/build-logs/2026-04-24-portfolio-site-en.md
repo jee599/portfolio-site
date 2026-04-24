@@ -1,123 +1,138 @@
 ---
-title: "I Reverse-Engineered Claude Design's Leaked 422-Line System Prompt and Ported It to a Local CLI Skill"
+title: "Reverse-Engineering Claude Design's 422-Line Leak — 5 Posts Shipped Across 4 Sessions"
 project: "portfolio-site"
 date: 2026-04-24
 lang: en
 pair: "2026-04-24-portfolio-site-ko"
-tags: [claude-code, claude-design, devto, automation, reverse-engineering]
-description: "Claude Design shipped and its 422-line system prompt leaked the same day. Here's what the prompt reveals about its architecture — and how I ported the useful parts to a local Claude Code skill in 136 tool calls."
+tags: [claude-code, claude-design, auto-publish, devto, reverse-engineering, agents]
+description: "Reverse-engineered Claude Design's leaked 422-line system prompt, built a local skill from it, and shipped 5 posts across 4 sessions with 279 tool calls."
 ---
 
-Claude Design launched on April 17, 2026. By 19:55 UTC that same day, its 422-line system prompt was sitting in a public GitHub repository. Four days later I reverse-engineered it with Claude Code, extracted the behavioral patterns, and ported them into a local CLI skill. One session: 27 hours 27 minutes, 136 tool calls.
+422 lines. That's how long Claude Design's system prompt is — and it's been sitting in a public GitHub repo since April 17, 2026.
 
-**TL;DR** 2 sessions, 193 total tool calls — reverse-engineered the leaked Claude Design prompt, built `claude-design-lite` from it, generated 4 redesign variants for jidonglab.com, and published a 3-part DEV.to series on trending AI GitHub projects.
+Four sessions later: one new local skill, a 3-part DEV.to series, and two blog posts about GPT-5.5. Total: 279 tool calls.
 
-## The Prompt That Started Everything: "Find Me the Leaked Claude Design Code"
+**TL;DR** Found the leaked Claude Design system prompt in `elder-plinius/CL4R1T4S`, reverse-engineered its core techniques — question framework, context collection, variation generation, AI-slop guards — and ported them into a local `claude-design-lite` skill. Separately, turned 4 trending AI GitHub repos into a DEV.to series, and shipped two GPT-5.5 posts triggered entirely via Telegram.
 
-That was the literal first message. It was ambiguous enough — local code search or external leak material? — that I narrowed the scope progressively via web searches.
+## The 422-Line Prompt Nobody Was Supposed to See
 
-What surfaced: `Claude-Design-Sys-Prompt.txt` in the `elder-plinius/CL4R1T4S` repo — 422 lines, 73KB. Commit timestamp: 2026-04-17 19:55, matching Claude Design's official release date exactly.
+Longest session of the four: 27 hours 27 minutes, 136 tool calls.
 
-Follow-up questions came fast: "Is this the latest version?", "Any source code?", "How is the internals structured?", "How do I actually use it?". I mapped what was public, what wasn't, and separated confirmed fact from community speculation.
+It started with a vague ask: "find me the leaked Claude Design code." Unclear what "Claude Design" meant — local code? an external leak? Spent the opening stretch narrowing scope.
 
-| What | Leaked? |
-|---|---|
-| Claude Code TypeScript source (513,000 lines) | ✅ npm sourcemap incident, 2026-03-31 |
-| Claude Design system prompt + tool schema | ✅ public GitHub repo, 2026-04-17 |
-| Claude Design actual source code | ❌ still private |
+`claude.ai/design` — launched by Anthropic Labs on April 17, 2026. Confirmed. Ran a web search.
 
-The Claude Code sourcemap incident from March was unrelated — a build artifact that accidentally bundled compiled-with-source TypeScript. But it set a precedent: the community had already been doing prompt archaeology by the time Claude Design launched.
+Found it in `elder-plinius/CL4R1T4S`: `Claude-Design-Sys-Prompt.txt`, 422 lines, 73KB. Commit timestamp: 2026-04-17 19:55 — same day as the official launch.
 
-## What 422 Lines of System Prompt Actually Tell You
+What's leaked, what isn't:
 
-I read the full prompt plus tool schema and inferred the internal architecture. Not "I saw the source code" — more accurately, "I inferred the enforced contract from the outside."
+| Item | Leaked? | Notes |
+|------|---------|-------|
+| Claude Code TypeScript source (513K lines) | ✅ | npm sourcemap incident, 2026-03-31 |
+| Claude Design system prompt + tool schemas | ✅ | Public repo, 2026-04-17 |
+| Claude Design actual source code | ❌ | Still private |
 
-Three structural patterns were clear.
+Three structural patterns that stood out:
 
-**The model is a practitioner, not a chatbot.** The prompt defines Claude Design as "a professional designer who uses HTML as the primary medium." The user is the manager; the model is the IC. Videos, slide decks, prototypes, brand identities — everything gets built as HTML first, then converted to the target format. There are no markdown or plain-text responses. If you expect a bullet list explaining your design options, you won't get one. You get files.
+**Role definition** — "A professional designer who uses HTML as a tool." HTML is the only native output format. Videos, slides, prototypes, decks — all implemented as HTML first, then converted if needed.
 
-**Projects are filesystem-backed, not chat-backed.** Claude Design operates in a completely separate space from regular claude.ai sessions. Files use relative path conventions; other projects live under `/projects/<project-name>/`. The model reads and writes files directly — it behaves closer to a local editor session than a conversation thread.
+**Filesystem-based projects** — Separate namespace from regular claude.ai chats. Path conventions use `<relative path>` for the current project and `/projects/<project-name>/` for others. Direct file read/write, not just conversation context.
 
-**13 built-in tools, including browser-level primitives.** The schema includes `create_file`, `edit_file`, `web_search`, and `screenshot_page`. That last one matters: it means Design can render HTML and screenshot the result inline, without ever leaving the environment. The iteration loop is self-contained.
+**Variationer pattern** — Every design request auto-generates 3 variations: different style, layout, and color palette. The output isn't one answer — it's a structured set of choices.
 
-I compiled this analysis into a standalone HTML guide at `/Users/jidong/claude-design-guide.html` — Instrument Serif headlines, IBM Plex Sans body copy, JetBrains Mono for code, automatic dark/light switching.
+Turned the analysis into an HTML guide first: `/Users/jidong/claude-design-guide.html`, 7 sections — from "is this a prompt or a skill?" to all 13 built-in tools.
 
-## "Can We Inject This Into Claude Code and Get the Same Behavior?"
+## Porting the Technique to a Local Skill
 
-That's where the session shifted. The honest answer is: partly.
+"Can we inject this into the CLI and get the same output?"
 
-Claude Design's host-dependent features — Live Preview, the Tweaks panel, Design Mode — require the web runtime. They can't be replicated locally. But the behavioral layer — **the question discipline, context collection, variation generation, and AI-slop prevention** — is pure prompt logic. That part is portable.
+Some features can't travel. Live Preview, Tweaks, and Design Mode all depend on Anthropic's hosted runtime. But the question framework, context collection, variation generation, and AI-slop guards are pure technique — fully portable.
 
-So I built `~/.claude/skills/claude-design-lite/SKILL.md`. The core logic:
+Built `~/.claude/skills/claude-design-lite/SKILL.md`. Core logic:
 
 ```
-1. Three pre-flight checks before activating:
-   - Is this actually a design task?
-   - Do I have enough context to generate real variations, not generic output?
-   - Is this a follow-up iteration or a fresh exploration?
+Three self-checks before activation:
+ - Is this actual design work vs. simple markup / refactoring?
+ - Is there already enough context?
+ - Is this a follow-up or a fresh exploration?
 
-2. Ten question templates for context gathering:
-   - Brand identity, target users, feature scope,
-     visual references, technical constraints, etc.
+10 context-gathering question templates
+ (identity, user, feature scope, references, etc.)
 
-3. Three variation directions per session:
-   - Each direction uses a different aesthetic principle
-   - Variations must be genuinely distinct, not color-swap copies of each other
-
-4. AI-slop guard (hard block):
-   - No glassmorphism
-   - No neumorphism
-   - No gratuitous gradient stacking
-   - No "card with drop-shadow on white background" defaults
+3 variation directions + AI-slop guard
+ - Block: glassmorphism, neumorphism, gradient abuse
 ```
 
-I ran the skill immediately against a jidonglab.com redesign — answered all ten questions, got four directions back:
+Applied it immediately to a jidonglab.com redesign. Answered the 10 questions, got 4 directions:
 
-- `v1-notebook.html` — notebook aesthetic, handwritten texture treatment
-- `v2-pro.html` — cream/acid/deep palette, built on live data
-- `v2-studio.html` — dark studio tone, editorial weight
-- `v3-labos.html` — experimental, asymmetric layout, no grid
+- `v1-notebook.html` — notebook texture, handwritten feel
+- `v2-pro.html` — cream/acid/deep palette, real data
+- `v2-studio.html` — dark, studio tone
+- `v3-labos.html` — experimental, asymmetric layout
 
-The v2-pro direction held up best in review. Feedback: "Good, but can we push it further?" — so I added an activity heatmap: a full year of commits, posts, and build logs in one view, with cumulative counts and longest streak visible. Mid-review the question came: "Is this real data?" It wasn't yet — placeholders. I switched it to pull live data from the actual sources.
+Feedback on v2-pro: "looks good, anything else to add?" Added an activity heatmap showing a year of commits, posts, and build logs on one screen. Follow-up: "is this real data?" Swapped in actual data from the git history and content collections.
 
-Session 2 totals: Edit ×37, Bash ×36, Write ×12, WebSearch ×11. 136 tool calls across 27 hours 27 minutes.
+The skill validated itself within the same session it was created.
 
-## Publishing a 3-Part DEV.to Series in a Single Session
+## 4 Trending AI Repos → 3-Part DEV.to Series
 
-A separate session the next day arrived as a one-liner: "find ~4 trending AI GitHub projects, analyze them, post to DEV.to." The `auto-publish` skill triggered. After one refinement ("make it 3 posts"), I proposed structure, got approval, and ran the publishing sequence.
+Separate session: 3 hours 25 minutes, 53 tool calls.
 
-Four projects became a thematic 3-part series:
+Prompt: "pick ~4 hot AI GitHub projects from April 2026 and publish analysis posts to DEV.to"
 
-| Part | Projects Covered | Angle | Status |
-|---|---|---|---|
-| Part 1 | andrej-karpathy/skills + hermes-agent | The Skills paradigm emerging | Published (04-23, 14:55 UTC) |
-| Part 2 | OpenClaw | Local MCP gateway architecture | Draft (scheduled 04-25) |
-| Part 3 | opencode | The terminal agent arms race | Draft (scheduled 04-27) |
+`auto-publish` skill triggered. WebSearch pulled trending repos:
 
-[Part 1 — How a Markdown File Hit 16K Stars: Skills in 2026](https://dev.to/ji_ai/how-a-markdown-file-hit-16k-stars-skills-in-2026-36hi) is live. Parts 2 and 3 are uploaded with `published: false` and scheduled to flip on their dates.
+- `andrej-karpathy/skills` — 16K stars. Defining agent skills via a single Markdown file
+- `hermes-agent` — Agent framework built on the Hermes model
+- `OpenClaw` — 295K stars. Local AI gateway with 50+ integrations
+- `open-code-cli` — Terminal-native AI agent
 
-There was already a published piece (`claude-code-channels-vs-openclaw-en.md`) covering "Claude Code Channels vs. OpenClaw" as a head-to-head comparison. That angle doesn't overlap with Part 2's architecture focus, so I kept it as an internal link rather than rewriting it.
+Revised instruction mid-session: "make it 3 posts, not 4." The regrouping forced a structural decision — go from project-by-project to theme-by-paradigm. That shift is what made the series work.
 
-Session 1 totals: Bash ×22, WebSearch ×4, TaskCreate ×4. 53 tool calls over 3 hours 25 minutes.
+| Post | Projects Covered | Angle | Status |
+|------|-----------------|-------|--------|
+| Part 1 | andrej-karpathy/skills + hermes-agent | The skills paradigm emerges | Published (04-23 14:55 UTC) |
+| Part 2 | OpenClaw | Local MCP gateway | Draft (scheduled 04-25) |
+| Part 3 | open-code-cli | Terminal agent wars | Draft (scheduled 04-27) |
 
-## Two Sessions, Combined
+Part 1 published: [How a Markdown File Hit 16K Stars: Skills in 2026](https://dev.to/ji_ai/how-a-markdown-file-hit-16k-stars-skills-in-2026-36hi)
 
-| Session | Date | Duration | Tool Calls | Work |
-|---|---|---|---|---|
-| Session 4 | 04-22 | 27h 27min | 136 | Claude Design reverse-engineering + 4 redesign variants |
-| Session 1 | 04-23 | 3h 25min | 53 | 3-part DEV.to series |
+Parts 2 and 3 uploaded to DEV.to as `published: false`, scheduled for their respective dates. First session where staggered publishing worked cleanly end-to-end.
 
-Tool breakdown across both sessions: Bash ×59, Edit ×41, Read ×19, WebSearch ×15, TaskUpdate ×15, Write ×15, TaskCreate ×10. Files created: 13. Files modified: 4.
+## GPT-5.5, Duct Tape, and Telegram as an Async Control Interface
 
-Two skills got their first real production deployment this cycle: `claude-design-lite` (built mid-session and immediately applied to the redesign) and `auto-publish` (ran the DEV.to series end-to-end). Both were written and used within the same session that created them — no staging, no testing environment.
+4th session: 10 hours, 88 tool calls. Triggered entirely via Telegram.
 
-## What the Prompt Is Actually Teaching
+Message received: "write blog posts about gpt 5.5 and duct tape"
 
-The leaked prompt isn't most useful as a jailbreak template or a "copy and deploy" artifact. What's interesting is what it reveals about production-grade prompt architecture.
+These look adjacent but they're separate projects. GPT-5.5 (codename "Spud", released 2026-04-23). Duct Tape (GPT Image 2, live-testing on LM Arena under the aliases `packingtape` and `maskingtape`).
 
-The clearest signal: the 422 lines spend almost no text explaining *what HTML is* or what good design looks like in the abstract. It assumes those. The bulk of the content is behavioral enforcement — what the model should *not* do, how to handle ambiguous inputs, what counts as acceptable output versus a lazy default. The ratio of "don't do X" to "do Y" is roughly 3:1.
+First actual task before writing a single word: deduplication check. Had already published "OpenAI Duct Tape / GPT Image 2" across three platforms on April 16 — 8 days prior. Making duct tape the main story again would be redundant. Adjusted the angle: GPT-5.5 (Spud) as the primary narrative, duct tape handled via internal link.
 
-That's the layer worth porting. Not the specific tool names, not the filesystem path conventions — those are host-specific details. The discipline of asking before generating, the structured variation approach, and the explicit guard rails against AI aesthetic defaults are the transferable primitives. That's what `claude-design-lite` captures.
+"Split into 2 posts" → "queue them for publishing" — once the direction was locked, dispatched 4 agents in parallel to generate files. One bug surfaced: DEV.to description hit 156 characters, 1 over the limit. Trimmed and pushed.
+
+The workflow pattern that solidified here: use Telegram for direction-setting, no confirmation round-trips. One message scopes the work, agents execute in parallel. The bottleneck is human review, not generation time.
+
+## Tool Usage Across 4 Sessions
+
+| Tool | Count | Share |
+|------|-------|-------|
+| Bash | 95 | 34% |
+| Edit | 42 | 15% |
+| TaskUpdate | 26 | 9% |
+| Read | 26 | 9% |
+| WebSearch | 18 | 6% |
+| Write | 15 | 5% |
+| Agent | 12 | 4% |
+| Other | 45 | 16% |
+
+Bash at 34% is structural — `auto-publish` runs git push, DEV.to API calls, and file verification all through shell. The 12 Agent calls were exclusively parallel content generation: independent domains get split off as subagents to keep the main context window clean while maximizing throughput.
+
+13 files created, 5 modified. The Claude Design session alone produced 11 new files: 4 HTML variations, 3 skill files, 1 HTML guide, 1 API route, misc.
+
+Two skills made their production debut this week: `claude-design-lite` (built and applied in the same session) and `auto-publish` (first time staggered publishing ran correctly). Building a skill and immediately deploying it against a real task is the fastest path to discovering what it's missing.
+
+> The point of reverse-engineering Claude Design wasn't curiosity about the leak. It was extracting one specific technique — the question framework — and running it locally. A single skill file changed output quality in a way that's hard to get from a prompt alone.
 
 ---
 
