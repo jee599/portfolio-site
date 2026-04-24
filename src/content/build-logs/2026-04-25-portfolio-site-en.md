@@ -1,142 +1,143 @@
 ---
-title: "Telegram to Published: End-to-End Content Automation with Claude Code (4 Sessions, 279 Tool Calls)"
+title: "One Telegram Message → 4 Posts Across 3 Platforms: A Claude Code Multi-Agent Automation Log"
 project: "portfolio-site"
 date: 2026-04-25
 lang: en
 pair: "2026-04-25-portfolio-site-ko"
-tags: [claude-code, auto-publish, content-automation, multi-agent]
-description: "4 sessions, 279 tool calls: Telegram→DEV.to pipeline live, Claude Design reverse-engineered into a portable skill, jidonglab.com redesigned with 4 variants."
+tags: [claude-code, auto-publish, multi-agent, automation]
+description: "A Telegram message about GPT-5.5 triggered 97 tool calls over 29 hours: research, duplicate detection, 4 parallel agents, and a 1-char DEV.to trap. Full log."
 ---
 
-One Telegram message. Five posts published. Zero manual steps between them.
+One Telegram message. Twenty-nine hours, thirty-nine minutes, and 97 tool calls later: four posts — two in Korean, two in English — were live across three platforms.
 
-That's the pipeline that closed across 4 sessions this week — 279 tool calls spanning research, duplicate detection, file generation, and API pushes. The model handles all of it end-to-end. This was the week `auto-publish` went from "mostly working" to "actually reliable."
+The original request: *"write a blog post about gpt 5.5 and duct tape."* No platform preferences. No outline. No language specified. Two keywords with an implicit expectation that something publishable would come out the other end.
 
-**TL;DR** 4 sessions, 279 tool calls. 5 posts deployed to DEV.to (1 immediate, 4 as staggered drafts). Claude Design's 422-line leaked system prompt reverse-engineered into a portable `claude-design-lite` skill. jidonglab.com redesigned with 4 distinct variants. The Telegram→model→DEV.to pipeline is now fully end-to-end.
+**TL;DR**: The `auto-publish` skill handled research → duplicate detection → strategy pivot → parallel multi-agent generation → per-platform inspection → publishing without human input. The only human checkpoint was four words: *"split it into 2 parts."*
 
-## Four GitHub Projects Turned Into a Three-Part Series With Staggered Publish Dates
+## Research First: Two Keywords, Three Searches
 
-The starting prompt was simple: "find 4 trending AI GitHub projects from April 2026 and publish analysis posts to DEV.to."
+The `auto-publish` pipeline doesn't treat incoming messages as prompts to write against directly. It treats them as intents that require disambiguation before any content decisions are made.
 
-`auto-publish` skill Phase 1 ran WebSearch for April 2026 trending. Four projects came back: `andrej-karpathy/skills` (16K stars), `hermes-agent`, `OpenClaw` (295K stars), `opencode`.
+"gpt 5.5 and duct tape" has two signals that looked related but needed verification. Before drafting a single outline bullet, the skill ran three `WebSearch` calls.
 
-Then the direction shifted: "make it 3 posts instead."
+What came back:
 
-Rather than restructure as a project-by-project rundown, the framing pivoted to technical paradigms — each post angles from a different architectural lens. This makes each piece independently valuable rather than forcing a reader to consume all three.
+- **GPT-5.5** ships under the internal codename **Spud** (released 2026-04-23). Positioned between GPT-4.5 and GPT-5 on the capability curve — not a flagship, but optimized as a practical workhorse for coding and instruction-following workloads. Mid-tier pricing, broad availability.
 
-| Part | Projects | Angle | Publish |
-|------|----------|-------|---------|
-| Part 1 | andrej-karpathy/skills + hermes-agent | The Skills paradigm as a new primitive | 04-23 (live) |
-| Part 2 | OpenClaw | Local MCP gateway architecture | 04-25 (draft) |
-| Part 3 | opencode | Terminal agent competition | 04-27 (draft) |
+- **Duct Tape** is the internal name for **GPT Image 2**, OpenAI's next-generation image model. Currently running on LM Arena for anonymous blind evaluation under the aliases `packingtape` and `maskingtape`. Strong preference scores. No official announcement as of the request date.
 
-Parts 2 and 3 were uploaded to DEV.to as `published: false` drafts. They'll publish manually on the target dates. The reason: dropping all three at once buries them in the feed. Three days apart gives each post an independent exposure window in DEV.to's "latest" feed.
+They're entirely separate product lines. GPT-5.5 is a language model update; Duct Tape is an image generation project that happens to share an April release window.
 
-Part 1 went live: [How a Markdown File Hit 16K Stars: Skills in 2026](https://dev.to/ji_ai/how-a-markdown-file-hit-16k-stars-skills-in-2026-36hi) — DEV.to id=3542024, 04-23 14:55 UTC.
+Together they form a coherent editorial angle: *OpenAI's dual April launch — reasoning model + image model = pieces of a super app.* That angle wasn't in the request. The research step surfaced it. This matters because it determines whether you write one post covering both or two posts treating them separately.
 
-This was the first session where the staggered draft strategy worked cleanly from a single session without any manual intervention on intermediate steps.
+## Duplicate Detection Before Writing Anything
 
-## A Single Telegram Message Hits Duplicate Detection Before Research Even Starts
+Before drafting, the pipeline ran a publishing history check across all three platforms.
 
-Session 4. One Telegram message: "write a blog post about gpt 5.5 and duct tape."
+It found a problem: a post covering "OpenAI Duct Tape / GPT Image 2" had already been published to spoonai.me, DEV.to, and Hashnode on **2026-04-16** — eight days earlier.
 
-Two topics that sound related but aren't. GPT-5.5 (codename Spud, released 2026-04-23) is a language model update. Duct Tape is GPT Image 2 — currently A/B tested on LM Arena under the aliases `packingtape` and `maskingtape`. Different product lines, overlapping release cycles, loosely connected branding.
+Writing the same subject again produces thin content at best and sends a duplicate content signal at worst. Neither outcome is acceptable.
 
-The pipeline ran duplicate detection before any research started. There was already a post titled "OpenAI Duct Tape / GPT Image 2" published across three platforms on 04-16 — 8 days prior. Writing Duct Tape as the main subject again would produce near-duplicate content with no differentiation.
+Two options surfaced:
+1. Write a new Duct Tape post anyway, accept the overlap, hope readers don't notice
+2. Make GPT-5.5 (Spud) the main subject; reference the existing Duct Tape post via canonical internal link
 
-Direction pivot: GPT-5.5 (Spud) as the lead subject, Duct Tape referenced via internal link.
+Option 2 is the correct call. The 2026-04-16 post retains its authority. The new post covers fresh material. A canonical internal link is a SEO positive, not a penalty.
 
-```
-GPT-5.5 main + Duct Tape as internal link
-→ canonical: https://jidonglab.com/blog/openai-gpt-5-5-spud
-→ DEV.to description: 156 chars → trimmed to 155 → pushed
-```
+This pivot happened without a human decision. The pipeline evaluated the situation, chose the better strategy, and logged its reasoning before continuing.
 
-"Split into 2 posts" → "queue for publishing" — 4 agents dispatched in parallel to generate the files. One bug caught during push: DEV.to description was 1 character over the platform limit. Trimmed, re-pushed.
+## "Split Into 2 Parts" — 4 Parallel Agents
 
-The pattern that locked in during this session: Telegram sets the direction, the model handles everything from research to publication. No human context-switching until it's done. The duplicate detection step is what makes this safe to run autonomously — without it, the pipeline would just flood DEV.to with overlapping content.
+The structured outline went back via Telegram for a review pass. The user's full response: *"split into 2 parts."*
 
-## Reverse-Engineering 422 Lines of Leaked System Prompt Into a Portable Skill
+That was the last human input in the session.
 
-The longest session of the four. 27 hours 27 minutes. 136 tool calls.
+The pipeline interpreted this as: publish Part 1 (GPT-5.5 technical overview) and Part 2 (the broader OpenAI April strategy story) as separate posts, not a single long piece. For each part, four agents launch in parallel — one per platform/language combination.
 
-It started with: "find me the leaked Claude Design code."
-
-WebSearch narrowed to the `elder-plinius/CL4R1T4S` repo, which contained `Claude-Design-Sys-Prompt.txt`. 422 lines. ~73KB. Commit timestamp: 2026-04-17 19:55 — matching Claude Design's public launch date exactly.
-
-No source code. Just the system prompt and tool schemas. The approach was to infer implementation from "what the contract forces" — if a tool schema defines a specific parameter shape, you can work backwards to what logic must be generating it.
-
-Three key patterns extracted from the reverse engineering:
-
-**HTML as the universal intermediate format.** Slides, video mockups, interactive prototypes — everything is generated as HTML first, then converted to whatever the user requested. There's no native per-output format. HTML is the single intermediate representation regardless of the target output type. This has an interesting implication: the model's rendering logic is unified, not specialized per output type.
-
-**The Variationer pattern.** Every design request auto-generates 3 variants with different style, layout, and color palette combinations. This isn't optional behavior — it's enforced by the workflow. The user always sees options. Single-result generation is explicitly avoided.
-
-**10 questions before any output.** Claude Design collects context first — identity, target users, functional scope, design references, color preferences, typography preferences, and more — before generating anything. The context collection phase is mandatory, not skippable.
-
-The question that followed: "can we inject this into the CLI and get the same functionality?"
-
-Partially. Live Preview and Design Mode are host-environment-dependent features — they can't be replicated in a local CLI context. But the portable parts were clear: the question framework, context collection methodology, variation generation discipline, and AI-slop guards.
-
-`~/.claude/skills/claude-design-lite/SKILL.md` was written to capture these. Core structure:
+Part 1 dispatch:
 
 ```
-Pre-flight self-check (3 questions before activating):
-  - Is this actual design work vs. markup cleanup / refactoring?
-  - Is enough context already present to proceed?
-  - Is this a follow-up iteration or a new design exploration?
-
-10 context questions:
-  identity, users, functional scope, references,
-  color palette, typography, interaction style, etc.
-
-AI-slop guard — auto-blocks:
-  glassmorphism, neumorphism, gradient overuse, card-stacking
+Agent 1 → spoonai.me Korean (Part 1)
+Agent 2 → spoonai.me English (Part 1)
+Agent 3 → DEV.to English (Part 1)
+Agent 4 → Hashnode English (Part 1)
 ```
 
-The skill was applied immediately to a jidonglab.com redesign — no waiting for a future use case. Answering the 10 context questions up front, then generating 4 variants:
+Pre-dispatch setup before agents launched:
+- Five reference files loaded via `Read` (GPT-5.5 announcement, benchmark comparisons, existing Duct Tape post, LM Arena screenshot, OpenAI pricing page)
+- Canonical URL locked: `https://jidonglab.com/blog/openai-gpt-5-5-spud`
+- DEV.to username verified
+- Per-platform constraints loaded: DEV.to description ≤ 155 chars, max 4 tags, no hyphens; Hashnode requires cover image for normal feed distribution; spoonai.me frontmatter must match the schema in `src/content/config.ts`
 
-- **v1-notebook**: notebook paper texture, handwritten-feel type treatment
-- **v2-pro**: cream/acid green/deep palette, developer-professional aesthetic
-- **v2-studio**: dark theme, high-contrast studio look
-- **v3-labos**: asymmetric layout, dense information density
+All four agents ran concurrently. Each agent has a fully self-contained context: platform target, language, frontmatter schema, canonical URL, reference files. They don't share state or communicate with each other.
 
-`v2-pro` got an activity heatmap built in — 1 year of commits, posts, and build logs rendered as real data, not placeholder content.
+The isolation design matters for failure handling. If Agent 3 (DEV.to) fails mid-generation, Agents 1, 2, and 4 are unaffected. You can re-dispatch just the failed agent without re-running the others. In a sequential pipeline, a single failure blocks everything downstream.
 
-> Building a skill while immediately applying it is the fastest path to a useful skill. Abstract skills that never get tested stay abstract.
+Part 2 followed the same four-agent pattern after Part 1 publishing was confirmed. One Telegram message — *"queue up for publishing"* — triggered `git add`, `git commit`, and `git push` for each platform file in sequence. No manual staging, no interactive prompts.
 
-The practical lesson here isn't that leaked prompts are interesting (they are), but that the design patterns in them — mandatory context collection, enforced variation, explicit output constraints — are worth extracting and applying without the hosted environment.
+## The 156-Character Trap
 
-## What 279 Tool Calls Actually Look Like
+After generating all four Part 1 files, the pipeline ran a per-file inspection pass before committing anything.
 
-| Tool | Count | Share |
-|------|-------|-------|
-| Bash | 95 | 34% |
-| Edit | 42 | 15% |
-| Read | 26 | 9% |
-| TaskUpdate | 26 | 9% |
-| WebSearch | 18 | 6% |
-| Write | 15 | 5% |
-| Agent | 12 | 4% |
-| Other | 45 | 16% |
+One issue: the DEV.to `description` field clocked in at **156 characters**. The platform enforces a hard 155-character limit.
 
-Bash at 34% reflects the `auto-publish` structure: git pushes, DEV.to API calls, and file verification all run through shell. It's not heavy computation — it's orchestration. The model is calling shell commands the way you'd call them manually, just without stopping to wait for human confirmation at each step.
+One character over.
 
-Agent at 12 calls — every one of those was parallel content generation. When tasks are structurally independent (different post drafts, different file targets), splitting them across subagents keeps the main context window lean and increases throughput. The main thread handles coordination; subagents handle volume. The main session's context stays clean enough to reason about what's already been done.
+Trimmed one word. Re-checked. Then pushed.
 
-Files created across 4 sessions: 13. Files modified: 5. The Claude Design session alone produced 11 files — 4 HTML variants, 3 skill files, 1 design guide, 1 API route (`/api/now.ts`), and miscellaneous config.
+The fix itself is trivial. What's not trivial is catching it before it ships. The pipeline runs as three distinct phases: **generate → inspect → publish**. They're not collapsed into a single pass.
 
-The 279 total isn't a sign of inefficiency — it's a sign of a pipeline that's doing real work. Research, deduplication, file generation, API calls, error handling. The per-session average is ~70 tool calls, which tracks against the complexity of what each session was doing.
+The inspection phase exists because platform constraints don't fail loudly — they either silently truncate metadata or reject the API call after the fact, when the post is already partially live in a broken state. By the time you catch it post-publish, you've got a live post with bad SEO metadata and a correction to make publicly.
 
-## What Actually Shipped
+Per-platform gotchas the inspection step routinely catches:
+- DEV.to: 155-char description cap, max 4 tags, no hyphens in tag names, `tags` must be lowercase
+- Hashnode: cover image field required; missing it means the post shows up in the feed without a preview image
+- spoonai.me: Astro Content Collections schema is strict — missing or mistyped frontmatter fields throw a build error
 
-Two skills moved from concept to active production use this week.
+In a pipeline that generates and immediately publishes, all of these would surface as post-publish corrections. Separating generation from inspection makes them pre-push corrections instead.
 
-`claude-design-lite` was built and immediately applied to an actual site redesign. The forced 10-question context phase surfaced assumptions that would have stayed implicit — who the primary user is, what the first action should be, which design references to avoid. The 4 variants that came out were genuinely differentiated, not color-swap iterations of the same layout.
+## Session Stats
 
-`auto-publish` ran its first clean staggered deploy: 3 posts, 3 different publish dates, queued from a single session. The distribution strategy is now codified into the workflow rather than requiring a judgment call each time.
+| Metric | Value |
+|---|---|
+| Session length | 29h 39m |
+| Total tool calls | 97 |
+| Bash calls | 42 (43%) |
+| Telegram messages | 11 |
+| Agent dispatches | 8 |
+| Read calls | 7 |
+| Posts generated | 4 |
+| Platforms published | 3 (spoonai.me, DEV.to, Hashnode) |
 
-The Telegram→model→DEV.to loop closing end-to-end is the larger milestone. The pipeline now handles research, duplicate checking, content generation, formatting, and API publishing without a human context-switching in between. Fewer interruptions, faster time from idea to published post.
+The 42 Bash calls are the obvious optimization target. Most of them are `git add` / `git commit` / `git push` running separately per platform, per part. That's platform × part × 3 commands = 12+ calls just for git operations, repeated each publishing round. Batching all platform files into a single commit per part would bring the Bash count down substantially.
+
+It's a known inefficiency. The current structure is per-platform commits for clean history and isolated rollback. Worth revisiting once the publishing flow is more stable.
+
+Of the 11 Telegram messages, 1 was the original request, 1 was "split into 2 parts," and the rest were status updates and publishing confirmations. Human decision-making input: 2 messages. The rest is the model reporting what it did.
+
+## What This Architecture Gets Right
+
+**Telegram as an intent relay, not a command interface**
+
+The input doesn't need to be a structured command. "gpt 5.5 and duct tape" is a vague brief. The pipeline resolves the intent internally — through research, disambiguation, duplicate detection — before committing to any output format. Input quality doesn't determine output quality.
+
+This decoupling is what makes short Telegram messages viable as triggers. You're not compressing a full prompt into a message; you're providing a direction and letting the pipeline do the specification work.
+
+**Duplicate detection before generation, not after**
+
+Most automation pipelines skip duplicate checking entirely. This one runs it as a mandatory phase before any writing happens. The 2026-04-16 Duct Tape finding changed the entire structure of the output — from "write about both" to "write about Spud, link to the existing Duct Tape post." That's not a minor tweak; it's a structural change to the content strategy.
+
+Without this check, the pipeline would have generated a Duct Tape post that repeats the 2026-04-16 material. With it, the new post is correctly positioned and links back to the original rather than competing with it.
+
+**Agent isolation for failure resilience**
+
+Each of the four parallel agents is independently retryable. This is intentional — not just an architectural convenience. In any parallel execution model, the failure recovery cost of a shared-state design is the entire batch. Isolated agents make failure local.
+
+**Generate → inspect → publish as three phases**
+
+The inspection step is a quality gate between content creation and publishing. It doesn't require human review — it runs automatically — but it exists as a distinct phase so constraints can be checked while there's still time to fix them cleanly. The 156-char DEV.to description was caught here, fixed in two seconds, and never touched the live platform in a broken state.
+
+> When Telegram becomes the input channel, a short context-free message is enough to trigger the entire pipeline. The pipeline resolves context, detects conflicts, adapts strategy, and executes — all before the first word is written. The constraint isn't prompt engineering. It's having a pipeline with distinct phases that each do one thing well.
 
 ---
 
