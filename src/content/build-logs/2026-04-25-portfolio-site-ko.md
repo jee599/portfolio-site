@@ -4,7 +4,7 @@ project: "portfolio-site"
 date: 2026-04-25
 lang: ko
 tags: [claude-code, auto-publish, multi-platform, agents, automation, telegram]
-description: "텔레그램 '글 써줘' 한 줄이 97 tool call, 29시간 39분짜리 파이프라인을 돌렸다. 중복 감지 → 전략 수정 → Agent 4개 병렬 → DEV.to 1자 초과 트랩까지 실전 기록."
+description: "텔레그램 '글 써줘' 한 줄이 97 tool call, 29시간 39분 파이프라인을 돌렸다. auto-publish 스킬이 중복 감지, 전략 수정, Agent 4개 병렬 생성, 3플랫폼 발행까지 전부 처리한 실전 기록."
 ---
 
 텔레그램에 "gpt 5.5랑 덕테이프 관련해서 블로그 글 써줘"라고 보냈다. 이 11자가 97번의 tool call을 트리거했다.
