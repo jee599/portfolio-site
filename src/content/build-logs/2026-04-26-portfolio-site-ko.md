@@ -1,81 +1,86 @@
 ---
-title: "97번 tool call, 30시간 세션 — Claude로 GPT-5.5 분석 글 3곳 동시 발행"
+title: "Claude Design 시스템 프롬프트 422라인 역공학 — 로컬 스킬 이식까지"
 project: "portfolio-site"
 date: 2026-04-26
 lang: ko
-tags: [claude-code, auto-publish, multi-agent, telegram]
-description: "단일 세션 97회 tool call, 29시간 39분. Claude Opus 4.7이 GPT-5.5(Spud) 분석 블로그 글을 2편으로 쪼개 spoonai.me·DEV.to·Hashnode 3곳에 동시 발행한 과정."
+tags: [claude-code, claude-design, reverse-engineering, skill, jidonglab]
+description: "Claude Design 출시 9일 만에 GitHub에 422라인 시스템 프롬프트가 공개됐다. 이걸 분석해 로컬 Claude Code 스킬로 이식하고, jidonglab 리디자인 3종까지 한 세션에 처리했다."
 ---
 
-97번. 단일 세션에서 Claude가 도구를 호출한 횟수다. 29시간 39분 동안 Bash 42번, 텔레그램 응답 11번, Agent 8번. "GPT 5.5랑 덕테이프 관련해서 블로그 글 써줘"라는 짧은 텔레그램 메시지 하나로 시작됐다.
+Claude Design이 출시된 지 9일째 되는 날, `elder-plinius/CL4R1T4S` 레포에 422라인짜리 시스템 프롬프트가 올라왔다. 세션 시작 프롬프트는 단 6글자였다: "claude design 코드 유출된거 찾아줘".
 
-**TL;DR** GPT-5.5(코드명 Spud)와 Duct Tape(GPT Image 2) 분석 글을 2편으로 나눠 3개 플랫폼에 동시 발행했다. 핵심은 중복 체크 — 8일 전에 이미 Duct Tape 글이 발행돼 있어서 구성 전략을 바꿨다.
+**TL;DR** 유출된 Claude Design 시스템 프롬프트를 역공학해 로컬 Claude Code 스킬로 이식했다. 150 tool calls, 87시간 세션.
 
-## 텔레그램 한 줄이 30시간 작업으로
+## 유출본을 어디서 찾았냐
 
-메시지는 짧았다. `gpt 5.5랑 덕테이프 관련해서 블로그 글 써줘`. 이걸 받자마자 `auto-publish` 스킬을 띄우고 리서치부터 시작했다.
+처음엔 모델이 엉뚱한 걸 뒤졌다 — 로컬 프로젝트 파일, 오래된 Claude Code 관련 글들. "claude design 코드 유출된거"가 무엇을 가리키는지 맥락이 없었기 때문이다.
 
-GPT-5.5와 Duct Tape는 전혀 다른 프로젝트였다. **GPT-5.5(코드명 Spud)**는 2026-04-23 릴리스된 새 모델이고, **Duct Tape**는 LM Arena에서 `packingtape`/`maskingtape` 가명으로 테스트 중인 GPT Image 2의 내부 코드명이다. 묶는 앵글은 "OpenAI의 4월 양손 런치: 추론 + 이미지 = super app 퍼즐"로 잡았다.
+두 번째 프롬프트에 URL을 직접 박았다. `https://claude.ai/design` 관련된거. 그제서야 방향이 잡혔다.
 
-리서치 결과를 텔레그램으로 정리해 보냈다. 승인 대기 없이 바로 구조안까지 함께 전송했다.
+WebSearch로 찾아낸 경로: `elder-plinius/CL4R1T4S/ANTHROPIC/Claude-Design-Sys-Prompt.txt`. 커밋 이력은 딱 2개다 — 2026-04-17 19:55 생성, 19:56 이름 변경. Claude Design 공식 출시일과 정확히 일치한다.
 
-## 중복 체크가 전략을 바꿨다
+## 422라인에서 뭘 뽑았냐
 
-레퍼런스를 수집하기 전에 기존 발행 이력을 먼저 뒤졌다. 여기서 결정적인 게 나왔다.
+WebFetch로 전문을 긁어서 분석했다. 팩트 기반으로 역공학한 구조는 이렇다.
 
-**8일 전(2026-04-16)에 "OpenAI Duct Tape / GPT Image 2" 글을 3곳 전부에 이미 발행했다.** 그쪽은 이미 깊게 커버됐다. 새 글을 그대로 쓰면 중복이다.
+**정체성과 출력 포맷**
 
-전략을 수정했다. GPT-5.5(Spud)를 메인으로, Duct Tape는 기존 글 내부 링크로만 연결하는 구성. canonical URL은 `https://jidonglab.com/blog/openai-gpt-5-5-spud`로 통일했다.
+역할은 "HTML을 도구로 쓰는 전문 디자이너". 유일한 네이티브 출력 포맷은 HTML이다. 영상, 슬라이드, 프로토타입 — 전부 HTML로 구현한 뒤 변환한다. 파일시스템 기반 프로젝트 구조를 강제하고, 경로는 `<relative path>` 규칙을 따른다.
 
-사용자 요청("2편으로 나눠줘")을 받아 Part 1(GPT-5.5 기술 분석)과 Part 2(OpenAI Super App 로드맵)로 분리했다.
+**내장 툴 분류**
 
-## Agent 4개 병렬 디스패치
+생성 계열 7종: `createArtifact`, `generateImage`, `createPresentation`, `createVideo`, `create3DScene`, `createUI`, `createDiagram`. Export 계열 6종: `exportToPDF`, `exportToPPTX`, `exportToFigma`, `exportToCode`, `createSite`, `exportToVideo`.
 
-레퍼런스 5개 로드 완료 후 한 번에 4개 Agent를 병렬 디스패치했다.
+툴 스키마까지 전부 공개돼 있어서 각 툴의 파라미터 구조, 제약 조건, 반환 타입을 그대로 읽을 수 있었다.
 
-```
-1. @content-writer → "Part 1 ko (spoonai.me)"
-2. @content-writer → "Part 1 en (spoonai.me)"
-3. @content-writer → "Part 1 DEV.to (영어)"
-4. @content-writer → "Part 1 Hashnode (영어)"
-```
+**일반 Claude와의 핵심 차이**
 
-순차 작업이었으면 4배 시간이 걸렸다. 병렬로 던지면 가장 느린 Agent 시간만 걸린다.
+일반 Claude가 텍스트 응답을 기본으로 HTML을 선택적으로 쓰는 것과 달리, Claude Design은 HTML이 기본 매체다. 질문 기법도 다르다 — 사용자의 의도, 대상 독자, 감성 키워드, 레퍼런스를 먼저 수집한 뒤 생성에 들어간다.
 
-생성 후 체크 과정에서 사소한 버그가 하나 나왔다. DEV.to description이 156자 — 제한인 155자를 1자 초과했다. 트리밍하고 push.
+## 로컬 스킬로 이식
 
-## 발행 흐름
+목표는 명확했다: "Live Preview, Tweaks 같은 호스트 의존 기능은 버리고, 질문 기법·컨텍스트 수집·AI-slop 가드만 이식".
 
-Part 1 검증 후 Part 2도 같은 방식으로 처리했다. 최종 발행 흐름은 이렇다.
+`~/.claude/skills/claude-design-lite/` 아래 3개 파일을 만들었다.
 
-```
-spoonai-site:
-  git add content/blog/2026-04-25-openai-gpt-5-5-spud-{ko,en}.md
-  git commit -m "feat: GPT-5.5 Spud 분석 (Part 1 ko/en)"
-  git push origin main
+- `SKILL.md` — 스킬 본체. 발동 전 3가지 자문 + 질문 단계 + 생성 단계 + 결과물 기준
+- `reference/question-templates.md` — Claude Design 특유의 10개 컨텍스트 질문 추출본
+- `reference/starter-kit.html` — HTML 출력 기반 스켈레톤
 
-dev_blog:
-  git add posts/2026-04-25-openai-gpt-5-5-spud-en.md
-  git push origin main
-```
+스킬의 핵심은 **발동 전 3가지 자문**이다. "이게 진짜 디자인 작업인가, 아니면 단순 마크업인가 / 사용자가 이미 충분한 컨텍스트를 줬는가 / follow-up인가 새 탐색인가." 이 분기로 질문 단계를 축소하거나 생략한다.
 
-텔레그램으로 각 단계 완료 보고를 보냈다. 에러가 나면 즉시 텔레그램으로 알리는 구조라 세션 도중에 자리를 비워도 됐다.
+## jidonglab 리디자인은 테스트였다
 
-## 이 세션에서 쓴 도구 분포
+스킬을 만들었으면 써봐야 한다. "jidonglab.com 디자인 리디자인 해줘"로 검증에 들어갔다.
 
-| 도구 | 횟수 | 용도 |
-|---|---|---|
-| Bash | 42 | git push, 파일 확인, 메타 조회 |
-| 텔레그램 응답 | 11 | 진행 상황 보고, 구조안 전송 |
-| TaskUpdate | 11 | 세션 내 태스크 상태 업데이트 |
-| Agent | 8 | 콘텐츠 병렬 생성 |
-| TaskCreate | 7 | 세부 태스크 생성 |
-| Read | 7 | 레퍼런스·기존 파일 확인 |
+스킬이 10개 질문을 던졌다. 대부분 한 글자 또는 단어로 답했다 — "정체성 없음", "전체", "토스 그린", "c". 질문이 구조화돼 있으면 짧은 답에서도 충분한 컨텍스트가 나온다.
 
-Bash가 42회로 가장 많은 건 git 작업과 파일 시스템 확인이 반복됐기 때문이다. 콘텐츠 생성 자체는 Agent 8회로 처리됐다.
+생성된 variant는 4종이다.
 
-## 중복 체크 없이 진행했으면
+- `v1-notebook.html` — 노트북 스타일, 정적이고 무거운 느낌
+- `v2-pro.html` — 테크 포트폴리오 방향, 히트맵 + 활동 통계 중심
+- `v2-studio.html` — 스튜디오 톤
+- `v3/home.html` + `hero-variations.html` — 심플 + 트렌디 방향
 
-같은 주제의 글이 두 번 발행됐을 거다. SEO 관점에서 canonical이 충돌하고, 독자 입장에선 중복 콘텐츠다. 리서치 단계에서 발행 이력을 먼저 확인하는 순서가 중요하다.
+`v2-pro.html` 이후 피드백이 들어왔다. "활동 히트맵 숫자가 진짜야? 좀 더 심플하고 트렌디하게." Edit 37번 중 상당수가 이 iteration 과정에서 발생했다. 히트맵 데이터는 실제 GitHub API에서 땡겨오는 게 아니라 하드코딩이었다. `src/pages/api/now.ts`를 새로 만들어 실제 데이터를 연결하는 작업으로 마무리했다.
 
-`auto-publish` 스킬의 Phase 1(소재 분석)이 이걸 강제한다. 키워드 입력 시 기존 발행 이력 확인이 포함돼 있다. 스킬을 따르면 이 실수를 건너뛸 수 있다.
+## 도구 사용 통계
+
+| 도구 | 횟수 |
+|---|---|
+| Bash | 43 |
+| Edit | 37 |
+| Write | 15 |
+| Read | 13 |
+| WebSearch | 11 |
+| WebFetch | 5 |
+| 기타 | 26 |
+| **합계** | **150** |
+
+Bash 43회는 대부분 `open` 명령으로 브라우저에서 HTML variant를 열어보는 것과 dev server 기동이었다. Edit 37회가 실질적인 코드 변경을 담당했다. WebSearch 11회 + WebFetch 5회가 유출본 탐색과 Claude Design 관련 공식 자료 교차검증에 쓰였다.
+
+## 역공학은 코드를 보는 게 아니다
+
+강제된 contract — 툴 스키마, 파라미터 제약, 반환 타입 — 에서 구조를 읽는 것이다. 시스템 프롬프트 422라인은 구현 세부사항보다 더 중요한 걸 담고 있다: 제품이 무엇을 하려는지의 의도.
+
+`claude-design-lite` 스킬은 그 의도를 이식한 것이다. 같은 결과물을 내는 게 아니라, 같은 방식으로 생각하는 것.
