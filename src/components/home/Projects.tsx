@@ -113,22 +113,32 @@ export default function Projects() {
               관련 빌드 로그 보기 <span>→</span>
             </a>
           </div>
-          <pre className="f-visual">
+          <div className="f-visual">
+            <div className="mac-bar">
+              <span className="mac-dot mac-r" />
+              <span className="mac-dot mac-y" />
+              <span className="mac-dot mac-g" />
+              <span className="mac-title">~/portfolio/portfolio-site · main</span>
+            </div>
+            <pre className="mac-body">
 {`# 어제 작업 기록
 $ git log --oneline | head
-  43bc6a0 feat: home redesign
-  14 files touched
+  fd288c5 feat: v2-pro home redesign
+  721bb60 chore: baseline before port
+  43bc6a0 feat: build logs auto
 
-# 새로 쓴 컴포넌트
+# 새로 쓴 컴포넌트 (14개)
 src/components/home/
-  Hero.tsx       Lab.tsx
-  Projects.tsx   TechBlock.tsx
+  Hero.tsx · Lab.tsx · Projects.tsx
+  TechBlock.tsx · Thumbnails.tsx
 
 src/components/home/
-  About.astro    Footer.astro
-  NowStrip.astro ShipLog.astro
-  Topbar.astro   Writing.astro`}
-          </pre>
+  About.astro · Footer.astro
+  NowStrip.astro · ShipLog.astro
+  Topbar.astro · Wordmark.astro
+  Writing.astro`}
+            </pre>
+          </div>
         </div>
       )}
 
