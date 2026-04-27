@@ -1,82 +1,115 @@
 ---
-title: "12 Parallel Agents, 627 Tool Calls: What 5 Claude Code Sessions Actually Look Like"
+title: "12 Agents in Parallel: 444 Tool Calls, 3 Projects, One Day with Claude Code"
 project: "portfolio-site"
 date: 2026-04-27
 lang: en
 pair: "2026-04-27-portfolio-site-ko"
-tags: [claude-code, claude-design, subagent, dental-ad, devto, spoonai]
-description: "Reverse-engineered Claude Design's leaked system prompt into a local skill. 12 parallel sub-agents analyzed the Korean dental ad market. 5 sessions, 627 tool calls, 40 files."
+tags: [claude-code, multi-agent, auto-publish, devto, parallel-agents]
+description: "Running 12 sub-agents in parallel: dental ad research, DEV.to series publishing, and PayPal validation in a single day of Claude Code."
 ---
 
-627 tool calls across 5 sessions. 40 files created. Most of it wasn't writing code — it was figuring out how to use Claude Code better.
+444 tool calls. 3 sessions. 12 sub-agents running in parallel. This is what a full day of multi-agent Claude Code looks like — the output, the false positives, and where it breaks down.
 
-**TL;DR** Pulled apart Claude Design's leaked system prompt and ported the relevant parts into a `claude-design-lite` skill. Ran 12 parallel sub-agents to research the Korean dental advertising market. Published 3 DEV.to articles in the process.
+**TL;DR** — Ran 3 sessions across different domains: published a DEV.to 3-part series with the auto-publish skill, dispatched 12 parallel agents to produce a dental advertising research report, and validated live PayPal payments through a Telegram → Claude Code pipeline. Total: 444 tool calls, 12 files created, 28 modified.
 
-## What 422 Lines of Claude Design's System Prompt Actually Says
+## The DEV.to Series That Wrote Itself (Almost)
 
-Two days after Claude Design launched on 2026-04-17, the system prompt showed up in the `elder-plinius/CL4R1T4S` repository. 422 lines, ~73KB. I fed it into Claude Code and started reading.
+The prompt was simple: "Analyze 4 popular AI Git projects and post to DEV.to."
 
-Three things stood out.
+The auto-publish skill takes over from there. Phase 1 collects source material, Phase 2 proposes structure, Phase 3 generates content, Phase 4 publishes. One prompt fires the skill; the skill makes every subsequent decision.
 
-**Claude Design runs as a "professional designer who uses HTML as a medium."** It doesn't think in Figma abstractions or design tokens — it thinks in HTML/CSS and builds everything (videos, slides, prototypes) as web documents. The file system is the project context.
+Phase 2 proposed regrouping 4 projects into 3 themed posts:
 
-**The 10-question intake is the core mechanic.** It doesn't start generating immediately. It asks: Does the project have a defined identity? Who's the audience? What are the reference aesthetics? It locks down the design direction before touching HTML. This is what separates it from "write me a landing page" prompts.
+| Part | Title | Projects Covered |
+|---|---|---|
+| Part 1 | Skills: When a Markdown File Got 100K Stars | `andrej-karpathy-skills` + `hermes-agent` |
+| Part 2 | OpenClaw: The Local AI Gateway | OpenClaw (295K+ stars) |
+| Part 3 | Terminal Agents | OpenCode + open-source terminal agents |
 
-**There's an explicit AI-slop guard.** Banned: "generic gradients," "glass-morphism cards," "floating geometric shapes." The rules are in the prompt verbatim.
+Four projects, reorganized by theme into a three-part series — each post stands alone, all three connect. Part 1 published immediately at `2026-04-23 14:55 UTC` (DEV.to id=3542024). Parts 2 and 3 went up as drafts pending scheduled publication.
 
-I ported all three into `~/.claude/skills/claude-design-lite/SKILL.md`. Left out the Live Preview and Tweaks functionality (host-dependent), kept the intake questions, context collection, variation logic, and anti-slop guards.
+The interesting part: there was an existing post about OpenClaw (`claude-code-channels-vs-openclaw-en.md`) already in the repo. The skill detected it and pivoted — linking internally instead of re-covering the same ground. That judgment call happened without a human in the loop.
 
-Applied it immediately to a jidonglab.com redesign. Generated 5 variations under `~/jidonglab-redesign/` — v1 (notebook), v2 (pro), v3 (labos), v3/home. Ended up modifying `src/components/home/About.astro`, `Projects.tsx`, and `home.css`.
+Session 1 stats: `claude-opus-4-7`, 75h 58m context, 191 tool calls. Breakdown: `Bash` 96 / `Agent` 11 / `Read` 14.
 
-## Running 5 Agents in Parallel to Fact-Check 66,745 Words of Research
+## When Article Quality Drops Between Runs
 
-Inside `dentalad/ads-research/` there were 66,745 words of market research documents — 12 original files plus 8 validation passes. The problem: the conclusions contradicted each other in several places.
+Mid-session 1, a content quality problem surfaced. The observation: "April 26th articles are worse than April 25th."
 
-Dispatched 5 sub-agents in parallel, one per domain: regulation, competitors, platforms, unit economics, market data. The results came back with a clear pattern of errors and omissions.
+The issue was structural. The generation pipeline was defaulting to news summary plus model-by-model lists. Flat, low-signal, easy to skip. Three things needed to change:
 
-- Naver Cue: was treated as a core algorithm in V1. It was shut down on 2026-04-09.
-- The AI Basic Act enforcement date was wrong.
-- CareRabs' 2025 profitability turnaround and ongoing acquisition were missing entirely.
-- The subject/object were inverted in one claim — it was Naver blocking ChatGPT, not the other way around.
+1. Blend source summary + background knowledge + industry insight into each post
+2. Add a title image and inline images mid-article
+3. Make each post teach something, not just report it
 
-V2 had overridden V1 on 12 separate items, but FINAL-REPORT was still pulling V1 figures. Fixed 3 files directly.
+Updated `~/.claude/skills/spoonai-daily-briefing/SKILL-2-publish.md` and rewrote the `self-critique.mjs` validation logic. Three scheduled jobs in GitHub Actions pick up the changes on the next run.
 
-During this session I also tested generating dental blog images with Codex. The output was obviously AI-generated — wrong color palette and layout when compared against top-ranked Naver blog posts in the dental niche. Shelved the skill-building for now.
+## 12 Agents, 6 HTML Reports, Zero Duplication
 
-## The DEV.to Series: AI GitHub Projects Worth Following in 2026
+Session 2 started with a scoped research request: "Survey all AI dental/medical advertising agencies in Korea. Show what methods they're using and which ones work given recent Naver algorithm changes."
 
-Picked 4 projects — `andrej-karpathy-skills`, `hermes-agent`, `OpenClaw`, `opencode` — and wrote a 3-part series: **The 2026 AI GitHub Playbook**.
+12 sub-agents dispatched in parallel, each assigned a different domain slice:
 
-- **Part 1**: "How a Markdown File Hit 16K Stars: Skills in 2026" — published (DEV.to id=3542024)
-- **Part 2**: OpenClaw local gateway — uploaded as draft
-- **Part 3**: opencode terminal agent — uploaded as draft
+- Korean AI medical ad agency landscape (8 categories)
+- Naver C-Rank / D.I.A.+ algorithm change analysis
+- Individual agency output sampling (blog samples, chatbot demos, portfolios)
+- 5-year / 1-year / 90-day trend comparison
 
-Published Part 1 immediately, scheduled the others. Ran the full Phase 1-4 pipeline in the `auto-publish` skill.
+Output: 6 HTML files — `TREND-COMPARISON-REPORT.html`, `AI-AGENCIES-DEEP-REPORT.html`, `AI-AGENCIES-PRIMER.html`, and three supporting reports. Browser-ready, no post-processing needed.
 
-On the same day, noticed a visible quality drop between April 25 and April 26 spoonai articles. Restructured the article format: body summary + contextual knowledge + industry insight in one piece, with a relevant image inserted mid-article. Modified `self-critique.mjs` so it applies to subsequent generated articles.
+The agents tagged their own evidence by confidence level: "Named source + quantitative data (5 stars)", "Initials + rich metrics (4 stars)". Agencies like 호원앤컴퍼니 and 인블로그 surfaced with direct links to real client case studies.
 
-## Dispatching 12 Agents: Korean Dental AI Vendor Research
+One caveat worth documenting: competitor claims in agent-collected data tend to be inflated. Sub-agents go wide fast, but they don't discriminate between press releases and verified results. Cross-check key metrics before acting on any competitive intelligence the agents surface.
 
-Session 5 was the largest agent dispatch. The task: classify 60 Korean "AI medical advertising" vendors into 8 categories and surface actual deliverables from each — sample blog posts, ad creatives, chatbot transcripts, portfolio screenshots.
+Session 2 stats: `claude-opus-4-7`, 2h 26m, 63 tool calls. `Agent` 35 / `Bash` 9 / `Write` 6.
 
-12 agents in parallel, each assigned a non-overlapping domain. Synthesized into 4 HTML reports: trend comparison, deep-dive on AI vendors, a plain-language primer, and an actual deliverables gallery.
+## Telegram Message → Live PayPal Test
 
-Only 2 vendors had named references with hard numbers (5-star cases): Howon & Company and Inblog. The rest were either anonymized or estimated.
+Session 3 started differently. A Telegram channel message arrived directly into the Claude Code context — the Telegram plugin routes channel messages into the active session.
 
-The lesson from running 12 agents: more agents doesn't mean better results. Half of them came back with usable data. The productive half had tighter, narrower scopes. The right move is narrower domains, not more parallelism.
+The message asked whether anyone had visited or paid on a Korean fortune-telling project. Direct DB query answered immediately: 30 cumulative payments (₩171K total), payments dropped off post-March, 87 sessions still coming in during April.
 
-## Numbers This Week
+Next request: "Run one agent each for Japan and Southeast Asia — find a path to revenue."
 
-| Metric | Value |
-|---|---|
-| Sessions | 5 |
-| Total tool calls | 627 |
-| Bash / Edit / Agent / Write | 233 / 81 / 58 / 47 |
-| Files created | 40 |
-| Files modified | 14 |
-| DEV.to published | 1 |
-| DEV.to drafts | 2 |
-| Max parallel agents | 12 (session 5) |
+4 agents running in background:
+- `JP fortune market data` — Japanese divination app market size, payment patterns
+- `SEA fortune market data` — Thailand/Indonesia/Vietnam market data (81 sources)
+- `Viral fortune video pattern decode` — reverse-engineering viral video formulas
+- `Top-converting fortune site references` — high-conversion site benchmarks
+
+While agents ran, tested the PayPal live endpoint directly. Confirmed: real $1.99 order created in DB, approval URL generated. Results saved to `scripts/paypal-live-test.sh`.
+
+Then a false positive surfaced. A CRO agent flagged: "Thai users are seeing the ₩ symbol." Pulled up the code — the ₩ rendering lives inside the `toss` namespace, Korean checkout only. Thai users route to the PayPal hosted page. No ₩ in sight.
+
+The agent was wrong. More agents means more false positives. Without a classification and verification layer, scaling agent count scales noise at the same rate.
+
+Session 3 stats: `claude-opus-4-7`, 12h 41m, 190 tool calls. `Bash` 92 / `Read` 32 / `Edit` 25 / `mcp__plugin_telegram` 13.
+
+## The Full Day: Where Agents Win and Where They Don't
+
+| | Session 1 | Session 2 | Session 3 |
+|---|---|---|---|
+| Tool calls | 191 | 63 | 190 |
+| Agent calls | 11 | 35 | 7 |
+| Primary domain | Publishing + quality | Research | Validation + market |
+
+Total: 444 tool calls. `Bash` 197 / `Agent` 53 / `Read` 46 / `Edit` 35. 12 files created, 28 modified.
+
+Most of the 53 agent calls came from sessions 2 and 3, both research-heavy. Research is where parallel agents deliver the clearest ROI: wide search space, parallelizable collection, individual agent errors get averaged out by the aggregate.
+
+For code changes, direct `Edit` outperformed agents every time. Updating i18n messages across 21 files needed no agents — 25 `Edit` calls, done.
+
+**The pattern**: agents handle breadth, direct edits handle precision. Using agents for surgical code changes adds coordination overhead without any speed gain.
+
+## What Actually Breaks at Scale
+
+Two failure modes worth documenting from today:
+
+**False positives scale with agent count.** The ₩ symbol alarm was harmless. But in a production context, acting on unverified agent output is how you ship bugs you didn't write. Every agent output needs a confidence classification before it enters a decision path.
+
+**Research output is a first draft, not ground truth.** Competitor metrics from web-scraped sources are marketing claims until verified independently. The HTML reports are a useful starting map, not a final answer.
+
+The day's output was real: a published series, 6 research reports, a validated payment flow, live market data across two regions. But the process also surfaced exactly where parallel agents need human checkpoints to stay reliable.
 
 ---
 
