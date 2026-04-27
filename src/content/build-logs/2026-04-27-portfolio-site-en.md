@@ -1,115 +1,130 @@
 ---
-title: "12 Agents in Parallel: 444 Tool Calls, 3 Projects, One Day with Claude Code"
+title: "12 Parallel Subagents, 444 Tool Calls: Running 3 Projects in One Day with Claude Code"
 project: "portfolio-site"
 date: 2026-04-27
 lang: en
 pair: "2026-04-27-portfolio-site-ko"
-tags: [claude-code, multi-agent, auto-publish, devto, parallel-agents]
-description: "Running 12 sub-agents in parallel: dental ad research, DEV.to series publishing, and PayPal validation in a single day of Claude Code."
+tags: [claude-code, subagent, automation, multi-agent]
+description: "3 sessions, 444 tool calls, 93h 39min logged. DEV.to series, 6 research reports, and a multi-language redesign — all in one day via parallel subagent dispatch."
 ---
 
-444 tool calls. 3 sessions. 12 sub-agents running in parallel. This is what a full day of multi-agent Claude Code looks like — the output, the false positives, and where it breaks down.
+444 tool calls. 3 sessions. 93 hours and 39 minutes of logged context. All in one calendar day.
 
-**TL;DR** — Ran 3 sessions across different domains: published a DEV.to 3-part series with the auto-publish skill, dispatched 12 parallel agents to produce a dental advertising research report, and validated live PayPal payments through a Telegram → Claude Code pipeline. Total: 444 tool calls, 12 files created, 28 modified.
+One session published a three-part DEV.to series on trending AI GitHub projects. Another produced six browser-ready HTML market research reports on Korea's dental advertising landscape. A third ran live PayPal transaction tests, pulled Japanese and Southeast Asian market data across 136 sources, and pushed a site redesign across 10 languages.
 
-## The DEV.to Series That Wrote Itself (Almost)
+Three different projects. Three different domains. All running concurrently.
 
-The prompt was simple: "Analyze 4 popular AI Git projects and post to DEV.to."
+**TL;DR** Parallel subagent dispatch is the core lever. Spinning up 12 agents simultaneously collapses work that would take a full day into about 2 hours. But more agents also means more noise — without a validation layer, false positives scale with agent count.
 
-The auto-publish skill takes over from there. Phase 1 collects source material, Phase 2 proposes structure, Phase 3 generates content, Phase 4 publishes. One prompt fires the skill; the skill makes every subsequent decision.
+## "Post Some AI GitHub Project Analyses to DEV.to" — One Prompt, Three-Part Series
 
-Phase 2 proposed regrouping 4 projects into 3 themed posts:
+The first session started with a casual request:
 
-| Part | Title | Projects Covered |
-|---|---|---|
-| Part 1 | Skills: When a Markdown File Got 100K Stars | `andrej-karpathy-skills` + `hermes-agent` |
-| Part 2 | OpenClaw: The Local AI Gateway | OpenClaw (295K+ stars) |
-| Part 3 | Terminal Agents | OpenCode + open-source terminal agents |
+```
+analyze ~4 trending AI projects from GitHub and post articles to dev.to
+```
 
-Four projects, reorganized by theme into a three-part series — each post stands alone, all three connect. Part 1 published immediately at `2026-04-23 14:55 UTC` (DEV.to id=3542024). Parts 2 and 3 went up as drafts pending scheduled publication.
+Claude Code ran web searches to find trending projects as of April 2026: `andrej-karpathy-skills` (16K stars), `hermes-agent`, OpenClaw (295K stars), and opencode. Rather than writing four separate posts, it proposed restructuring them as a series: *The 2026 AI GitHub Playbook*.
 
-The interesting part: there was an existing post about OpenClaw (`claude-code-channels-vs-openclaw-en.md`) already in the repo. The skill detected it and pivoted — linking internally instead of re-covering the same ground. That judgment call happened without a human in the loop.
+Part 1 published immediately. Parts 2 and 3 went up as DEV.to drafts, queued for scheduling.
 
-Session 1 stats: `claude-opus-4-7`, 75h 58m context, 191 tool calls. Breakdown: `Bash` 96 / `Agent` 11 / `Read` 14.
+Published: `https://dev.to/ji_ai/how-a-markdown-file-hit-16k-stars-skills-in-2026-36hi` (DEV.to id=3542024, 2026-04-23 14:55 UTC)
 
-## When Article Quality Drops Between Runs
+There were exactly three user interactions in that entire flow: the initial prompt, "make it around 3 parts," and "go ahead." Web search, structure proposal, content generation, API publishing — all autonomous.
 
-Mid-session 1, a content quality problem surfaced. The observation: "April 26th articles are worse than April 25th."
+One behavior worth noting: an existing file `claude-code-channels-vs-openclaw-en.md` was already in the project. Claude Code detected it and approached OpenClaw from a different angle, linking internally rather than duplicating coverage. That judgment call wasn't made by a human.
 
-The issue was structural. The generation pipeline was defaulting to news summary plus model-by-model lists. Flat, low-signal, easy to skip. Three things needed to change:
+Midway through the same session, a separate issue surfaced. A quality gap between April 25 and April 26 posts on spoonai prompted patches to `SKILL-2-publish.md` and the `self-critique.mjs` validation loop. Two projects, one session. 191 tool calls — Bash 96, Agent 11.
 
-1. Blend source summary + background knowledge + industry insight into each post
-2. Add a title image and inline images mid-article
-3. Make each post teach something, not just report it
+## 12 Agents in Parallel: Market Research That Would Have Taken All Day Finished in 2h 26min
 
-Updated `~/.claude/skills/spoonai-daily-briefing/SKILL-2-publish.md` and rewrote the `self-critique.mjs` validation logic. Three scheduled jobs in GitHub Actions pick up the changes on the next run.
+Session two was a dental advertising research project. The prompt:
 
-## 12 Agents, 6 HTML Reports, Zero Duplication
+```
+research every company doing AI-assisted dental/medical advertising and write a report. use 10+ subagents
+```
 
-Session 2 started with a scoped research request: "Survey all AI dental/medical advertising agencies in Korea. Show what methods they're using and which ones work given recent Naver algorithm changes."
+Twelve subagents launched in parallel, each assigned a non-overlapping domain:
 
-12 sub-agents dispatched in parallel, each assigned a different domain slice:
+- Korean AI medical advertising landscape (8 categories, 60 companies)
+- Naver C-Rank / D.I.A.+ algorithm changes and their effect on medical content
+- Active dental clinic blog case studies from real operators
+- 5-year / 1-year / 90-day trend comparisons
 
-- Korean AI medical ad agency landscape (8 categories)
-- Naver C-Rank / D.I.A.+ algorithm change analysis
-- Individual agency output sampling (blog samples, chatbot demos, portfolios)
-- 5-year / 1-year / 90-day trend comparison
+Output: six HTML reports, all browser-ready.
 
-Output: 6 HTML files — `TREND-COMPARISON-REPORT.html`, `AI-AGENCIES-DEEP-REPORT.html`, `AI-AGENCIES-PRIMER.html`, and three supporting reports. Browser-ready, no post-processing needed.
+- `TREND-COMPARISON-REPORT.html`
+- `AI-AGENCIES-DEEP-REPORT.html`
+- `AI-AGENCIES-PRIMER.html`
+- `AI-AGENCIES-EXAMPLES.html`
+- `AI-AGENCIES-EVIDENCE.html`
+- `AI-DENTAL-TELEGRAM.md`
 
-The agents tagged their own evidence by confidence level: "Named source + quantitative data (5 stars)", "Initials + rich metrics (4 stars)". Agencies like 호원앤컴퍼니 and 인블로그 surfaced with direct links to real client case studies.
+Evidence from each agent was tagged with a reliability tier. "Real name + quantitative data (5 stars)," "initials + rich metrics (4 stars)." One agency, `Howon & Company`, returned direct links to actual client case studies. Another, `Inblog`, surfaced a live dental clinic blog (`heritagedental.inblog.io`) as a working reference.
 
-One caveat worth documenting: competitor claims in agent-collected data tend to be inflated. Sub-agents go wide fast, but they don't discriminate between press releases and verified results. Cross-check key metrics before acting on any competitive intelligence the agents surface.
+The structural key to making parallel dispatch work is **domain separation**. If multiple agents explore the same topic, results overlap and merging becomes expensive. Pre-partition the problem space so each agent has an exclusive slice, and you can concatenate outputs directly.
 
-Session 2 stats: `claude-opus-4-7`, 2h 26m, 63 tool calls. `Agent` 35 / `Bash` 9 / `Write` 6.
+63 tool calls. Agent 35 times. 2 hours 26 minutes. The serial equivalent would have consumed most of a workday.
 
-## Telegram Message → Live PayPal Test
+## Telegram Message → DB Query → Live PayPal Test → Market Data → Design Push
 
-Session 3 started differently. A Telegram channel message arrived directly into the Claude Code context — the Telegram plugin routes channel messages into the active session.
+Session three started as a Telegram message:
 
-The message asked whether anyone had visited or paid on a Korean fortune-telling project. Direct DB query answered immediately: 30 cumulative payments (₩171K total), payments dropped off post-March, 87 sessions still coming in during April.
+```
+has anyone visited or paid for the saju project?
+```
 
-Next request: "Run one agent each for Japan and Southeast Asia — find a path to revenue."
+The Telegram plugin connects directly into Claude Code's session context. A DB query ran immediately: 30 cumulative payments (₩171,000), no new payments since March, 87 sessions still arriving through April. Toss payment confirmed working. LS Pay dead — declined the fortune-telling category. PayPal live keys configured but never tested with a real transaction.
 
-4 agents running in background:
-- `JP fortune market data` — Japanese divination app market size, payment patterns
-- `SEA fortune market data` — Thailand/Indonesia/Vietnam market data (81 sources)
-- `Viral fortune video pattern decode` — reverse-engineering viral video formulas
-- `Top-converting fortune site references` — high-conversion site benchmarks
+The next message:
 
-While agents ran, tested the PayPal live endpoint directly. Confirmed: real $1.99 order created in DB, approval URL generated. Results saved to `scripts/paypal-live-test.sh`.
+```
+spin up one agent each for Japan and Southeast Asia — figure out how to make money there
+```
 
-Then a false positive surfaced. A CRO agent flagged: "Thai users are seeing the ₩ symbol." Pulled up the code — the ₩ rendering lives inside the `toss` namespace, Korean checkout only. Thai users route to the PayPal hosted page. No ₩ in sight.
+Four agents ran in parallel in the background:
 
-The agent was wrong. More agents means more false positives. Without a classification and verification layer, scaling agent count scales noise at the same rate.
+- `JP fortune market data` → `jp-market-data.md`
+- `SEA fortune market data` → `sea-market-data.md` (136 inline sources)
+- `Viral fortune video pattern decode` → `viral-formula.md`
+- `Top-converting fortune site references`
 
-Session 3 stats: `claude-opus-4-7`, 12h 41m, 190 tool calls. `Bash` 92 / `Read` 32 / `Edit` 25 / `mcp__plugin_telegram` 13.
+While the agents ran, the PayPal live endpoint got a direct test: a real $1.99 order created in the DB, approval URL issued, results written to `scripts/paypal-live-test.sh`.
 
-## The Full Day: Where Agents Win and Where They Don't
+One agent result flagged a real bug: `common.json:3` had `運命研究所` while `countries.ts:142` still read `FortuneLab`. Brand inconsistency across two files. An actual fix was needed.
 
-| | Session 1 | Session 2 | Session 3 |
-|---|---|---|---|
-| Tool calls | 191 | 63 | 190 |
-| Agent calls | 11 | 35 | 7 |
-| Primary domain | Publishing + quality | Research | Validation + market |
+Another agent raised a false positive: "Thai users can see the ₩ symbol." Reading the code directly, ₩ rendering lives inside the `toss` namespace — Korean checkout only. Thai users route to a PayPal-hosted page and never encounter ₩. More agents means more noise. Without a validation layer, scaling agent count scales false positives at the same rate.
 
-Total: 444 tool calls. `Bash` 197 / `Agent` 53 / `Read` 46 / `Edit` 35. 12 files created, 28 modified.
+After market data came back:
 
-Most of the 53 agent calls came from sessions 2 and 3, both research-heavy. Research is where parallel agents deliver the clearest ROI: wide search space, parallelizable collection, individual agent errors get averaged out by the aggregate.
+```
+update the design
+```
 
-For code changes, direct `Edit` outperformed agents every time. Updating i18n messages across 21 files needed no agents — 25 `Edit` calls, done.
+i18n message files across 10 languages, `page.tsx`, `paywall/page.tsx`, and `globals.css` — all updated. 190 tool calls, Bash 92, Edit 25.
 
-**The pattern**: agents handle breadth, direct edits handle precision. Using agents for surgical code changes adds coordination overhead without any speed gain.
+## Tool Usage Across 3 Sessions
 
-## What Actually Breaks at Scale
+| Session | Duration | Tool Calls | Top Tools |
+|---------|----------|-----------|-----------|
+| Session 1 (DEV.to + spoonai) | 75h 58min | 191 | Bash 96, Agent 11 |
+| Session 2 (Dental ad research) | 2h 26min | 63 | Agent 35, Bash 9 |
+| Session 3 (Saju global) | 15h 15min | 190 | Bash 92, Edit 25 |
+| **Total** | **93h 39min** | **444** | Bash 197, Agent 53 |
 
-Two failure modes worth documenting from today:
+44% of all tool calls were Bash. 12% were Agent. Fifty-three agent dispatches drove the parallel research that defined these sessions.
 
-**False positives scale with agent count.** The ₩ symbol alarm was harmless. But in a production context, acting on unverified agent output is how you ship bugs you didn't write. Every agent output needs a confidence classification before it enters a decision path.
+## Tool Choice Is Strategy
 
-**Research output is a first draft, not ground truth.** Competitor metrics from web-scraped sources are marketing claims until verified independently. The HTML reports are a useful starting map, not a final answer.
+Agents are most efficient in research-heavy work. Wide search surface, parallel collection, and even if individual agents produce errors, the aggregate result usually holds.
 
-The day's output was real: a published series, 6 research reports, a validated payment flow, live market data across two regions. But the process also surfaced exactly where parallel agents need human checkpoints to stay reliable.
+For code changes, direct `Edit` outperformed agents every time. Twenty-one i18n files got updated in 25 `Edit` calls — no agent coordination needed.
+
+More agents also means more false positives. The Thai ₩ symbol flag was concrete: an agent raised an issue that a 30-second code read dismissed. Without a validation layer over agent output, noise grows with scale.
+
+The pattern across these three sessions: use agents when the search space is large and results can be validated by inspection. Use direct tools when the action space is small and precision matters.
+
+> Domain separation determines output quality. Tool choice determines throughput.
 
 ---
 
