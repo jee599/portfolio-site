@@ -1,93 +1,132 @@
 ---
-title: "53 Subagent Dispatches, 3 Projects, 458 Tool Calls: 4 Days with Claude Code"
+title: "The Build Error Was Lying: Chasing a False YAML Exception Back to a Missing React Component"
 project: "portfolio-site"
 date: 2026-04-28
 lang: en
 pair: "2026-04-28-portfolio-site-ko"
-tags: [claude-code, multi-agent, automation, devto, market-research]
-description: "4 days, 3 projects, 53 subagent dispatches, 458 tool calls. DEV.to series publishing, 12-agent dental market research, and a live PayPal test — all from one session."
+tags: [claude-code, debugging, subagent, i18n]
+description: "445 tool calls, 5 sessions. Vercel blamed YAML. The real blocker was a missing CountUp.tsx. One Telegram message triggered 5 parallel agents doing JP/SEA market research."
 ---
 
-53 subagent dispatches in 4 days. Not across different sessions — from a single Claude Code session, bouncing between three separate projects while agents ran in parallel on each.
+The Vercel build log said `YAMLException`. After parsing 481 files with `gray-matter` and finding zero errors, the actual culprit turned out to be a missing `CountUp.tsx` component that had never been created. Meanwhile, a single Telegram message triggered 5 parallel Claude Code agents doing market research on fortune-telling markets in Japan and Southeast Asia. Here's what 445 tool calls across 5 sessions looked like on April 28.
 
-**TL;DR** Tell Claude Code "use 10+ subagents to research this" and 12 agents actually spin up, each digging a different domain simultaneously. That pattern, applied across three projects, produced 458 tool calls over 4 days. This is what that looked like.
+**TL;DR:** spoonai's Vercel deploys were CANCELED with a misleading YAML error. The real cause: `HomeContent.tsx` imported a `CountUp` component that didn't exist on disk. Two separate Claude Code sessions (91 and 117 tool calls respectively) investigated the same bug without sharing context — the first fixed it in 9 minutes by reproducing the build locally, the second spent 13 minutes on a full file audit and reached no conclusion. On the same day, one Telegram message triggered 5 parallel agents researching JP/SEA markets, which surfaced one real bug (inconsistent brand name across i18n files) and one false positive (a Korean currency symbol flagged as a localization issue that was actually scoped to the Korean checkout path only).
 
-## Publishing a 3-Part DEV.to Series Without Touching the Editor
+## The YAML Error That Had Nothing To Do With YAML
 
-The starting prompt was intentionally vague:
-
-```
-analyze 4 trending ai/git projects and post articles on devto
-```
-
-Claude ran a Phase 1 search, surfaced four trending GitHub projects — `andrej-karpathy/skills`, `hermes-agent`, OpenClaw, OpenCode — and came back with a proposal: bundle them into a three-part series called *The 2026 AI GitHub Playbook*.
-
-The more interesting part was how it split four projects into three posts. Not a flat list — angle-first. Part 1 took the Skills repo and framed it around a single question: how does a Markdown file get 16K stars? Part 2 put OpenClaw in the context of local AI gateways. Part 3 positioned OpenCode as the opening chapter of the terminal-agent era.
-
-Part 1 published immediately. Parts 2-3 went to DEV.to as drafts with `published: false` — ready to schedule. The [live post](https://dev.to/ji_ai/how-a-markdown-file-hit-16k-stars-skills-in-2026-36hi) landed as DEV.to id=3542024.
-
-What made this session smooth was the `auto-publish` skill's phase structure: source collection → structure proposal → content generation → publish. Each phase ended with a decision point. I approved, it moved forward. No back-and-forth on scope or format.
-
-Session stats: **75h 58min, 191 tool calls** (Bash 96, Agent 11). Web searches and file ops dominated — the agent count was low because the work was sequential by design.
-
-## 12 Agents in Parallel: Dental Ad Market Research
-
-The second session is where multi-agent dispatch got interesting. Prompt:
+All spoonai Vercel deployments between April 27 and April 28 had the same status: CANCELED. The error was specific:
 
 ```
-use 10+ subagents and have each research a different domain
+YAMLException: incomplete explicit mapping pair; a key node is missed;
+or followed by a non-tabulated empty line at line 3, column 277
 ```
 
-Twelve agents dispatched. Each took a separate slice: Korean AI medical advertising landscape, Naver algorithm changes, pricing and ROI benchmarks, real campaign artifact collection, and more. Zero overlap between agents — each had a clean domain boundary.
+It even named a file: `/posts/2026-04-05-furiosa-ai-rngd-commercial-launch-en`. Hard to argue with that level of detail. The obvious starting point was auditing YAML.
 
-The output wasn't a single report. Claude proposed a reader-tiered set:
+`gray-matter` swept through `content/posts/`, `content/daily/`, `content/blog/`, and `content/weekly/`. 481 files. Zero errors. Then `js-yaml` ran the same pass. Also zero. Opening the named file directly showed 204 characters on line 3 — a valid, well-formed string. Git history confirmed: commit `3095c96` had already patched that exact file on April 14th.
 
-- `AI-AGENCIES-DEEP-REPORT.html` — dense, terminology-intact version for practitioners
-- `AI-AGENCIES-PRIMER.html` — plain-language version for non-technical stakeholders
-- `AI-AGENCIES-EXAMPLES.html` — real campaign examples gallery
+The YAML error had been fixed two weeks earlier. The Vercel build log was surfacing a stale message from an old failure, not the current blocker.
 
-Splitting output by audience depth rather than topic wasn't in the instructions. Claude proposed it unprompted, which was the right call.
+Pulling the actual build trace revealed the real failure: `HomeContent.tsx` imported `CountUp`, but `CountUp.tsx` didn't exist in the project. Next.js 16 with Turbopack hit this module resolution failure and Vercel surfaced it as a YAML parse error in the output. The error message pointed at an already-resolved historical issue while the real build stopper sat undetected.
 
-Session stats: **2h 26min, 63 tool calls** (Agent 35, Bash 9). Agents were the primary tool here; Bash was cleanup work. High density — 35 agent dispatches in under 2.5 hours.
+The fix was straightforward. Create `CountUp.tsx`. Then patch two daily posts — `2026-04-10-en.md` and `2026-04-10.md` — that had broken frontmatter: both were missing the closing `---` delimiter. Local build: 480 static pages generated clean. Committed as `8aa059b` and pushed. Vercel auto-deploy triggered.
 
-## A Telegram Message That Became a Live PayPal Test
+<hr class=section-break>
+<div class=commit-log>
+<div class=commit-row><span class=hash>8aa059b</span> <span class=msg>fix: CountUp component missing + broken daily frontmatter (spoonai)</span></div>
+<div class=commit-row><span class=hash>3b014bc</span> <span class=msg>feat: build logs 2026-04-28</span></div>
+</div>
 
-The third session started with an inbound Telegram message:
+<div class=change-summary>
+<table>
+<thead><tr><th>Item</th><th>Before</th><th>After</th></tr></thead>
+<tbody>
+<tr><td>spoonai Vercel deploys</td><td>CANCELED (Apr 27–28, all)</td><td>Auto-deploy resumed</td></tr>
+<tr><td>CountUp.tsx</td><td>Missing (import existed)</td><td>Created</td></tr>
+<tr><td>Broken frontmatter in content/daily</td><td>2 files (missing closing ---)</td><td>0</td></tr>
+<tr><td>Local build</td><td>Failure</td><td>480 pages generated</td></tr>
+</tbody>
+</table>
+</div>
+
+## The Same Bug, Investigated Twice, With No Shared Context
+
+The notable detail about this debugging run: it happened twice.
+
+Session 4 ran for 9 minutes and made 91 tool calls. It reproduced the build failure locally, traced the missing `CountUp` import, created the component, patched the broken frontmatter, and shipped the fix.
+
+Session 5 ran for 13 minutes and made 117 tool calls. It started fresh — different context window, no knowledge of what Session 4 had found — and spent most of its time on the exhaustive file audit. It reached the same intermediate conclusion: zero YAML errors across 481 files. But without the local build reproduction that Session 4 used to surface the module resolution failure, Session 5 ended without identifying the root cause.
+
+Two Claude Code agents, same failing build, no shared context, different investigation strategies, different outcomes. Session 4 got there by reproducing first. Session 5 did a more exhaustive audit of the wrong layer.
+
+This is a workflow problem more than a tool problem. When multiple sessions are working on the same issue without coordination, duplicate investigation is inevitable. The fix is making sure sessions with overlapping scope can share findings rather than starting from scratch — which in this case would have meant storing the intermediate result from Session 4 somewhere Session 5 could access before starting its audit.
+
+> Error messages describe what surfaced, not what caused it. Reproduce first, then read the logs.
+
+## One Telegram Message, Five Parallel Agents
+
+Same day, different project. saju_global is a four-pillar astrology (사주) web app that had been targeting Korean users. The session trigger was a Telegram message asking whether anyone had visited or paid recently.
+
+Direct DB query:
+
+- Lifetime payments: 30
+- Total revenue: ₩171,000
+- Payments since March: 0
+- April sessions: 87
+- Payment platforms: Toss operational (29 validated transactions), LS Payment dead (fortune-telling is a blocked category on their platform), PayPal configured for live but zero actual completed transactions
+
+The follow-up message:
 
 ```
-anyone paid or visited the saju project?
+Run agents to generate revenue in SEA and Japan. Use everything — ads, site redesign, viral.
 ```
 
-Claude queried the database directly: 30 total payments, ₩171K lifetime revenue. Zero payments since March. Traffic was still coming in — 87 sessions in April alone — but converting nothing.
+Five Claude Code agents launched as parallel background tasks:
 
-"Does payment actually work right now?" turned into a live PayPal integration test. Claude wrote `scripts/paypal-live-test.sh`, created a real $1.99 order, and retrieved the approval URL to confirm the flow was alive. Status check on the other payment providers came out of this too: Toss had 29 validated transactions and was fine. LS Pay was dead — stuck in test mode after the fortune-telling category got flagged for content compliance.
+- `JP fortune market data` → `jp-market-data.md`
+- `SEA fortune market data` → `sea-market-data.md` (136 inline sources)
+- `Viral fortune video pattern decode` → `viral-formula.md`
+- `Top-converting fortune site references`
+- `Site CRO audit JP/TH` → `cro-audit-jp-th.md`
 
-One false positive worth documenting: a CRO agent flagged that Thai users were seeing a `₩` symbol. Sounded like a real localization bug. It wasn't. The `₩` symbol lives inside the `toss` payment namespace, and Thai users route to the PayPal hosted page — they never see it. The lesson isn't that agents make mistakes (they do), it's that agent-raised issues need to be verified against the actual code path before acting on them.
+While the agents ran, the PayPal live endpoint got manual testing independently: a real $1.99 order created in the DB, approval URL generated, complete flow saved to `scripts/paypal-live-test.sh`. The point was confirming payment infrastructure actually works before spending any effort driving traffic to it.
 
-Four agents ran in parallel on JP/SEA market sizing: Japanese fortune market scale, Southeast Asia data, viral video patterns for the category, and reference site analysis. The synthesis: don't touch the payment stack yet. The primary bottleneck is traffic, not conversion. Recommendation was $50/week on paid acquisition to get baseline data before any platform refactor.
+## What Agents Got Right, and Where They Went Wrong
 
-Session stats: **22h 29min, 204 tool calls** (Bash 100, Edit 25, Telegram reply 16). Longest session by duration and call count.
+When the five agents finished, their outputs needed code-level cross-checking before anything could become an action item.
 
-## Where Subagents Help and Where They Don't
+**The real bug:** The Japanese locale had `運命研究所` in `common.json:3`. But `countries.ts:142` referenced the same product as `FortuneLab`. Two different brand names for the same app, in the same codebase. Any Japanese user who encountered both strings would see inconsistency. A legitimate i18n defect that had slipped through.
 
-Four days of this made the pattern clearer.
+**The false positive:** The CRO audit agent flagged that Thai users were seeing the `₩` (Korean won) symbol. Sounds like a localization problem. Looking at the actual code: that rendering path lives inside the `toss` namespace, which only executes in the Korean Toss checkout flow. Thai users route to a PayPal-hosted payment page. They never reach the code that renders `₩`. The agent flagged it without enough context to distinguish checkout routing from display logic.
 
-**Agents work when domains are independent.** The dental research session is the clearest example: competitor landscape, algorithm changes, and campaign examples don't share state. Split into agents, each one stays focused and the main context window doesn't fill with tangential detail. 35 agents in 2.5 hours with clean, non-overlapping outputs.
+One real issue, one phantom. The ratio matters because false positives consume investigation time. The more agents running in parallel, the more cross-validation work lands on the human reviewing the results. Each agent brings its own pattern-matching surface area and its own failure modes. Running 5 agents in parallel doesn't mean 5× the signal — it means the signal-to-noise ratio drops unless there's a verification pass before any output becomes action.
 
-**Agents slow things down when work is sequential file editing.** The third session included updating 21 i18n message files. Running that through agents would have added coordination overhead for no gain — Claude handled it directly with the Edit tool, pattern-matching across files. When the path is known and the operation is repetitive, agent dispatch is just latency.
+> Agents retrieve answers fast. Verifying those answers against the actual code paths is a separate job that can't be skipped.
 
-**Always verify agent output against the source.** The `₩` false positive is the concrete example. An agent flags an issue → you check which namespace the code actually lives in → you find it's unreachable by the affected users → you close it. That verification step has to be part of the workflow. Trusting agent output without checking code paths is how small issues get escalated into large ones.
+---
 
-> Agents are tools. The output is a draft, not a decision.
+After reviewing the agent reports, the next instruction was direct:
 
-## Session Summary
+```
+Update the design.
+```
 
-| Session | Duration | Tool Calls | Primary Tools |
-|---|---|---|---|
-| DEV.to publishing | 75h 58min | 191 | Bash (96), Agent (11) |
-| Dental ad research | 2h 26min | 63 | Agent (35), Bash (9) |
-| Saju expansion | 22h 29min | 204 | Bash (100), Edit (25) |
-| **Total** | — | **458** | **Agent (53), Bash (205)** |
+Modified i18n message files for 10 languages (`ko`, `en`, `ja`, `th`, `id`, `hi`, `zh`, `vi`, and others), updated `page.tsx`, `paywall/page.tsx`, and `globals.css`. Deployed.
+
+## Tool Usage Breakdown
+
+| Session | Duration | Tool Calls | Top Tools |
+|---------|----------|-----------|-----------|
+| saju_global JP/SEA | 33m 47s | 237 | Bash(126), Edit(25), TG reply(18) |
+| spoonai recovery A | 9m | 91 | Bash(76), Read(13) |
+| spoonai recovery B | 13m | 117 | Bash(100), Read(9) |
+| **Total** | — | **445** | **Bash(302), Read(56), Edit(26)** |
+
+68% of today's tool calls were Bash. The pattern that emerged without being planned: agents handle research, Bash handles verification. DB queries, build reproduction, PayPal endpoint testing — all shell. Agents handled broad information gathering across the JP/SEA market research. Bash handled everything that needed to be confirmed against the actual running system.
+
+The two spoonai sessions running independent investigations of the same bug illustrates the other side of this. Context isolation keeps sessions clean, but it also means the same work gets done twice when sessions aren't coordinated. That overhead doesn't show up in individual session call counts — it shows up when you add them together and notice that 208 of the 445 total calls were spent on the same problem.
+
+> Research goes to agents. Verification goes to Bash. Both are necessary; neither replaces the other.
 
 ---
 
