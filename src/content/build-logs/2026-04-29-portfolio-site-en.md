@@ -1,118 +1,139 @@
 ---
-title: "481 Files Were Fine — The Real Vercel Build Blocker Was a Missing CountUp.tsx"
+title: "481 Files Scanned, Zero Errors — The Real Blocker Was a Missing Component"
 project: "portfolio-site"
 date: 2026-04-29
 lang: en
 pair: "2026-04-29-portfolio-site-ko"
-tags: [claude-code, debugging, parallel-agents, spoonai]
-description: "Vercel builds failed 4 days straight with a YAML error pointing to a fixed file. 481 files parsed clean. Real blocker: a missing CountUp.tsx. 2 sessions, 208 tool calls, 9 minutes to deploy."
+tags: [claude-code, debugging, vercel, nextjs, build-failure]
+description: "Vercel builds were CANCELED for 2 days. A YAMLException in the logs sent me on a 481-file audit. The real culprit: CountUp.tsx simply didn't exist. 2 sessions, 208 tool calls, 22 minutes."
 ---
 
-Four days. Every Vercel build canceled. The error message said YAML parsing failure on a specific file. Opening that file: nothing wrong. Parsing every file in the repo: 481 files, zero errors. The bug was never where the error said it was.
+Vercel threw a `YAMLException` in the build logs. Two days of canceled deployments, production frozen on a manual deploy from April 26th. The error pointed at a specific file on line 3, column 277. The file had no error on line 3, column 277. It had no error at all.
 
-**TL;DR** The YAML error users reported had been fixed two months earlier. The actual build blocker was `HomeContent.tsx` importing a `CountUp` component that didn't exist on disk. Two sessions, 208 tool calls, 22 files changed. The deploy took 9 minutes once we found the real issue.
+**TL;DR** — Scanned 481 Markdown files with `gray-matter`. Zero YAML errors. The actual build killer was `CountUp.tsx` not existing on disk, imported by `HomeContent.tsx`. Two sessions, 208 tool calls, 22 minutes of debugging a red herring.
 
-## The Error Message Was Lying
+## The Error Log That Lied
 
-The error report looked clear:
+The Vercel build log read:
 
 ```
 YAMLException: incomplete explicit mapping pair; a key node is missed;
 or followed by a non-tabulated empty line at line 3, column 277
 ```
 
-File: `/posts/2026-04-05-furiosa-ai-rngd-commercial-launch-en`. Two consecutive days of Vercel builds canceled — April 27 and 28. Production was frozen at the April 26 manual deploy.
+The file it pointed to: `/posts/2026-04-05-furiosa-ai-rngd-commercial-launch-en`. I read that file directly. Nothing wrong. Line 3 was 204 characters long — it couldn't physically reach column 277.
 
-First step: open the file. Line 3 was 204 characters. Column 277 doesn't exist there. Checking git history: commit `3095c96` from the same day had already cleaned this up. The error pointed to a location that no longer had an error.
+That file had already been cleaned up in a batch fix commit (`3095c96`) on April 14th. The build log was showing a stale error.
 
-So we went broader. Used `gray-matter` to parse everything: `content/posts/`, `content/daily/`, `content/blog/`, `content/weekly/`. 76 Bash calls, 13 Read calls. Result: 481 files parsed, 0 errors.
+At this point, the right move would have been to run `npm run build` locally. Instead, session 1 went wide.
 
-When every file passes, the build pipeline is dying for a different reason entirely.
+## The 481-File Audit
 
-## What Was Actually Killing the Build
+If the error file was clean, maybe the same class of corruption existed elsewhere. The session expanded scope to every Markdown file under `content/`:
 
-Running a local build reproduced the real error immediately:
+```bash
+node -e "
+const matter = require('gray-matter');
+const { globSync } = require('glob');
+const files = globSync('content/**/*.md');
+let broken = 0;
+files.forEach(f => {
+  try { matter.read(f); }
+  catch(e) { console.log(f, e.message); broken++; }
+});
+console.log('Total', files.length, 'files, errors:', broken);
+"
+```
+
+Result: **481 files, 0 errors.**
+
+`gray-matter` parsed everything cleanly. YAML wasn't the problem. Somewhere in those 91 tool calls across 9 minutes, the session had eliminated the stated hypothesis entirely — but the commit message and next session prompt didn't reflect that.
+
+## Building Locally Instead of Theorizing
+
+Session 2 started with the same prompt the next day: "article publishing isn't working, fix it." It didn't know session 1 had already been through the YAML path. It started over.
+
+Session 2 expanded into `validate-content.mjs` (559 lines), checked whether `matter.stringify` was silently mutating frontmatter, compared `js-yaml` parse output against `gray-matter` output. All matching.
+
+Eventually, the most direct check:
+
+```
+npm run build
+```
 
 ```
 Module not found: Can't resolve './CountUp'
 ```
 
-`HomeContent.tsx` was importing `CountUp`. The component file didn't exist. In Next.js 16 with Turbopack enabled by default, a missing module import is an immediate build termination — no graceful fallback, no partial compilation.
+`HomeContent.tsx` imported `./CountUp`. `CountUp.tsx` didn't exist in the filesystem. Next.js 15+ with Turbopack as the default bundler doesn't warn on missing module imports — it hard-fails the build immediately.
 
-The YAML error was from a different point in time. Either Vercel had cached an older error in the build logs, or the error report came from someone looking at previous logs. By the time we were debugging, that error was already gone. The current blocker was the missing component.
+The `YAMLException` in Vercel's logs was either from a completely different code path, or it was a cached log from a previous build iteration. The actual build never got far enough to encounter any YAML.
 
-Writing `CountUp.tsx`, confirming zero parse errors across all 481 files, and committing took under an hour. Local build verified: 480 static pages generated. Deploy completed.
+## The Fix
 
-## Why Two Sessions Debugged the Same Problem
+Created `CountUp.tsx`:
 
-Session 4 (9 minutes, 91 tool calls) and Session 5 (13 minutes, 117 tool calls) both investigated the same issue independently, neither aware the other had run.
+```typescript
+// components/CountUp.tsx
+import { useEffect, useRef, useState } from 'react';
 
-Session 4 moved fast: identified the missing `CountUp.tsx`, created it, deployed. Done.
+interface CountUpProps {
+  end: number;
+  duration?: number;
+  suffix?: string;
+}
 
-Session 5 ran `superpowers:systematic-debugging`, approached more methodically — and started from scratch on YAML validation that Session 4 had already completed. By the time Session 5 was running, the problem was already fixed. It spent 117 tool calls re-verifying what was already resolved.
+export function CountUp({ end, duration = 2, suffix = '' }: CountUpProps) {
+  const [count, setCount] = useState(0);
+  const rafRef = useRef<number>();
 
-This pattern comes up repeatedly in Claude Code workflows. Start a new session without context about prior sessions, and the model has no way to know what's already been done. It starts from the beginning. Same investigation, twice.
+  useEffect(() => {
+    const startTime = performance.now();
+    const step = (currentTime: number) => {
+      const elapsed = (currentTime - startTime) / (duration * 1000);
+      const progress = Math.min(elapsed, 1);
+      setCount(Math.floor(progress * end));
+      if (progress < 1) rafRef.current = requestAnimationFrame(step);
+    };
+    rafRef.current = requestAnimationFrame(step);
+    return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
+  }, [end, duration]);
 
-The fix is explicit state persistence. Commit messages work. A status file in the repo works. Anything that answers "what state is this project in?" before a new session begins. The cost of duplicate work — in time, in tokens, in tool calls — compounds fast.
-
-## Meanwhile: 5 Parallel Agents on a Different Project
-
-Session 3 that day was a different kind of work. One Telegram message triggered it:
-
-> "Run agents to sell to Southeast Asia/Japan markets and generate revenue by any means — ads, site redesign, viral, everything"
-
-That single message became a 237 tool call session running 33 hours 47 minutes. Five agents ran in parallel:
-
+  return <span>{count}{suffix}</span>;
+}
 ```
-JP fortune market data agent
-SEA fortune market data agent
-Viral fortune video pattern decode agent
-Top-converting fortune site references agent
-Site CRO audit JP/TH agent
-```
 
-Each agent ran independently and wrote research to `/saju_global/blog-drafts/`. Japan market data, Southeast Asia market data, viral video pattern analysis, site benchmarks, CRO audit. Combined output: ~15,000 words of structured research.
+Two additional daily files — `content/daily/2026-04-10-en.md` and `content/daily/2026-04-10.md` — had their entire body content embedded inline inside the YAML block, no frontmatter separator. Restructured both to standard format: short YAML frontmatter + `---` + body content below.
 
-PayPal live endpoints were verified in the same session. A real $1.99 order hit the database and returned an approval URL. Toss showed 29 successful real payments through March. Conclusion: payment infrastructure is fine. The problem is traffic. Test with $50 in ads first.
+Local build passed. 480 static pages generated. Pushed commit `8aa059b` to `main`, Vercel auto-deploy triggered.
 
-The CRO agent flagged a ₩ symbol appearing in the Thai checkout. Manual verification found it was a false positive — that code only runs under the `toss` namespace, and Thai users route to PayPal, so they never see that screen. When an agent reads code without routing context, these mistakes happen. Agent output needs manual verification before acting on it.
+## Why Session 2 Existed
 
-After that: 21 i18n message files updated, design changes deployed.
+Session 1 completed the fix and deployed. Session 2 ran the following day with an almost identical prompt, no knowledge that session 1 had already resolved everything, and spent 13 minutes re-debugging a closed issue.
 
-## The Unexpected Find Inside a Wrong Hypothesis
+Claude Code sessions share no context with each other. Each session starts cold. A prompt that says "deployments were canceled on 4/28" looks like an open problem. The session has no way to know a prior session already shipped the fix.
 
-The YAML hunt wasn't entirely wasted. `validate-content.mjs` had a `matter.stringify` call that rewrites files in place. While scanning articles from April 27 onward — when self-critique was enabled — one file turned up with no frontmatter at all: `content/daily/2026-04-10-en.md`.
+The fix is simple and manual: when a session resolves something, the completion state needs to live somewhere the next session can read — a commit message, a note in the next prompt, a status file. If it isn't recorded, the same work runs again.
 
-It wasn't the original bug. But it was a latent issue — a file that would have caused problems eventually. The wrong hypothesis led to finding a different real problem.
+Session 2 also invoked `superpowers:systematic-debugging` and `superpowers:verification-before-completion` skills. The approach was more structured and methodical. It didn't change that it was redundant.
 
-Debugging with a wrong starting assumption isn't always waste. Sometimes it surfaces things the right path would have missed.
+## Stats
 
-<hr class=section-break>
-<div class=commit-log>
-<div class=commit-row><span class=hash>8aa059b</span> <span class=msg>fix: add missing CountUp component, fix broken daily frontmatter</span></div>
-</div>
+| | Session 1 | Session 2 | Total |
+|---|---|---|---|
+| Duration | 9 min | 13 min | 22 min |
+| Tool calls | 91 | 117 | 208 |
+| Bash | 76 | 100 | 176 |
+| Files created | 1 (`CountUp.tsx`) | 0 | 1 |
+| Files modified | 1 | 0 | 1 |
 
-<div class=change-summary>
-<table>
-<thead><tr><th>Item</th><th>Before</th><th>After</th></tr></thead>
-<tbody>
-<tr><td>Vercel deploy status</td><td>4 days CANCELED</td><td>Deployed successfully</td></tr>
-<tr><td>CountUp.tsx</td><td>Missing (import only)</td><td>Created</td></tr>
-<tr><td>YAML file validation</td><td>481 files unchecked</td><td>481 files, 0 errors</td></tr>
-<tr><td>Sessions</td><td>—</td><td>2 (Session 4 + Session 5, duplicate)</td></tr>
-<tr><td>Total tool calls</td><td>—</td><td>208 (91 + 117)</td></tr>
-<tr><td>Files modified (saju_global)</td><td>—</td><td>21 i18n files</td></tr>
-</tbody>
-</table>
-</div>
+## What This Changes
 
-## The Takeaway
+When a build log points at a specific file and line number, check that file first. If nothing is there, the log itself is the unreliable data — not the codebase.
 
-Don't trust the error message at face value.
+The 481-file scan was thorough. It was also the wrong tool for the job. A single `npm run build` would have surfaced the missing module in under 30 seconds. Reproducing the actual failure is faster than constructing hypotheses about what might have caused it.
 
-When the user reported "YAML error," the right first question was: when did this error actually happen? Vercel build logs can cache errors from previous runs. Opening the suspect file before reproducing the failure locally cost time. The faster path: run a local build first, see what fails now, then work backward from there.
-
-The second lesson is less interesting but costs more when ignored: session completion state needs to be recorded somewhere explicit. Two sessions doing duplicate work isn't a model limitation — it's an infrastructure gap. The model has no way to know what previous sessions did unless something written tells it.
+Build logs — especially on Vercel — can lag, cache, or surface errors from entirely different execution paths. The error message on screen and the error that stopped the build are not always the same thing.
 
 ---
 
