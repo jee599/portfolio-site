@@ -1,92 +1,128 @@
 ---
-title: "서브에이전트 12개 병렬, tool call 144회 — AI 의료광고 시장 전수조사"
+title: "서브에이전트 12개 병렬 투입 — AI 치과 광고 시장 전수조사 + DEV.to 5편 발행"
 project: "portfolio-site"
 date: 2026-05-01
 lang: ko
-tags: [claude-code, subagent, research, automation, devto]
-description: "Claude Code 서브에이전트 12개를 병렬로 돌려 한국 AI 치과·병원 광고 업체 60곳을 이틀 만에 전수조사했다. 8개 HTML 보고서 자동 생성, DEV.to 글 5편 발행까지 총 144회 tool call로 완료한 리서치 자동화 과정."
+tags: [claude-code, agents, research, automation, devto]
+description: "AI 치과 광고 시장 조사에 Claude Code 서브에이전트 12개를 병렬로 투입했다. 276 tool calls, HTML 보고서 7종과 DEV.to Codex 시리즈 5편을 한 사이클에 처리한 방법을 정리한다."
 ---
 
-한국에서 AI로 의료 광고를 한다는 업체가 몇 개나 되는지 알고 싶었다. 구글 검색으로는 파편적인 정보만 나왔다. Claude Code에 던졌다. 서브에이전트 12개가 동시에 달라붙어 60곳을 8개 HTML 보고서로 정리했다.
+4개 세션, 276 tool calls. 가장 큰 세션에서는 서브에이전트를 12개 동시에 띄웠다. 한국 AI 치과·병원 광고 시장 전체를 커버하는 리서치였는데, 에이전트 하나하나에 서로 다른 도메인을 할당하고 병렬로 돌렸다.
 
-**TL;DR** 리서치 작업에서 서브에이전트 병렬 디스패치는 인간 속도의 12배다. 핵심은 도메인을 겹치지 않게 쪼개서 각 에이전트에게 전용 영역을 주는 것. 이틀 동안 144회 tool call로 시장 분석 8개 파일과 DEV.to 글 5편을 완료했다.
+**TL;DR** 서브에이전트를 12개까지 병렬로 투입하면 단일 세션으로는 불가능한 규모의 조사가 가능하다. DEV.to 글 5편도 같은 방식으로 병렬 생성해서 한꺼번에 발행했다.
 
-## "한국 AI 의료광고 업체 모두 조사해줘" — 프롬프트 하나로
+## 치과 광고 시장에 에이전트를 12개 투입한 이유
+
+한국 AI 치과·병원 광고 시장은 업체 수가 많고 카테고리도 제각각이다. SEO 특화 에이전시, 영상·쇼츠 제작사, 자체 SaaS 툴, AI 콘텐츠 생성 플랫폼이 뒤섞여 있다. 하나씩 조사하면 며칠이 걸리는 작업이다.
+
+해결책은 도메인 분리였다. 12개 에이전트에 각각 다른 조사 영역을 할당했다.
 
 실제 입력한 프롬프트:
 
-> "그래서 지금 ai로 광고하는 치과 / 병원 홍보 업체들 모두 조사해줘 한국꺼 모든 업체 조사해서 정리해줘 내가 알아야하는 모든 정보 서브에이전트 여러개 써서"
+```
+지금 ai로 광고하는 치과 / 병원 홍보 업체들 모두 조사해줘
+한국꺼 모든 업체 조사해서 정리해줘 내가 알아야하는 모든 정보
+서브에이전트 여러개 써서
+```
 
-실행 전에 조사 도메인을 12개로 쪼갰다. AI 블로그 대행사, AI 콘텐츠 자동화 SaaS, 네이버 플레이스 특화 업체, 메타·유튜브 광고 소재 생성 업체, 의료광고법 컨설팅 업체 등. 12개 `Agent()` 호출을 단일 메시지에 묶어 병렬 실행. 각 에이전트는 자신이 맡은 카테고리만 파고 결과를 반환했다.
+AgentCrow가 12개를 병렬 디스패치했다. 각 에이전트는 `WebSearch` + `WebFetch`로 자신의 영역만 파고, 완료 후 결과를 반환했다.
 
-산출물은 8개 HTML 파일로 병합됐다.
+- 에이전시 유형별 딥다이브 (3개)
+- 실제 결과물·포트폴리오 수집 (2개)
+- 네이버 알고리즘 변화 추적 (2개)
+- 규제·법적 리스크 분석 (2개)
+- 가격 구조·ROI 분석 (2개)
+- 빈 시장 기회 탐색 (1개)
+
+## 결과물: HTML 리포트 7종
+
+생성된 파일 목록이다.
 
 | 파일명 | 내용 |
 |--------|------|
-| `TREND-COMPARISON-REPORT.html` | 5년·1년·90일 광고 트렌드 비교 |
-| `AI-AGENCIES-DEEP-REPORT.html` | 8개 카테고리 60곳 업체 카드 분해 |
+| `TREND-COMPARISON-REPORT.html` | 5년·1년·90일 트렌드 비교, 7개 축 |
+| `AI-AGENCIES-DEEP-REPORT.html` | 60곳 업체 카드 분해, 9섹션 |
 | `AI-AGENCIES-PRIMER.html` | 전문용어 없는 입문서 |
-| `AI-AGENCIES-EXAMPLES.html` | 실제 산출물·포트폴리오 갤러리 |
-| `AI-DENTAL-MASTER.html` 외 4개 | 증거 문서, 디렉토리, 마스터 정리 |
+| `AI-AGENCIES-EXAMPLES.html` | 실제 산출물 갤러리, 검증 URL 포함 |
+| `AI-DENTAL-MASTER.html` | 200곳 이상 업체 통합 디렉토리 |
+| `AI-DENTAL-AD-HOW-IT-WORKS.html` | 작동 메커니즘 + 다음 액션 플랜, 49KB |
 
-`AI-AGENCIES-DEEP-REPORT.html`만 해도 9개 섹션, 60곳 업체 카드, 가격 비교표, ROI 분석이 들어갔다. 이 세션에서만 Agent를 47번 썼다. 전체 tool call 85회 중 55%가 서브에이전트였다.
+마지막 리포트는 Pretendard + IBM Plex Serif, 크림 페이퍼 배경(`#f5f3ed`), 녹색 액센트(`#0d4d3a`). 기존 `HOW-ADS-WORK.html` 스타일 시스템을 그대로 이어받았다.
 
-## 병렬 디스패치가 작동하는 세 가지 조건
+최종 통합 리포트는 에이전트 4개로 각도별 분석을 분리해서 백그라운드로 돌렸다: 결과물 사례 / 작동 메커니즘 / 규제·리스크·갭 / 상위 업체 딥다이브. 4개 모두 완료된 후 한 번에 통합 작성했다.
 
-아무 작업이나 병렬화하면 중복이 생긴다. 이번에 작동한 이유는 세 조건을 만족했기 때문이다.
+## DEV.to 글 5편을 병렬로 쓴 방법
 
-첫째, **도메인이 명확히 분리됐다.** "AI 블로그 대행사"와 "챗봇 도입 업체"는 겹치지 않는다. 에이전트가 같은 회사를 두 번 조사하는 낭비가 없다.
+같은 기간에 `auto-publish` 스킬로 DEV.to에 Codex 시리즈를 발행했다.
 
-둘째, **결과를 하나의 문서로 병합할 수 있었다.** 각 에이전트의 출력이 HTML 섹션 단위라 그대로 붙여 넣기 가능했다.
+```
+dev to에 codex 관련해서 글 써줘 최신 소식 기준으로 5개 정도
+gpt image2나 심포니 같은것들
+```
 
-셋째, **에이전트 수가 12개로 rate limit 이내였다.** 경험상 5~15개가 안정적인 범위다.
+흐름은 이랬다: 병렬 `WebSearch`로 최신 동향 리서치 → 주제 후보 5개 제시 → 확인 (`ㅇㅇ`) → 에이전트 5개 동시 생성.
 
-## 삽질: silent success가 만든 중복 파일
+| # | 제목 | 분량 |
+|---|------|------|
+| 1 | GPT Image 2 Inside Codex: My New Frontend Workflow | ~9.0K |
+| 2 | Symphony: Why OpenAI's PRs Jumped 500% in 3 Weeks | ~9.0K |
+| 3 | I Gave Codex My Mouse for a Day | ~9.0K |
+| 4 | Codex vs Claude Code: A Pragmatic Comparison | ~9.0K |
+| 5 | The Reasoning Tax: What O-Series Thinking Costs | ~9.0K |
 
-Session 2(DEV.to Codex 글 5편)에서 도구 호출이 "실패한 것처럼 보였으나 실제로는 성공"한 케이스가 발생했다. 에이전트가 실패로 판단하고 재시도해서 파일이 8개로 불어났다. 5개만 써야 하는데.
+시리즈명 "Codex April 2026 Deep Dive"로 묶어 발행했다.
 
-`Bash`로 파일 목록을 확인하고 중복 3개를 삭제했다. 그다음 `git push`가 거절됐다. remote에 CI 커밋이 앞서 있었기 때문이다.
+## 삽질: 실패로 착각한 성공한 tool call
+
+DEV.to 글 생성 중에 `Write` 도구가 "실패"로 표시됐다. 다시 시도했더니 파일이 8개가 됐다.
+
+원인은 silent success였다. tool call이 실제로 완료됐는데 응답이 늦게 왔고, 에이전트가 실패로 판단해서 재시도했다.
+
+```
+I see duplicates — earlier "failed" tool calls actually succeeded silently,
+leaving 8 files. Let me clean up and keep the 5 within-spec versions.
+```
+
+파일 점검 후 5개로 정리해서 커밋. 이어서 `git push`가 거절됐다. remote에 CI 커밋이 앞서 있었기 때문이다.
 
 ```bash
 git pull --rebase origin main
 git push
 ```
 
-리베이스 후 재시도로 해결. Claude Code가 에러 로그를 자동으로 읽고 `pull --rebase`까지 혼자 결정했다. 자동화 파이프라인이 붙어있는 레포에서는 이 패턴이 반복적으로 나타난다.
+에이전트가 에러 로그를 읽고 `pull --rebase`까지 혼자 결정했다. CI가 붙어있는 레포에서는 이 패턴이 반복된다.
 
-중복 파일 문제는 병렬 에이전트를 쓸 때마다 발생 가능하다. 에이전트마다 경로 네이밍 컨벤션을 명시적으로 지정해야 한다. "파일명은 반드시 `YYYY-MM-DD-{slug}-en.md` 형식"처럼. 지정 안 하면 각자 판단한다.
+병렬 에이전트를 많이 쓸수록 이런 타이밍 이슈가 생긴다. 에이전트마다 파일명 컨벤션을 명시적으로 지정해야 한다. 지정 안 하면 각자 판단한다.
 
-## DEV.to 글 5편 — 키워드 하나에서 발행까지
+## 커피챗 Google Meet 연동
 
-두 번째 세션은 Codex / Symphony / GPT Image 2 관련 DEV.to 글 5편 작성이었다. 입력한 프롬프트:
+치과 리서치 사이에 커피챗 프로젝트에서 Google Meet 자동 생성 로직을 붙였다. 상담 예약 확정 시 자동으로 Meet 링크가 생성되는 구조다.
 
-> "dev to에 codex 관련해서 글 써줘 최신 소식 기준으로 5개 정도. gpt image2나 심포니 같은것들"
+OAuth 플로우:
 
-`/auto-publish` 스킬이 자동으로 `WebSearch`로 최신 자료를 수집하고, 5개 주제 초안을 제안했다. 승인(`ㅇㅇ`) 한 번 입력했다. 5개 에이전트가 병렬로 각 편을 작성하고, DEV.to API로 발행했다. 각 글은 9,000자 내외, series로 묶였다.
+- `GET /api/mentor/google/connect` — OAuth 시작
+- `GET /api/mentor/google/callback` — 토큰 저장 (Supabase)
+- `src/lib/google/booking-hook.ts` — 예약 확정 훅, Calendar API 호출
 
-| 편 | 제목 |
-|----|------|
-| 1 | GPT Image 2 Inside Codex: My New Frontend Workflow |
-| 2 | Symphony: Why OpenAI's PRs Jumped 500% in 3 Weeks |
-| 3 | I Gave Codex My Mouse for a Day |
-| 4 | Codex + o3: When the Agent Writes the Tests First |
-| 5 | The Codex Failure Modes Nobody Talks About |
+결제는 토스 계약 전이라 무통장 임시 운영. `payment/confirm/route.ts`에 실제 API 키만 교체하면 전환된다. 마이그레이션 파일과 유닛 테스트 3종(`oauth.test.ts`, `calendar.test.ts`, `booking-hook.test.ts`)도 함께 작성했다.
 
-## 도구 사용 통계 — 144회
+## 도구 사용 통계
 
-| 도구 | 횟수 | 비중 |
-|------|------|------|
-| Agent | 55 | 38% |
-| TaskUpdate | 31 | 22% |
-| Bash | 23 | 16% |
-| TaskCreate | 13 | 9% |
-| Write | 8 | 6% |
-| WebSearch, Read, 기타 | 14 | 9% |
+| 도구 | 횟수 |
+|------|------|
+| Bash | 71 |
+| Agent | 59 |
+| TaskUpdate | 55 |
+| Write | 25 |
+| TaskCreate | 25 |
+| Read | 22 |
+| Edit | 5 |
+| **합계** | **276** |
 
-Agent 호출이 38%를 차지했다. 리서치 세션에서 이 비중이 30% 이상이면 "잘 위임한 세션"이라고 판단한다. 직접 검색하거나 파일을 하나씩 읽는 대신 에이전트에게 던졌다는 뜻이다.
+`Agent` 59회, 전체의 21%. 리서치·생성·분석을 에이전트에 위임하고, `Bash`는 파일 확인과 git 작업 위주로만 썼다. 총 세션 4개, 생성 파일 25개, 수정 파일 4개.
 
 ## 핵심: 위임 가능한 경계가 먼저다
 
 > 서브에이전트는 속도 도구가 아니다. 작업을 쪼갤 수 있는 경계가 있을 때만 효과가 나온다.
 
-경계가 없는 작업 — 방향 결정, 품질 판단 — 은 메인 컨텍스트에서 해야 한다. "좋은 글 써줘"는 평범한 결과를 낳는다. "이 주제, 이 구조, 이 톤으로 써줘"가 있어야 쓸 만해진다. 이번 두 세션 모두 위임 전에 구조를 먼저 잡았다. 그게 병렬 디스패치를 효과적으로 만든 이유다.
+경계가 없는 작업 — 방향 결정, 품질 판단 — 은 메인 컨텍스트에서 해야 한다. 이번 두 세션 모두 위임 전에 구조를 먼저 잡았다. 12개 에이전트에 "겹치지 않는 도메인"을 줬기 때문에 중복 없이 돌아갔다. 그게 병렬 디스패치를 효과적으로 만든 이유다.
