@@ -1,94 +1,142 @@
 ---
-title: "Claude Code가 스스로 코드 못 짜게 막는 오케스트레이터 하네스 구축"
+title: "훅 3개로 오케스트레이터를 강제하다 — Claude Code 하네스 엔지니어링 79 tool calls"
 project: "portfolio-site"
 date: 2026-05-02
 lang: ko
-tags: [claude-code, orchestration, multi-agent, hooks, codex]
-description: "훅 3개로 Claude Code를 오케스트레이터로만 동작시키는 하네스 엔지니어링. 5세션 355 tool calls, 서브에이전트 65회 디스패치, codex MCP 교차검증 파이프라인 구축."
+tags: [claude-code, orchestrator, harness, hooks, multi-agent, codex]
+description: "PreToolUse·Stop 훅 3개로 메인이 코드를 직접 못 짜게 강제하는 오케스트레이터 하네스를 구축했다. plan→implement→verify→codex 교차검증 파이프라인을 파일로 영속화하고, 단계 빠뜨리면 Stop 훅이 차단한다. 79 tool calls, 6h 44min."
 ---
 
-355번의 tool call 중 Edit는 10번뿐이다. 나머지는 Bash(94), TaskUpdate(76), Agent(65)다. Claude Code에게 직접 코드를 쓰는 걸 막고, 모든 구현은 서브에이전트에 위임하도록 강제하는 구조를 만든 결과다.
+79 tool calls, 6시간 44분. 이번 세션에서 코드를 한 줄도 직접 안 짰다. 정확히는, 짜지 못하도록 시스템이 막는 구조를 만들었다.
 
-**TL;DR** 훅 3개(`orchestrator-gate.sh`, `orchestrator-init.sh`, `orchestrator-stop.sh`)와 파일 기반 상태머신(`state.json`)으로 오케스트레이터 강제 워크플로를 구현했다. trivial이 아닌 모든 작업은 plan → implement → verify → codex 검증 파이프라인을 거친다.
+**TL;DR** PreToolUse·Stop 훅 3개로 메인 오케스트레이터가 코드를 직접 쓰지 못하게 강제하고, plan → implement → verify → codex 교차검증까지 파이프라인 전체를 `~/.claude/workflow/current/`에 파일로 영속화했다.
 
-## 발단: 5세션에서 같은 문제가 반복됐다
+## "하네스 엔지니어링 되어 있지?"라는 질문부터
 
-이번 주 Claude Code로 3개 프로젝트를 병렬 진행했다. 치과 광고 리서치(서브에이전트 12개 병렬, HTML 보고서 7종), DEV.to 글 5편 자동 발행, coffeechat Google Meet 통합. 총 5세션, 누적 작업 시간이 상당했다.
+세션 시작 프롬프트:
 
-문제는 반복됐다. 계획 없이 바로 파일을 수정하는 경우가 있었다. 특히 멀티에이전트 작업에서 오케스트레이터 역할을 해야 할 메인 Claude가 직접 코드를 짜버렸다. 리뷰도, 검증도 없이. DEV.to 발행 세션에서도 "실패"한 tool call이 사실은 성공해서 파일이 중복으로 생겼다가 수동 정리한 일이 있었다.
+> "codex cli mcp 로 연결해서 너 작업의 마지막 단계에서 교차 검증하는거 적용해줘. 지금 하네스 엔지니어링 되어 있지?"
 
-서브에이전트 65번을 돌리면서 패턴이 명확해졌다. 좋은 에이전트는 plan을 읽고 diff를 뱉는다. 나쁜 에이전트는 컨텍스트 없이 파일을 건드린다. 메인도 마찬가지였다.
+확인해보니 부분만 돼 있었다. contextzip 토큰 절감 훅, protect-files, commit-cleanliness — 파일 보호와 커밋 위생은 있었지만 오케스트레이터 구조는 없었다. 메인이 계획도 짜고, 코드도 짜고, 리뷰도 직접 하는 구조.
 
-## 리서치: Hermes 127k⭐가 보여준 구조
+다음 프롬프트:
 
-4개 에이전트를 병렬 디스패치해서 오케스트레이션 프레임워크 레퍼런스를 조사했다. 찾은 것들:
+> "아주 간단한 작업 제외하고 모든 건 강제해줘 훅으로 모든 과정을. claude.md 에 오케스트레이터 / agent에 각각에 대한 정의랑 컨텍스트 / 파일 기반으로 돌아가게 해줘 workflow에 기억에 놓고 쓰는거"
 
-- `NousResearch/hermes-agent` 127k⭐ — 실존하는 Hermes 에이전트 프레임워크
-- Claude Code 공식 훅 문서 — `PreToolUse`, `Stop`, `SessionStart` 이벤트
-- AutoGen, LangGraph 패턴 — 각각 오케스트레이터-워커 구조를 어떻게 강제하는지
+이게 세션의 핵심 요구였다.
 
-핵심 인사이트는 두 가지였다.
+## 리서치 먼저 — 4개 에이전트 병렬
 
-하나, **상태는 파일로 영속**해야 한다. 컴팩션이 일어나면 대화 컨텍스트가 사라진다. `state.json`이 task_id, complexity, stage, completed_stages를 기록하면 세션이 끊겨도 어디까지 왔는지 복원된다.
+설계 전에 레퍼런스가 필요했다. 어떤 구조가 공신력 있게 검증됐는지 모르는 상태에서 만들면 안 된다. 4개 도메인을 나눠 병렬로 던졌다.
 
-둘, **강제는 훅으로**만 된다. Claude가 "다음엔 꼭 plan 먼저 만들겠다"고 약속해봤자 소용없다. `PreToolUse` 훅이 요청 자체를 deny하는 게 유일하게 작동하는 방법이다.
+- Multi-agent orchestration frameworks (AutoGen, LangGraph, CrewAI)
+- Hermes agent 프레임워크 검증
+- Claude Code hooks + 하네스 공식 문서
+- 에이전트 강제·게이팅 패턴
 
-## 구현: 3개 훅 + 파일 상태머신
+`NousResearch/hermes-agent`(127k⭐)는 실존했다. 도구 호출을 함수 형식으로 구조화하는 파인튜닝 모델 계열이라 직접 가져올 건 없었다. 핵심 레퍼런스는 Claude Code의 `PreToolUse`·`Stop` 훅과 LangGraph의 state machine 패턴이었다.
 
-```
-~/.claude/
-├── workflow/
-│   ├── ORCHESTRATION.md    # complexity 분류 + 파이프라인 정의
-│   ├── AGENTS.md           # 에이전트 카탈로그 (역할·트리거·산출물 경로)
-│   ├── lib/
-│   │   ├── state.sh        # state_set, state_add_completed 헬퍼
-│   │   └── classify.sh     # complexity 분류 휴리스틱
-│   └── current/
-│       ├── state.json      # 현재 태스크 상태
-│       ├── plan.md         # plan-orchestrator 산출물
-│       ├── diff.patch      # 구현 결과
-│       ├── verifier-report.md
-│       └── codex-report.md
-└── hooks/
-    ├── orchestrator-gate.sh   # PreToolUse: plan 없이 코드 못 짬
-    ├── orchestrator-init.sh   # UserPromptSubmit: 분류 + state 초기화
-    └── orchestrator-stop.sh   # Stop: diff 있는데 검증 없으면 차단
-```
+`Agent(6)` — 이 세션에서 에이전트 호출이 6회로 낮은 건 리서치 에이전트 4개가 백그라운드로 돌았기 때문이다. 나머지 73개 call은 Bash(23)·TaskUpdate(21)·TaskCreate(10)·Write(9)로 설계와 구현이다.
 
-`orchestrator-gate.sh`의 핵심 로직은 단순하다. `state.json`에서 complexity를 읽어서 trivial이 아니면, stage가 `implementing`이 아니면, Edit/Write를 deny한다. 메인이 plan 에이전트를 호출하고 `state_set stage implementing`으로 전환한 후에야 서브에이전트가 파일을 건드릴 수 있다.
+## 파일 기반 상태머신 — 왜 파일인가
 
-`orchestrator-stop.sh`는 반대 방향에서 막는다. `diff.patch`가 있는데 `verifier-report.md`가 없으면 응답 종료를 `exit 2`로 차단한다. standard 이상은 `codex-report.md`도 있어야 한다.
+컴팩션이 문제다. 세션이 길어지거나 컨텍스트가 압축되면 Claude가 이전 단계를 기억하지 못한다. 메모리로 관리하면 컴팩션 후 파이프라인 상태가 소실된다.
 
-## Codex MCP 교차검증 — 마지막 게이트
-
-`~/.claude/agents/codex-cross-verify.md`로 정의한 에이전트가 `mcp__codex__codex`를 호출한다. diff + plan + verifier-report를 외부 모델에 던지는 구조다.
+해법은 파일이다:
 
 ```
+~/.claude/workflow/
+├── ORCHESTRATION.md     워크플로우 정의서
+├── AGENTS.md            에이전트 카탈로그
+├── current/
+│   ├── state.json       task_id, complexity, stage, completed_stages
+│   ├── plan.md          plan-orchestrator 산출물
+│   ├── diff.patch       구현 결과 (git diff)
+│   ├── verifier-report.md
+│   └── codex-report.md
+└── log/
+    └── YYYYMMDD-HHMMSS/ 완료 작업 아카이브
+```
+
+`state.json`이 현재 작업의 stage를 안다. 컴팩션 후에도 `SessionStart` 훅이 이걸 읽어서 메인에 복원한다. `PreCompact` 훅은 압축 직전에 `state.json`을 stderr로 출력해 다음 컨텍스트에 살아남게 한다.
+
+## 훅 3개로 강제하는 파이프라인
+
+강제 메커니즘의 핵심은 세 개 훅이다.
+
+**`orchestrator-init.sh` (UserPromptSubmit)** — 매 사용자 요청마다 분류·라우팅 룰을 컨텍스트에 재주입한다. 컴팩션 후에도 메인이 룰을 잊지 않는다.
+
+**`orchestrator-gate.sh` (PreToolUse: Edit|Write|MultiEdit)** — `state.complexity != "trivial"` AND `stage != "implementing"`이면 파일 수정을 거부한다. 계획 없이 코드를 못 짜게 차단하는 핵심 훅이다.
+
+**`orchestrator-stop.sh` (Stop)** — diff가 있는데 `verifier-report.md`나 `codex-report.md`가 없으면 응답 종료를 막는다. 검증 없이 작업을 끝낼 수 없다.
+
+결과적으로 complexity가 `trivial`이 아닌 작업은 반드시 이 순서를 거친다:
+
+```
+1. plan-orchestrator → current/plan.md 생성
+2. (orchestrator-gate 통과) 구현 에이전트 → current/diff.patch
+3. code-verifier → current/verifier-report.md
+4. codex-cross-verify → current/codex-report.md
+5. (orchestrator-stop 통과) 사용자 보고
+```
+
+## complexity 분류 — "거의 다 standard"
+
+분류 테이블을 만들면서 임계치를 보수적으로 잡았다.
+
+| 등급 | 기준 | 파이프라인 |
+|------|------|-----------|
+| `trivial` | `~/.claude/**` 변경 ≤ 3줄, 또는 순수 질문 | 메인 직접 처리 |
+| `simple` | 단일 파일 ≤ 30줄, 명확한 spec | 구현 → verify |
+| `standard` | 신규 기능·UI·다중 파일 ≤ 5 | plan → 구현 → verify → codex |
+| `major` | 6+ 파일·아키텍처·새 의존성 | standard + code-reviewer |
+
+> "거의 모든 코딩 작업은 standard 이상으로 분류한다. trivial은 진짜 트리비얼한 메모리·설정·질문일 때만."
+
+이 원칙이 없으면 "간단한 것 같으니까 바로 짜도 되겠지"라는 판단이 들어온다. 훅이 작동하려면 분류 기준이 엄격해야 한다.
+
+## Codex MCP 교차검증 — 외부 모델이 마지막에 본다
+
+standard·major는 마지막 단계에서 codex MCP를 통해 외부 모델이 검증한다. `~/.claude/agents/codex-cross-verify.md`가 이 로직을 래핑한다.
+
+```
+You are an external code reviewer. Read these files and verify:
+- PLAN: <plan.md 내용>
+- DIFF: <diff.patch 내용>
+- VERIFIER: <verifier-report.md 내용>
+
 Cross-check:
 1. Does the diff match the plan?
 2. Are there bugs the verifier missed?
-3. Any breaking changes?
+3. Any backward-compat or breaking changes?
 
-Return: VERDICT (approve|request-changes) + findings.
+Return: VERDICT (approve|request-changes) + bullet list of findings.
 ```
 
-내부 검증 루프는 확증 편향이 있다. 같은 컨텍스트에서 만든 코드를 같은 컨텍스트에서 검증하면 blind spot을 놓친다. 외부 모델이 마지막에 한 번 더 보는 게 그 gap을 메운다.
+동일 컨텍스트에서 검토하면 같은 blind spot을 공유한다. 외부 모델이 보면 다른 관점의 지적이 나온다.
 
-## complexity 분류표
+## 세션 통계
 
-| complexity | 기준 | 파이프라인 |
-|---|---|---|
-| trivial | `~/.claude/**` ≤3줄, 또는 순수 질문 | 메인 직접 처리 |
-| simple | 단일 파일 ≤30줄 | 구현 → verify |
-| standard | 신규 기능·UI·다중 파일 ≤5 | plan → 구현 → verify → codex |
-| major | 파일 6+·아키텍처 변경 | standard + code-reviewer |
+| 도구 | 횟수 |
+|------|------|
+| Bash | 23 |
+| TaskUpdate | 21 |
+| TaskCreate | 10 |
+| Write | 9 |
+| Agent | 6 |
+| Edit | 5 |
+| Read | 2 |
+| Skill | 2 |
+| **합계** | **79** |
 
-임계치는 보수적으로 잡았다. 의심스러우면 한 단계 위로. 거의 모든 코딩 작업은 standard 이상이다.
+생성 파일 9개, 수정 파일 3개. `Write(9)`가 많은 건 새 파일을 만들어서다. `TaskUpdate(21)`·`TaskCreate(10)`은 파이프라인 각 단계를 태스크로 관리한 결과다.
 
-## 숫자로 보는 이번 주
+## 훅이 강제하지 않으면 지켜지지 않는다
 
-이번 주 5세션에서 Edit 10번은 대부분 이 하네스 자체를 구축하면서 발생했다. 생성된 파일 34개, 수정 파일 7개. 병렬 디스패치한 서브에이전트 65회가 실질적인 작업을 담당했다.
+메인 Claude가 직접 코드를 짜면 두 가지 문제가 생긴다.
 
-DEV.to 글 5편도 단일 에이전트가 아니라 5개 에이전트 병렬로 작성했다. 치과 광고 리서치는 12개 에이전트가 각 도메인을 나눠서 처리했다. 오케스트레이터가 직접 조사하거나 직접 쓰면 병목이 된다.
+첫째, 컨텍스트 오염. 구현 세부사항이 메인 컨텍스트에 쌓이면 이후 판단에 영향을 준다. 서브에이전트는 fresh context로 시작해서 노이즈가 없다.
 
-다음 작업부터 메인이 직접 파일을 건드리는 일은 없어야 한다. 훅이 막을 테니까.
+둘째, 강제 불가. "계획 먼저"는 좋은 원칙이지만 Claude가 스스로 지키기 어렵다. 훅으로 물리적으로 막아야 지켜진다. `orchestrator-gate.sh`가 없으면 "이건 간단하니까"라는 자기 설득이 들어온다.
+
+> 훅은 의지 대신 구조로 워크플로를 강제하는 장치다.

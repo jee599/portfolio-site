@@ -1,114 +1,207 @@
 ---
-title: "Building a Harness That Stops Claude Code From Writing Code Itself: 355 Tool Calls, 10 Edits"
+title: "Enforcing an Orchestrator with 3 Hooks — Claude Code Harness Engineering, 79 Tool Calls"
 project: "portfolio-site"
 date: 2026-05-02
 lang: en
 pair: "2026-05-02-portfolio-site-ko"
-tags: [claude-code, orchestration, multi-agent, hooks, codex]
-description: "Engineering a 3-hook harness that forces Claude Code into pure orchestrator mode: 355 tool calls, 65 subagent dispatches, and a Codex MCP cross-validation pipeline."
+tags: [claude-code, orchestrator, harness, hooks, multi-agent, codex]
+description: "Built 3 hooks that physically prevent the main agent from writing code — enforcing a plan→implement→verify→codex pipeline with file-persisted state."
 ---
 
-Out of 355 tool calls in this session, only 10 were `Edit`. The rest: `Bash(94)`, `TaskUpdate(76)`, `Agent(65)`. That ratio is not accidental — it's the output of a harness specifically designed to prevent Claude Code from writing code directly.
+79 tool calls. 6 hours 44 minutes. Not a single line of code written directly by the main agent.
 
-**TL;DR** Three hooks (`orchestrator-gate.sh`, `orchestrator-init.sh`, `orchestrator-stop.sh`) plus a file-based state machine (`state.json`) enforce an orchestrator-only workflow. Every non-trivial task must pass through plan → implement → verify → codex before it completes.
+That last part is the point. This session was about building a system that makes it *structurally impossible* for the main Claude orchestrator to write code — using three hooks that enforce a plan→implement→verify→codex cross-validation pipeline, with all state persisted to files that survive context compaction.
 
-## Why Five Sessions Kept Producing the Same Failure Mode
+**TL;DR** `PreToolUse`, `Stop`, and `UserPromptSubmit` hooks force the main orchestrator to route all coding through subagents. Pipeline state lives in `~/.claude/workflow/current/` as files. Skip a verification step and the Stop hook blocks the response from completing.
 
-This week I ran Claude Code across three projects in parallel: dental advertising market research (12 parallel subagents, 7 HTML reports), 5 DEV.to posts auto-published, and Google Meet integration for coffeechat. Five sessions total.
+## The Question That Started It
 
-The failure mode repeated across all of them. The main Claude context — which should have been orchestrating — kept writing code directly. No plan. No review. No verification. In the DEV.to session, a tool call that appeared to fail had actually succeeded. By the time anyone caught it, the output directory held 8 files instead of 5 and required manual cleanup.
+Session opening prompt:
 
-After 65 subagent dispatches across the week, the pattern in agent behavior was clear. A well-behaved agent reads a plan file, produces a diff, and exits. A problematic agent touches files without context. The main context was exhibiting the same problematic pattern — acting before a plan existed, skipping verification afterward.
+> "Connect codex CLI via MCP and apply cross-validation at the last stage of your workflow. Is the harness engineering already in place?"
 
-Promises don't fix this. "I'll run the plan step first next time" isn't a constraint, it's an intention. The only thing that actually works is a hook that denies the tool call at the infrastructure level.
+The answer was: partially. Token savings via contextzip, file protection, commit cleanliness hooks — all present. What was missing was an actual orchestrator structure. The main agent was planning, coding, and reviewing all by itself, which defeats the point of having a multi-agent setup.
 
-## The Research: What 127k Stars and Three Frameworks Showed
+Follow-up:
 
-I dispatched 4 agents in parallel to map orchestration framework references before building anything.
+> "Except for trivially simple tasks, force everything through hooks. Define the orchestrator and each agent in CLAUDE.md with context. Run the whole thing off files so state persists across compaction."
 
-The findings:
+That was the core requirement. The emphasis on *hooks* and *files* — not just guidelines — was deliberate.
 
-- `NousResearch/hermes-agent` at 127k stars is a real, documented framework with an orchestrator-worker model
-- Claude Code's official hook documentation covers `PreToolUse`, `Stop`, and `SessionStart` event types
-- AutoGen and LangGraph both enforce orchestrator-worker separation — and both use explicit state tracking, not in-memory assumptions
+## Research Before Design — 4 Agents in Parallel
 
-Two principles emerged from the survey.
+Before designing anything, the right references needed to exist. Building a multi-agent enforcement system without knowing what patterns have already been validated is a recipe for reinventing broken wheels. Four domains were dispatched in parallel:
 
-**State must survive outside the context.** Compaction clears conversation history. If task progress lives only in Claude's working memory, a compaction event erases everything. Persisting `task_id`, `complexity`, `stage`, and `completed_stages` in a `state.json` file means any new context can resume exactly where the previous one stopped.
+- Multi-agent orchestration frameworks (AutoGen, LangGraph, CrewAI)
+- Hermes agent framework validation
+- Claude Code hooks and official harness documentation
+- Agent enforcement and gating patterns
 
-**Enforcement only works at the hook layer.** You cannot reason your way into consistent behavior. `PreToolUse` can deny a request before it executes. That's the only mechanism that holds.
+`NousResearch/hermes-agent` (127k ⭐) exists and is real — it's a fine-tuned model family that structures tool calls as typed function signatures. Not directly portable to this use case, but the structured-output approach informed the design. The core references ended up being Claude Code's `PreToolUse`/`Stop` hook contracts and LangGraph's file-based state machine pattern.
 
-## Three Hooks, One State Machine
+One data point worth noting: `Agent(6)` — six agent calls is low for a 79-call session. That's because four research agents ran in the background during design. The remaining 73 calls were `Bash(23)`, `TaskUpdate(21)`, `TaskCreate(10)`, `Write(9)` — all design and implementation work.
 
-The full directory layout:
+## Why Files? The Compaction Problem
 
-```
-~/.claude/
-├── workflow/
-│   ├── ORCHESTRATION.md    # complexity classification + pipeline definition
-│   ├── AGENTS.md           # agent catalog (roles, triggers, output paths)
-│   ├── lib/
-│   │   ├── state.sh        # state_set, state_add_completed helpers
-│   │   └── classify.sh     # complexity classification heuristics
-│   └── current/
-│       ├── state.json      # active task state
-│       ├── plan.md         # plan-orchestrator output
-│       ├── diff.patch      # implementation result
-│       ├── verifier-report.md
-│       └── codex-report.md
-└── hooks/
-    ├── orchestrator-gate.sh   # PreToolUse: blocks Edit/Write without a plan
-    ├── orchestrator-init.sh   # UserPromptSubmit: classifies + initializes state
-    └── orchestrator-stop.sh   # Stop: blocks exit if diff exists without verification
-```
+Context compaction kills long-running pipelines. When a session grows long enough, Claude compresses prior context to fit the window. If pipeline state lives only in conversation memory, it evaporates at the next compaction boundary.
 
-`orchestrator-gate.sh` is the core constraint. It reads `complexity` from `state.json`. If the task is not `trivial` and the current `stage` is not `implementing`, any `Edit` or `Write` call is denied. The main context can only touch files after dispatching a plan agent and explicitly running `state_set stage implementing`. Subagents — invoked from within the implementing stage — can write freely. The main context cannot.
-
-`orchestrator-stop.sh` enforces the other boundary. If `diff.patch` exists but `verifier-report.md` does not, the hook returns `exit 2`, blocking the session from closing. For `standard` and `major` complexity tasks, `codex-report.md` is also required.
-
-`orchestrator-init.sh` fires on every user prompt. It classifies the incoming request, writes a fresh `state.json`, and injects the routing rules back into Claude's context — so compaction events don't cause the orchestrator to forget its own constraints.
-
-## The Codex MCP Gate
-
-The last verification step uses `mcp__codex__codex` through an agent defined in `~/.claude/agents/codex-cross-verify.md`. It receives three files: `diff.patch`, `plan.md`, and `verifier-report.md`.
-
-The prompt:
+The solution is files as the source of truth:
 
 ```
+~/.claude/workflow/
+├── ORCHESTRATION.md     workflow definition + routing rules
+├── AGENTS.md            agent catalog with input/output contracts
+├── current/
+│   ├── state.json       task_id, complexity, stage, completed_stages
+│   ├── plan.md          plan-orchestrator output
+│   ├── diff.patch       implementation result (git diff)
+│   ├── verifier-report.md
+│   └── codex-report.md
+└── log/
+    └── YYYYMMDD-HHMMSS/ completed task archive
+```
+
+`state.json` is the source of truth for any active task:
+
+```json
+{
+  "task_id": "20260502-153045",
+  "user_request": "original request text",
+  "complexity": "trivial|simple|standard|major",
+  "stage": "classified|planning|implementing|verifying|cross_verifying|done",
+  "completed_stages": ["classified", "planning"],
+  "artifacts": {
+    "plan": "current/plan.md",
+    "diff": "current/diff.patch",
+    "verifier": null,
+    "codex": null
+  }
+}
+```
+
+After a compaction event, the `SessionStart` hook reads `state.json` and reloads the active task state into context. The `PreCompact` hook writes `state.json` to stderr immediately before compression fires — so it survives into the next context window even if the conversation is truncated.
+
+Core design principle: **files are the memory that survives sessions, subagents, and compaction. Conversation context is ephemeral.**
+
+## 3 Hooks That Turn Guidelines into Constraints
+
+The enforcement mechanism is three hooks. Each targets a different failure mode.
+
+### `orchestrator-init.sh` (UserPromptSubmit)
+
+Fires on every user request. Injects complexity classification rules and routing logic into context as `additionalContext`. Even after compaction, the main agent gets the routing rules at the start of each turn.
+
+This solves the "forgetting the rules" problem that appears in long sessions — the orchestrator doesn't have to remember what it's supposed to do, because the hook reminds it on every message.
+
+### `orchestrator-gate.sh` (PreToolUse: Edit|Write|MultiEdit)
+
+The critical enforcement hook. Logic:
+
+```bash
+complexity=$(jq -r '.complexity' ~/.claude/workflow/current/state.json)
+stage=$(jq -r '.stage' ~/.claude/workflow/current/state.json)
+
+if [[ "$complexity" != "trivial" && "$stage" != "implementing" ]]; then
+  echo '{"decision": "block", "reason": "No plan approved. Run plan-orchestrator first."}'
+  exit 0
+fi
+```
+
+If the task isn't trivial and the stage isn't `implementing`, any attempt to edit or write files is rejected. The main agent physically cannot write code without a plan committed to `current/plan.md` first and the stage advanced to `implementing`.
+
+Without this hook, self-persuasion creeps in: *"this change is small enough to do directly."* The hook makes that decision impossible to act on.
+
+### `orchestrator-stop.sh` (Stop)
+
+Fires when the agent is about to end its response:
+
+```bash
+diff_exists=$([ -f ~/.claude/workflow/current/diff.patch ] && echo "yes" || echo "no")
+verifier_exists=$([ -f ~/.claude/workflow/current/verifier-report.md ] && echo "yes" || echo "no")
+codex_exists=$([ -f ~/.claude/workflow/current/codex-report.md ] && echo "yes" || echo "no")
+
+if [[ "$diff_exists" == "yes" && ("$verifier_exists" == "no" || "$codex_exists" == "no") ]]; then
+  echo '{"decision": "block", "reason": "Missing verifier-report or codex-report."}'
+  exit 2
+fi
+```
+
+If code was written but verification artifacts are missing, the response is blocked. The agent can't declare success and move on without the verification files existing on disk.
+
+Combined result — any task above `trivial` must go through this sequence:
+
+```
+1. plan-orchestrator → current/plan.md
+2. (orchestrator-gate clears) implementation subagent → current/diff.patch
+3. code-verifier → current/verifier-report.md
+4. codex-cross-verify → current/codex-report.md
+5. (orchestrator-stop clears) report to user
+```
+
+## The Complexity Ladder — Thresholds Set Conservatively
+
+| Level | Criteria | Pipeline |
+|-------|----------|----------|
+| `trivial` | `~/.claude/**` changes ≤ 3 lines, or pure Q&A | Main handles directly |
+| `simple` | Single file ≤ 30 lines, clear spec | implement → verify |
+| `standard` | New feature, UI change, multi-file ≤ 5 | plan → implement → verify → codex |
+| `major` | 6+ files, architecture change, new dependency | standard + code-reviewer |
+
+The rule embedded in `ORCHESTRATION.md`:
+
+> Almost all coding tasks should be classified `standard` or above. `trivial` is reserved for genuinely trivial memory updates, config changes, or pure questions.
+
+Without this explicit rule, classification drift happens. Tasks that *feel* simple get classified as simple. The hooks are only as good as the classification that feeds them.
+
+## Codex MCP Cross-Validation — A Second Model at the End
+
+For `standard` and `major` tasks, the final stage sends everything through codex MCP for external model validation. `~/.claude/agents/codex-cross-verify.md` wraps this logic:
+
+```
+You are an external code reviewer. Read these files and verify:
+- PLAN: <plan.md contents>
+- DIFF: <diff.patch contents>
+- VERIFIER: <verifier-report.md contents>
+
 Cross-check:
 1. Does the diff match the plan?
-2. Are there bugs the verifier missed (logic/security/edge cases)?
-3. Any backward-compat or breaking changes?
+2. Are there bugs the verifier missed (logic, security, edge cases)?
+3. Any backward-compatibility or breaking changes?
 
 Return: VERDICT (approve|request-changes) + bullet list of findings.
 ```
 
-Internal verification loops have a structural bias. The same context that wrote the code also verifies it — which means the same blind spots that existed during writing exist during review. An external model reading only the diff, plan, and verifier report closes that gap. It has no preconceptions about what the code was supposed to do.
+The core argument: a model reviewing its own work in the same context window shares the same blind spots as the original implementation. The reasoning that led to a bug is likely still present in context, making it harder to catch. An external model starting fresh has no stake in the decisions already made.
 
-## The Complexity Classification
+This is the same reason code review exists in teams. It's not that the reviewer is smarter — it's that they haven't anchored on the implementation choices.
 
-Every incoming task gets classified before any work starts:
+## Session Stats
 
-| Complexity | Criteria | Pipeline |
-|------------|----------|----------|
-| `trivial` | `~/.claude/**` ≤3 lines, or pure Q&A | Main context handles directly |
-| `simple` | Single file ≤30 lines | Implement → verify |
-| `standard` | New feature, UI change, or multi-file ≤5 | Plan → implement → verify → codex |
-| `major` | 6+ files, architecture changes | Standard + code-reviewer |
+| Tool | Count |
+|------|-------|
+| Bash | 23 |
+| TaskUpdate | 21 |
+| TaskCreate | 10 |
+| Write | 9 |
+| Agent | 6 |
+| Edit | 5 |
+| Read | 2 |
+| Skill | 2 |
+| **Total** | **79** |
 
-The classification threshold is deliberately conservative. When in doubt, classify one level higher. In practice, nearly every coding task is `standard` or above. `trivial` is reserved for config edits and direct questions — cases where the file-based pipeline would add overhead with no safety benefit.
+9 new files created, 3 modified. The high `Write(9)` count reflects net-new file creation for the workflow system itself. `TaskUpdate(21)` and `TaskCreate(10)` reflect treating each pipeline stage as an explicit tracked task — plan, implement, verify, cross-verify each got its own task entry.
 
-## What the 10 Edits Were
+## What the Hooks Actually Change
 
-The 10 `Edit` calls during this session were almost entirely from building the harness itself. The hooks, the state machine helpers, the ORCHESTRATION.md and AGENTS.md documentation. 34 files created, 7 modified. The 65 subagent dispatches handled the actual implementation work — the harness was bootstrapped partly through the old behavior it was designed to prevent.
+When the main agent writes code directly, two failure modes appear.
 
-That's the correct sequencing: enforce the constraint going forward, accept that building the constraint itself is a one-time exception. Every session after this one should show near-zero `Edit` calls from the main context.
+**Context pollution.** Implementation details accumulate in the main context and bias subsequent judgment calls. If the main agent wrote the code, reviewed it, and is now deciding whether to ship — all in the same context — the anchoring from original implementation choices is present throughout. Subagents start fresh. They have no stake in prior decisions.
 
-The tool ratio to watch going forward:
+**Rule drift.** "Plan first" is a good principle and also easy to rationalize past when a task looks small. `orchestrator-gate.sh` removes the option. The agent can't choose to skip the plan step because the hook rejects the file edit before it can happen.
 
-- High `Agent` share (>40%) = research session — expected
-- High `Bash` share (>50%) = implementation session — expected
-- High `Edit` in the main context = something bypassed the gate — investigate
+The distinction: a guideline lives in the agent's judgment. A constraint lives in the enforcement mechanism.
+
+> Hooks enforce workflow through structure, not willpower. The orchestrator doesn't need to remember the rules — it just can't break them.
 
 ---
 
