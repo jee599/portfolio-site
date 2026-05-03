@@ -1,180 +1,160 @@
 ---
-title: "Forcing Claude Code to Follow a Workflow: Hooks, State Machines, and 79 Tool Calls"
+title: "5 Parallel Claude Code Agents: 382 Tool Calls Across 3 Projects in One Day"
 project: "portfolio-site"
 date: 2026-05-03
 lang: en
 pair: "2026-05-03-portfolio-site-ko"
-tags: [claude-code, orchestration, multi-agent, harness, workflow, hooks]
-description: "How I built a hook-based harness to enforce plan→implement→verify→codex pipelines on Claude Code. 79 tool calls, 6h 44m, 9 files."
+tags: [claude-code, multi-agent, parallel, devto, coffeechat, dentalad]
+description: "5 sessions, 382 tool calls, 3 projects simultaneously. DEV.to drafts in parallel, 5 verification agents on 66K-word research, Google Meet OAuth — parallel agent dispatching in practice."
 ---
 
-79 tool calls. 6 hours and 44 minutes. 9 new files. The result wasn't a feature — it was a cage.
+382 tool calls. 5 sessions. Three separate projects moving at the same time — DEV.to content, a Korean dental ad market research project, and a coffee chat booking platform. The throughput came from one thing: parallel agent dispatching.
 
-The goal: make Claude Code unable to write code without a plan, and unable to finish a response without verification. Not through prompting or memos. Through hooks that block execution at the OS level.
+**TL;DR** — Parallel agents in Claude Code aren't just theory. This session tested two real cases: 5 DEV.to articles written simultaneously, and 5 verification agents cross-checking 66,745 words of market research. Both showed clear speed advantages over sequential processing — and exposed specific failure modes worth knowing about.
 
-**TL;DR** — `PreToolUse` and `Stop` hooks now enforce a strict orchestrator workflow. Every non-trivial task must pass through plan → implement → verify → codex cross-check before Claude can finish a response. The state lives in a file, not in Claude's context window.
+## Writing 5 DEV.to Articles at the Same Time
 
-## The Problem: Claude Does What It Wants
+Session 1 started with a request: "Write 5 DEV.to articles based on the latest Codex news." Sequential processing would average 2–3 minutes per article — 15+ minutes total. Instead, 5 agents ran in parallel.
 
-The initial request was narrow: "add codex MCP cross-verification at the end." But the conversation surfaced a deeper issue. The real problem wasn't missing cross-verification — it was that Claude would routinely skip planning entirely, write code directly, and close out the turn without any structured verification step.
-
-The harness at that point looked like this:
-
-- `SessionStart` → `sticky-rules.sh` (re-inject rules after context compaction)
-- `PreToolUse(Bash)` → `contextzip-rewrite.sh` (token savings)
-- `PreToolUse(Edit|Write|MultiEdit)` → `protect-files.sh` (file protection)
-- `Stop` → `commit-cleanliness.sh` (commit hygiene)
-
-Subagent definitions existed in `.claude/agents/`. Orchestration documentation existed in `CLAUDE.md`. None of it was enforced. When a task came in, Claude would evaluate it, decide it was simple enough to handle directly, and write the code. No plan. No verification. No external review. The documentation was aspirational, not mechanical.
-
-The fix wasn't more documentation. It was enforcement.
-
-## Research First: Four Parallel Agents
-
-Before building anything, dispatched four research agents in parallel to map the landscape:
+Research came first. Checked the latest developments on GPT Image 2, Symphony, and Codex CLI, then allocated five article slots:
 
 ```
-Agent 1: Multi-agent orchestration frameworks (general patterns)
-Agent 2: Hermes agent framework (NousResearch)
-Agent 3: Claude Code harness and sub-agent enforcement patterns
-Agent 4: Agent gating and enforcement patterns in production systems
+1. GPT Image 2 Inside Codex: My New Frontend Workflow
+2. Symphony: Why OpenAI's PRs Jumped 500% in 3 Weeks
+3. I Gave Codex My Mouse for a Day
+4. The Codex Memory Problem (And How I Solved It)
+5. Codex vs Claude Code: An Honest 2026 Comparison
 ```
 
-Hermes turned out to be `NousResearch/hermes-agent` (127k ⭐) — a fine-tuned model, not a Claude Code harness layer. Not directly applicable. The Claude Code hooks documentation had more practical patterns for what was needed here.
+Five agents launched simultaneously. TaskCreate fired 16 times across this session — most of them here.
 
-The research converged on a clear principle: **enforcement has to be mechanical, not conversational**. Any workflow that relies on the model remembering rules across context boundaries is fragile. Rules need to live in shell scripts that run regardless of what the model thinks.
+One problem emerged immediately: tool calls marked as "failed" had actually succeeded, resulting in 8 files instead of 5. Cleaning up duplicates took extra time that offset some of the parallelism gains. The lesson: parallel agents need output verification afterward. Silent success is a real failure mode that doesn't show up in the error log.
 
-## The Architecture: Files Beat Memory
+Each article went through validation against `devto-seo-rules.md` — 10K character limit, prohibited phrase check, Sources section format. All five passed.
 
-The central design decision: manage state in files, not in Claude's context window.
+What the parallel approach saved: roughly 10 minutes of wall-clock time versus sequential. The tradeoff was 5–10 minutes of output cleanup. Net positive, but narrower than expected on the first run. On a second run with the same setup, cleanup drops to near zero because you know exactly what to verify.
 
-Claude Code loses context on compaction, on session restart, on long conversations that exceed the window. If the workflow state exists only in context, it evaporates. If it exists in `~/.claude/workflow/current/state.json`, it survives.
+## 5 Verification Agents on 66,745 Words of Market Research
 
-```
-~/.claude/workflow/
-├── ORCHESTRATION.md       # workflow spec
-├── AGENTS.md              # agent roles, triggers, outputs
-├── current/
-│   ├── state.json         # active task state (source of truth)
-│   ├── plan.md            # plan-orchestrator output
-│   ├── research.md        # Explore agent output
-│   ├── diff.patch         # implementation result
-│   ├── verifier-report.md # code-verifier output
-│   └── codex-report.md    # codex cross-verify output
-└── log/
-    └── YYYYMMDD-HHMMSS/   # completed task archives
-```
+Session 2 was a completely different scale of problem. The dentalad project — market research on AI dental advertising in Korea — had accumulated:
 
-`state.json` carries `task_id`, `complexity`, `stage`, `completed_stages`, and `artifacts`. Each stage writes its output to a file. The next stage reads from that file — not from Claude's context. This means the orchestrator's context window doesn't accumulate implementation details; it just routes.
+- V1 research: 12 documents
+- V2 validation: 8 documents
+- Integrated reports: 4 documents
+- Total: 66,745 words across all files
 
-Complexity tiers are intentionally conservative. When in doubt, classify one level higher:
+The problem was data drift. V2 had already corrected V1's numbers, but FINAL-REPORT was still referencing V1 figures. With five distinct domains in the report — regulation, competitors, platforms, unit economics, market data — cross-verification by a single agent would have consumed an entire session on regulation alone before touching anything else.
 
-| Level | Criteria | Pipeline |
-|-------|----------|----------|
-| `trivial` | `~/.claude/**` changes ≤ 3 lines, or pure Q&A | Main handles directly |
-| `simple` | Single file ≤ 30 lines | implement → verify |
-| `standard` | New feature, multi-file ≤ 5 | plan → implement → verify → codex |
-| `major` | 6+ files, architecture changes | standard + reviewer |
-
-Almost all coding work classifies as `standard` or above. `trivial` is reserved for config changes, memory updates, and direct questions.
-
-## The Hooks: Where Enforcement Happens
-
-Three hooks implement the enforcement:
-
-### `orchestrator-gate.sh` (PreToolUse)
-
-Fires before any `Edit`, `Write`, or `MultiEdit` tool call. Reads `state.json`. If `complexity` is not `trivial` and `stage` is not `implementing`, returns `deny`. Claude physically cannot write code without being in the implementing stage — which requires a completed plan.
-
-```bash
-# core logic
-if [[ "$complexity" != "trivial" && "$stage" != "implementing" ]]; then
-  echo '{"decision": "deny", "reason": "No plan found. Run plan-orchestrator first."}'
-  exit 0
-fi
-```
-
-This is the most critical hook. It prevents the default behavior of writing code first and planning second (or never).
-
-### `orchestrator-init.sh` (UserPromptSubmit)
-
-Fires on every user message. Injects classification and routing rules into `additionalContext`. This ensures that even after context compaction, the orchestrator receives fresh routing instructions on every turn. The model doesn't need to "remember" the workflow — the hook re-delivers it.
-
-### `orchestrator-stop.sh` (Stop)
-
-Fires before Claude ends a response. Checks: does `current/diff.patch` exist? If yes, do `verifier-report.md` and `codex-report.md` also exist? If verification files are missing, returns `exit 2`. Claude cannot close the turn.
-
-```bash
-if [[ -f "$CURRENT/diff.patch" ]]; then
-  [[ ! -f "$CURRENT/verifier-report.md" ]] && exit 2
-  [[ ! -f "$CURRENT/codex-report.md" ]] && exit 2
-fi
-```
-
-The combination: you can't start writing without a plan, and you can't finish without verification. The middle is enforced by the stage machine.
-
-## The Codex Cross-Verify Agent
-
-Defined at `~/.claude/agents/codex-cross-verify.md`. Triggers after `code-verifier` passes on `standard` and `major` tasks. Calls `mcp__codex__codex` to get an external model's view of the diff.
-
-The prompt structure passed to Codex:
+Split into 5 parallel agents by domain:
 
 ```
-You are an external code reviewer. Read these files and verify:
-- PLAN: <plan.md contents>
-- DIFF: <diff.patch contents>
-- VERIFIER: <verifier-report.md contents>
-
-Cross-check:
-1. Does the diff match the plan?
-2. Are there bugs the verifier missed (logic/security/edge cases)?
-3. Any backward-compat or breaking changes?
-
-Return: VERDICT (approve|request-changes) + bullet list of findings.
+Agent 1: Regulation (AI Basic Act, Fair Trade Commission, Medical Act)
+Agent 2: Competitors (CareLabs, Sangsŭng Planning, Top 5 players)
+Agent 3: Platforms (Naver, Meta, ChatGPT)
+Agent 4: Unit Economics (cost structure, pricing, MRR projections)
+Agent 5: Market Data (ROAS benchmarks, LTV, TAM estimates)
 ```
 
-Output lands at `current/codex-report.md`. If it's absent when the Stop hook fires, the response is blocked.
+The findings were specific and actionable. Three categories of errors surfaced:
 
-The key property: Codex is a different model with no context from the current session. It reads only the files. This removes the "the model convinced itself it was correct" failure mode.
+**Data drift:** FINAL-REPORT carried V1 figures that V2 had already corrected. The final document was presenting superseded data as current.
 
-## Numbers: What 79 Tool Calls Looks Like
+**Competitor revenue overstated:** Across the board, revenue estimates for the Top 5 competitors were higher than what the corrected V2 sources supported.
 
-```
-Bash         23  (script execution, file ops, git)
-TaskUpdate   21  (four research agents each reporting progress)
-TaskCreate   10  (subagent dispatches)
-Write         9  (one file at a time, each hook/doc/lib)
-Agent         6  (research agents + implementation)
-Edit          5  (refinements to hooks)
-Read          2  
-Skill         2  
-```
+**Regulatory timeline incorrect:** The report stated "2025-12 enforcement" for the AI Basic Act, but that was the announcement date — not the enforcement date. A meaningful difference when presenting to clients.
 
-TaskUpdate at 21 is because four research agents ran in parallel, each updating task state as they progressed. Write at 9 is because each file was created separately — nine distinct `Write` calls for nine new files.
+**Subject-object reversal:** The section on ChatGPT and Naver had the relationship backwards. Naver blocked ChatGPT's indexing; ChatGPT didn't block Naver. The original draft had the causal direction wrong.
 
-Files created:
+Running this sequentially, a single agent verifying all five domains would have taken most of a session just to get through regulatory context. Parallel agents logged 64 TaskUpdate calls in this session — the highest count of any session, and a direct reflection of how much concurrent progress tracking was happening.
 
-```
-~/.claude/agents/codex-cross-verify.md
-~/.claude/hooks/orchestrator-gate.sh
-~/.claude/hooks/orchestrator-init.sh
-~/.claude/hooks/orchestrator-stop.sh
-~/.claude/workflow/AGENTS.md
-~/.claude/workflow/ORCHESTRATION.md
-~/.claude/workflow/lib/classify.sh
-~/.claude/workflow/lib/state.sh
-~/orchestrator-harness-research.html
-```
+Verification output landed as 5 files:
 
-6 hours 44 minutes is long for 9 files. The time went into research (parallel agents exploring four domains), design iteration (the state schema went through three revisions), and hook debugging (shell scripts failing silently requires careful logging to diagnose).
+- `verification/01-regulation.md`
+- `verification/02-competitors.md`
+- `verification/03-platform.md`
+- `verification/04-unit-economics.md`
+- `verification/05-market-data.md`
 
-## What's Different Now
+After verification, FINAL-REPORT, EXECUTIVE-SUMMARY, and RISKS were updated to reflect the corrected data. Three HTML report variants were generated as well.
 
-Before: Claude would classify a task, decide it was straightforward, and write the code directly. The subagent documentation was decorative.
+The value of parallel verification here isn't just speed — it's independence. Each agent came to its domain without anchoring bias from having just read another domain's numbers. The structural separation feels right for cross-validation work.
 
-After: `Edit` on a non-trivial task before plan-orchestrator runs returns a deny. The Stop hook won't release until verifier and codex reports exist. The state machine tracks exactly where a task is — across sessions, across compaction events.
+## Google Meet OAuth Integration in coffeechat
 
-The next session is the real test. A staged rollout where the hooks interfere unexpectedly, or where the complexity classification is wrong, will surface edge cases that pure design can't anticipate. The classification heuristics are conservative by design — the cost of an over-classified task is one extra planning step, not a broken pipeline.
+The second half of Session 1 switched context to coffeechat, a mentor booking platform. It started with "does the consultation flow have Google Meet generation?" and turned into a full OAuth integration.
+
+The work required OAuth 2.0 + Google Calendar API. Generated files:
+
+- `src/lib/google/oauth.ts` — authorization flow and token refresh
+- `src/lib/google/calendar.ts` — meeting creation with conferencing data
+- `src/lib/google/booking-hook.ts` — trigger that fires on booking confirmation
+- `src/app/api/mentor/google/connect/route.ts` — OAuth callback handler
+- `src/app/api/mentor/google/disconnect/route.ts` — token revocation
+- `src/app/api/mentor/google/status/route.ts` — connection status check
+- `src/components/mentor/GoogleConnectCard.tsx` — mentor-facing UI
+
+Three test files alongside those. Bash hit 50 calls in this session — most of it verifying the OAuth token exchange and inspecting the Calendar API response shape to confirm that `conferenceData.entryPoints` was populated correctly before trusting the meeting URL.
+
+Payment flow decision: bank transfer (무통장) for initial launch, with Toss Payments integration deferred until after the merchant contract. The bank transfer confirmation logic sits in `payment/confirm/route.ts`, designed to be swapped out without touching the booking flow.
+
+This part of the session was sequential by necessity. The mentor dashboard has interconnected components — the Google Connect card updates state that the booking flow reads, which updates state that the confirmation email template reads. Parallelizing that topology would have created merge conflicts that cost more time to resolve than the parallelism saved.
+
+## Tracking Claude Subscription Usage: ccusage
+
+Session 3 addressed a separate question: "Is there a way to know how much of the subscription I've actually used?" The official dashboard only returns percentage-based usage, not raw token counts.
+
+All request logs live at `~/.claude/projects/**/*.jsonl`. Every session, every tool call, every token count — written locally by default. The `ccusage` package parses these and surfaces per-project, per-day token and cost breakdowns.
+
+Several Mac menu bar apps have been built on the same approach:
+
+- **Usage for Claude** — Product Hunt launch, iOS companion, GitHub-style contribution grid
+- **ClaudeBar** — menu bar focused, lightest weight, no frills
+- **Claude Token Monitor** — polls every 5 minutes, shows current session burn rate
+
+All of them read from `~/.claude/` JSONL. It's filesystem polling, not a real-time event stream — there's inherent lag, but for subscription tracking it's accurate enough.
+
+The key limitation: the subscription model doesn't expose raw token counts officially. Local log parsing is the only path to exact numbers, and that path exists because Claude Code writes detailed JSONL locally by default.
+
+## Tool Usage Breakdown
+
+382 tool calls across 5 sessions:
+
+| Tool | Count | Primary Use |
+|------|-------|-------------|
+| Bash | 143 | API verification, git, filesystem |
+| TaskUpdate | 64 | Parallel agent progress tracking |
+| Read | 37 | Existing file review before edits |
+| TaskCreate | 34 | Parallel agent dispatch |
+| Write | 33 | New file creation |
+| Edit | 27 | Targeted file modification |
+| WebSearch | 18 | External reference and fact-check |
+| Agent | 16 | Direct subagent invocation |
+
+TaskCreate + TaskUpdate = 98 calls. 26% of all tool calls went to parallel task management overhead.
+
+6 files modified, 29 files created. Average of 7 files per session.
+
+The Bash count (143) is high relative to file operations (Write 33 + Edit 27 = 60). That ratio reflects active verification — running the OAuth flow manually, checking API responses, inspecting JSONL output — rather than generating and moving on.
+
+## Where Parallel Agents Work and Where They Don't
+
+After 5 sessions with this pattern, the boundaries are clearer.
+
+**Works well:**
+
+Independent domain verification. The dentalad 5 agents each owned a separate domain with no shared state. Agent 1 reading regulation documents had zero dependency on Agent 3 reading platform data. The outputs were additive, not interdependent.
+
+Independent content generation. 5 DEV.to articles on non-overlapping topics ran cleanly. No agent needed to know what another agent was writing.
+
+**Doesn't work:**
+
+Tasks with shared state. The coffeechat mentor dashboard has interconnected components — you can't parallelize changes to components that read each other's state without introducing conflicts that are slower to resolve than the parallelism saves. Sequential was faster in that case.
+
+Silent success. The 8-files-instead-of-5 situation on the DEV.to batch. When an agent reports failure but the output file exists anyway, you have invisible state that the next step doesn't expect. Post-parallel verification is non-negotiable on any write-heavy batch.
+
+The 26% overhead on parallel task management is real and visible in the numbers. It's worth absorbing when tasks are genuinely independent and parallelism multiplies throughput. It isn't worth it when the dependency structure forces sequential resolution anyway — you pay the overhead without getting the speed gain.
+
+The heuristic that's held up: if you could hand the tasks to 5 different people who'd never need to talk to each other, parallelize. If any two would need to coordinate, keep it sequential.
 
 ---
 
