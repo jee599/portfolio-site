@@ -1,121 +1,94 @@
 ---
-title: "병렬 에이전트 5개로 리서치 검증 — 3개 프로젝트 동시 진행 패턴"
+title: "정적 포트폴리오에서 build-in-public 피드로 — jidonglab v4 리디자인"
 project: "portfolio-site"
 date: 2026-05-03
 lang: ko
-tags: [claude-code, multi-agent, parallel, devto, coffeechat, dentalad]
-description: "5세션·382 툴 콜로 3개 프로젝트를 동시에 진행했다. DEV.to 글 5편 병렬 작성, 검증 에이전트 5개 동시 디스패치, Google Meet OAuth 통합까지 — 병렬 패턴이 어떻게 작동하는지."
+tags: [claude-code, design, astro, refactor, workflow, multi-agent]
+description: "하루 8세션 565 tool calls. v3 포트폴리오를 버리고 Claude Code 작업 기록이 자동으로 흐르는 build-in-public 라이브 피드 사이트로 방향을 전환했다."
 ---
 
-5세션, 382번의 툴 콜. coffeechat, dentalad, DEV.to 콘텐츠를 동시에 진행했다. 프로젝트 사이를 오가면서 병렬 에이전트 패턴을 적극 썼다.
+하루 8세션, 565 tool calls. 오늘 가장 큰 결정은 코드 수정이 아니라 사이트 정체성을 바꾸는 것이었다. "포트폴리오"에서 "작업 피드"로.
 
-**TL;DR** — Claude Code에서 병렬 에이전트 디스패치가 실제로 얼마나 효과적인지 확인했다. 검증 에이전트 5개 동시 실행, DEV.to 글 5편 병렬 작성 — 두 케이스 모두 순차 처리 대비 체감 속도가 확연히 달랐다.
+**TL;DR** jidonglab을 정적 포트폴리오에서 Claude Code 세션 기록이 자동으로 흐르는 build-in-public 스트림으로 전환했다. claude-design-lite 스킬로 claude.ai/design 워크플로를 로컬에서 재현하고 editorial-mono 방향을 확정했다. AgentCrow 잔재도 6개 프로젝트에서 전부 뽑아냈다.
 
-## DEV.to 5편을 한 번에
+## v3를 버린 이유
 
-세션 1에서 "codex 관련 최신 소식 기반으로 DEV.to 글 5개 써줘"라는 요청이 들어왔다. 순차적으로 작성하면 각 글이 평균 2~3분이라 총 15분 이상. 병렬로 5개 에이전트를 동시에 던졌다.
+기존 v3는 cream + acid + rust 페이퍼톤. 나쁘지 않았다. 그런데 "방문자가 뭘 봐야 하는가"를 생각했을 때 답이 없었다. 프로젝트 목록은 GitHub에도 있고, 자기소개는 LinkedIn에도 있다. 차별화할 수 있는 건 하나뿐이다 — 매일 Claude Code로 뭘 만드는지, 그 과정 자체.
 
-주제는 리서치 먼저 했다. GPT Image 2, Symphony, Codex CLI 최신 동향을 확인한 후 5개 슬롯을 배분했다:
+그래서 방향을 틀었다. 카피는 한 번 쓰고, 콘텐츠는 시스템이 매일 갱신한다.
+
+## claude-design-lite로 디자인 워크플로 구동
+
+세션 8에서 "리디자인"을 요청하자 `claude-design-lite` 스킬이 발동했다. claude.ai/design의 시스템 프롬프트를 이식한 로컬 스킬로, 동작 방식이 거의 동일하다.
+
+1. 디자이너 페르소나로 진입 후 질문 라운드
+2. 디자인 시스템 선언 (타이포, 컬러, 스페이싱 원칙)
+3. HTML 변주 3개 병렬 생성
+4. design-reviewer 검증 후 최종 선택
+
+세 변주 중 `editorial-mono.html`이 채택됐다. 모노톤 + 단일 액센트, 글이 주역이고 UI는 배경으로 물러나는 구조다. 로컬에서 `http://localhost:8765/editorial-mono.html`을 직접 확인해서 결정했다.
+
+> build-in-public 스트림에서 디자인이 복잡하면 콘텐츠가 묻힌다. UI는 투명할수록 좋다.
+
+## 핵심 기능: 작업 자동 피드
+
+새 사이트의 중심은 Claude Code 세션 기록 자동 추출이다. 프롬프트·작업 단편·커밋·결과 스니펫이 시간순으로 흐르고, 각 프로젝트 카드는 "마지막 활동" 라이브 데이터를 달고 있다.
+
+```json
+{
+  "items": [
+    {
+      "type": "commit",
+      "project": "coffeechat",
+      "message": "feat: google meet oauth integration",
+      "ts": "2026-05-01T14:23:00Z"
+    },
+    {
+      "type": "session",
+      "project": "portfolio-site",
+      "summary": "jidonglab v4 리디자인 editorial-mono 방향 확정",
+      "tool_calls": 57
+    }
+  ]
+}
+```
+
+GitHub API + Astro Content Collections 빌드로그를 조합해서 정적 생성 시점에 피드를 구성한다. 실시간은 아니지만 GitHub Actions가 매일 돌면 하루 단위로 갱신된다. `mock-feed.json`이 지금은 자리만 잡고 있고, 다음 작업이 실제 데이터 연결이다.
+
+## claude-design-lite 훅 설정
+
+세션 4에서 훅도 추가했다. "리디자인", "UI 수정" 같은 발화가 들어오면 claude-design-lite 스킬이 자동으로 발동하도록 `~/.claude/settings.json`에 훅을 연결했다. 명시적으로 "/claude-design-lite"를 타이핑하지 않아도 디자인 관련 요청이면 바로 6단계 워크플로가 시작된다.
+
+`~/.claude/hooks/design-trigger.sh`에 트리거 조건을 정의했다. 키워드 매칭 후 스킬 발동까지 중간 확인이 없다. 품질 보장을 사람이 매번 체크하는 게 아니라 구조로 강제하는 방식이다.
+
+## AgentCrow 전면 제거
+
+세션 5에서 꽤 큰 청소 작업을 했다. 예전에 실험했던 AgentCrow가 6개 프로젝트에 심볼릭 링크와 boilerplate를 남겨두고 있었다.
+
+제거한 것들은 크게 세 종류였다. 첫 번째는 `.claude/agents` 심볼릭 링크 — `saju_global`, `claude-code-book`, `uddental`, `portfolio/portfolio-site` 등 6개 프로젝트에서 `.agentcrow/agents/md`를 가리키고 있었다. 두 번째는 `CLAUDE.md` 안의 AgentCrow 섹션 8개 파일. 세 번째는 `settings.local.json`의 AgentCrow 항목.
+
+처음 실행했을 때 code-verifier가 `saju_global` worktree 내부의 파일 3개를 잡아냈다. worktree 안까지 스캔하는 부분을 빠뜨렸기 때문이다. 두 번째 라운드에서 전부 정리됐다. 검증 단계가 없었으면 놓쳤을 케이스다.
+
+## report-builder 스킬 제작
+
+세션 7에서 `report-builder` 스킬을 새로 만들었다. "보고서 줘"라는 발화가 들어오면 딥서치 → HTML 보고서 생성 → `jee599/reports` GitHub Pages 자동 발행까지 이어지는 파이프라인이다.
 
 ```
-1. GPT Image 2 Inside Codex: My New Frontend Workflow
-2. Symphony: Why OpenAI's PRs Jumped 500% in 3 Weeks
-3. I Gave Codex My Mouse for a Day
-4. The Codex Memory Problem (And How I Solved It)
-5. Codex vs Claude Code: An Honest 2026 Comparison
+트리거: "보고서", "리포트", "report"
+→ 추가 질문 1라운드 (딥서치 방향 확인)
+→ 서브에이전트 4개 병렬 리서치
+→ HTML 보고서 생성
+→ git push → GitHub Pages 발행
 ```
 
-에이전트 5개가 동시에 실행됐다. TaskCreate가 16번인 이유가 여기 있다. 문제가 하나 생겼다 — "failed"로 표시된 툴 콜이 실제로는 성공하면서 파일이 8개 생겼다. 5개만 남기고 중복을 정리하는 데 추가 시간이 들었다. 병렬 에이전트 사용 시 silent success 케이스를 미리 고려해야 한다는 걸 배웠다.
+포트폴리오 사이트와 직접 연결은 아니지만, 1인 개발자가 시장 리서치를 반복할 때 재사용하는 인프라 조각이 됐다. AX 일자리 시장 리포트를 첫 번째 실행 케이스로 만들었다.
 
-각 글은 devto-seo-rules.md 기준으로 검증했다. 10K char 제한, 불허 구문 체크, Sources 섹션 형식 — 통과.
+## 오늘 수치
 
-## dentalad: 5개 검증 에이전트 병렬 실행
+세션 8개, tool calls 565회. 도구별 분포는 Bash 242, TaskUpdate 71, Read 50, Agent 37, Edit 32 순이다. Agent 호출이 37번인 건 서브에이전트 패턴을 적극 썼다는 뜻이다 — 리서치, 구현, 검증을 각각 분리해서 위임했다.
 
-세션 2는 규모가 달랐다. 한국 AI 치과 광고 시장 리서치 V1(12건) + V2(검증 8건) + 통합 보고서 4종, 총 66,745단어가 쌓여 있었다. 이 자료에 교차검증이 필요했다.
+생성 파일 32개, 수정 파일 9개. 세션 8은 57 tool calls로 jidonglab 리디자인 방향 확정 + mock-feed 구조 정의까지 끝냈다.
 
-5개 도메인으로 쪼갰다:
+## 다음 단계
 
-```
-Agent 1: 규제 (AI 기본법·공정위·의료법)
-Agent 2: 경쟁사 (케어랩스·상승기획 등 Top 5)
-Agent 3: 플랫폼 (네이버·Meta·ChatGPT)
-Agent 4: 유닛 이코노믹스 (원가·가격·MRR)
-Agent 5: 시장 데이터 (ROAS·LTV·TAM)
-```
-
-결과가 흥미로웠다. V2가 V1을 이미 수정했지만 FINAL-REPORT는 V1 수치를 그대로 들고 있었다. 경쟁사 매출은 전반적으로 과대평가, 규제 시점 표현이 부정확 ("2025-12 시행" 표기였지만 실제는 발표일), ChatGPT/네이버 주어 관계가 반대로 쓰여 있었다 — 차단한 건 네이버였다.
-
-이런 걸 순차적으로 한 명이 다 검증했으면 세션 하나가 규제만으로 끝났을 거다. 병렬 에이전트가 TaskUpdate를 64번 찍은 게 이 세션이다.
-
-검증 결과는 5개 파일로 떨어졌다:
-
-- `verification/01-regulation.md`
-- `verification/02-competitors.md`
-- `verification/03-platform.md`
-- `verification/04-unit-economics.md`
-- `verification/05-market-data.md`
-
-이후 FINAL-REPORT, EXECUTIVE-SUMMARY, RISKS를 업데이트하고 HTML 리포트 3종도 만들었다.
-
-## coffeechat: Google Meet OAuth 통합
-
-세션 1 후반부에 coffeechat으로 전환했다. "상담 시작하면 구글 밋 생성하는 로직 있어?"라는 질문에서 시작해서 실제 구현까지 이어졌다.
-
-OAuth 2.0 + Google Calendar API 연동이 필요한 작업이었다. 생성된 파일:
-
-- `src/lib/google/oauth.ts` — 인증 플로우
-- `src/lib/google/calendar.ts` — 미팅 생성
-- `src/lib/google/booking-hook.ts` — 예약 트리거
-- `src/app/api/mentor/google/connect/route.ts` — 연결
-- `src/app/api/mentor/google/disconnect/route.ts` — 해제
-- `src/app/api/mentor/google/status/route.ts` — 상태 확인
-- `src/components/mentor/GoogleConnectCard.tsx` — UI
-
-테스트 파일도 3개 생성했다. Bash가 50번인 건 실제 OAuth 플로우를 검증하고 미팅 생성 API 응답을 확인하는 과정이 많았기 때문이다.
-
-결제 흐름은 무통장으로 먼저 구현하고 Toss 계약 이후 붙이는 방향으로 결정했다. 무통장 확인 로직을 `payment/confirm/route.ts`에 넣었다.
-
-## Claude 사용량 추적: ccusage 리서치
-
-세션 3은 별개 주제였다. "구독 모델에서 얼마나 썼는지 알 수 있는 방법이 없어?"라는 질문.
-
-`~/.claude/projects/**/*.jsonl`에 모든 요청 기록이 남는다는 걸 확인했다. `ccusage` 패키지가 이걸 파싱해서 프로젝트별·일별 토큰/비용을 보여준다.
-
-Mac 메뉴바 앱으로 상시 표시하는 것도 가능하다. 이미 만들어진 앱이 10개 넘게 있었다:
-
-- **Usage for Claude** — Product Hunt 출시, iOS 동반 앱, GitHub-style 그리드
-- **ClaudeBar** — 메뉴바 특화, 가장 가벼움
-- **Claude Token Monitor** — 5분마다 폴링
-
-다 공통적으로 `~/.claude/` JSONL을 읽는다. 실시간 연동은 아니고 파일 시스템 기반이라 폴링 주기가 있다.
-
-구독 모델은 raw 토큰 수를 공식적으로 안 주고 % 단위만 준다. 정확한 수치를 보려면 로컬 로그 파싱이 유일한 방법이다.
-
-## 도구 사용 패턴
-
-382 툴 콜 분포:
-
-| 도구 | 횟수 | 주요 용도 |
-|------|------|-----------|
-| Bash | 143 | API 검증, git, 파일 시스템 탐색 |
-| TaskUpdate | 64 | 병렬 에이전트 진행 상황 업데이트 |
-| Read | 37 | 기존 파일 확인 |
-| TaskCreate | 34 | 병렬 에이전트 디스패치 |
-| Write | 33 | 신규 파일 생성 |
-| Edit | 27 | 기존 파일 수정 |
-| WebSearch | 18 | 외부 레퍼런스 확인 |
-| Agent | 16 | 서브에이전트 직접 호출 |
-
-TaskCreate와 TaskUpdate 합계가 98번이다. 전체 툴 콜의 26%가 병렬 작업 관리에 쓰인 셈이다. 병렬 에이전트 패턴이 실제로 얼마나 많은 오버헤드를 만드는지 숫자로 보면 명확하다.
-
-수정 파일 6개, 생성 파일 29개. 세션당 평균 7개 파일이 생겼다.
-
-## 병렬 에이전트 패턴 — 실제 한계
-
-이번 5세션을 돌아보면 병렬 패턴이 효과적인 케이스와 그렇지 않은 케이스가 명확히 갈린다.
-
-효과적: 독립적인 도메인 검증, 독립적인 콘텐츠 생성. dentalad 5개 에이전트가 각자 다른 도메인을 조사했을 때 서로 결과에 영향을 주지 않는다. DEV.to 5편도 주제가 겹치지 않아서 병렬이 깔끔하게 작동했다.
-
-한계: 같은 파일을 건드리는 작업은 병렬로 못 돌린다. coffeechat의 mentor dashboard는 여러 컴포넌트가 연결돼 있어서 순차로 처리해야 했다. 병렬로 던졌다가 충돌 해결하는 게 더 느린 경우가 있다.
-
-그리고 silent success 문제 — DEV.to 글 8개가 생긴 것처럼, 에이전트가 "실패했다"고 보고해도 실제 파일이 생겼을 수 있다. 병렬 에이전트 이후엔 결과물 검증이 필수다.
+`mock-feed.json`이 v4 HTML의 자리만 잡아뒀다. 실제 GitHub API + Astro Content Collections 연결이 다음 작업이다. 빌드 시점에 진짜 데이터로 피드가 채워지면 v4가 완성된다. 섹션 정리는 "불필요한 건 지우고 진행 중 프로젝트 위주"로 확정됐다.
