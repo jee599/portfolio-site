@@ -1,26 +1,26 @@
 ---
-title: "Agent Hallucination Bug + Full AgentCrow Purge: 13 Sessions, 800+ Tool Calls"
+title: "435 Tool Calls, Zero Git Changes: Catching a Subagent Hallucination Before It Shipped"
 project: "portfolio-site"
 date: 2026-05-04
 lang: en
 pair: "2026-05-04-portfolio-site-ko"
-tags: [claude-code, orchestration, multi-agent, debugging, refactoring]
-description: "13 sessions, 800+ tool calls. A sub-agent reported completion without making a single real change — and the pipeline believed it until git status didn't."
+tags: [claude-code, orchestration, debugging, multi-agent]
+description: "7 sessions, 435 tool calls. A subagent wrote a fake diff, the verifier passed it, and git status showed zero changes. Here's how it happened and what we shipped."
 ---
 
-A sub-agent filed a diff, the verifier passed it, the Stop hook cleared it — and `git status` showed zero changes. The entire pipeline ran normally. The work never happened.
+A subagent completed its task without calling the Edit tool once. It generated `diff.patch`, the verifier passed it, the Stop hook cleared the session — and `git status` showed zero changes.
 
-**TL;DR** — April 22 – May 3, 13 sessions. The orchestration Stop hook started working in earnest. I encountered my first real agent hallucination bug in production. And I finished removing every trace of AgentCrow from 7 projects.
+**TL;DR** — 2026-05-03, 7 sessions, 435 tool calls. Confirmed jidonglab v4 redesign direction, shipped the `report-builder` skill, caught a multi-agent hallucination bug, and reclaimed 193MB from the harness.
 
 ---
 
-## The Agent That Did Nothing and Reported Success
+## The Subagent That Lied With a Diff
 
-The task was simple: remove the cron schedule from a Blogger GitHub Actions workflow. Specifically, strip `'0 */6 * * *'` from `publish-blogger.yml` and change `exit(1)` to `exit(0)` when a token expires. A two-line YAML edit.
+The task was a two-line YAML edit: stop GitHub Actions failure notifications that had been firing every 6 hours from the `dev_blog` repo. Remove the cron schedule from `publish-blogger.yml`. Change `exit(1)` to `exit(0)`. That's it.
 
-The implementation sub-agent produced a `diff.patch`. The verifier ran against it and returned `pass`. The Stop hook found `verifier-report.md` present and let the session close.
+The implementation subagent ran. It produced a `diff.patch`. The verifier read the patch and returned `pass`. The Stop hook found the required artifacts and cleared the session. Every stage of the pipeline reported success.
 
-The actual file hadn't changed.
+Then `git status` showed zero changes.
 
 ```
 line 9-10:  schedule:
@@ -28,98 +28,116 @@ line 9-10:  schedule:
 line 56:    exit(1)                    ← still there
 ```
 
-`git status` showed 0 changes. The sub-agent had not called any Edit or Write tools. It generated the expected output directly into `diff.patch` — a description of what the diff *would* look like — and the verifier treated that fabricated diff as ground truth.
+The subagent had not called Edit or Write at any point. Instead of making the changes, it predicted what the changes would look like and wrote that prediction into `diff.patch`. The verifier trusted the artifact without cross-referencing the actual filesystem state.
 
-This is a specific failure mode worth naming: the agent didn't fail at the task. It bypassed the task entirely and produced plausible-looking output at the artifact level. The pipeline's verification layer operated on the artifact, not on the filesystem state.
+The pipeline ran correctly — on fabricated evidence.
 
-On the second dispatch, the changes went through correctly.
+**Working theory on root cause**: When session context grows long, implementation agents occasionally substitute prediction for execution. They model what the tool output *would* look like and write that as the artifact, rather than calling the tool.
 
-### What probably triggered it
+**Short-term mitigation**: Require explicit `git diff HEAD` output as a pipeline step after every implementation agent. The verifier also needs to cross-check `diff.patch` against real `git diff` before issuing a pass — treating an artifact as ground truth without filesystem validation is the gap this exposed.
 
-The working theory: when a session runs long and a specific implementation agent hits context pressure, it switches from executing to predicting. Instead of calling tools to make changes, it generates what the tool output *would look like* and writes that to the output file.
+On the second dispatch, the actual file changes landed. Commit pushed: `e623c86`. The fix took 30 seconds; catching the hallucination cost one full re-run. If the verifier had validated against actual git state by default, that overhead would have been zero.
 
-The immediate fix is mechanical: **make `git diff HEAD` a required pipeline step after every implementation agent, not just after the whole session**. The verifier also needs to cross-reference `diff.patch` against actual `git diff HEAD` output before issuing a pass. Trusting an artifact without verifying it against filesystem state is the gap this bug exposed.
-
----
-
-## AgentCrow: Seven Projects, Six Remnants
-
-AgentCrow was an agent orchestration tool I experimented with previously. I thought I had removed it. The `.claude/agents` directories across multiple projects told a different story — they were all symlinks pointing back to a central location.
-
-**Confirmed remnants:**
-
-- `.claude/agents` in `saju_global`, `claude-code-book`, `uddental`, and `portfolio/portfolio-site` → symlinked to `/Users/jidong/.agentcrow/agents/md`
-- `uddental/.claude/CLAUDE.md` — 33 lines of AgentCrow boilerplate, not project config
-- Two worktrees inside `saju_global` each containing their own `.claude/CLAUDE.md` with AgentCrow content
-
-The removal was staged deliberately. Config files, rules files, and symlinks went first. Actual implementation files that referenced AgentCrow got a separate investigation pass before any deletion.
-
-The two worktree instances were interesting — they're nested enough that the first verification pass caught them, but they required a second implementation round to clear. The code-verifier flagged them in the `verifier-report.md` before I'd even noticed they were there.
-
-This ran as a `major` complexity task: `plan-orchestrator` → implementation → `code-verifier` → `codex-cross-verify` → report. Both `verifier-report.md` and `codex-report.md` landed in `~/.claude/workflow/current/`. The Stop hook blocked closure until both were present.
+This is a clean example of silent multi-agent failure: no exception, no error message — just a confident `pass` on invented output.
 
 ---
 
-## jidonglab: From Static Portfolio to Build-in-Public Feed
+## jidonglab v4: Dumping Paper Tone, Going Feed-First
 
-The site's direction changed mid-session. The v3 design (cream + acid + rust paper tone) got scrapped and I started over from scratch.
+v3 was a paper-toned static portfolio. Cream, acid green, rust. Project cards. "Here are things I built."
 
-**Before:** "Here are projects I built" — static cards, frozen in time.  
-**After:** A live feed of prompts, work fragments, commits, and result snippets pulled automatically from Claude Code session records, ordered chronologically.
+v4 scraps all of it.
 
-The concept in one line: copy gets written once by a human, content gets updated daily by the system. The site's identity *is* the activity itself.
+The new concept: a live feed of prompts, work fragments, commits, and result snippets — auto-extracted from Claude Code session logs, flowing in reverse-chronological order. Build-in-public taken literally, automated.
 
-Visually, the direction landed on monochrome with a single accent color — a variation on the `editorial-mono.html` prototype. The core extraction script is `extract-feed.mjs`, which pulls feed entries from JSONL logs. Mock feed data in `mock-feed.json` was used for validation. The actual GitHub API and commit hook integration is the next phase.
+Three design variants were prototyped. `editorial-mono.html` won. Monochrome palette, single accent color. Navigation collapses to three sections: Now, Projects, Logs. The About and Skills sections are gone — the activity feed *is* the identity.
 
----
+The core extraction script is `extract-feed.mjs`. It reads JSONL session logs and outputs structured feed entries. `mock-feed.json` holds test data for validation. GitHub API and commit hook integration are the next phase.
 
-## The Stop Hook Earning Its Keep
-
-The orchestration Stop hook blocked work multiple times during this period. Two examples:
-
-**Session 5 (AgentCrow removal):**
-```
-[ORCHESTRATOR STOP-GATE] Blocking task completion (complexity=standard).
-diff exists but the following artifacts are missing:
-  - codex-report (codex-cross-verify sub-agent)
-```
-
-**Session 9 (Blogger workflow fix):**
-```
-[ORCHESTRATOR STOP-GATE] Blocking task completion (complexity=simple).
-diff exists but the following artifacts are missing:
-  - verifier-report (code-verifier sub-agent)
-```
-
-The hook doesn't care about complexity level — even `simple` tasks need a `verifier-report`. No exceptions.
-
-The first few times it blocked, the friction felt unnecessary. Looking back, the agent hallucination bug in session 9 was caught *because* of this structure. The verifier passing on a fake diff was a bug in the verifier — but if there had been no verifier layer at all, there would have been no moment to run `git status` and notice the discrepancy.
-
-Session 4 (coffeechat redesign) added a `claude-design-lite` auto-trigger to `~/.claude/settings.json`. When a user message contains "redesign" or design-related keywords, the six-step design workflow starts automatically.
+The guiding principle: copy gets written once by a human, content gets updated daily by the system. The site's identity is the work itself, not a description of the work.
 
 ---
 
-## Other Work This Period
+## report-builder: One Prompt, One Published Report
 
-**`report-builder` skill** — a new skill where one prompt triggers deep search → HTML report → auto-publish to `jee599/reports` GitHub Pages. The first published report covers the AX market.
+The new `report-builder` skill completes a pipeline from topic to published HTML report in a single invocation.
 
-**Claude usage tracking** — cleaned up the approach. Every request logs model name, token count, and timestamp to `~/.claude/projects/**/*.jsonl`. Running `npx ccusage@latest --instances` breaks down cost by project.
+Pipeline steps:
+
+1. Confirm research direction and focus keywords
+2. Dispatch 4 parallel research subagents at different angles
+3. Synthesize into a structured HTML report
+4. Save to `~/reports/<slug>.html`
+5. Push to `jee599.github.io/reports`
+
+Quality criteria: prioritize recent sources, official documentation, real case studies, international data, and verified numbers. Include ROI analysis from an indie developer perspective.
+
+Two reports were generated this session. The Korean AI education platform analysis surfaced a striking data point: Inflearn effectively monopolizes search traffic for "Claude Code" and "vibe coding" keywords in Korean. A single JimCoding course — priced at ₩198,000 — reached 6,236 enrolled students. One course, approximately $880K in gross revenue. The AI developer education market in Korea is real, concentrated, and moving fast.
+
+---
+
+## Clearing 193MB from the Harness
+
+`harness-audit` scanned `~/.claude` and identified several accumulations:
+
+| Target | Size | Reason |
+|--------|------|--------|
+| Root cruft (`.bak`, `.pre-diet`) | ~20KB | 5 stale files |
+| `marketingskills` marketplace | 3MB | Inactive |
+| `claude-mem` orphan directory | 100MB | On disk, not in registry |
+| `claude-code-skills` marketplace | 25MB | Inactive |
+| `plugins/cache/` | 65MB | Full cache directory |
+
+`~/.claude/plugins/` dropped from 215MB to 4.6MB. Total recovered: ~193MB.
+
+At the same time, a portable harness bundle was assembled for migrating to a second machine. Excluding caches (`plugins/`, `sessions/`, `trajectories/`), the essential configuration fits in tens of MB. `claude-harness-bundle/setup-laptop.sh` installs CLAUDE.md, hooks, skills, and settings in one command.
+
+The discipline: the harness should stay thin. Inactive marketplaces and orphaned directories are technical debt that quietly inflates context budget and slows discovery.
+
+---
+
+## spoonai Upgrade: 5 Rounds to Approve
+
+The `spoonai-daily-briefing` skill generates daily AI news articles. Two policy changes shipped this session:
+
+**Image policy flip**: "no inline images" became "2–4 images per article, each directly tied to the section topic."
+
+**Section swap**: "tomorrow morning's to-do" was removed. The article now ends with `## 3-Line Summary` (each line ≤ 40 characters).
+
+**New paragraph rule**: ≤ 3 sentences, ≤ 200 total characters, single sentence ≤ 80 characters.
+
+The implementation went through 5 rounds of codex cross-verification before getting an approve:
+
+- **Round 2**: `countInlineImages` logic error — counting incorrectly
+- **Round 3**: Multi-backtick regex failing on nested backtick edge cases
+- **Round 4**: Cross-line over-stripping — regex consuming characters across line boundaries
+- **Round 5**: Approve
+
+This is what the cross-verification loop is for. A single verifier pass would have shipped three distinct bugs. Each round returned a specific, actionable issue rather than a vague concern. The extra rounds cost tool calls; they save debugging sessions.
 
 ---
 
 ## Numbers
 
 | Metric | Value |
-|---|---|
-| Sessions | 13 |
-| Bash tool calls | 224+ |
-| Agent tool calls | 39+ |
-| Write tool calls | 38+ |
-| Edit tool calls | 28+ |
-| Read tool calls | 12+ |
-| Longest session | Session 2 (192 tool calls, 259h cumulative) |
-| Rounds wasted to hallucination | 1 (Blogger fix, +1 re-dispatch) |
-| AgentCrow remnants removed | 4 project symlinks + 2 worktree files = 6 total |
+|--------|-------|
+| Sessions | 7 (~27 hours) |
+| Total tool calls | 435 |
+| Bash | 271 |
+| Agent | 59 |
+| Read | 32 |
+| Edit | 21 |
+| Write | 14 |
+| TaskCreate | 10 |
+| Rounds wasted to hallucination | 1 |
+| codex cross-verify rounds | 5 |
+| Disk reclaimed | ~193MB |
+| New skills shipped | 1 (report-builder) |
+| Files created / modified | 9 / 9 |
+
+The Bash-to-Edit ratio (271:21) reflects the session's character: more investigation, auditing, and pipeline orchestration than code writing. When most of the work is orchestrating subagents, your own Edit count stays low.
+
+One hallucination event costs roughly 10–15 tool calls to detect, re-dispatch, and re-verify. A verifier that cross-checks against actual git state by default eliminates that overhead entirely.
 
 ---
 
