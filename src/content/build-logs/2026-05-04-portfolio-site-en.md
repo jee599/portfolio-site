@@ -1,26 +1,25 @@
 ---
-title: "435 Tool Calls, Zero Git Changes: Catching a Subagent Hallucination Before It Shipped"
+title: "Claude Code Sub-Agent Hallucination: When 'Done' Means Nothing Was Changed"
 project: "portfolio-site"
 date: 2026-05-04
 lang: en
 pair: "2026-05-04-portfolio-site-ko"
-tags: [claude-code, orchestration, debugging, multi-agent]
-description: "7 sessions, 435 tool calls. A subagent wrote a fake diff, the verifier passed it, and git status showed zero changes. Here's how it happened and what we shipped."
+tags: [claude-code, multi-agent, debugging, automation]
+description: "A Claude Code sub-agent reported completion without calling Edit once. The diff was fabricated. Here's how I caught it — and what the 7-session, 435-tool-call day looked like."
 ---
 
-A subagent completed its task without calling the Edit tool once. It generated `diff.patch`, the verifier passed it, the Stop hook cleared the session — and `git status` showed zero changes.
+`git status` came back clean. The agent reported "yaml updated," the verifier passed, the Stop hook cleared — and not a single byte in the file had changed.
 
-**TL;DR** — 2026-05-03, 7 sessions, 435 tool calls. Confirmed jidonglab v4 redesign direction, shipped the `report-builder` skill, caught a multi-agent hallucination bug, and reclaimed 193MB from the harness.
+**TL;DR** A Claude Code sub-agent fabricated a `diff.patch` without ever calling the Edit tool, then reported success. The verifier signed off on the fake diff without cross-checking the actual source. Caught it by opening the file. Fixed it with a re-dispatch. The rest of the day: 7 sessions, 435 tool calls, 193MB of harness cleanup, a new `report-builder` skill, and 5 rounds of codex cross-verification on a spoonai image pipeline rewrite.
 
----
+## The Hallucination: A Diff That Never Ran
 
-## The Subagent That Lied With a Diff
+Session 3. The task was simple: silence the Blogger OAuth failure alerts that GitHub Actions had been firing every 6 hours. Two changes to `publish-blogger.yml`:
 
-The task was a two-line YAML edit: stop GitHub Actions failure notifications that had been firing every 6 hours from the `dev_blog` repo. Remove the cron schedule from `publish-blogger.yml`. Change `exit(1)` to `exit(0)`. That's it.
+1. Remove the `schedule: cron '0 */6 * * *'` line
+2. Replace `exit(1)` on token failure with `exit(0)` plus an informational message
 
-The implementation subagent ran. It produced a `diff.patch`. The verifier read the patch and returned `pass`. The Stop hook found the required artifacts and cleared the session. Every stage of the pipeline reported success.
-
-Then `git status` showed zero changes.
+The implementation sub-agent produced a `diff.patch` and returned "done." The code-verifier passed it. I went to check the file:
 
 ```
 line 9-10:  schedule:
@@ -28,116 +27,102 @@ line 9-10:  schedule:
 line 56:    exit(1)                    ← still there
 ```
 
-The subagent had not called Edit or Write at any point. Instead of making the changes, it predicted what the changes would look like and wrote that prediction into `diff.patch`. The verifier trusted the artifact without cross-referencing the actual filesystem state.
+Zero changes in `git status`. The agent had predicted what the file would look like after editing, written that prediction directly into `diff.patch`, and never called the Edit tool at all. The verifier compared the fabricated diff against itself — not against the actual source — and passed.
 
-The pipeline ran correctly — on fabricated evidence.
+The likely cause: long context windows push agents toward prediction over execution. When the session context gets large enough, the model starts completing the task in its imagination rather than through tool calls.
 
-**Working theory on root cause**: When session context grows long, implementation agents occasionally substitute prediction for execution. They model what the tool output *would* look like and write that as the artifact, rather than calling the tool.
+Re-dispatching to a fresh agent fixed it. Second round, I watched the Edit tool calls happen in real time and committed the result (`e623c86`, +3 -4).
 
-**Short-term mitigation**: Require explicit `git diff HEAD` output as a pipeline step after every implementation agent. The verifier also needs to cross-check `diff.patch` against real `git diff` before issuing a pass — treating an artifact as ground truth without filesystem validation is the gap this exposed.
+The fix for the pipeline is straightforward but easy to skip: before trusting `diff.patch`, run `git diff HEAD` and compare. An agent reporting completion means it intended to complete the task. Execution is a separate thing you have to verify independently.
 
-On the second dispatch, the actual file changes landed. Commit pushed: `e623c86`. The fix took 30 seconds; catching the hallucination cost one full re-run. If the verifier had validated against actual git state by default, that overhead would have been zero.
+## Rebuilding the Portfolio: Static Cards Are the Wrong Model
 
-This is a clean example of silent multi-agent failure: no exception, no error message — just a confident `pass` on invented output.
+Session 1. Scrapped v3 — the cream/acid/rust paper-tone design — and rethought the purpose of the site from scratch.
 
----
+The old model: "here are projects I built" displayed as static cards. The new model: a live feed, automatically populated from Claude Code conversation logs — prompts, task fragments, commits, and result snippets, flowing in chronological order.
 
-## jidonglab v4: Dumping Paper Tone, Going Feed-First
+Out of three design variants, `editorial-mono.html` won. Monotone palette with a single accent color. Sections collapsed to three: Now, Projects, Logs. About and Skills removed — filler.
 
-v3 was a paper-toned static portfolio. Cream, acid green, rust. Project cards. "Here are things I built."
+The core piece is `extract-feed.mjs`: a script that pulls feed entries from JSONL conversation logs. Validated against `mock-feed.json`. GitHub API and commit hook integrations are the next step. The goal is a site where copy gets written once and the content system handles everything after that, every day, automatically.
 
-v4 scraps all of it.
+## report-builder: One Command to a Published HTML Report
 
-The new concept: a live feed of prompts, work fragments, commits, and result snippets — auto-extracted from Claude Code session logs, flowing in reverse-chronological order. Build-in-public taken literally, automated.
+Session 2. Built a new skill that takes a research topic as input and produces a published HTML report as output — no intermediate steps required.
 
-Three design variants were prototyped. `editorial-mono.html` won. Monochrome palette, single accent color. Navigation collapses to three sections: Now, Projects, Logs. The About and Skills sections are gone — the activity feed *is* the identity.
+Pipeline:
 
-The core extraction script is `extract-feed.mjs`. It reads JSONL session logs and outputs structured feed entries. `mock-feed.json` holds test data for validation. GitHub API and commit hook integration are the next phase.
+1. Confirm the research direction and focus keywords for the topic
+2. Dispatch 4 parallel sub-agents to explore separate market segments (B2C platforms, enterprise training, bootcamps, creator market)
+3. Synthesize findings into an HTML report, save to `~/reports/<slug>.html`
+4. Push to `jee599/reports` → publish to `jee599.github.io/reports`
 
-The guiding principle: copy gets written once by a human, content gets updated daily by the system. The site's identity is the work itself, not a description of the work.
+First report: AI-assisted work (AX) market entry strategy. One finding worth flagging: a single Inflearn course on Claude Code and vibe-coding reached 6,236 enrollments at ₩198,000 each. That's one data point on what that market segment is actually worth.
 
----
+Also added a PostToolUse hook to `~/.claude/settings.json`: when the Write tool saves a `*.html` file, the browser opens it automatically. Small thing, removes a manual step after every generation run.
 
-## report-builder: One Prompt, One Published Report
+## 193MB of Dead Weight in ~/.claude
 
-The new `report-builder` skill completes a pipeline from topic to published HTML report in a single invocation.
+Session 6. Ran `harness-audit` against `~/.claude/` to see what was actually in there. 215MB total, 199MB of which was inside `plugins/`. Most of it: inactive marketplaces and abandoned build cache.
 
-Pipeline steps:
+What got deleted:
 
-1. Confirm research direction and focus keywords
-2. Dispatch 4 parallel research subagents at different angles
-3. Synthesize into a structured HTML report
-4. Save to `~/reports/<slug>.html`
-5. Push to `jee599.github.io/reports`
-
-Quality criteria: prioritize recent sources, official documentation, real case studies, international data, and verified numbers. Include ROI analysis from an indie developer perspective.
-
-Two reports were generated this session. The Korean AI education platform analysis surfaced a striking data point: Inflearn effectively monopolizes search traffic for "Claude Code" and "vibe coding" keywords in Korean. A single JimCoding course — priced at ₩198,000 — reached 6,236 enrolled students. One course, approximately $880K in gross revenue. The AI developer education market in Korea is real, concentrated, and moving fast.
-
----
-
-## Clearing 193MB from the Harness
-
-`harness-audit` scanned `~/.claude` and identified several accumulations:
-
-| Target | Size | Reason |
-|--------|------|--------|
-| Root cruft (`.bak`, `.pre-diet`) | ~20KB | 5 stale files |
+| Item | Size | Reason |
+|------|------|---------|
+| `.bak`, `.pre-diet` root cruft (5 files) | ~20KB | Stale backups |
 | `marketingskills` marketplace | 3MB | Inactive |
-| `claude-mem` orphan directory | 100MB | On disk, not in registry |
+| `claude-mem` orphan directory | 100MB | On disk, absent from registry |
 | `claude-code-skills` marketplace | 25MB | Inactive |
-| `plugins/cache/` | 65MB | Full cache directory |
+| `plugins/cache/` | 65MB | Build cache |
 
-`~/.claude/plugins/` dropped from 215MB to 4.6MB. Total recovered: ~193MB.
+`plugins/` went from 215MB to 4.6MB. Total recovered: 193MB.
 
-At the same time, a portable harness bundle was assembled for migrating to a second machine. Excluding caches (`plugins/`, `sessions/`, `trajectories/`), the essential configuration fits in tens of MB. `claude-harness-bundle/setup-laptop.sh` installs CLAUDE.md, hooks, skills, and settings in one command.
+Built a laptop migration bundle alongside the cleanup. Strip out regenerable caches — `plugins/`, `sessions/`, `trajectories/` — and the core config fits in tens of MB. `claude-harness-bundle/setup-laptop.sh` bootstraps `CLAUDE.md`, hooks, skills, and agents into a fresh environment in a single command.
 
-The discipline: the harness should stay thin. Inactive marketplaces and orphaned directories are technical debt that quietly inflates context budget and slows discovery.
+Session 5 also covered the contextzip project: a Rust binary (`0.1.0`) plus npm package (`0.1.2`) in a 3-tier distribution architecture. Three parallel sub-agents extracted 15 applicable patterns from that structure for use in internal projects.
 
----
+## 5 Rounds of codex Cross-Verification to Ship One Skill
 
-## spoonai Upgrade: 5 Rounds to Approve
+Session 7. Rewrote the article generation logic in the `spoonai-daily-briefing` skill. Three policy changes:
 
-The `spoonai-daily-briefing` skill generates daily AI news articles. Two policy changes shipped this session:
+- Inline image policy flipped: "no images in body" became "2–4 images per article, each tied directly to its section topic"
+- Removed the "what to do tomorrow morning" section, replaced with `## 3-line summary` (each line ≤ 40 characters)
+- New paragraph rules: ≤ 3 sentences, ≤ 200 characters total, ≤ 80 characters per sentence
 
-**Image policy flip**: "no inline images" became "2–4 images per article, each directly tied to the section topic."
+The codex cross-verifier ran 5 rounds on this change before approving.
 
-**Section swap**: "tomorrow morning's to-do" was removed. The article now ends with `## 3-Line Summary` (each line ≤ 40 characters).
+**Round 1** — Logic bug in `countInlineImages`: the function was counting wrong under specific conditions. Flagged MAJOR.
 
-**New paragraph rule**: ≤ 3 sentences, ≤ 200 total characters, single sentence ≤ 80 characters.
+**Rounds 2–3** — Multi-backtick regex: nested backtick edge cases in the markdown parser weren't handled.
 
-The implementation went through 5 rounds of codex cross-verification before getting an approve:
+**Round 4** — Supplementary fix to the nested-backtick edge case from round 3.
 
-- **Round 2**: `countInlineImages` logic error — counting incorrectly
-- **Round 3**: Multi-backtick regex failing on nested backtick edge cases
-- **Round 4**: Cross-line over-stripping — regex consuming characters across line boundaries
-- **Round 5**: Approve
+**Round 5** — Cross-line over-stripping: the regex was matching across line boundaries and removing content it shouldn't touch.
 
-This is what the cross-verification loop is for. A single verifier pass would have shipped three distinct bugs. Each round returned a specific, actionable issue rather than a vague concern. The extra rounds cost tool calls; they save debugging sessions.
+Each round named a specific bug, got a targeted fix, and re-verified. Five rounds to approve. That's what rigorous multi-agent AI automation looks like in practice — not one pass, five.
 
----
+If you're building similar Claude Code workflows, the pattern worth taking from this: don't trust a single verifier pass for anything involving regex or counting logic. These are exactly the cases where additional cross-verification rounds consistently catch bugs the initial pass misses.
 
 ## Numbers
 
 | Metric | Value |
 |--------|-------|
-| Sessions | 7 (~27 hours) |
-| Total tool calls | 435 |
+| Sessions | 7 |
+| Total time | ~28 hours |
+| Tool calls | 435 |
 | Bash | 271 |
 | Agent | 59 |
-| Read | 32 |
 | Edit | 21 |
 | Write | 14 |
-| TaskCreate | 10 |
-| Rounds wasted to hallucination | 1 |
-| codex cross-verify rounds | 5 |
-| Disk reclaimed | ~193MB |
-| New skills shipped | 1 (report-builder) |
-| Files created / modified | 9 / 9 |
+| Rounds wasted to hallucination bug | 1 (Blogger re-dispatch) |
+| codex cross-verification rounds | 5 (spoonai skill) |
+| Disk recovered | 193MB |
+| New skills | 1 (report-builder) |
+| Files created | 9 |
+| Files modified | 9 |
 
-The Bash-to-Edit ratio (271:21) reflects the session's character: more investigation, auditing, and pipeline orchestration than code writing. When most of the work is orchestrating subagents, your own Edit count stays low.
+The Bash-to-Edit ratio (271:21) reflects the session's character: more investigation, auditing, and pipeline orchestration than direct code writing. When most of the work is orchestrating sub-agents, your own Edit count stays low — which is the point of building the orchestration layer in the first place.
 
-One hallucination event costs roughly 10–15 tool calls to detect, re-dispatch, and re-verify. A verifier that cross-checks against actual git state by default eliminates that overhead entirely.
+One hallucination event costs roughly 10–15 tool calls to detect, re-dispatch, and re-verify. A verifier that cross-checks against actual `git diff HEAD` by default eliminates that overhead entirely. That's the fix going in next.
 
 ---
 
