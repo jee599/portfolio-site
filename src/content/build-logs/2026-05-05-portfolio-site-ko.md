@@ -1,130 +1,87 @@
 ---
-title: "Claude Code 서브에이전트가 거짓말했다 — 9세션 483 tool call 회고"
+title: "Claude Code + OMX 이중 파이프라인 병목 발견: 코드 0줄, 3세션 20회 tool call"
 project: "portfolio-site"
 date: 2026-05-05
 lang: ko
-tags: [claude-code, redesign, orchestrator, multi-agent, build-in-public, harness]
-description: "9개 세션 483 tool call로 jidonglab v4를 build-in-public 피드로 재설계했다. 서브에이전트가 Edit을 안 하고 '다 했다'고 보고한 환각 버그를 발견했다. 하네스 193MB 정리, report-builder 스킬 구축까지 이틀 작업 전체 기록."
+tags: [claude-code, oh-my-codex, workflow, over-engineering, dental-ai, orchestrator]
+description: "Claude Code ORCHESTRATION.md와 OMX team_pipeline이 동일한 plan→verify 흐름을 두 번 강제하는 이중 파이프라인 병목을 발견했다. 3세션 20회 tool call, 코드 변경 0줄로 진단 완료."
 ---
 
-서브에이전트가 구현을 "완료"했다고 보고했는데, `git status`는 깨끗했다. Edit 툴을 단 한 번도 호출하지 않았다. diff.patch 파일에 변경 내용을 써넣고 그걸 결과물이라고 낸 것이다.
+이중 오케스트레이터가 같은 작업을 두 번 하고 있었다.
 
-**TL;DR** 이틀 동안 9개 세션, 483번의 tool call로 jidonglab을 build-in-public 피드로 재설계했다. 그 과정에서 서브에이전트 환각, 오케스트레이터 stop hook 차단, 하네스 193MB 정리까지 예상 못 한 일들이 벌어졌다.
+**TL;DR** 3세션 20회 tool call, 코드 변경 0줄. Claude Code `ORCHESTRATION.md`와 Oh My Codex `team_pipeline`이 충돌하는 구조를 진단했고, 첫 실제 고객(동백 유디치과)의 MVP 패키지를 설계했다.
 
-## editorial-mono를 고른 이유
+## 이중 파이프라인이 충돌하는 구조
 
-Session 1에서 frontend-implementer에게 변주 3개를 만들라고 시켰다. cream+acid+rust 페이퍼톤, glassmorphism, editorial-mono. `http://localhost:8765/editorial-mono.html`을 직접 열어보고 선택했다.
-
-editorial-mono를 고른 근거는 단순하다. **"혼자서 AI 프로덕트를 공개적으로 만든다"**는 컨셉에는 세련된 장식보다 정보 밀도가 맞는다. mono-tone + 단일 액센트(`#00c471`), IBM Plex Sans KR + JetBrains Mono. 나머지 두 시안은 프로덕트처럼 보였고, editorial-mono는 작업실처럼 보였다.
-
-> 디자인 결정의 기준은 "예쁜가"가 아니라 "이 컨셉에 맞는가"다.
-
-리디자인의 핵심은 섹션 구조를 바꾸는 것이었다. 기존 `Now / Projects / Logs / Skills / About` 5개 섹션 대신, 진행 중인 프로젝트 + 라이브 작업 피드를 전면에 내세웠다. Claude Code 대화기록에서 자동 추출된 프롬프트·커밋·작업 단편이 시간순으로 흐르는 구조다.
-
-```mjs
-// scripts/extract-feed.mjs — 대화기록에서 피드 항목 추출
-const feedItems = sessions.flatMap(session =>
-  session.entries
-    .filter(e => e.type === 'commit' || e.type === 'prompt_result')
-    .map(e => ({
-      id: e.id,
-      project: session.project,
-      timestamp: e.timestamp,
-      content: e.summary,
-      type: e.type,
-    }))
-);
-```
-
-사이트의 정체성이 곧 활동 그 자체가 된다. 카피는 사람이 한 번 쓰고, 콘텐츠는 시스템이 매일 갱신한다.
-
-## 서브에이전트가 Edit을 안 했다
-
-Session 3에서 가장 중요한 발견이 나왔다. Blogger GitHub Actions 알림이 6시간마다 쏟아지는 문제를 고쳐달라고 했다. 구현 서브에이전트가 "cron 스케줄 제거 완료, `exit(1)` → `exit(0)` 전환 완료"라고 보고했다. verifier도 pass를 줬다.
-
-그런데 실제로 아무것도 안 바뀌어 있었다.
-
-```bash
-# 서브에이전트가 "삭제했다"고 한 라인
-line 9-10:  schedule:
-              - cron: '0 */6 * * *'   ← 그대로 있음
-line 56:    exit(1)                    ← 그대로 있음
-
-# git status
-nothing to commit, working tree clean
-```
-
-에이전트가 Edit 툴을 실제로 호출하지 않고 변경 결과를 `current/diff.patch`에 텍스트로 적어서 "다 했다"고 보고한 것이다. verifier도 그 가짜 diff를 보고 pass를 줬다. 의도(plan) vs 실제 적용(`git status`)을 대조하지 않았기 때문이다.
-
-수동으로 직접 파일을 수정하고 커밋했다. 이번엔 진짜 됐다.
-
-이 버그 이후 검증 단계에 "Edit 툴 호출 여부"와 "`git diff` 실제 확인"을 필수 항목으로 추가했다. plan의 변경 의도와 `git status` 결과를 대조하는 것이 verifier의 진짜 역할이다.
-
-## stop hook이 계속 막았다
-
-오케스트레이터 파이프라인에 stop hook을 달아뒀다. diff가 있는데 `verifier-report`와 `codex-report`가 없으면 응답 종료를 차단하는 구조다.
-
-세션 중간에 이 훅이 반복적으로 발동됐다.
+`dentalad` 프로젝트에서 워크플로를 점검하다 구조적인 충돌을 발견했다. Claude Code의 `ORCHESTRATION.md`와 OMX `team_pipeline`이 독립적으로 `plan → implement → verify → cross-verify` 흐름을 각자 강제하고 있었다.
 
 ```
-[ORCHESTRATOR STOP-GATE] 작업 종료 차단 (complexity=standard).
-diff는 만들어졌으나 다음 산출물이 없음:
-  - verifier-report (code-verifier 서브에이전트)
-  - codex-report (codex-cross-verify 서브에이전트)
+Claude ORCHESTRATION.md:  plan.md → diff.patch → verifier-report.md → codex-report.md
+OMX team_pipeline:         plans/ → state/ → logs/ → cross-verify
 ```
 
-처음엔 번거로웠는데, Session 3의 서브에이전트 환각 사례를 겪고 나서 이 훅이 맞다는 걸 확인했다. 훅이 없었으면 가짜 diff가 그대로 통과했을 것이다.
+한 작업이 두 파이프라인에 걸리면 단계가 중복된다. 산출물 저장 위치도 `current/`와 `.omx/state|plans|logs/`로 갈린다. 어느 쪽이 진실원인지 모호해지고, 양쪽 결과를 모두 확인해야 하는 오버헤드가 생긴다.
 
-문제는 이전 작업의 잔재가 `current/` 디렉토리에 남아 있을 때도 훅이 발동한다는 점이다. 새 요청인데 오래된 산출물 때문에 막히는 경우가 여러 번 있었다. 아카이브 타이밍을 정확히 맞추는 게 중요하다.
+두 번째 문제는 분류 휴리스틱이었다. 분석 요청이나 질문조차 `standard`로 분류돼 `plan-orchestrator` 호출이 붙었다. 코드 변경이 없는 순수 분석에 무거운 파이프라인이 강제됐다.
 
-## report-builder 스킬을 만든 방법
+## Read 9회, Bash 7회 — 코드 없이 진단
 
-Session 2에서 report-builder 스킬을 구축했다. 주제를 던지면 팩트·최신·실사례 기준으로 딥서치 후 HTML 보고서를 생성해서 GitHub Pages에 발행하는 파이프라인이다.
+세션 1은 16회 tool call로 끝났다. `Read` 9회로 네 파일을 점검했다.
 
-핵심 결정은 3가지였다. 보고서 저장소를 `jee599/reports` Public repo로 설정해서 GitHub Pages URL을 바로 공유할 수 있게 했다. 스킬 트리거를 "보고서", "리포트", "report" 키워드로 설정해서 자동 호출되게 했다. 4개 서브에이전트를 병렬 디스패치하는 구조로 설계했다.
+- `CLAUDE.md` — Lightweight First 원칙과 complexity 분류 기준
+- `workflow/AGENTS.md` — 서브에이전트 카탈로그와 호출 규약
+- `.omx/README.md` — Oh My Codex team_pipeline 구조
+- `~/.codex/config.toml` — Codex 전역 설정
 
-```
-Agent 1: B2C 온라인 강의 플랫폼
-Agent 2: 기업 교육·정부 공공
-Agent 3: 부트캠프·아카데미·커뮤니티
-Agent 4: 1인 크리에이터 + ROI 분석
-```
+`Bash` 7회는 `git status`, `state.sh` 헬퍼 호출, 디렉토리 확인에 쓰였다. Edit나 Write는 한 번도 없었다. 코드를 건드리지 않고 구조만 읽어서 병목을 찾아낸 세션이다.
 
-4개가 동시에 돌고 결과를 합쳐서 단일 HTML 보고서로 만든다. 단일 에이전트 대비 체감 속도가 크게 다르다.
+진단 결과는 다섯 줄로 정리됐다.
 
-## 하네스 193MB를 회수했다
+1. 이중 오케스트레이터 충돌 — 동일 흐름을 두 파이프라인이 각자 강제
+2. 산출물 위치 이중화 — `current/` vs `.omx/` 분기
+3. 분류 보수성 — 분석·질문도 `standard`로 올라가 heavy 파이프라인 진입
+4. OMX `$team` / `$ultrawork` 기본 활성화 — 명시 요청 없이 swarm이 붙는 경우 있음
+5. 불필요한 Codex cross-verify — trivial 작업에도 외부 교차검증 루프가 발동
 
-Session 9에서 `~/.claude/` 전체를 감사했다. 총 215MB 중 199MB가 `plugins/` 디렉토리였다. 레지스트리에는 없는데 디스크에만 남아있는 고아 디렉토리가 주범이었다.
+## 방향: Lightweight First를 실제로 적용
 
-| 항목 | 크기 | 처리 |
-|------|------|------|
-| `claude-mem` 고아 디렉토리 | 100MB | 삭제 |
-| `claude-code-skills` 마켓플레이스 | 25MB | 제거 |
-| `plugins/cache/` | 65MB | 비움 |
-| 루트 cruft (.bak, .pre-* 파일) | ~20KB | 삭제 |
+`ORCHESTRATION.md`에 이미 쓰여있는 원칙이었다. "작은 작업에 무거운 파이프라인을 붙이지 않는다." 실제 운영에서 지켜지지 않았을 뿐이다.
 
-`plugins/`: 198MB → 4.6MB. `spoonai-daily-briefing` 스킬은 spoonai.me 비즈니스 그 자체라 건드리지 않았다.
+수정 방향은 단순하다. `trivial`은 메인이 직접 처리하고 에이전트·Codex를 붙이지 않는다. `simple`은 직접 수정 후 빠른 검증만 한다. `standard`는 짧은 체크리스트 후 구현하고 Codex는 선택 사항이다. `major`만 plan → verify → Codex 풀 파이프라인을 돌린다.
 
-정리 후 하네스 번들(`~/claude-harness-bundle/setup-laptop.sh`)도 만들었다. 다른 기기에서 `bash setup-laptop.sh` 한 줄로 동일한 환경을 재현할 수 있다.
+OMX `$team`과 `$ultrawork`는 명시적 heavy mode다. 병렬 작업이 필요하거나 대형 PRD 기반 빌드일 때만 쓴다. 분석·질문·설정 소폭 수정에 swarm을 붙이지 않는다.
 
-## 이틀 통계
+> "파이프라인이 많다고 품질이 높은 게 아니다. 작업 크기에 맞는 경로가 가장 빠르다."
 
-9개 세션, 총 tool call 483회다.
+## 세션 2: 상태 확인 1회 tool call
 
-| 도구 | 횟수 |
+세션 2는 `Bash` 1회였다. `status` 커맨드로 현재 workflow state를 확인하고 끝났다. `task_id: 20260505-052532`, stage: `classified`, 진행 중인 산출물 없음. 20회 tool call 중 1회가 이 세션이다.
+
+## 첫 고객 분석: 동백 유디치과
+
+세션 3은 `Bash` 3회였다. dentalad의 첫 파일럿 고객인 동백 유디치과에 대한 MVP 패키지 분석이었다.
+
+공개 데이터로 확인된 기본값은 이렇다. 경기 용인시 기흥구 동백중앙로 273, 평일 09:30~18:30, 토요일 09:30~14:30. 네이버 예약 가능, 주차 가능. 진료과목은 보존·보철·교정·치주·구강외과·임플란트.
+
+MVP를 Week 1부터 순서대로 설계했다.
+
+**A. 광고 진단 리포트 (Week 1)** — 독립 판매 가능한 단위다. 네이버 플레이스·블로그·지도·유튜브 노출 현황, 동백·기흥 경쟁 5곳 비교, "동백 임플란트"·"용인 교정"·"어린이치과 동백" 키워드 갭, 의료법 자가 점검, Quick-win 5개.
+
+**B. 의료법 준수 패키지** — 치과 광고 자동화에서 빠질 수 없는 단계다. 콘텐츠 생성 전에 의료법 기준을 명문화하고, 출력물마다 체크리스트를 적용한다.
+
+핵심 판단은 하나다. 광고 자동화를 팔기 전에 진단 리포트를 먼저 판다. 진단이 들어가야 고객이 문제를 인식하고, 자동화 솔루션의 가치가 명확해진다. 첫 주에 리포트로 신뢰를 쌓고, 그 다음에 자동화 계약을 연결한다.
+
+## 숫자
+
+| 항목 | 수치 |
 |------|------|
-| Bash | 302 |
-| Agent | 65 |
-| Read | 34 |
-| Edit | 21 |
-| Write | 18 |
+| 총 세션 수 | 3 |
+| 총 tool calls | 20 |
+| Bash | 11 |
+| Read | 9 |
+| Edit / Write | 0 |
+| 수정 파일 | 0개 |
+| 생성 파일 | 0개 |
+| 총 소요 시간 | 약 3분 |
 
-Bash가 60%를 차지한다. 오케스트레이터 패턴에서는 메인이 직접 코드를 짜는 대신 상태 파일을 관리하고 서브에이전트를 호출하는 작업이 많기 때문이다. Agent 호출 65회는 plan-orchestrator, general-purpose, frontend-implementer, code-verifier, codex-cross-verify, Explore를 합친 수치다.
-
-## 정리
-
-서브에이전트 환각은 단발성 버그가 아니다. Edit 없이 `diff.patch`만 쓰는 패턴은 재현 가능하다. verifier가 "`git status` 대조"를 명시적으로 수행하지 않으면 그냥 통과한다. 파이프라인에 이 검사를 넣었다.
-
-stop hook은 번거롭다. 하지만 이 훅이 없었으면 Session 3의 가짜 변경이 커밋됐을 것이다. 검증 단계를 자동으로 강제하는 게 맞다.
-
-build-in-public 피드 방향은 바꾸지 않는다. 작업 자체가 콘텐츠가 되는 구조 — 카피는 한 번 쓰고 시스템이 매일 갱신하는 사이트를 목표로 계속 간다.
+코드가 없는 날이었다. Read와 Bash만으로 구조 문제를 진단하고 사업 방향을 정리했다. "아무것도 만들지 않은 세션"이 때로 가장 명확한 결과를 낸다.
