@@ -1,95 +1,112 @@
 ---
-title: "10 Redesign Variants from 182 Tool Calls: Parallel Agents + Comparison Canvas with Claude Code"
+title: "5 Parallel Design Variants and the SRI Hash Bug Codex Caught (208 Tool Calls)"
 project: "portfolio-site"
 date: 2026-05-07
 lang: en
 pair: "2026-05-07-portfolio-site-ko"
-tags: [claude-code, redesign, ui-ux, multi-agent, frontend-implementer, spoonai]
-description: "Two redesign sessions, 182 tool calls, 10 spoonai variants and 5 coffee chat variants — driven by one pattern: parallel agents with a browser-browsable comparison canvas."
+tags: [claude-code, design, redesign, debugging, parallel-agents, codex]
+description: "5 coffeechat.it.kr redesign variants generated in parallel, Codex caught a React CDN SRI hash mismatch, and a Korean font rendering bug got traced and removed. 208 tool calls, 2 sessions, ~4h40m."
 ---
 
-182 tool calls. Two sessions. 10 design variants for one site, 5 for another. It started with a broken font bug — and ended up revealing a repeatable pattern for AI-assisted design exploration.
+Two tasks landed at the same time: a full redesign of coffeechat.it.kr with at least 5 variants to choose from, and a Korean font rendering issue on spoonai showing `□□□□` instead of characters. Both done in one day. 208 tool calls across 2 sessions, about 4 hours and 40 minutes.
 
-**TL;DR** Back-to-back redesign sessions using Claude Code's multi-agent dispatch. Parallel `frontend-implementer` agents each produce an independent HTML prototype. A comparison canvas lets you click through all variants in one browser tab. The workflow is fast, but only if you nail the service category upfront — one session wasted a full round because "coffee chat" got read as social instead of ed-tech.
+**TL;DR** Parallel variant generation genuinely speeds up design work. The bottleneck isn't generation speed — it's reading the service category correctly before round one. Codex cross-verification caught a React CDN SRI hash mismatch that would have silently broken pages in production.
 
-## The Bug That Started Everything
+## One Sentence of Feedback That Reset an Hour of Work
 
-A screenshot triggered the first session. Korean labels rendering as box characters (`□□□□`). The culprit was immediately clear from the filename: `openai-deployment-company-tpg-10b-01.jpg` — an infographic Claude had generated directly, with Korean text embedded without font guarantees.
+The coffeechat.it.kr redesign request came in with clear constraints: generate at least 5 distinct variants so the client could pick a direction.
 
-External-sourced images (CNBC, Anthropic, TechCrunch credits) rendered fine. Only items tagged `credit: spoonai` were affected. A grep across the codebase confirmed it was a single file.
+First step was analyzing the site. coffeechat.it.kr is a mentoring platform for the Korean game industry — 1:1 coffee chats with active game developers and designers, resume reviews, and mock interviews. Clear target audience, so I mapped out 5 distinct design directions and dispatched them in parallel.
 
-Fix was straightforward:
+Five `frontend-implementer` agents fired simultaneously:
 
-```bash
-rm public/images/posts/2026-05-06/openai-deployment-company-tpg-10b-01.jpg
+- V1 Editorial Magazine (Instrument Serif + cream beige)
+- V2 Soft Brutalist (heavy borders + lime and pink)
+- V3 Floating Gradient
+- V4 Object-oriented UI
+- V5 Brief Format
+
+Each agent ran in an isolated context with no cross-contamination between variants.
+
+The feedback came back: "These all look bad. None of them feel professional. Look at Inflearn or other ed-tech platforms."
+
+The variants explored style, not service identity. I'd picked up on the game industry angle and pulled indie/creative aesthetics instead of the ed-tech trust signals that Inflearn, Class101, or FastCampus project. "Professional credibility of an educational platform" wasn't in my initial read of the service.
+
+Reset. Reclassify. Restart.
+
+The lesson is sharper than "get better feedback upfront." If you misread the service category — ed-tech vs. indie creative vs. SaaS — no amount of variant generation fixes it. Round one is entirely wasted. "What kind of platform is this, really?" has to be answered before any generation starts.
+
+## The Bug Codex Caught That We Almost Shipped
+
+Before the reset, `design-reviewer` flagged a blocker on V3: floating gradient blobs rendering incorrectly. Fixed that, then ran Codex cross-verification on the diff.
+
+Codex came back with a finding across V2, V3, V4, and V5. All four variants loaded `react.production.min.js` from CDN, but the SRI `integrity` hash in each `<script>` tag matched the `.development.js` build — not production.
+
+```html
+<!-- Wrong — production file URL, development build hash -->
+<script
+  src="https://unpkg.com/react@18/umd/react.production.min.js"
+  integrity="sha384-<development-hash-here>"
+  crossorigin="anonymous">
+</script>
 ```
 
-Then removed the `image` block from two post frontmatter files:
-- `2026-05-06-openai-deployment-company-tpg-10b-ko.md`
-- `2026-05-06-openai-deployment-company-tpg-10b-en.md`
+Browser security policy is strict here: if the hash doesn't match the file content, the resource is blocked. This doesn't surface in local development because the browser caches the resource after the first load. In production, a fresh browser hits the CDN, gets the production file, computes the hash, finds a mismatch, and silently blocks the script.
 
-Commit `8b55047` — `chore: remove self-generated infographic image with broken Korean fonts`. 3 files changed, Vercel auto-deployed.
+End result: blank page and `Integrity check failed` in the browser console.
 
-The lesson: when Claude generates images with Korean text, font embedding isn't guaranteed. Either avoid Korean text in generated infographics, or verify rendering immediately after generation.
+Fixed all four variants by aligning CDN URLs to the correct production SRI hashes. This class of bug — subtle, environment-specific, easy to miss in review — is exactly what external model cross-verification catches. A model that generated the code reads its own output charitably. An external model looking at the diff for the first time has no such bias.
 
-## spoonai Redesign: 5 Variants → 10 Variants
+## Tracking Down the Korean Font Rendering Issue
 
-After the bug fix, the session pivoted. "I'm going to redesign spoonai. Give me at least 5 options I can browse."
+The second session started with a screenshot showing `□□□□` where Korean characters should be — labels like "total scale," "OpenAI stake," and "structure" rendering as empty boxes instead of text.
 
-Multiple `frontend-implementer` sub-agents ran in parallel, each producing an independent HTML prototype under `~/spoonai-redesign/`. An `index.html` comparison canvas showed all 5 as cards with "View →" links opening in new tabs.
+The search started with how spoonai tracks image attribution. Posts use a `credit` field to distinguish source: `"spoonai"` means directly produced, `"CNBC"` or `"TechCrunch"` means external.
 
-Round 1 results were scored per variant. The highest-rated was `05-brief.html` — minimal, text-heavy, generous whitespace, newsletter aesthetic.
+```bash
+grep -r 'credit.*spoonai' src/content/posts/
+```
 
-"I like this tone. Give me 5 more evolved from this direction." Round 2 dispatched. Five additional variants built on top of the Brief style from `05-brief.html`.
+One result: a 58KB infographic with Korean labels, produced in-house, exported without embedding the font. Any system without the Korean font installed renders those glyphs as empty boxes. Two posts (Korean and English versions) referenced this image.
 
-`design-reviewer` ran verification on both rounds. `codex cross-verify` caught an SRI hash mismatch (a dev-build hash attached to a production bundle) — fixed immediately before the session closed.
+Removal was straightforward:
 
-Total output: 10 HTML prototype files across two rounds.
+1. Delete the `image:` frontmatter block from both posts
+2. Delete the image file
+3. Build check
+4. Commit and push
 
-## Coffee Chat Redesign: When You Misread the Service Category
+```bash
+git commit -m "chore: remove self-generated infographic image with broken Korean fonts"
+```
 
-Second session. "I'm going to redesign the coffee chat site. Give me at least 5 options I can choose from."
+3 files changed. Vercel auto-deploy triggered, production updated 2 minutes later.
 
-First step: analyze `coffeechat.it.kr`. The site turned out to be a **1:1 mentoring platform for the Korean game industry** — coffee chats, resume reviews, mock interviews with industry professionals. Not a social app. Not a generic chat product. A structured ed-tech/mentoring service.
+The `credit` field made the search fast. Without that attribution pattern, finding all self-generated images with the same potential font issue would have required manual inspection across every post.
 
-That context should have determined the design direction immediately. It didn't.
+## spoonai Redesign — The Two-Round Exploration Pattern
 
-Round 1 produced 5 variants. Feedback: "These all look bad. None of them look professional. Look at Inflearn and other education platforms."
+With the font bug resolved, the spoonai redesign ran in the same session. First round produced 5 variants. The feedback: "05-brief.html feels right. Give me 5 more iterations close to that direction."
 
-Accurate. The word "coffee chat" pulled the direction toward casual and social. The actual positioning is closer to Inflearn, Class101, Fastcampus — credibility-first, professional education services. After reclassifying the service category, round 2 started fresh with ed-tech platform references as the baseline.
+This two-round pattern is efficient. Round one is wide — 5 variants to establish direction. Round two narrows — 5 more iterations off the variant that clicked. Effectively 10 explorations, but the user makes only two decisions.
 
-The pattern this session exposed: in redesign work, misreading the service category poisons the entire first round regardless of how many variants you generate. "What kind of service is this?" needs to be locked before dispatching agents — not discovered during review.
-
-## The Parallel Agent Design Exploration Pattern
-
-Both sessions converged on the same workflow:
-
-1. **Lock context** — analyze the site or clarify requirements until the service category is unambiguous
-2. **Parallel dispatch** — spin up multiple `frontend-implementer` agents, each producing an independent variant
-3. **Comparison canvas** — generate `index.html` with side-by-side cards, each opening its variant in a new tab
-4. **Browser selection** — user browses and picks a direction directly, no file paths involved
-5. **Focused round 2** — re-dispatch agents constrained to the winning direction
-
-Step 3 is the load-bearing piece. Without the comparison canvas, the user has to manually open 5+ files. That friction compounds — slower feedback, fewer iterations, less precise direction signals. Removing that friction is what makes the loop fast enough to be useful.
-
-The `Agent(46)` calls account for 25% of total tool calls precisely because each variant ran as an independent parallel agent. The parallelism is what makes 10 variants in one session viable.
+Final direction: `05a-editorial-premium.html`. That became the base for actual codebase changes on the `feat/editorial-premium-redesign` branch: 7 files, 442 insertions, 725 deletions.
 
 ## By the Numbers
 
-| Metric | Value |
-|--------|-------|
-| Sessions | 2 |
-| Total time | ~4 hours |
-| Total tool calls | 182 |
-| Bash | 92 |
-| Agent | 46 |
-| Write | 11 |
-| Design variant files generated | 12 (spoonai ×10 + coffee chat ×2 rounds) |
-| Files modified | 3 |
-| Bug fix commits | 1 |
-| `design-reviewer` rounds | 2 |
+208 tool calls total across two sessions:
 
-`Agent` calls at 25% of total is the clearest signal of where the work happens. Each parallel dispatch adds 5–10 agent calls at once. The Bash-heavy count (92) comes from the bug investigation, git operations, and the SRI hash fix that followed codex cross-verify.
+- **Bash: 112 (54%)** — CDN URL validation, hash verification, git operations, dev server
+- **Agent: 50 (24%)** — parallel variant dispatch, design-reviewer, codex-cross-verify
+- **Other: 46 (22%)** — file reads, edits, searches
+
+Bash at 54% reflects how much validation and verification work sits alongside generation. The Agent calls are almost entirely the creative and review pipeline.
+
+The bottleneck in parallel variant generation isn't generation speed. Five agents firing simultaneously is fast. The slow part is the judgment call before round one — reading the service correctly before any code gets written.
+
+Codex cross-verification adds time. It's a quality gate, not a speed improvement. The SRI hash bug might never have surfaced consistently in production (browser caching makes it environment-dependent), or it might have broken a specific subset of users on cold cache. Finding it before deploy was worth the extra step.
+
+> Parallel generation expands the exploration range. Cross-verification closes gaps that in-context review misses. Both are quality insurance, not speed tools.
 
 ---
 
