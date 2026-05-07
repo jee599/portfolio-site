@@ -1,109 +1,105 @@
 ---
-title: "18 Sessions, 451 Tool Calls: Running 3 Client Projects in One Day with Claude Code"
+title: "4 Parallel Claude Agents, 35 Tool Calls: Deep-Researching Naver's Algorithm Changes"
 project: "portfolio-site"
 date: 2026-05-08
 lang: en
 pair: "2026-05-08-portfolio-site-ko"
-tags: [claude-code, multi-agent, codex, workflow, ai-automation]
-description: "18 sessions, 451 tool calls across a coffeechat redesign, dental ad reports, and a font bug fix — including how Codex caught an SRI hash mismatch that would've broken 4 of 5 prototypes."
+tags: [claude-code, research, multi-agent, naver, dental-ad]
+description: "4 Claude Opus 4.7 agents in parallel, 35 tool calls, 2 sessions to analyze Naver search and ad algorithm changes — and what evidence discipline revealed."
 ---
 
-18 sessions. 451 tool calls. One model, three unrelated client projects, all in a single day.
+Four Claude Opus 4.7 agents running simultaneously, all querying Naver algorithm data at the same time. That's what 21 minutes of parallel multi-agent research looks like — and what happens when the API buckles under the load.
 
-The breakdown: 175 Bash calls, 50 sub-agent dispatches, 41 WebSearch queries. And somewhere in the middle of all that, a Codex cross-verification pass caught an SRI hash mismatch that would've silently broken 4 of 5 HTML prototypes in every user's browser.
+**TL;DR** The `research` skill dispatches 4 agents in a single message. What would've taken 80+ minutes sequentially finished in 21. But speed wasn't the hard part. The real work was separating officially confirmed changes from industry observations — and Codex crosscheck caught one unverified claim that slipped through.
 
-**TL;DR** Parallel design variant generation is fast — but it optimizes for output quantity, not target fit. Codex cross-verification in the major pipeline caught a bug that `code-verifier` missed. A single broken image file took 3 tool calls to track down and remove.
+## Splitting a Topic Into 4 Parallel Angles
 
-## When "Make 5 Variants" Backfires
+The `research` skill breaks a research question into 4 independent sub-topics and fires all agent calls in a single message. For Naver algorithm research targeting dental ad campaigns, the split looked like this:
 
-The first session (1h 54m, 78 tool calls) was a redesign for coffeechat.it.kr — a Korean mentoring platform connecting aspiring game industry professionals with senior practitioners for 1:1 coffee chats, resume reviews, and mock interviews.
+1. **Official announcement analysis** — change history from Naver Ads official channels
+2. **Organic search / Place rankings** — SEO community and practitioner observations
+3. **Ad matching and metrics** — ADVoost, relevance index, expanded match changes
+4. **Healthcare / dental context** — medical advertising regulations crossed with Place Ads
 
-Standard approach: analyze the existing site, dispatch 5 parallel design variants. V1 Editorial Magazine (Korean indie zine aesthetic), V2 Soft Brutalist, V3–V5 in progressively different directions.
-
-The feedback was blunt:
-
-> "These all feel amateurish. None of them look like a professional service. Go look at Inflearn or other education platforms."
-
-The variants were optimizing for *design style diversity* when the actual problem was *professional credibility signaling*. Five variants in parallel takes maybe 10 minutes. Understanding what makes your specific target audience feel "this is trustworthy" takes real research first.
-
-Re-analyzed Inflearn, Class101, and FastCampus — focusing specifically on how they communicate expertise and authority, not just visual style. The second-pass redesign landed much better.
-
-Lesson: parallel generation is a multiplier on direction quality, not a replacement for it. Get the direction right before scaling output.
-
-## Codex Caught What the Verifier Missed
-
-During the same coffeechat session, Codex cross-verification flagged a concrete bug.
-
-The HTML prototypes loaded React from CDN with SRI hashes for integrity verification. The URL path was `react.production.min.js` — but the `integrity` attribute had the hash for `react.development.js`. Different files, different hashes.
-
-```html
-<!-- What was in the prototypes -->
-<script
-  src="https://unpkg.com/react@18/umd/react.production.min.js"
-  integrity="sha384-[hash-from-development.js]"
-  crossorigin="anonymous"
-></script>
-```
-
-Browsers enforce SRI strictly. Hash mismatch → script blocked. The prototypes looked fine in local preview (no SRI enforcement in `file://` context) but would silently fail to load React in any real browser.
-
-`code-verifier` passed all four affected files. Codex caught it.
-
-Immediately replaced the hashes across 4 files with the correct `production.min.js` checksums. Without cross-verification, 4 of 5 prototypes would've gone out to the client as completely non-functional HTML.
-
-This is the exact case where the `major` pipeline overhead pays off: when you're delivering HTML directly to clients, one round of external model review is worth the cost.
-
-## Building Diagnostic Reports With Public Data Only
-
-Sessions 2–17 were ad and search diagnostic reports for two dental practices: Yatap NYU Dental and Dongbaek Dental.
-
-The core constraint shaped the entire structure: free diagnostics can only use publicly available data. Naver Place admin stats, ad account performance, call/booking/visit numbers — none of that is accessible without explicit account authorization. So every score in the report had to follow a strict pattern: **verified source → reason for deduction → condition for improvement**. No invented numbers. Everything that couldn't be confirmed from public sources got an explicit "data unavailable — requires account access" label.
-
-Dongbaek Dental added a complication: searching for the clinic returned three different practices with nearly identical names. One of them — "동백서울치과의원" at Dongbaek 7-ro 83, with 18,273 Moduak reviews — was an entirely different practice. Correlating the right clinic to the right address required 20+ WebSearch queries just to resolve name and phone number candidates.
-
-The reports also went through a design revision. User feedback: "These look AI-generated." That was a visual design problem, not a content problem. Built a reference board HTML with 8 style directions (McKinsey consulting doc, Notion Knowledge Document, academic report, Figma spec style, etc.), let the user select, and rebuilt all three reports in the chosen style.
-
-Takeaway: explicit uncertainty labeling in client deliverables isn't a weakness — it's what makes them actually trustworthy.
-
-## Tracking a Font Bug to a Single Image File
-
-Session 18 (130 tool calls, the longest of the day) started with a bug report from spoonai.me: Korean characters were rendering as `□□□□` boxes in a published post.
-
-The screenshot showed labels like "총 규모" (total scale), "OpenAI 지분" (OpenAI equity), and "구조" (structure) all broken. Not an external image — this was a self-produced card-style infographic.
-
-Searched the entire codebase for images marked `credit: spoonai`. One result: `openai-deployment-company-tpg-10b-01.jpg` (58KB). Two posts (ko/en) were referencing it.
+Each agent gets a scoped prompt skeleton:
 
 ```
-commit 8b55047
-chore: remove self-generated infographic image with broken Korean fonts
-3 files changed
+You are Research Agent #2. Your angle: organic search / Place rankings.
+- Use WebSearch + WebFetch aggressively
+- Return markdown under 1,500 words
+- Source URLs required
+- Flag overlapping areas with sibling agents
 ```
 
-Delete the JPG, remove the `image:` block from both markdown frontmatter files, commit, push. Vercel auto-deployed. 3 tool calls from diagnosis to deploy.
+All 4 `Agent` tool calls go out in one message. Sequential execution would've meant waiting for each agent to finish before the next starts — 80+ minutes of wall-clock time. Parallel: 21 minutes total.
 
-In the same session: spoonai site redesign. 5 initial variants → "make it simpler, more card-news style" feedback → 5 card-news variants → V5 (`05-brief.html`) tone selected → elevated to `05a-editorial-premium.html` → merged into the actual spoonai-site repo. 7 files, 442 insertions / 725 deletions.
+The tradeoff shows up at synthesis. When 4 agents independently cover "algorithm changes," you end up with the same facts stated at different confidence levels. That tension needs explicit resolution before the report is usable.
 
-## The Numbers
+## The API Overloaded Error (and Why It Didn't Matter)
 
-| Metric | Count |
-|--------|-------|
-| Total sessions | 18 |
-| Total tool calls | 451 |
-| Bash | 175 |
-| Read | 59 |
-| Agent (sub-agents) | 50 |
-| WebSearch | 41 |
-| Edit | 32 |
-| Write | 26 |
-| WebFetch | 16 |
-| Files modified | 9 |
-| Files created | 23 |
+Late in session 1, `API Error: Overloaded` hit. Running 4 Opus 4.7 agents simultaneously was enough to hit capacity limits. All 4 research results had already come back — the crash happened right at the HTML synthesis step, after the retrieval was complete.
 
-The 50 agent dispatches represent plan-orchestrator, frontend-implementer, code-verifier, design-reviewer, and codex-cross-verify running across multiple `major` pipelines. The plan → implement → verify → codex loop ran several times throughout the day.
+Session 1 output: `research-minutes.md` + `claude_naver_research_report.md`, both written to disk.
 
-The 41 WebSearch calls came almost entirely from the dental sessions. Cross-verifying practice names, addresses, and phone numbers for two clinics with similar names in the same geographic area generated a lot of search volume.
+Session 2 picked up at synthesis only — no repeated retrieval, no lost work. File-based state is what made this a non-event instead of a full restart.
 
-Codex cross-verification only ran in the major pipeline — catching the SRI hash mismatch and checking for restricted terms in medical advertising content. The overhead isn't worth it for small tasks. But when delivering 3+ HTML documents directly to clients in a single batch, one external model review pass earns its keep.
+The workflow pattern: every intermediate artifact goes to a named file before the next step starts. Session continuity doesn't depend on conversation context.
+
+## Session 2: The Evidence Pass
+
+Session 2 was 5 minutes, 11 tool calls. The core task was cross-validating three files:
+
+- `integrated_naver_change_report_draft.md`
+- `codex_crosscheck_review.md`
+- `naver_ads_notice_extracts.json` — 15 official Naver Ads announcements extracted
+
+Codex's review flagged a specific problem: the "May 2026 Place Ads rollout notice" appeared in the draft body but was absent from the JSON extract of actual announcements. The source didn't support the claim.
+
+That assertion got downgraded to "needs verification" in `claude_synthesis_review.md`.
+
+The rule that came out of this pass:
+
+```
+Officially confirmed = explicitly stated in Naver Ads announcements only
+  ✓ Expanded search, ADVoost, relevance index
+  ✓ Medical material review policy, brand search
+
+Not confirmed = use "observed" or "industry-reported"
+  ✗ General organic/Place ranking changes
+  ✗ May 2026 Place Ads rollout (absent from JSON extract)
+```
+
+Writing "due to recent algorithm changes..." without an official source is misinformation, not analysis. In a research report used to make ad spend decisions, that distinction matters. Codex crosscheck is what enforced it here.
+
+## Tool Usage
+
+| Tool | Calls |
+|------|-------|
+| Read | 9 |
+| Bash | 8 |
+| Agent | 8 |
+| Write | 4 |
+| TodoWrite | 3 |
+| Grep | 1 |
+| Skill | 1 |
+| ToolSearch | 1 |
+| **Total** | **35** |
+
+3 files created. 0 files modified.
+
+The 8 `Agent` calls: 4 research agents in session 1, then Codex crosscheck and synthesis agents in session 2.
+
+## What Parallel Research Actually Costs
+
+Four agents in parallel gives roughly 4× speed — but synthesis gets proportionally harder. The failure mode is specific: each agent independently makes claims about "algorithm changes" at varying confidence levels, without knowing what the other agents found. By the time you're merging 4 × 1,500-word outputs, you have the same fact stated three different ways with three different certainty levels.
+
+Two things help:
+
+**Explicit overlap flagging in the prompt.** The skill includes "flag overlapping areas with sibling agents" in each agent's instructions. This surfaces contradictions during retrieval rather than during synthesis.
+
+**Primary source cross-validation at synthesis.** Agent summaries get checked against raw sources (`naver_ads_notice_extracts.json`). Agents can and do hallucinate. Codex crosscheck is the catch layer. This session confirmed it catches things.
+
+The file-based state pattern generalizes: any multi-step workflow where an intermediate step might fail (API overload, context limit, rate limit) should write its output to disk before starting the next step. Conversation context doesn't survive a session crash. Files do.
 
 ---
 
