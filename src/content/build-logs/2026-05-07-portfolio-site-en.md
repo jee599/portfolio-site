@@ -1,112 +1,151 @@
 ---
-title: "5 Parallel Design Variants and the SRI Hash Bug Codex Caught (208 Tool Calls)"
+title: "16 Sessions, 416 Tool Calls: How Codex Caught an SRI Bug Before Production"
 project: "portfolio-site"
 date: 2026-05-07
 lang: en
 pair: "2026-05-07-portfolio-site-ko"
-tags: [claude-code, design, redesign, debugging, parallel-agents, codex]
-description: "5 coffeechat.it.kr redesign variants generated in parallel, Codex caught a React CDN SRI hash mismatch, and a Korean font rendering bug got traced and removed. 208 tool calls, 2 sessions, ~4h40m."
+tags: [claude-code, multi-agent, codex, design, parallel-agents, dental-ad, orchestration]
+description: "16 Claude Code sessions, 416 tool calls across 3 projects: 5 parallel design variants, a Codex-caught SRI hash bug, spoonai editorial redesign, and a compliance-first dental SEO report pipeline."
 ---
 
-Two tasks landed at the same time: a full redesign of coffeechat.it.kr with at least 5 variants to choose from, and a Korean font rendering issue on spoonai showing `□□□□` instead of characters. Both done in one day. 208 tool calls across 2 sessions, about 4 hours and 40 minutes.
+Ran 16 Claude Code sessions across three projects in a single day — 416 tool calls, 21 new files, and one SRI hash bug that would have silently broken JavaScript for real users if Codex hadn't reviewed the diff with fresh eyes.
 
-**TL;DR** Parallel variant generation genuinely speeds up design work. The bottleneck isn't generation speed — it's reading the service category correctly before round one. Codex cross-verification caught a React CDN SRI hash mismatch that would have silently broken pages in production.
+Three projects: a coffee chat platform redesign, a spoonai production site migration, and SEO/AEO diagnostic reports for two dental clinics. Completely different domains, same underlying workflow: parallel generation to explore the space, cross-verification to catch what same-context models miss.
 
-## One Sentence of Feedback That Reset an Hour of Work
+**TL;DR** Parallel design generation works, but direction matters more than volume. Codex cross-verification caught a production-breaking bug that went unnoticed across 5 independently generated variants. Medical advertising compliance reporting requires hard separation between public data and anything that needs admin access — no estimates, no interpolation.
 
-The coffeechat.it.kr redesign request came in with clear constraints: generate at least 5 distinct variants so the client could pick a direction.
+## Generating 5 Designs in Parallel, Then Hearing "All of These Suck"
 
-First step was analyzing the site. coffeechat.it.kr is a mentoring platform for the Korean game industry — 1:1 coffee chats with active game developers and designers, resume reviews, and mock interviews. Clear target audience, so I mapped out 5 distinct design directions and dispatched them in parallel.
+The coffee chat site redesign started with a clear directive: generate at least 5 distinct variants and let the client pick. The site (`coffeechat.it.kr`) is a mentoring platform for the Korean game industry — 1:1 sessions with active game developers and designers, resume reviews, and mock interviews.
 
-Five `frontend-implementer` agents fired simultaneously:
+First step was analyzing the current site and mapping the service category. Then `plan-orchestrator` produced a `plan.md` with design goals and constraints. From there, 5 `frontend-implementer` agents were dispatched simultaneously, each as a separate `Agent` call running in isolated context:
 
-- V1 Editorial Magazine (Instrument Serif + cream beige)
-- V2 Soft Brutalist (heavy borders + lime and pink)
-- V3 Floating Gradient
-- V4 Object-oriented UI
-- V5 Brief Format
+- V1: Editorial Magazine — editorial grid, bold typography, content-forward
+- V2: Soft Brutalist — high contrast, raw structure, unconventional layout
+- V3: Floating Gradient — soft blobs, ambient color, modern SaaS aesthetic
+- V4: Object-oriented UI — card-heavy, structured hierarchy, systematic components
+- V5: Brief Format — stripped down, portfolio-style, information density
 
-Each agent ran in an isolated context with no cross-contamination between variants.
+Because each agent ran in isolation with no shared state, none of the variants influenced the others. The outputs landed in `/Users/jidong/coffee-chat-redesign/` within a single session.
 
-The feedback came back: "These all look bad. None of them feel professional. Look at Inflearn or other ed-tech platforms."
+Feedback: *"These all look generic. None of them feel like a professional service."*
 
-The variants explored style, not service identity. I'd picked up on the game industry angle and pulled indie/creative aesthetics instead of the ed-tech trust signals that Inflearn, Class101, or FastCampus project. "Professional credibility of an educational platform" wasn't in my initial read of the service.
+The diagnosis: every variant explored visual design trends, but none addressed service category fit. The platform is an edtech mentoring service — it needs the credibility signals of platforms like Inflearn or FastCampus, not the indie game jam aesthetic that "game industry mentoring" suggested. The right reference class wasn't gaming culture; it was structured professional education.
 
-Reset. Reclassify. Restart.
+Reset the direction, reclassify the brief, queue another round.
 
-The lesson is sharper than "get better feedback upfront." If you misread the service category — ed-tech vs. indie creative vs. SaaS — no amount of variant generation fixes it. Round one is entirely wasted. "What kind of platform is this, really?" has to be answered before any generation starts.
+The bottleneck in parallel design workflows isn't compute time or context capacity. It's direction accuracy. Get the service category right before dispatching the first variant, or you get 5× the wrong answer delivered faster. The research step — understanding what kind of platform this actually is — is load-bearing, not optional.
 
-## The Bug Codex Caught That We Almost Shipped
+## The SRI Bug That Same-Context Models Consistently Miss
 
-Before the reset, `design-reviewer` flagged a blocker on V3: floating gradient blobs rendering incorrectly. Fixed that, then ran Codex cross-verification on the diff.
+After the direction reset, `design-reviewer` ran against all five variants and flagged a blocker in V3: floating gradient blobs with WCAG contrast failures on multiple text elements, no focus indicators, background animations that violated `prefers-reduced-motion`.
 
-Codex came back with a finding across V2, V3, V4, and V5. All four variants loaded `react.production.min.js` from CDN, but the SRI `integrity` hash in each `<script>` tag matched the `.development.js` build — not production.
+Fixed the blocker, saved the patch as `diff.patch`, and ran Codex cross-verification.
+
+Codex came back with a finding unrelated to the accessibility fix: an SRI (Subresource Integrity) hash mismatch in V2, V3, V4, and V5. All four variants loaded React from CDN, but the `integrity` hash values had been computed against the development build (`react.development.js`), not the production file:
 
 ```html
-<!-- Wrong — production file URL, development build hash -->
+<!-- Wrong: production file URL, development build hash -->
 <script
   src="https://unpkg.com/react@18/umd/react.production.min.js"
-  integrity="sha384-<development-hash-here>"
+  integrity="sha384-[development-hash]"
   crossorigin="anonymous">
 </script>
 ```
 
-Browser security policy is strict here: if the hash doesn't match the file content, the resource is blocked. This doesn't surface in local development because the browser caches the resource after the first load. In production, a fresh browser hits the CDN, gets the production file, computes the hash, finds a mismatch, and silently blocks the script.
+How this breaks in practice: browsers verify the hash against the actual downloaded content before executing the script. When the hash doesn't match, the browser blocks execution entirely — no error in the UI, just a silent `Integrity check failed` in the console and a non-functional React app. Local development doesn't reproduce it reliably because cached files often skip integrity verification. It surfaces post-deployment, on real user browsers with cold cache, as a complete app failure.
 
-End result: blank page and `Integrity check failed` in the browser console.
+Why did 5 independently generated variants all have the same bug? Because all 5 agents worked from the same base prompt template that included the CDN link — and that template had the wrong hash. The bug propagated at generation time, not review time.
 
-Fixed all four variants by aligning CDN URLs to the correct production SRI hashes. This class of bug — subtle, environment-specific, easy to miss in review — is exactly what external model cross-verification catches. A model that generated the code reads its own output charitably. An external model looking at the diff for the first time has no such bias.
+Why did same-context review miss it? A model that generates code and then reviews it carries a strong prior toward accepting its own output as correct. The integrity hash looks legitimate — right length, right prefix, right format. Without independently computing the hash from the actual CDN file, there's no signal that it's wrong. An external model reviewing the diff from a clean context has no such prior. That's the value of cross-verification.
 
-## Tracking Down the Korean Font Rendering Issue
+Fixed: fetched the correct production hashes for React and ReactDOM CDN URLs, replaced them across all 5 variants.
 
-The second session started with a screenshot showing `□□□□` where Korean characters should be — labels like "total scale," "OpenAI stake," and "structure" rendering as empty boxes instead of text.
+Session 1: 78 tool calls, 28 `Agent` calls, 25 `Bash` commands.
 
-The search started with how spoonai tracks image attribution. Posts use a `credit` field to distinguish source: `"spoonai"` means directly produced, `"CNBC"` or `"TechCrunch"` means external.
+## Chasing Korean Glyph Boxes Across spoonai
+
+Session 2 started with a screenshot. Across a deployed spoonai infographic, every Korean label — "총 규모", "OpenAI 지분", "구조", "주주" — rendered as rows of □□□□. Empty glyph boxes where text should be.
+
+Root cause: a self-generated infographic JPG (`openai-deployment-company-tpg-10b-01.jpg`, 58KB) had been embedded in two posts. The image was exported without Korean fonts embedded in the raster, so every Korean character outside the available system glyphs rendered as a replacement character.
 
 ```bash
 grep -r 'credit.*spoonai' src/content/posts/
 ```
 
-One result: a 58KB infographic with Korean labels, produced in-house, exported without embedding the font. Any system without the Korean font installed renders those glyphs as empty boxes. Two posts (Korean and English versions) referenced this image.
+Found two posts referencing the file (ko and en versions). Removed the `image:` block from both frontmatters, deleted the JPG. Three files touched, single commit:
 
-Removal was straightforward:
-
-1. Delete the `image:` frontmatter block from both posts
-2. Delete the image file
-3. Build check
-4. Commit and push
-
-```bash
-git commit -m "chore: remove self-generated infographic image with broken Korean fonts"
+```
+chore: remove self-generated infographic image with broken Korean fonts
 ```
 
-3 files changed. Vercel auto-deploy triggered, production updated 2 minutes later.
+Vercel picked up the commit and auto-deployed.
 
-The `credit` field made the search fast. Without that attribution pattern, finding all self-generated images with the same potential font issue would have required manual inspection across every post.
+The spoonai editorial redesign ran in the same session. Round 1 produced 5 variants simultaneously. The user identified `05-brief.html` as the right directional anchor, so a second round iterated 5 more variants from that base. 10 total variants, 2 user decisions.
 
-## spoonai Redesign — The Two-Round Exploration Pattern
+Final selection: `05a-editorial-premium.html`, applied to the spoonai-site codebase on `feat/editorial-premium-redesign` branch: 7 files changed, 442 insertions, 725 deletions. The high deletion count reflects consolidating redundant layout components that had been introduced across earlier iterations.
 
-With the font bug resolved, the spoonai redesign ran in the same session. First round produced 5 variants. The feedback: "05-brief.html feels right. Give me 5 more iterations close to that direction."
+Session 2: 130 tool calls, 87 `Bash`, 22 `Agent` calls.
 
-This two-round pattern is efficient. Round one is wide — 5 variants to establish direction. Round two narrows — 5 more iterations off the variant that clicked. Effectively 10 explorations, but the user makes only two decisions.
+## Dental Diagnostic Reports: The Hard Line Between Public Data and Estimates
 
-Final direction: `05a-editorial-premium.html`. That became the base for actual codebase changes on the `feat/editorial-premium-redesign` branch: 7 files, 442 insertions, 725 deletions.
+Sessions 3 through 16 covered the dental advertising pipeline — SEO/AEO diagnostic reports for two clinics: Yatap NYU Dental and Dongbaek Seoul Pediatric Dental.
 
-## By the Numbers
+The non-negotiable constraint: Korean medical advertising law prohibits fabricated, misleading, or unverifiable claims in any material produced for a medical institution. This applies to internal diagnostic reports handed to clinic owners, not just published advertisements.
 
-208 tool calls total across two sessions:
+Practically, any metric requiring platform admin access gets labeled "requires verification / metric unconfirmed." The list is longer than you'd expect:
 
-- **Bash: 112 (54%)** — CDN URL validation, hash verification, git operations, dev server
-- **Agent: 50 (24%)** — parallel variant dispatch, design-reviewer, codex-cross-verify
-- **Other: 46 (22%)** — file reads, edits, searches
+- Naver Place view counts
+- Phone click-through counts
+- Appointment conversion data
+- Monthly keyword search volume
+- CPC and CTR estimates
+- Patient review sentiment aggregates
 
-Bash at 54% reflects how much validation and verification work sits alongside generation. The Agent calls are almost entirely the creative and review pipeline.
+For every one of these, the report has a dedicated placeholder rather than a filled cell. No interpolation from public proxies, no estimates with error bars, no "approximately X based on similar clinics." The report clearly separates what it knows from what it doesn't.
 
-The bottleneck in parallel variant generation isn't generation speed. Five agents firing simultaneously is fast. The slow part is the judgment call before round one — reading the service correctly before any code gets written.
+This produces a report that looks incomplete compared to marketing analytics dashboards that fill every cell with a number. But presenting estimated figures as real clinic data creates compliance liability. The clinics own responsibility for the content they use in advertising — the diagnostic report shouldn't manufacture that liability.
 
-Codex cross-verification adds time. It's a quality gate, not a speed improvement. The SRI hash bug might never have surfaced consistently in production (browser caching makes it environment-dependent), or it might have broken a specific subset of users on cold cache. Finding it before deploy was worth the extra step.
+There was also a naming collision requiring careful handling. Searching Modudak (a Korean medical review platform) for "동백서울유치과의원" surfaced listing ID 18273: "동백서울치과의원" — one character difference in Korean, different clinic type (general vs. pediatric), different address. In Korean, "유치과" (pediatric dental) vs. "치과" (general dental) is a single syllable in the clinic name. Easy to conflate in automated search.
 
-> Parallel generation expands the exploration range. Cross-verification closes gaps that in-context review misses. Both are quality insurance, not speed tools.
+Every external search result was tagged "candidate / needs direct confirmation." The user confirmed the correct Naver Place URL directly, and only that confirmed URL was used as the data anchor for the report.
+
+After the initial build, Codex cross-verification returned `request-changes` with three findings:
+
+1. Mobile responsive `data-label` attributes missing from comparison summary tables — tables would collapse unreadably on small screens
+2. Residual performance-guarantee language in one section — prohibited under Korean medical ad rules
+3. One metric labeled "estimated" instead of "requires admin access" — weaker disclaimer than required
+
+Fixed with 23 `Edit` calls and a grep pass to confirm no performance-guarantee language remained in any of the three HTML files.
+
+The last session ended with: *"The report looks too AI-generated."*
+
+Built a separate direction selection board — 8 distinct HTML layouts based on reference research across medical report design, consulting firm deliverables, and SaaS dashboard aesthetics. The user picks a direction first, then the final report renders in that style. Separating "what does this look like" from "generate the final output" is an extra step that's worth it when the output has to be handed to a client.
+
+## Day Stats
+
+| Metric | Count |
+|---|---|
+| Sessions | 16 |
+| Total tool calls | 416 |
+| Files created | 21 |
+| Files modified | 7 |
+| Bash | 167 |
+| Agent | 50 |
+| WebSearch | 41 |
+| Edit | 27 |
+
+Bash at 40% of total calls: CDN URL validation, git operations, build verification, dev server management. `Agent` at 50 calls: parallel design dispatch and per-stage cross-verification runs.
+
+Three things that held across all three projects:
+
+**Direction before generation.** Parallel design workflows save time only when the direction is right. Generating 5 wrong variants simultaneously is just faster failure.
+
+**Cross-verification catches what same-context review misses.** The SRI hash bug existed in all 5 variants and passed every internal review pass. External model, clean context, no prior on the generated code — that's what it took to catch it.
+
+**Compliance requirements shape data architecture.** The dental report pipeline is a data classification problem before it's a content generation problem. Which fields can be filled vs. which must remain "unconfirmed" has to be decided before the first report generates.
+
+> Parallel generation expands the search space. Cross-verification catches what was missed. Neither is about speed — both are quality insurance.
 
 ---
 
