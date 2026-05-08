@@ -1,45 +1,39 @@
 ---
-title: "4 Parallel Agents, 102 Tool Calls: Reverse-Engineering Naver's Ad Algorithm for Dental Clients"
+title: "4 Parallel Agents, 102 Tool Calls: Automating Naver Algorithm Research with Claude Code"
 project: "portfolio-site"
 date: 2026-05-08
 lang: en
 pair: "2026-05-08-portfolio-site-ko"
-tags: [claude-code, parallel-agents, research, automation, naver-ads]
-description: "6 sessions, 102 tool calls: how 4 parallel Claude Code agents analyzed 17 Naver ad notices, enforced 5-tier evidence grading, and caught the AI Briefing ad beta live."
+tags: [claude-code, multi-agent, research, naver-ads, dental-ads]
+description: "Claude Code 4-agent parallel dispatch analyzed 17 Naver ad announcements, enforced 5-tier evidence grading, and caught a live ad beta — 6 sessions, 102 tool calls."
 ---
 
-A dental client asked: "Naver feels different lately — did the algorithm change?" That question came in from multiple clients after the ADVoost rollout. "Probably changed" isn't an answer. I needed evidence-backed analysis, not vibes.
+Three dental ad clients asked the same question in the same week: "Naver feels different lately — did the algorithm change?" The ADVoost rollout had shifted how results behaved, and the feedback kept coming. "It seems like it changed" isn't a useful answer. 6 sessions and 102 tool calls later, I had analyzed 17 official Naver announcements and produced 3 HTML reports.
 
-**TL;DR:** Used the `research` skill to dispatch 4 agents in parallel, analyzed 17 Naver ad notices across 6 sessions, classified all findings into a 5-tier evidence framework, auto-generated a medical advertising compliance HTML report, and caught the Naver AI Briefing ad beta launch in real time — 102 tool calls total.
+**TL;DR:** Used the `research` skill to dispatch 4 parallel agents → Codex cross-verification to isolate unconfirmed claims → iterative HTML report generation. Bonus: caught the Naver AI Briefing ad beta launch in real time, one day after it went live on 2026-05-07.
 
-## Why 4 Agents Instead of 1
+## 4 Opus Agents Simultaneously: 4 Research Angles in 21 Minutes
 
-Session 1 was the core. Covering Naver Search, Place, and ad algorithm changes simultaneously requires breadth a single agent can't deliver — one angle goes deep while the rest stay shallow. The `research` skill decomposes the question into 4 independent angles:
+Single-prompt research on Naver algorithm changes doesn't work. Official announcements, industry community observations, ADVoost technical changes, dental ad practice implications — these four angles pull from different sources with different reliability levels. Mix them in one prompt and the model blends verified facts with speculation.
 
-1. **Official announcement verification** — crawling the Naver Ads notice board
-2. **Organic search & Place ranking signal changes** — community + industry observation
-3. **ADVoost matching logic analysis**
-4. **Healthcare/dental vertical-specific rules**
-
-Each agent prompt included: "source URL required, flag overlap with sibling agents." The skill generates a scaffold like this:
+The `research` skill's solution: dispatch 4 agents in parallel from a single message.
 
 ```
-You are Research Agent #2. Your angle: organic search / Place ranking.
-- Use WebSearch + WebFetch aggressively
-- Return under 1500 words in markdown
-- Source URLs required
-- Flag any domain overlap with sibling agents
+Agent 1: Official announcement extraction & Search Advisor docs
+Agent 2: Organic search & Place ranking changes (community + industry observation)
+Agent 3: ADVoost matching logic analysis
+Agent 4: Dental/medical ad practical implications
 ```
 
-All 4 `Agent` calls went out in a single message. Work that would've taken 80 minutes sequentially finished in 21.
+Each agent prompt required: "source URL mandatory, flag overlap with sibling agents." Once 4 independent output files landed, a separate synthesis session extracted agreements, contradictions, and unverified claims. Work that would've taken 80 minutes sequentially finished in 21.
 
-Session 1 tool breakdown: `Agent(8)`, `Read(5)`, `Bash(4)`, `TodoWrite(3)`, `Write(2)`.
+Session 1 tool calls: `Agent(8)`, `Read(5)`, `Bash(4)`, `TodoWrite(3)`, `Write(2)`.
 
-## Evidence Grading: What Codex Caught
+## The Unverified Announcement Codex Caught — Evidence Grading Introduced
 
-Merging 4 agent outputs surfaced a problem immediately: official announcements and community observations were mixed together. In medical advertising, claiming "algorithm changed" without official confirmation is a compliance risk.
+The problem surfaced immediately when combining all 4 agent outputs. The first draft included a "2026-05 Place Ad policy announcement" stated as fact — but it appeared in none of the 15 entries in `naver_ads_notice_extracts.json`. In medical advertising, stating "algorithm changes" without official confirmation is a compliance liability.
 
-That's why Session 2 created a standalone synthesis review (`claude_synthesis_review.md`). Using 15 notices from `naver_ads_notice_extracts.json` as the ground truth, all findings were split into 5 tiers:
+Session 2 created a standalone `claude_synthesis_review.md` and enforced five evidence tiers:
 
 ```
 CONFIRMED      → explicitly stated in Naver Ads notices
@@ -50,86 +44,72 @@ EXTRAPOLATED   → logical reasoning from confirmed data
 UNVERIFIED     → no source or unconfirmed claim
 ```
 
-Codex cross-check caught one issue: the 2026-05 Place ad rollout notice was missing from the extracted JSON. That item was immediately downgraded to UNVERIFIED. This is exactly why independent verification matters — research outputs need a second pass before they go near a client brief.
+Organic search and general Place ranking are undisclosed by Naver policy — they couldn't be elevated above OBSERVED. Without this explicit grading step, unconfirmed claims would've made it into the client report unchanged.
 
-Session 2 tool breakdown: `Read(4)`, `Bash(4)`, `Write(2)`, `Grep(1)`. Total time: 5 minutes.
+Session 2 tool calls: `Read(4)`, `Bash(4)`, `Write(2)`, `Grep(1)`. Elapsed: 5 minutes.
 
-## 5 Source Files → 40.9KB HTML Report
+## API Overload and Why File-Based State Management Actually Matters
 
-The HTML report was built from 5 source files:
+Session 3 hit `API Error: Overloaded` attempting the first HTML report generation. Opus 4.7 with 8 parallel agents was too many concurrent requests.
 
-- `integrated_naver_change_report_draft.md`
-- `claude_synthesis_review.md`
-- `codex_crosscheck_review.md`
-- `research-minutes.md`
-- `naver_ads_notice_extracts.json`
+No work was lost. `research-minutes.md` and `claude_naver_research_report.md` were already written to disk. Session 4 picked up immediately and moved straight to report generation. This is the practical payoff of file-based state management: when agents write intermediate results to files, a broken session doesn't lose context.
 
-Session 3 hit a model overload error before finishing the Write. Session 4 completed it. Report structure:
+Session 4 produced `naver_algorithm_ad_agency_prediction_report_2026-05-08.html` — 40.9KB, 429 lines. Structure:
 
-- §1 Key conclusions + medical advertising safety box (pinned to top)
-- §2 Evidence tier legend (5-tier visualization)
-- §3 Objective data — metric cards from 17 notices
-- §4 Organic search & Place observations
-- §5 Ad agency impact forecast
-- §7 Dongbaek pilot program
+```
+§1 Key conclusions + medical ad safety box (pinned to top)
+§2 Evidence tier legend (5-level visualization)
+§3 Objective data — metric cards from 17 announcements
+§4 Organic search & Place observations
+§5 Ad agency impact predictions
+§7 Dongbaek Place Ad pilot analysis
+```
 
-Result: 40.9KB, 429 lines. `Bash` had the highest call count (15) because each Write was followed by script-based validation: tag balance, DOCTYPE presence, viewport meta, section existence.
+Session 4 tool calls: `Bash(15)`, `Read(6)`, `Grep(4)`, `Glob(1)`, `Write(1)`. Bash ran 15 times because each Write was followed by script-based validation — tag balance, DOCTYPE presence, viewport meta, section existence.
 
-Session 4 tool breakdown: `Bash(15)`, `Read(6)`, `Grep(4)`, `Glob(1)`, `Write(1)`.
+The client then requested "last 6 months only, essentials." Session 5 produced a third version. Three HTML reports across three sessions wasn't scope creep — requirements evolved: "overall changes" → "agency impact predictions" → "last 6 months compressed."
 
-## Real-Time Discovery: Naver AI Briefing Ad Beta
+## The Daily Agent That Caught Yesterday's AI Briefing Beta
 
-Session 6 produced an unexpected result. While running the daily research agent (`medical_dental_ads_daily_goal.md`) through official sources, one hit fired.
+Session 6 produced an unexpected result. Running the daily research agent defined in `medical_dental_ads_daily_goal.md`, one of the official source scans fired a hit.
 
-**2026-05-07 — Naver launched the "AI Briefing" ad beta.**
+**2026-05-07 — the day before — Naver launched an 'AI Briefing' ad beta.**
 
-Confirmed via `WebSearch(9)` + `WebFetch(6)`:
+The key was explicit target URLs in the agent prompt:
 
-- Phase 1 targets: Shopping search ads + ADVoost integration
-- Placement: below AI-generated answer summaries
-- Healthcare vertical AI: on the roadmap for this calendar year
-- Medical keyword applicability: [UNVERIFIED]
+```
+- Naver Ads Notice:         https://ads.naver.com/notice?categoryId=147
+- Naver Ads Help:           https://ads.naver.com/help
+- Naver Search Advisor:     https://searchadvisor.naver.com/
+- Korea Dental Ad Review:   https://www.dentalad.or.kr
+```
 
-This went into the client briefing the same day. Without the daily agent, it would've surfaced days later, if at all.
+Without this list, generic `WebSearch` prioritizes blog posts. Specifying URLs directly changes the source reliability floor.
 
-## Full Stats: 6 Sessions, 102 Tool Calls
+`WebSearch(9)` + `WebFetch(6)` confirmed:
+- Phase 1: Shopping search ads/ADVoost integration, shown below AI-generated answer summaries
+- Healthcare vertical AI: explicitly on the in-year roadmap
+- Medical keyword coverage: [UNVERIFIED]
+
+Without the daily agent, this would've surfaced days later. Instead it went directly into that day's client briefing.
+
+## Full Stats
 
 | Tool | Calls | Primary use |
 |------|-------|-------------|
 | Bash | 29 | File validation, state updates |
-| Read | 28 | Reading source files |
-| Write | 9 | Generating output files |
+| Read | 28 | Source file reads |
+| Write | 9 | Output file generation |
 | WebSearch | 9 | Official source discovery |
 | Agent | 8 | Parallel research dispatch |
-| WebFetch | 6 | Notice page crawling |
-| Grep | 5 | Keyword validation |
+| WebFetch | 6 | Announcement page crawling |
+| Grep | 5 | Keyword verification |
 | TodoWrite | 3 | Step tracking |
+| **Total** | **102** | |
 
-8 files created, 0 modified. All new outputs.
+8 files created, 0 files modified. Each iteration produced a new file rather than overwriting — overwriting intermediate results removes the comparison baseline for Codex cross-verification.
 
-## What This Reinforced
-
-**Parallel agents solve breadth problems.** 4 simultaneous agents with distinct angles produced faster, more balanced coverage than 4 sequential runs of the same agent. Each angle had a dedicated agent — blind spots shrunk.
-
-**Evidence grading has to be an explicit step.** Without a dedicated classification pass, official facts and community observations blend together. Running this as a separate session was the right call. The Codex cross-check caught the unverified claim during that process.
-
-**Daily agents eliminate information lag.** Define "what to check" in `medical_dental_ads_daily_goal.md` once, and the agent cycles through official sources detecting changes as they happen. The AI Briefing beta discovery came from this setup.
-
-**File-based state means sessions can fail safely.** Session 1 hit `API Error: Overloaded`, but the already-generated `research-minutes.md` let Session 2 pick up without data loss. This is the practical payoff of managing workflow state in files rather than in-memory.
-
-<details>
-<summary>Generated files</summary>
-
-- `claude_naver_research_report.md` — Integrated research report
-- `research-minutes.md` — 4-agent consensus, conflicts, and unverified items log
-- `claude_synthesis_review.md` — Evidence tier classification review
-- `naver_algorithm_ad_agency_prediction_report_2026-05-08.html` — Agency impact forecast (40.9KB)
-- `naver_latest_6months_dental_ads_strategy_report_2026-05-08.html` — 6-month focused report
-- `2026-05-08-daily-update.md` — Daily update
-- `2026-05-08-naver-ai-briefing-and-medical-ad-enforcement.html` — AI Briefing analysis
-- `rolling-knowledge-base.md` — Accumulated knowledge base
-
-</details>
+Parallel agents work well for breadth problems. 4 simultaneous agents outperform 4 sequential runs on both speed and coverage balance. Evidence grading has to be an explicit step — without a dedicated classification pass, verified facts and inferences merge. Moving the grading to a separate session and running Codex cross-verification measurably improved the final report quality.
 
 ---
 
