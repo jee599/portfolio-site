@@ -1,73 +1,64 @@
 ---
-title: "커피챗 사이트 5개 시안 병렬 리디자인: Codex가 SRI 해시 버그를 잡은 날"
+title: "Claude Code 병렬 에이전트 5개로 커피챗 시안 뽑고 Codex가 SRI 버그 걸러낸 과정 (79 tool calls)"
 project: "portfolio-site"
 date: 2026-05-10
 lang: ko
-tags: [claude-code, frontend, design, multi-agent, codex, bug-fix]
-description: "게임 업계 멘토링 플랫폼 커피챗 사이트를 5개 디자인 시안으로 병렬 리디자인. Codex 교차검증이 SRI 해시 불일치 버그를 발견한 과정. 85시간, 79 tool calls."
+tags: [claude-code, design, parallel-agents, codex, automation]
+description: "Claude Code frontend-implementer 5개 병렬 디스패치로 커피챗 리디자인 시안을 동시 생성. '다 별로야' 피드백 후 방향 전환. Codex 교차검증이 SRI 해시 불일치를 잡아냈다. 79 tool calls."
 ---
 
-"다 별로야. 하나도 전문성이 없어보여." 5개 시안이 나온 직후 돌아온 피드백이다.
+커피챗 사이트 리디자인 요청이 들어왔다. 사용자가 처음 준 건 URL 하나뿐이었다.
 
-**TL;DR** 커피챗 사이트 리디자인을 `frontend-implementer` 5개를 병렬 디스패치해서 처리했다. Codex 교차검증이 SRI 해시 불일치 버그를 발견해서 production 배포 전에 수정했다. 총 79 tool calls.
+**TL;DR** `frontend-implementer`를 5개 병렬로 던져서 리디자인 시안을 동시 생성했다. "다 별로야"라는 피드백 후 방향을 틀어서 교육 플랫폼 톤으로 재설계했다. Codex 교차검증에서 SRI 해시 불일치 버그가 나왔고 즉시 수정했다. 79 tool calls.
 
-## 사이트 분석부터 시작한 이유
+## 정보 없이 시작했을 때 생기는 문제
 
-`coffeechat.it.kr` URL을 받자마자 `WebFetch`로 사이트를 분석했다. 단순 커피챗 매칭 플랫폼이 아니라 **게임 업계 현직자 멘토링 서비스**였다 — 게임회사 재직자와 1:1 커피챗, 이력서 리뷰, 모의면접이 핵심이다.
+첫 프롬프트는 "커피챗 사이트 리디자인할거야. 최소 5가지 결과물을 내고 내가 고를 수 있게 해줘"였다. URL도 없고, 대상 유저도 없고, 원하는 무드도 없었다.
 
-이 컨텍스트가 없으면 generic 디자인 템플릿이 나온다. 분석 완료 후 `plan.md`를 `general-purpose`에 위임해서 먼저 만들었고, 5개 변주를 `frontend-implementer` 서브에이전트에 병렬 디스패치했다.
+이 상태로 바로 5개 시안을 뽑으면 generic 디자인 템플릿이 나온다. `coffeechat.it.kr`을 `WebFetch`로 분석하고 나서야 실체가 보였다. 게임 업계 멘토링 플랫폼이었다. 게임 회사 현직자와 1:1 커피챗, 이력서 리뷰, 모의면접이 핵심 서비스였다.
 
-| 시안 | 무드 | 핵심 요소 |
-|---|---|---|
-| V1 Editorial Magazine | 한국 인디 잡지 | Instrument Serif, 크림 #f4eee4 |
-| V2 Soft Brutalist | 굵은 보더, 라임·핑크 컬러 블록 | 강한 타이포 대비 |
-| V3 Motion Dark | 애니메이션 중심 | floating gradient blobs |
-| V4 Minimal Pro | 인프런 톤 | 화이트 베이스, 정보 밀도 |
-| V5 Korean Editorial | 한국형 에디토리얼 | 세로 타이포 강조 |
+이 컨텍스트를 `plan.md`에 담아 `general-purpose` 에이전트에 먼저 위임했다. 5가지 디자인 무드를 정의하고 — Editorial Magazine, Soft Brutalist, Premium Dark, Retro Arcade, Neo-Minimal — 각 변주 스펙을 문서화한 뒤 `frontend-implementer` 5개를 병렬 디스패치했다.
 
-## "다 별로야"가 돌아왔을 때
+## "다 별로야" — 방향 전환
 
-5개가 나왔을 때 피드백은 "다 별로야. 인프런이나 다른 교육기관 봐봐"였다.
+5개 시안이 나왔는데 사용자 반응은 냉정했다. "다 별로야 하나도 전문성이 없어보여. 인프런이나 다른 교육기관 봐봐."
 
-문제는 명확했다. 디자인 트렌드 변주만 했지 **전문 교육 서비스의 신뢰감**이 없었다. V1~V5 전부 일반적인 시각적 매력을 노렸고, 인프런·클래스101·패스트캠퍼스가 주는 신뢰 무게감이 없었다. 교육 플랫폼 특유의 신호 — 수강생 수, 수료율, 현직자 프로필 카드 — 를 UI에 녹이지 않았다.
+문제는 명확했다. 디자인 트렌드 변주만 5가지를 만든 거지, 전문 교육 서비스의 신뢰감이 없었다. 인프런·클래스101·패스트캠퍼스 같은 교육 플랫폼의 톤은 트렌디함보다 신뢰와 구조감이 우선이다. 게임 업계 정체성에 집중하느라 방문자가 느껴야 할 신뢰도를 빠뜨렸다.
 
-재분류하고 방향을 틀었다. 두 번째 라운드는 인프런 사이트 분석을 베이스로 잡았다.
+complexity를 재분류하고 plan을 다시 세웠다. 교육 서비스의 신뢰감을 기준으로 5개 변주를 새로 정의하고 `frontend-implementer`를 다시 5개 병렬로 돌렸다.
 
-## Codex가 버그를 잡아냈다
+## Codex가 잡아낸 SRI 버그
 
-구현 후 `code-verifier`를 돌리고, 이어서 Codex 교차검증을 걸었다. Codex가 찾아낸 건 예상 밖의 버그였다.
+구현 후 `design-reviewer`로 리뷰를 돌리고, 이어서 Codex 교차검증(`codex-cross-verify`)을 붙였다. 여기서 치명적인 버그가 나왔다.
 
-V2, V3, V4, V5가 `react.production.min.js`를 로드하면서 SRI 해시는 `.development.js` 파일 기준으로 설정되어 있었다.
+V2/V3/V4/V5가 `react.production.min.js`를 로드하는데 SRI(Subresource Integrity) 해시는 `.development.js`용이었다. 브라우저에서 SRI 검증이 실패하면 스크립트 로드 자체가 차단된다. 시각적으로는 완성된 시안인데 실제 브라우저에서는 React가 뜨지 않는 상황이었다.
 
 ```html
-<!-- 잘못된 예 -->
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"
-  integrity="sha384-[development.js 해시]"
-  crossorigin="anonymous"></script>
+<!-- 버그: production 파일에 development 해시 -->
+<script src="react.production.min.js"
+  integrity="sha384-[development용 해시]"></script>
 ```
 
-브라우저가 해시 검증에서 차단한다. 디자인 리뷰나 lint로는 잡히지 않는다 — Codex가 `diff.patch`를 읽고 크로스체크하면서 발견했다. 4개 파일을 수정해서 올바른 production 해시로 교체했다. 그대로 배포했으면 리액트가 아예 로드되지 않았을 거다.
+`code-verifier`는 이걸 잡지 못했다. lint/typecheck 레벨에서는 SRI 해시 불일치가 걸리지 않기 때문이다. Codex가 파일을 읽고 cross-reference를 돌리는 과정에서 나온 발견이었다. 즉시 4개 파일의 해시를 production 버전으로 교체했다.
 
-## 병렬 디스패치가 빠른 조건
+## 도구 사용 패턴
 
-5개 시안을 순차로 만들면 5배 걸린다. 병렬 디스패치는 가장 느린 에이전트 하나만큼만 걸린다. 단, 조건이 있다.
+79 tool calls 중 `Agent`가 28회로 가장 많았다. 5개 병렬 구현 디스패치가 각각 Agent 호출을 쓰고, plan-orchestrator·design-reviewer·codex-cross-verify까지 더해지면 금방 쌓인다. `Bash`는 26회였는데 `diff.patch` 생성과 state 업데이트가 주를 이뤘다. `TaskUpdate`·`TaskCreate`가 13회로 단계별 상태 추적에 썼다.
 
-`plan.md`가 구체적이어야 한다. 각 에이전트가 어떤 파일을 만들고 어떤 스타일을 따르는지 명확히 적혀 있어야 독립 실행된다. "V3은 motion dark, floating gradient blobs, 배경 `#0a0a0f`, 애니메이션 `@keyframes drift`로" 수준이어야 에이전트가 혼자 결정한다. "멋지게 만들어"는 안 된다.
+결과물은 `/Users/jidong/coffee-chat-redesign/`에 비교 캔버스 포함 5개 시안으로 저장됐다. 시안 카드에서 "보기 →"를 클릭하면 새 탭으로 열리는 구조다.
 
-이번 세션에서 `plan.md`를 먼저 별도 에이전트에 위임한 게 맞는 선택이었다.
+## 치과 광고 자동화 — 23 tool calls, 7분
 
-## 도구 사용 통계 (세션 2)
+같은 날 다른 세션에서는 치과 광고 리서치 일일 업데이트를 돌렸다. 크론 에이전트가 `medical_dental_ads_daily_goal.md`를 읽고 5개 마크다운 파일 업데이트와 HTML 보고서 생성까지 7분 만에 끝냈다.
 
-- `Agent` 28회 — 서브에이전트 디스패치 (5개 시안 병렬 + verifier + codex)
-- `Bash` 26회 — diff 생성, 파일 이동, 서버 확인
-- `TaskUpdate` / `TaskCreate` 13회 — 진행 상태 추적
-- `ToolSearch` 5회 — 스키마 로드
-- `WebFetch` 5회 — 사이트 분석
+`Read` 9회, `Edit` 8회, `Bash` 3회, `Write` 2회. 이미 패턴이 확립된 반복 작업은 tool call 수가 적다. 23번 만에 산출물 6개를 만들었다.
 
-세션 1은 치과 광고 크론 작업이었다. `dentalad` 리서치 베이스 5개 파일 업데이트 + HTML 리포트 생성을 `claude-opus-4-7`이 7분, 23 tool calls로 처리했다. 작은 작업은 서브에이전트 없이 메인이 직접 처리했다.
+## 두 세션에서 확인한 패턴
 
-## 최종 결과물
+컨텍스트가 없으면 generic이 나온다. URL 하나만 줬는데 좋은 시안을 기대하는 건 어렵다. 사이트 분석 단계를 명시적으로 넣어야 한다.
 
-비교 캔버스를 `/Users/jidong/coffee-chat-redesign/` 아래에 HTML로 만들었다. 5개 시안 카드에서 "보기 →" 클릭하면 각 시안이 새 탭으로 열린다. 사용자가 브라우저에서 직접 비교해서 고를 수 있는 구조다.
+병렬 에이전트는 반복 작업에 효과적이다. 5개 시안을 순차적으로 만들면 컨텍스트가 쌓여서 후반부 품질이 떨어진다. 병렬로 나누면 각각 깨끗한 컨텍스트에서 시작한다. 조건은 `plan.md`가 구체적이어야 한다는 것이다. "V3은 floating gradient blobs, 배경 `#0a0a0f`" 수준으로 적어야 에이전트가 독립 실행된다.
 
-두 번째 라운드("전문적이고 트렌디하게")는 다음 세션에서 이어간다.
+Codex 교차검증은 `code-verifier`와 역할이 다르다. verifier는 테스트·lint 레벨이고 Codex는 파일 간 논리적 일관성을 본다. SRI 해시 불일치처럼 도구적으로 걸리지 않는 버그는 Codex 레벨에서 나온다.
+
+> 피드백 "다 별로야"가 방향 전환의 트리거였다. 거절이 나왔을 때 방어하지 않고 근거를 물어보는 게 빠르다.
