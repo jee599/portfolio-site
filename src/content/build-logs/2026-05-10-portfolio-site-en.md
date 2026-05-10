@@ -1,112 +1,109 @@
 ---
-title: "Claude Opus 4.7 as a Domain Research Agent — 25 Tool Calls, 5 Minutes, 2 Signals"
+title: "5 Parallel Redesigns and the SRI Hash Bug Codex Caught Before Production"
 project: "portfolio-site"
 date: 2026-05-10
 lang: en
 pair: "2026-05-10-portfolio-site-ko"
-tags: [claude-code, claude-opus, agent, dental-ads, research-automation]
-description: "How I ran Claude Opus 4.7 as a daily medical ad research agent: 25 tool calls, 5 min session, 2 confirmed signals filed across 4 updated knowledge base files."
+tags: [claude-code, frontend, design, multi-agent, codex, bug-fix]
+description: "Redesigned a Korean game-industry mentoring site with 5 parallel Claude Code agents. Codex cross-verification caught an SRI hash mismatch before production. 79 tool calls."
 ---
 
-25 tool calls. 5 minutes. Two confirmed policy changes extracted from raw JSON and filed into a rolling knowledge base — with the right labels attached. That's what one Claude Opus 4.7 session produced for a dental advertising research workflow I've been building.
+"None of these look professional. Not a single one."
 
-**TL;DR** Give claude-opus-4-7 a single prompt with an explicit role, a labeled taxonomy, and every file path it needs — and it completes a rolling research base update in one session without guessing.
+That was the feedback after 5 design variants landed simultaneously from a parallel agent dispatch. It's a useful kind of failure — the type that tells you exactly what the brief was missing from the start.
 
-## Why Opus for This Kind of Work
+**TL;DR:** Dispatched 5 `frontend-implementer` subagents in parallel to redesign `coffeechat.it.kr`, a Korean game industry mentoring platform. First round failed the professional-trust test, so the entire brief got reworked. Then Codex cross-verification caught an SRI hash mismatch across 4 files that would have silently broken React in production. Total: 79 tool calls across 2 sessions.
 
-This research workflow isn't retrieval. It's judgment.
+## Why the Site Analysis Had to Come First
 
-The domain is Korean medical advertising — specifically, tracking changes on Naver (Korea's dominant search platform) that affect dental clinics running Place ads and search campaigns. Every piece of information needs a label:
+The starting point was a URL: `coffeechat.it.kr`. Before touching any spec, `WebFetch` analyzed the live site.
 
-- `officially confirmed` — from Naver's official announcements
-- `based on official documentation` — reasonable interpretation of published docs
-- `public SERP observation` — what I can see in live search results
-- `industry observation` — patterns across practitioners
-- `reasonable inference` — extrapolated from evidence, not stated directly
-- `requires verification` — flagged for follow-up
-- `figures unconfirmed` / `estimated high-spend` — quantitative claims I can't fully source
+What came back wasn't a generic coffee-chat matchmaking app. It was a **1:1 mentoring platform specifically for the Korean game industry** — resume reviews, mock interviews, and coffee chats with people currently working at major Korean game studios. The actual product is career acceleration for people trying to break into or level up within the Korean game sector.
 
-A smaller model can retrieve and summarize. But consistently applying this taxonomy across multiple source files — deciding *which* label fits, not just summarizing — needs better reasoning. That's why Opus.
+That context shifts the entire design direction. Generic SaaS templates signal product-market fit problems, not professionalism. A platform in the career-mentoring space needs to communicate credibility first. Visual novelty comes second at best.
 
-There's also a compliance constraint: specific clinic names must be anonymized in final summaries. Medical advertising data is sensitive. Stating that rule once in the prompt and trusting the model to apply it everywhere is exactly the kind of thing that breaks down without sufficient model capacity.
+After the analysis, a `general-purpose` agent built `plan.md` — each variant specified in enough detail that the implementer agents could run without making judgment calls. Then all 5 variants went to `frontend-implementer` subagents in parallel.
 
-## The Prompt Pattern That Worked
+| Variant | Mood | Key Elements |
+|---|---|---|
+| V1 Editorial Magazine | Korean indie magazine | Instrument Serif, cream `#f4eee4` |
+| V2 Soft Brutalist | Bold borders, lime/pink color blocks | Strong typographic contrast |
+| V3 Motion Dark | Animation-heavy | Floating gradient blobs, `@keyframes drift` |
+| V4 Minimal Pro | Inflearn-adjacent tone | White base, high information density |
+| V5 Korean Editorial | Korean editorial print | Vertical type emphasis |
 
-The session prompt opens like this:
+## When "All of Them Are Wrong" Is the Right Feedback
 
+Five variants, five misses. The response: "None of these look professional. Look at Inflearn or similar education platforms."
+
+The problem is obvious in retrospect. Every variant chased visual distinctiveness — editorial typography, motion gradients, brutalist grids — without touching the actual problem: **educational platform trust signals**.
+
+Inflearn, Class101, and Fastcampus don't just look clean. They communicate scale and authority through specific repeating UI patterns: enrollment counts with four-digit formatting, completion rates, mentor profile cards that show current employer and years of experience, verified badges, cohort timelines. These aren't decoration — they're evidence of a platform that has delivered value to real users.
+
+V1 through V5 skipped all of it. They were visually interesting, but the kind of visually interesting that makes someone think "design exercise" rather than "I could trust this platform with my job search."
+
+The fix wasn't another aesthetic round. Round 2 started with a dedicated Inflearn site analysis as the baseline reference. The goal shifted from "make it look different" to "make it feel like a platform where a game company employee would actually show up as a mentor."
+
+## The SRI Hash Mismatch Codex Found
+
+After implementing the second round, `code-verifier` ran first, then Codex cross-verification.
+
+The verifier passed. Codex found something it missed.
+
+V2, V3, V4, and V5 all loaded `react.production.min.js` from unpkg — but the `integrity` attribute in each `<script>` tag was set to the SHA-384 hash of `react.development.js`, not the production build.
+
+```html
+<!-- What was in the code -->
+<script
+  src="https://unpkg.com/react@18/umd/react.production.min.js"
+  integrity="sha384-[hash computed from development.js]"
+  crossorigin="anonymous"
+></script>
 ```
-You are a daily research agent for medical/dental advertising. Read the following files
-and generate/update the 2026-05-09 daily update draft. Apply these labels strictly:
-(officially confirmed / based on official documentation / public SERP observation /
-industry observation / reasonable inference / requires verification /
-figures unconfirmed / estimated high-spend)
-Anonymize specific clinic names in final summaries.
-```
 
-Then it lists every file the agent needs to read and every file it needs to write or update.
+Production and development builds have different file contents. Different minification, different source maps stripped out — different SHA-384 hashes. When a browser performs SRI validation, it fetches the file, hashes it, and compares. Hash mismatch means the script is blocked entirely. React doesn't load. The page renders without interactivity and throws no obvious error to the end user.
 
-Three things this prompt does explicitly that make the difference:
+This doesn't surface in ESLint. It doesn't show up in a design review or a visual regression test. It surfaces when someone reads the diff with enough context to know what the values are supposed to mean and checks them against the actual source files.
 
-**Role + rules declared, not described.** "You are a research agent" is a description. Listing the label taxonomy like a type signature is a declaration. The model treats it as a hard constraint. Output without a label is malformed output — it seems to reason that way, at least.
+Codex caught it by cross-referencing the diff against known constraints — not just syntax correctness, but semantic correctness. All 4 files got updated with the correct production hashes before shipping.
 
-**All file paths named upfront.** 5 files to update, 2 source files to read — all listed in the prompt. When the model knows exactly where to look and where to write, it doesn't spend tool calls exploring. The session stays compact.
+If this had gone to production, every user with SRI enforcement enabled (i.e., every modern browser) would have hit a silently broken experience. No console errors visible to the end user, just a non-interactive page.
 
-**Sensitive data handling inline.** "Anonymize clinic names in final summaries" — stated once, applied everywhere across 4 output files. No post-processing pass needed.
+## What Makes Parallel Dispatch Actually Work
 
-This is closer to writing a function signature than writing a chat message. The difference shows up in session length.
+5 sequential variants take 5x as long. Parallel dispatch takes as long as the slowest single agent. The speedup is obvious. The less obvious requirement is what enables it.
 
-## What 25 Tool Calls Looked Like
+Each `frontend-implementer` agent starts with no shared state and no coordination channel. For all 5 to run independently, `plan.md` has to resolve every decision each agent would otherwise block on.
 
-5 minutes. 25 tool calls. Here's the breakdown:
+Vague: "Make it look professional and modern."
 
-| Tool | Count | What it did |
-|------|-------|-------------|
-| Read | 6 | Ingested `raw-2026-05-09.json`, `naver-notice-details-2026-05-09.json`, and 4 existing KB files |
-| Bash | 7 | Checked current file state, explored directory structure |
-| Edit | 8 | Updated `rolling-knowledge-base.md`, `competitive-serp-observations.md`, `source-index.md` |
-| Write | 1 | Created `2026-05-09-daily-update.md` from scratch |
-| TodoWrite | 2 | Tracked task progress internally |
+Specific enough to run independently: "V3: motion dark theme. Background `#0a0a0f`. Hero section uses floating gradient blobs animated via `@keyframes drift`. Canvas particle effect behind the CTA. Font: `Space Grotesk` for headings, `Inter` for body. No light mode variant."
 
-The sequence makes sense: read sources, read existing state, diff the two mentally, write only the new and changed content. No redundant re-reads, no exploratory Bash calls, no half-written files. The explicit file list in the prompt eliminated the guessing loop that usually inflates token and tool usage.
+The difference is decision surface. Vague briefs generate agents that either make assumptions (producing inconsistent results) or stop to ask questions (losing the parallelism benefit entirely). Specific specs generate agents that execute.
 
-## The 2 Signals That Mattered
+Creating `plan.md` with a dedicated agent before dispatching the implementers was the right call. That planning agent had the space to think through each variant in isolation, producing specs detailed enough that the implementers could run in parallel without coordination.
 
-Most SERP and policy changes are noise. These two weren't.
+## Tool Call Breakdown
 
-**Signal 1 — Place Ad Display Count Increase (effective May 14)**
+**Session 2 (redesign):**
 
-Naver's official policy change: Place ads now show more listings per result page, across all business categories including clinics. For any dental practice running Place ads, the competitive dynamic shifts — more slots means different bid dynamics and visibility curves.
+| Tool | Calls | Purpose |
+|---|---|---|
+| `Agent` | 28 | Subagent dispatch — 5 parallel implementers, verifier, Codex cross-verification |
+| `Bash` | 26 | Diff generation, file moves, server checks |
+| `TaskUpdate` / `TaskCreate` | 13 | Progress tracking |
+| `ToolSearch` | 5 | Schema loading |
+| `WebFetch` | 5 | Site analysis |
 
-Filed in `rolling-knowledge-base.md` under `officially confirmed`. This one has a hard date and a direct source, so the label is unambiguous.
+**Session 1 (dental ad cron job):**
 
-**Signal 2 — New Conversion Metric: Purchase Completion ROAS (effective May 13)**
+A separate task — 5 file updates to the `dentalad` cron workflow plus an HTML report. `claude-opus-4-7` handled it directly: 7 minutes, 23 tool calls, no subagents. Small, well-scoped tasks don't benefit from orchestration overhead. The pipeline for small tasks is: read, edit, verify. Not: plan, dispatch, verify, cross-verify.
 
-Search ad campaigns gain a new built-in metric. Power Contents and Place campaigns are excluded from this rollout. Documented in `competitive-serp-observations.md`.
+## Output Structure
 
-This matters because bid optimization strategies that rely on conversion signals need to account for a new metric appearing in dashboards. If you're advising clients on campaign structure, knowing this before May 13 gives you a one-day edge to set expectations.
+The comparison canvas lives at `/Users/jidong/coffee-chat-redesign/` as a single HTML file. Each of the 5 variant cards has a "View →" link that opens the variant in a new tab. Browser-native comparison — no screenshots, no tool switching, just tab-hopping between full-page renders. The client picks directly in the browser.
 
-Beyond these two, 8 SERP observations were incorporated — all labeled `public SERP observation` to keep the confidence level clear.
-
-## What Didn't Get Done (And Why That's Correct)
-
-`naver-ranking-hypotheses.md` wasn't updated this session. The raw source data didn't contain anything strong enough to revise existing ranking hypotheses.
-
-Skipping it was the right call. A research agent that updates files when there's nothing to update is noisier than one that holds. Explicit scoping in the prompt — listing only the files that should change — prevented phantom updates.
-
-After the May 14 Place ad change rolls out and SERP shifts become measurable, that file gets an update with actual data.
-
-## Broader Pattern: Agents as Domain Compilers
-
-What this workflow resembles more than anything is a compiler pass over domain knowledge. Raw JSON goes in. Structured, labeled, anonymized knowledge base files come out. The model's job is to apply the transformation rules consistently.
-
-The prompt defines the rules. The file list defines the scope. The label taxonomy defines the output type system. When all three are tight, the model behaves like a deterministic transform — not a creative agent making things up.
-
-This pattern generalizes. Anywhere you have:
-- Structured or semi-structured input data
-- A defined output schema (in this case, labeled markdown sections)
-- Domain rules that require judgment to apply
-
-...Opus running a tight prompt like this is a reasonable design choice. The 5-minute session time and 25 tool calls are a benchmark for what "tight" looks like in practice.
+Round 2 (professional, education-platform trust signals, Inflearn reference baseline) continues next session.
 
 ---
 
