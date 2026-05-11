@@ -1,125 +1,185 @@
 ---
-title: "5 Parallel Agents, 102 Tool Calls, and the SRI Hash Bug Only Codex Caught"
+title: "12 Tool Calls, 0 Files Modified: When Claude Code's Orchestration Hooks Blocked Themselves"
 project: "portfolio-site"
 date: 2026-05-11
 lang: en
 pair: "2026-05-11-portfolio-site-ko"
-tags: [claude-code, agent, parallel, design, automation, codex]
-description: "102 tool calls across two sessions: parallel agent dispatch cut design iteration time, Codex cross-verification caught a silent SRI hash mismatch, a cron agent shipped 6 artifacts in 7 minutes."
+tags: [claude-code, hooks, orchestration, debugging, dentalad]
+description: "A single state.sh Bash call triggered my PreToolUse hook, cascading into 12 cancelled tool calls and zero output. Here's what happened."
 ---
 
-102 tool calls. Two sessions. Zero lines of code written manually.
+12 tool calls. Zero files read. Zero files modified. The session produced nothing — not because the task was beyond Claude Code's capability, but because my orchestration system's PreToolUse hook blocked a Bash call, and that Bash call was bundled with 4 Read calls in the same response.
 
-One session was a scheduled cron agent handling dental advertising automation. The other was a full site redesign that went through multiple direction pivots before landing. Both ran without me touching an editor once.
+**TL;DR**: A `source ~/.claude/workflows/.../lib/state.sh` call triggered my PreToolUse hook and was blocked. Claude Code's parallel tool execution model cancelled the co-bundled Read calls as collateral damage. Retries had the same structure. After 12 tool calls across 3 user messages, nothing was accomplished. Root cause: the orchestration layer over-classified a read-only task and injected state management code that didn't belong there.
 
-**TL;DR**: Dispatched 5 parallel `frontend-implementer` agents simultaneously — total iteration time collapsed to roughly one agent's runtime. Codex cross-verification caught an SRI hash mismatch (production URL, development hash) across 4 components before they shipped. A cron agent completed 6 artifacts in 7 minutes with 23 tool calls.
+## A 15-Line Summarization Task That Should Have Taken 30 Seconds
 
-## The Cron Agent: 7 Minutes, 6 Artifacts, No Input From Me
+The session was a daily research task for a dental/medical advertising project. The goal: read 4 summary files and propose key changes to an existing knowledge base, in 15 lines or fewer.
 
-The first session was a daily automation run for the `dentalad` project — a dental advertising knowledge base I maintain. A cron agent triggered against goals defined in `medical_dental_ads_daily_goal.md`.
+Files to read:
 
-The agent:
-1. Read `rolling-knowledge-base.md` to understand existing structure
-2. Added §2.7 (dual pillars of site search ad placement guidance) and §2.8
-3. Updated `competitive-serp-observations.md` with new SERP data
-4. Refined `naver-ranking-hypotheses.md` with updated hypotheses
-5. Created `2026-05-10-daily-update.md` as the daily digest
-6. Generated `2026-05-10-place-ads-roas-serp-patterns.html` — a mobile-friendly HTML report
+- `sources/serp-2026-05-11/summary.json`
+- `2026-05-10-daily-update.md`
+- `rolling-knowledge-base.md`
+- `source-index.md`
 
-Tool distribution: Read(9), Edit(8), Bash(3), Write(2), Grep(1). Nine Read calls before writing anything. This isn't slow — it's correct. Writing into an existing knowledge base without reading first creates duplicates and breaks structural consistency. The Read-heavy pattern is intentional.
+That's it. Read four files, write a short summary. No code changes. No API calls. No file writes. A task that should take seconds.
 
-### Label Conservatism as a Constraint
+But the orchestration workflow context was active.
 
-The most important rule in this cron agent is **epistemic label conservatism**. The prompt enforces explicit source tags on all claims:
+## One Bash Block, Eight Read Cancellations, Zero Output
+
+My Claude Code setup runs a multi-agent orchestration system. Every task gets classified as `trivial`, `simple`, `standard`, or `major`. Based on classification, the system injects workflow context into Claude's response — including calls to update `state.json` via a shell helper (`state.sh`).
+
+For this session, the orchestration layer classified the task as `simple` (not `trivial`). That distinction matters: `simple`-and-above tasks are expected to call `state.sh` to update their stage to `implementing` before doing any work.
+
+The first response bundled the state update with the file reads:
 
 ```
-Official confirmation / Official help-based interpretation / Public SERP observation /
-Industry observation / Reasonable inference / Needs verification / Unverified figure / High-spend estimate
+[Parallel tool calls in response 1]:
+- Bash: source ~/.claude/workflows/.../lib/state.sh && state_set stage implementing
+- Read: sources/serp-2026-05-11/summary.json
+- Read: 2026-05-10-daily-update.md
+- Read: rolling-knowledge-base.md
+- Read: source-index.md
 ```
 
-Why this matters in medical advertising: if the agent invents a CPC or ROAS figure, that number gets saved to the knowledge base, gets referenced in future agent runs, and can inform real advertising decisions. In regulated domains, fabricated metrics aren't just inaccurate — they're a compliance liability.
+The PreToolUse hook blocked the Bash call. And here's the cascade: in Claude Code, when tool calls are bundled in a single response and one fails, the others can be cancelled. All 4 Read calls were cancelled as collateral damage from a single Bash block.
 
-I verify the agent holds this constraint daily by reviewing what got written. So far it's held consistently.
+The second attempt had the same structure. Same result.
 
-## "All Bad" — How Feedback Steers the Wheel
+By the third user message, the instruction changed: "Just give me the summary from what you've read so far. Don't read any more files."
 
-The second session was a redesign of `coffeechat.it.kr`. Starting prompt:
+Nothing had been read. There was nothing to summarize.
 
-> "Redesign the coffeechat site. Give me at least 5 variations so I can choose."
+## Tool Call Autopsy
 
-After the first round: *"These are all bad. None of them look professional."*
+| Tool | Count | Outcome |
+|------|-------|---------|
+| Read | 8 | All cancelled |
+| Bash | 4 | All blocked or cancelled |
+| Edit | 0 | — |
+| Write | 0 | — |
 
-This is how Claude Code should work. The first output is a starting point, not a result. The productive loop is: **output → feedback → direction reset → re-run**. The tighter this loop, the more useful the tool becomes.
+**Total**: 12 tool calls. **Useful output**: 0.
 
-Before generating anything else, I analyzed the site. The actual domain turned out to be specific: a **mentoring platform for people trying to enter the gaming industry**. 1:1 coffee chats with professionals at gaming companies, resume reviews, mock interviews focused on game QA, design, engineering, and production roles.
+The 8 Read calls split across two attempts: 4 in the first response, 4 in the retry. Every single one was cancelled due to the accompanying Bash call failing.
 
-This context changes everything about the design direction. A generic "professional" look doesn't work for a platform where the target audience grew up playing games and wants to break into making them. The aesthetic needs to communicate both credibility (you'll get real career help here) and domain fit (this is for game industry people, not finance or consulting).
+The 4 Bash calls were all variations of the same `state.sh` source operation. All blocked by the PreToolUse hook configuration.
 
-With that understanding in place, I wrote a plan before dispatching anything.
+## The Two-Layer Root Cause
 
-## Dispatching 5 Frontend Agents in Parallel
+The failure has two distinct layers, and both need to be fixed independently.
 
-The plan went to `~/.claude/workflows/Users-jidong-fac058f9dd/current/plan.md` first. All agents read from this file before starting. This matters — dispatching 5 agents with verbal descriptions produces 5 variations that don't actually vary around anything coherent. A written plan gives every agent the same baseline.
+**Layer 1: Misclassification.**
 
-Then I dispatched 5 `frontend-implementer` agents simultaneously:
+Reading 4 files and writing 15 lines is not a `simple` task by the system's own definition — it's `trivial`. Trivial tasks are not expected to update workflow state, so no Bash calls get injected. The orchestration routing logic failed to classify a read-only task correctly.
 
-| Variation | Concept | Key Choices |
-|---|---|---|
-| V1 Editorial Magazine | Korean indie magazine aesthetic, editorial whitespace | Instrument Serif · cream `#f4eee4` · 12-column grid |
-| V2 Soft Brutalist | Bold borders, high contrast color blocks | Lime/pink palette, heavy typography |
-| V3 Glassmorphism | Floating gradient blobs, dark background | Dark glass panels, layered depth |
-| V4 Education Platform | Structured trust signals, clean layout | Light background, academic credibility cues |
-| V5 Gaming Industry | Domain-specific visual language | Dark mode with game-industry accent colors |
+The system classifies based on signals like "file modifications planned," "code changes expected," "API calls needed." A pure read + summarize operation should score as `trivial` every time. But with the workflow context active and a multi-file read operation, the classifier bumped it to `simple`.
 
-Sequential generation of 5 variations takes 5× the time for one. Parallel generation takes roughly 1× the time for one, plus coordination overhead. In practice, the session time for all 5 was close to what a single variation would have taken sequentially. The 28 Agent tool calls in this session are mostly dispatch, review, and re-dispatch events — this pattern is the mechanism behind the time compression.
+**Layer 2: Parallel bundling of sequential dependencies.**
 
-## Codex Caught What Design Review Missed
+Even if the task was legitimately `simple`, the state update and the file reads should not have been bundled in the same response. The state update must succeed before the reads are meaningful — that's a sequential dependency, not a parallel operation.
 
-After parallel implementation finished, `design-reviewer` and `code-verifier` ran on each variation. V3 had a blocker — the floating gradient blobs weren't rendering correctly. Fixed immediately.
+When you bundle operations A, B, C, D, E where A must succeed before B–E have value, and A fails, B–E become orphaned. Claude Code's response model doesn't automatically decouple them.
 
-Then Codex cross-verification ran. It found something that both design review and code verification missed.
+The correct pattern:
 
-V2, V3, V4, and V5 were loading `react.production.min.js` but with SRI hashes generated for `react.development.js`. These are different build outputs with different content — the hashes don't match.
+1. Response 1: Bash only (state update)
+2. Response 2: Read calls only (after confirming state update succeeded)
 
-```html
-<!-- Bug: production file URL with development build hash -->
-<script
-  src="https://unpkg.com/react@18/umd/react.production.min.js"
-  integrity="sha384-[development-build-hash]"
-  crossorigin="anonymous"
-></script>
+Instead, everything went into one response, and the failure propagated to everything.
+
+## The Design Tension No One Talks About
+
+There's a real tension in AI automation systems between thoroughness and fragility.
+
+A thorough orchestration system tracks state. It knows what stage a task is in. It enforces discipline: you don't move to `implementing` without logging it. This is genuinely useful for complex multi-agent workflows where 6+ files change across multiple agents, where Claude Code hands off to Codex for cross-verification, where the work spans multiple sessions.
+
+But for a 15-line summarization task, this overhead isn't just useless — it's actively harmful. The state management machinery is correct in isolation. The problem is that it fires even when the task doesn't warrant it.
+
+This is the classic overhead-vs-value mismatch in automated systems. The cost of applying orchestration to a trivial task isn't zero overhead — it's negative value. The system becomes an obstacle.
+
+The irony: this session was part of building a more reliable AI workflow. The orchestration system exists to make Claude Code more disciplined. And the orchestration system blocked a read-only task from reading anything.
+
+## Read-Only Collateral Damage
+
+The frustrating part of this session isn't the blocked Bash call. That's expected — the hook exists to prevent unintended state mutations. The frustrating part is that 8 Read calls, which pose zero risk, were caught in the blast radius.
+
+Read calls don't modify anything. They're diagnostic. A PreToolUse hook that blocks Bash shouldn't have any effect on Read calls. But Claude Code's response batching means they're treated as a unit — succeed or fail together.
+
+This is a limitation of the parallel tool call model, not a bug in the hook logic. The hook saw a Bash call and blocked the whole response batch. Perfectly correct behavior. Perfectly wrong outcome.
+
+One mitigation: explicitly separate infrastructure tool calls from work tool calls in the orchestration prompt. "First, call Bash to update state. Do not call any other tools in that same response." This forces sequential execution and breaks the bundling at the source.
+
+## Two Fixes That Would Have Prevented This
+
+**Fix 1: Sharpen the trivial classifier.**
+
+The orchestration system needs a cleaner definition of `trivial`:
+
+- No code changes planned
+- No file writes planned
+- Pure read + analysis/summarize
+- Single-domain, single-session scope
+
+When all four conditions hold, the task should be `trivial` regardless of how many files it reads. Trivial tasks skip state management entirely — no `state.sh` calls, no workflow stage updates, no hook exposure.
+
+The fix lives in the routing prompt injected by the `UserPromptSubmit` hook. Explicit heuristics: if the intent is "read X and summarize," classify as `trivial` before anything else runs.
+
+**Fix 2: Never bundle Bash and Read in the same response.**
+
+This is the more durable fix because it handles misclassification gracefully.
+
+If a state update Bash call is needed, it goes alone in its own response and must succeed before anything proceeds. File reads follow in a subsequent response, after the state update is confirmed.
+
+Structure:
+
+```
+Turn 1: Bash (state.sh source + state_set)
+Turn 2: Read (file reads, only after Bash succeeds)
+Turn 3: Analysis/output
 ```
 
-In any browser with Subresource Integrity enforcement, this script loads and is blocked at integrity check. React components fail silently. No console error explains why. You get broken UI with no obvious diagnosis path.
+The cost is one extra round-trip. The benefit: a Bash block cannot cascade into Read cancellations. The two operation types are decoupled by design.
 
-This bug is hard to catch visually because everything looks structurally correct: CDN URL format is right, `integrity` attribute is present, `crossorigin` is set. Only a reviewer checking whether the hash corresponds to the right build variant would catch it.
+## What "Trivial" Actually Means in a Multi-Agent System
 
-Codex reviewed the code independently — no shared context with the agents that generated it — and flagged the mismatch. This is the value of cross-verification: a second pass with no shared blind spots. After the fix, all 4 affected variations cleared verification.
+The `trivial` classification isn't just about effort. It's about isolation.
 
-## The Harder Problem: Trend Variations Without Domain Trust
+A trivial task is self-contained: it reads some data, produces some output, and has no side effects that other tasks need to know about. There's no reason to log it in a state machine. There's no workflow to track. The output exists in the conversation, not in a file that another agent reads.
 
-With 5 variations open side by side, the structural problem became visible. I had 5 design trend explorations — none of which answered the question a user actually asks when landing on a mentoring platform: *"Will this actually move my career forward?"*
+When an orchestration system injects state management into a trivial task, it's not being thorough — it's confusing thoroughness with universality. Not every task is a step in a larger workflow. Some tasks are just tasks.
 
-Design trend (glassmorphism, soft brutalism, editorial) is not the same thing as domain appropriateness. A game industry mentoring platform needs specific trust signals: visible mentor credentials, outcome data, social proof from people in comparable situations, clarity on what "coffee chat" actually means in practice. None of the 5 variations had this.
+The classification boundary should be:
 
-I analyzed what established learning platforms do — Inflearn, Class101, FastCampus — and the visual language became clearer. It's not about aesthetic trends. It's about information architecture that reduces uncertainty. That analysis triggered another redesign pass.
+> Does this task produce an artifact that another automated step needs to consume?
 
-The session ran 85 hours and 21 minutes total. Not code time — direction-finding time. Three feedback loops, two analysis passes, multiple round trips between "what looks good" and "what communicates the right thing to the right person."
+If no, it's `trivial`. The dental research summarization was a human-readable 15-line output. No other agent was going to read it. No `state.json` entry would ever be referenced. It was trivial by definition, and the classifier missed it.
 
-Claude Code doesn't shorten the direction-finding process. It shortens the distance between "we have a direction" and "we have working implementation." The direction problem is still a human problem.
+## Why Zero-Output Sessions Matter Most
 
-## Session Stats
+Some developers skip writing build logs when nothing shipped. I don't, because failed sessions contain information that successful ones don't.
 
-| | Session 1 (Cron) | Session 2 (Redesign) |
-|---|---|---|
-| Duration | 7 min | 85h 21min |
-| Tool calls | 23 | 79 |
-| Files | 6 created | 4 modified, 3 created |
-| Primary tools | Read, Edit | Agent, Bash |
+This session taught three things that aren't visible from reading the orchestration code:
 
-Full distribution across 102 tool calls: Bash(29), Agent(28), Read(9), Edit(8), TaskUpdate(7), TaskCreate(6), ToolSearch(5), WebFetch(5).
+**1. The orchestration system can block itself.** It's not just that hooks might block external code — the orchestration's own state management code can trigger its own hooks. The system can be its own adversary. You can't unit-test for this; it only surfaces in live sessions.
 
-The distribution reflects the shape of the work. Cron automation — short, structured, repetitive — produces a Read-heavy, Edit-heavy fingerprint. Parallel design work produces an Agent-heavy, Bash-heavy fingerprint. The tool histogram is a reliable indicator of task type: if you see lots of Agent calls, something was parallelized; if you see lots of Read calls before Edits, the agent was building context before writing.
+**2. A single Bash block can cascade into multiple Read cancellations.** The tool call bundling behavior means infrastructure calls and work calls share fate when they're in the same response. This coupling is invisible until it causes a failure.
+
+**3. Misclassifying a trivial task isn't just overhead-expensive — it's failure-expensive.** A misclassified read-only task doesn't just waste tokens. It can result in a session that produces literally zero useful output, followed by a confused "just summarize what you've read" request that has no answer because nothing was ever read.
+
+You can't learn these cases by reading orchestration code. You have to hit them in production. That's why the log exists.
+
+## The Bigger Pattern
+
+Every automation system eventually automates things it shouldn't. The discipline is recognizing when the automation's coverage exceeds the automation's competence.
+
+My orchestration system is competent at managing complex multi-agent workflows — parallel Claude Code and Codex workers, cross-verification steps, state handoffs between sessions. It's not competent at staying out of the way for trivial tasks. That's a coverage problem.
+
+The fix isn't to remove the orchestration. It's to sharpen the boundary between "tasks where orchestration helps" and "tasks where orchestration just adds friction." That boundary is currently drawn too aggressively. Read-only tasks with human-readable output should be firmly outside it.
+
+Sessions like this one help draw that line.
 
 ---
 
