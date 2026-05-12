@@ -1,132 +1,100 @@
 ---
-title: "Redesigning a Photographer's Site with Claude Code: 19 Sessions, 436 Tool Calls"
+title: "AI Reviewing AI: Automating Medical Ad QA with Claude Opus (2 Sessions, 13 Tool Calls)"
 project: "portfolio-site"
 date: 2026-05-13
 lang: en
 pair: "2026-05-13-portfolio-site-ko"
-tags: [claude-code, design, static-site, animation, apple-design]
-description: "How I rebuilt a photographer's static HTML site into an Apple-like design in one day: 65KB CSS nuked, handwriting SVG animation, and a lot of 'continue where you left off'."
+tags: [claude-code, ai-qa, dental-ads, automation, content-verification]
+description: "A meta QA workflow where AI verifies AI-generated medical ad briefings. Cross-validated Notice IDs, SERP stats, and AI briefing counts across 2 sessions and 13 tool calls."
 ---
 
-436 tool calls. 19 sessions. At least 5 times typing "Continue from where you left off." That's the build log for `daymoon-pic-site` — a photographer's static HTML site I rebuilt from scratch into an Apple-like design in a single day using Claude Code.
+Today I wrote zero lines of code. Two sessions, 13 tool calls, no file edits — and that was the whole point.
 
-**TL;DR** Replaced a 65KB `!important`-riddled CSS file with 1,373 lines of clean, layered architecture. Built a handwriting logo reveal animation using the `mask-position` trick. Sessions kept hitting the turn limit mid-task, so session continuity became a recurring problem.
+**TL;DR** I ran Claude Opus over the `research/daily-medical-dental-ads/` artifacts to cross-validate factual consistency. Ten Notice IDs, ten SERP keyword classifications, one AI briefing frequency count — all matched `summary.json` exactly. No blocking issues.
 
-## 322 Files, 6,827 Insertions — Starting from Zero
+## "If It's Fine, Just Say Fine" — How a One-Liner Shaped the Whole Prompt
 
-The site had no git history when I started. There was a `.vercel/` folder indicating it was deployed to Vercel, but no version control at all.
-
-The first task looked simple: create `.gitignore`, run `git init`, make the initial commit. What I didn't expect was that Claude caught the `.vercel/` folder and flagged it as containing sensitive credentials — specifically the Vercel project token. It got added to `.gitignore` before the first commit. Doing this manually, I'd probably have missed it.
-
-First commit: `5cb7701` — 322 files, 6,827 insertions. The Apple-like redesign started immediately after.
-
-## Why Throw Away 65KB of CSS
-
-The original `styles.css` was 65KB. The product of years of layering on top of layers:
-
-```css
-/* hundreds of lines like this */
-.brand-text { font-size: 1.5rem !important; }
-.header .brand-text { font-size: 1.8rem !important; }
-@media (max-width: 768px) {
-  .header .brand-text { font-size: 1.2rem !important; }
-}
-```
-
-Claude's diagnosis was accurate: "The 65KB CSS is dense with accumulated `!important` overrides. A clean Apple-style rewrite is the most effective path."
-
-The output was 1,373 lines. Structure: CSS tokens → reset → typography → layout → header → drawer → animations → per-section styles → responsive. Zero `!important`.
-
-During this process, Codex flagged a `search-link` in cross-verification. A magnifying glass icon that navigated to the gallery instead of triggering search — a fake search affordance. Users would reasonably expect it to be a search function. It got removed from four HTML files and the CSS.
-
-## The "Continue from Where You Left Off" Pattern
-
-The most-used prompt in this entire project was probably:
+The first session's prompt was longer than I'd like:
 
 ```
-Continue from where you left off.
+Review today's medical/dental ads daily update artifacts for factual consistency,
+label discipline, and Telegram safety. Read these files only:
+research/daily-medical-dental-ads/2026-05-13-daily-update.md,
+research/daily-medical-dental-ads/reports/2026-05-13-ai-briefing-info-keyword-and-place-d1.html,
+research/daily-medical-dental-ads/sources/serp-2026-05-13/summary.json.
+Report only issues that must be fixed before delivery; if none, say OK.
 ```
 
-Or in more specific form:
+The critical line is the last one: "Report only issues that must be fixed before delivery; if none, say OK."
+
+Most QA prompts leave this open — "look it over carefully," "give me thorough feedback." Open-ended prompts produce open-ended output: minor stylistic notes, suggestions, things that would be nice to fix. None of that is useful when the question is *can this ship*.
+
+The second session tightened further:
 
 ```
-Continue/finalize the current Daymoon changes. There are uncommitted changes
-for script wordmark/intro/gallery tabs.
+Quick review for blocking problems only.
+Focus on factual consistency, labels, no specific hospital names/addresses
+in user-facing report, and no unsupported metric claims.
+Return 'OK' if no blocking issues, otherwise list fixes.
 ```
 
-Sessions kept hitting max turns mid-task. Each time, Claude would read the working tree diff to reconstruct where things stood, then pick up from there. In practice this worked fine — no actual data was lost. But each handoff cost time on the "what's the current state?" step.
+"Blocking problems only" narrows the scope explicitly. No design feedback, no sentence suggestions. Just: is there anything that stops deployment.
 
-The fix is smaller task units. Kicking off a session with "logo + intro + gallery tabs in one go" is how you get interrupted mid-flight. Splitting by feature would have meant fewer continuations.
+The difference in output between these two prompting styles is not subtle. One produces a report you have to triage. The other produces a decision.
 
-## The Handwriting Logo Animation: mask-position Trick
+## What Got Verified — 3 Checkpoints
 
-The intro sequence centers on `daymoon` appearing like it's being handwritten in real time.
+Medical advertising automation has a specific failure surface. Three things matter before any briefing goes out.
 
-The technique is a `mask-position` reveal:
+**Data consistency.** The markdown daily update and the HTML report both derive from `summary.json`. If a number in the report diverges from the source JSON — even by one — it's a data integrity problem. The Notice IDs verified this session: 31509, 30960, 31453, 30865, 31287, 31426, 31006, 31243, 31120, 31126. All ten matched the source exactly. SERP keyword classification (eight local/treatment queries, two informational) also matched.
 
-```css
-.intro-mark-ink {
-  -webkit-mask-image: linear-gradient(to right, black 50%, transparent 50%);
-  -webkit-mask-size: 200% 100%;
-  -webkit-mask-position: 100% 0;
-  animation: inkReveal 1.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
-}
+**Label discipline.** Under Korean medical advertising law, directly surfacing specific hospital names or addresses in user-facing reports requires separate licensing. The automated briefing strips this. A single Grep confirmed no hospital name or address leaked into the output layer.
 
-@keyframes inkReveal {
-  from { -webkit-mask-position: 100% 0; }
-  to   { -webkit-mask-position: 0% 0; }
-}
-```
+**AI briefing frequency.** The markdown noted that AI briefings were detected six times for the `임플란트 통증 기간` (implant pain duration) keyword. Cross-referencing with the same field in `summary.json`: match.
 
-A gradient mask sits over the text. The mask position moves right-to-left, revealing the letters from the left edge outward. The `cubic-bezier(0.4, 0, 0.2, 1)` timing — fast start, slow finish — makes it feel like a brush stroke decelerating at the end.
+The second session's verdict:
 
-There was a timing bug on the first implementation. The CSS animation runs 1.8 seconds (200ms delay → 2000ms end). The JS scheduler was removing the `is-in` class at 2250ms — a 250ms overlap that clipped the wordmark just before completion. Moving the scheduler to 2500ms fixed it.
+> Notice IDs, SERP totals, AI briefing count of 6 on `임플란트 통증 기간` — all match summary.json. No blocking issues.
 
-The font is Sacramento from Google Fonts. CSS alone couldn't produce a script feel convincing enough, so the web font was added. All four HTML files got preconnect and `<link>` tags. Cache-busting version incremented to `dm-script-20260512-4` by the end.
-
-## Gallery and Contact Improvements
-
-The gallery was a one-line change — from two columns to three on mobile:
-
-```css
-.portfolio { grid-template-columns: repeat(3, 1fr); }
-```
-
-The contact page required more rethinking. The original had a name/email/message form as the primary affordance. But photography inquiries actually come through Instagram DM. The `ig.me/m/daymoon_pic` link became the primary CTA, using the existing `assets/logo-instagram.svg`. The form was removed entirely.
-
-Header logo centering was a `position: absolute` solution. With a hamburger menu on the left and navigation on the right, flexbox centering produces a visually off-center result. Setting `position: absolute; left: 50%; transform: translateX(-50%)` on the brand text anchors it to true viewport center regardless of the surrounding elements.
+That's the output. One paragraph. Enough to ship.
 
 ## Tool Usage Breakdown
 
-Across 19 sessions and 436 tool calls:
+Two sessions, 13 tool calls total.
 
-| Tool | Count | % |
-|------|-------|---|
-| Bash | 202 | 46% |
-| Read | 113 | 26% |
-| Edit | 70 | 16% |
-| Grep | 31 | 7% |
-| Write | 8 | 2% |
-| TodoWrite | 4 | 1% |
-| Agent | 3 | 1% |
+| Tool | Count | Share |
+|------|-------|-------|
+| Read | 9 | 69% |
+| Bash | 3 | 23% |
+| Grep | 1 | 8% |
+| Edit | 0 | — |
+| Write | 0 | — |
 
-Read at 1.6× Edit is the expected ratio for careful changes — read before modifying. But part of that Read count is session reconnect overhead: every time a session resumed, Claude re-read the working tree state before continuing.
+Read dominates because three files (`daily-update.md`, the HTML report, `summary.json`) were read in both sessions — that's six reads as a baseline, plus three more for spot checks. Bash calls were JSON field extraction and file size checks. The single Grep was the hospital-name leak check.
 
-Bash at nearly 3× Edit reflects the verify → execute → re-verify cycle that dominated this work. Most Bash calls were `git status`, `git diff`, and build checks between edits.
+No writes. No edits. This was a pure read-and-compare operation.
 
-Six files were created (`.gitignore`, `WORKLOG.md`, `daymoon-wordmark.svg`, `contact.html`, `plan.md`, `verifier-report.md`), seven were modified. Nearly five sessions did nothing but git admin — commit, push, update WORKLOG. That's a direct consequence of implementation sessions ending before they committed.
+## Is AI QA Actually Practical?
 
-> Implementation sessions can run long. But commit and WORKLOG update need to happen inside the same session. The moment they split off, you get a dedicated "finish this up" session.
+The pattern here is using AI to verify AI-generated output for factual consistency. The alternative — having a person cross-reference ten Notice IDs against a JSON source — sounds simple until you do it under time pressure. Numbers blur. Attention drifts. One transposed digit passes human review.
 
-## What Carries Forward
+Claude Opus read three files and compared them in roughly 30–60 seconds of subjective wall time (accounting for tool call latency). Whether the result is "OK" or "needs fixes" doesn't matter — it's faster and less error-prone than a human doing the same mechanical comparison.
 
-Three things worth keeping from this build:
+The limitation is equally important to state clearly: this workflow only checks **mechanical consistency**. Does the number in the report match the number in the source? Is the label present or absent? That's all it does.
 
-**Smaller session scope beats mid-task recovery.** The "continue from where you left off" pattern works, but it has real cost. A session scoped to one feature — just the logo animation, just the gallery, just the contact page — ends cleaner and doesn't bleed into the next.
+What it doesn't catch: whether the logical flow of the briefing makes sense for the intended audience, whether a sentence that doesn't mention a specific hospital name still implies one through context, or whether a claim is technically accurate but misleading given the regulatory environment. Those require human review. They always will.
 
-**Cross-verification catches affordance bugs.** The fake search icon would have shipped. It's exactly the kind of UX issue that passes code review but fails a user test. Having Codex flag it during the CSS rewrite was a genuine catch.
+The practical split: rule-based checks (field existence, numeric match, prohibited keyword presence) go to Opus. Contextual and regulatory judgment stays with humans.
 
-**CSS architecture decisions compound.** Starting fresh from a token layer instead of patching the existing 65KB file wasn't just cleaner — it made every subsequent change faster. The redesign that followed would have been significantly harder to execute on top of the old codebase.
+## The Real Output
+
+The deliverable from today's sessions isn't code. It's a go/no-go decision: the briefing can ship.
+
+As AI automation pipelines grow longer — generation, formatting, distribution, archival — the outputs of each stage accumulate. At some point you need a verification layer that can keep up with the generation rate. Human reviewers become the bottleneck. Inlining AI QA into the pipeline removes that bottleneck for the mechanical checks.
+
+Prompt design determines what you get back. "Look this over carefully" and "report blocking issues only, say OK if none" produce fundamentally different outputs. For operational automation, you want the second. The first is for exploratory review; the second is for deployment gates.
+
+Two sessions. Thirteen tool calls. Zero edits. The pipeline is clean.
 
 ---
 
