@@ -1,93 +1,84 @@
 ---
-title: "Claude Code, 19 Sessions, 604 Tool Calls: Redesigning a Photographer's Portfolio Without the AI Look"
+title: "Dental Ad Research QC with Claude Code: 6 Reads, Zero Blocking Issues"
 project: "portfolio-site"
 date: 2026-05-14
 lang: en
 pair: "2026-05-14-portfolio-site-ko"
-tags: [claude-code, frontend, design, iteration, daymoon]
-description: "19 sessions, 604 tool calls, ~50 minutes: how Claude Code redesigned a photographer portfolio after the first attempt got rejected for looking 'too AI.'"
+tags: [claude-code, dental-ads, qa, research, claude-opus]
+description: "How I QC'd six dental ad research files with Claude Code — checking for hospital name leaks, contradictions, and missing labels. Zero blocking issues."
 ---
 
-The first redesign was rejected in under 5 minutes. "AI-feeling." Back to zero.
+One exposed hospital name in an HTML report is a Korean Medical Law violation. That single constraint shapes every QC step in my dental ad research automation pipeline.
 
-That was session 7 of 19 in a single day's work on `daymoon-pic-site` — a portfolio site for photographer Daymoon. By end of day: 604 tool calls, roughly 50 minutes of active work, and a commercial-grade redesign that actually got approved.
+**TL;DR**: Six Read tool calls covered all six research files. No hospital name or address leakage, no contradictions, no missing labels — zero blocking issues. Report ships tomorrow.
 
-This is a record of how that happened, including the parts that didn't go cleanly.
+## What Gets Checked — and Why It Matters
 
-**TL;DR** The first redesign attempt was rejected immediately for looking "too AI/generic." The second attempt — after a specific, concrete prompt — converged on something resembling a real commercial photographer site. The next 15 sessions were spent on details: slideshow transitions, language tone decisions that changed 4 times, and one hook false positive that blocked a response.
+My pipeline tracks Naver Place, blog, and SERP patterns for dental advertising clients. It runs daily and auto-generates research files. The problem: any output that lands in an HTML report could be surfaced to clients or flow into downstream tooling. If a specific clinic name slips into that report, it's a compliance issue under Korean Medical Law — not just a data quality problem.
 
-## Before the Redesign: Intro Animation and Drawer Cleanup
+Today's QC covered six files updated for 2026-05-14:
 
-Sessions 3–6 were incremental. Cursive logo intro animation (`script.js` FLIP morph), removing a duplicate DM button from the mobile drawer, unifying to Pretendard font, adjusting typography letter-spacing. Each session consumed 43–54 tool calls across repeated edits to `styles.css`, `index.html`, and `script.js`.
+- `research/daily-medical-dental-ads/2026-05-14-daily-update.md`
+- `rolling-knowledge-base.md`
+- `source-index.md`
+- `competitive-serp-observations.md`
+- `naver-ranking-hypotheses.md`
+- `reports/2026-05-14-place-ad-application-day-serp-pattern.html`
 
-Session 3 was the most technically dense of this phase. The FLIP transition — where a handwritten wordmark appears centered on screen, then flies to the header logo position — required a CDP verification script at `/tmp/verify_intro_flip.py` to confirm `body` class transitions (`intro-active → intro-morphing → intro-done`) and coordinate values. One session: 13 Read calls, 10 Edits, 9 Bash.
+Four criteria drove the check:
 
-## The "Do It Over" — When the First Direction Gets Rejected
+1. **Contradictions** — does anything in the daily update conflict with the established knowledge base?
+2. **Missing required labels** — are all observations tagged with source type, date, and confidence level?
+3. **Unsupported claims** — any assertions without a linked observation or source?
+4. **Hospital/address leakage** — does the HTML report contain any specific clinic name, address, or doctor name?
 
-Session 7 brought the first full redesign request. The feedback was direct:
+## One Prompt, Full Coverage
 
-> "Redo it. Proper commercial design — fonts, layout, structure that shows as many photos as possible. Built for product quality, both web and app."
+I passed all six file paths to Claude Opus 4.7 with a deliberately narrow instruction:
 
-Everything built up to that point — the cursive intro, the editorial caption layout — was "AI/generic." Sessions 8–9 invoked the `ui-ux-pro-max` skill and redesigned with a dense editorial layout: 5-column contact-sheet grid, product tab strip, mobile fixed DM bar. `styles.css` was rewritten from scratch.
-
-Session 9 also introduced a habit that pays off consistently: before writing any image paths into HTML, run a Bash command to list actual files in `assets/blog/` category folders. Obvious in retrospect — broken image paths from non-existent files are easily avoided — but doing it by default from the start is what makes the difference in production quality.
-
-## Throwing Out the Contact Sheet: The Slideshow Switch
-
-Session 10 stripped the hero marketing copy and reduced the grid from 5 columns to 3. Then session 11 changed direction entirely:
-
-> "Make the home page just one big photo that randomly fades in and out to the next image."
-
-The contact-sheet grid was replaced with a full-screen slideshow. Rotation logic went into `script.js`, `.home-slideshow` was added to `styles.css`. Session 11 set the record at 64 tool calls — Bash alone accounted for 27, because CDP-based QA validation ran in the same session.
-
-Session 13 changed the slideshow frame from full-bleed to an editorial portal style:
-
-```css
-.home-slideshow {
-  width: min(760px, calc(100% - 28px));
-  height: clamp(520px, 78svh, 860px);
-  margin: 0 auto;
-}
+```
+Read the updated daily research files for 2026-05-14 and review for blocking issues only:
+contradictions, missing required labels, unsupported claims,
+or specific hospital/address leakage in the HTML report.
+Return OK if no blocking issues, otherwise list exact fixes.
 ```
 
-This session also produced the one hook false positive of the project. The worklog summary included a phrase mentioning zero instances of `console.log`, `debugger`, and `TODO`. The Stop hook detected "TODO" in that string and blocked the response. Rewording to "zero debug/residual markers" cleared it. Hooks match patterns, not intent — that distinction matters when writing worklog text that gets scanned.
+The key phrase is "blocking issues only." No improvement suggestions, no style comments, no recommendations. The purpose of this QC is to make a deployment decision — not to do a code review. Narrow prompts produce sharp results. Six Read calls later, all files were verified. No exploratory reads, no retries — exactly the six files, in order.
 
-## Four Language Decisions in Five Sessions
+## What the Verification Actually Found
 
-Sessions 14–18 were entirely about the product page language.
+**Hospital leakage check**: The HTML report uses search query labels throughout — things like "Gangnam dental" or "Cheongdam laminate" — not clinic-specific identifiers. No `OO치과의원`, no addresses, no doctor names. The pipeline was designed from the start to use keyword labels rather than entity names, so this held cleanly.
 
-- Session 14: switched to English (`Product`, `Graduation`, `Couple` tabs)
-- Session 15: reversed to Korean (`촬영 메뉴`, `졸업스냅`, `커플스냅`)
-- Sessions 16–17: pushed Korean into page navigation as well
-- Session 18: finalized as "content-only Korean" — nav reverted to English
+The critical distinction is subtle in context: "Gangnam dental" is a search keyword. "Gangnam Yonsei Dental Clinic" is a hospital name. Surrounded by SERP data and observation notes, that line can blur. The HTML report stayed on the right side of it throughout.
 
-Final state: site-wide nav (`Gallery / Product / Contact / DM`) in English, product page content (`촬영 메뉴`, tabs, panels, `문의하기`) in Korean.
+**One interesting data point from the contradiction check**: In a 10-sample observation for the Cheongdam laminate query, Naver Place returned zero results. External platforms returned six. This isn't a contradiction — it's an actual SERP pattern difference, recorded as such. It supports the hypothesis that Naver Place ad exposure and external platform exposure move independently. The knowledge base already had this as an open hypothesis; the daily update added a confirming data point rather than conflicting with it.
 
-Each session in this sequence averaged 15 Edit calls. This is what iterating on the same files back and forth looks like in Claude Code — because context resets per session, each one starts with a `Read` to get current file state, then applies only the diff needed. No external state tracking required; the file is always the source of truth.
+**Labels and sourcing**: Every entry had a source link or observation record attached. No unsupported claims found.
 
-## Tool Call Distribution Across 19 Sessions
+## Tool Usage
 
-604 total, broken down:
+| Tool | Calls |
+|------|-------|
+| Read | 6 |
+| **Total** | **6** |
 
-| Tool | Count | Role |
-|------|-------|------|
-| Bash | 193 | Validation, git diff, file listing |
-| Read | 172 | File state check before each change |
-| Edit | 141 | Actual modifications |
-| Grep | 59 | Class/string location lookup |
-| TodoWrite | 17 | Step-by-step checklists |
+Edit: 0. Write: 0. Bash: 0. Pure verification session.
 
-Read outpaces Edit by 31 calls. In a context-reset-per-session model, Claude Code consistently reads current file state before modifying — that's the mechanism that keeps results consistent across sessions without inter-session continuity. It's not a workaround; it's the correct operating mode.
+## Why Opus for QC
 
-Average: 32 tool calls/session, ~2.6 minutes/session. Longest session (11): 64 calls. Shortest: 5 calls.
+Speed isn't the constraint here — accuracy is. The keyword-vs-clinic-name distinction is obvious in isolation. In context, surrounded by SERP data and observation notes, it requires careful reading of the full document, not just a pattern match.
 
-## What This Project Actually Teaches
+Missing that distinction once costs more than any model pricing difference. Opus handles the final blocking-issue determination; Sonnet or Haiku handles plenty of other steps in the pipeline — data collection, summarization, formatting. But the compliance-adjacent verdict stays with the most capable model available. The asymmetry in risk justifies the asymmetry in model choice.
 
-**Vague feedback multiplies iterations.** "Avoid the AI look" doesn't give the model anything to aim at. Session 7's prompt — "commercial fonts, layout, structure that shows as many photos as possible, both web and app" — produced a usable first result immediately. Abstract feedback costs sessions.
+## Why a 6-Tool-Call Session Gets a Build Log
 
-**Language and tone decisions are product decisions, not implementation failures.** The four-direction change across sessions 14–18 wasn't iteration on broken code. It was UX exploration. Claude Code is an execution tool; the decision itself belongs to the person. Keeping that distinction clear makes heavy iteration feel like progress rather than waste.
+Zero files changed. Six reads. This looks like a session worth skipping in a log.
 
-**Pattern-matching hooks produce false positives.** The Stop hook's TODO detection tripped on a summary string that mentioned zero TODOs — not an actual TODO. Narrowing hook regexes to word boundaries (`\bTODO\b`) eliminates this class of false positive. Small thing, but it adds up across a project.
+But "nothing happened" and "verified nothing was wrong" are different outcomes with the same surface appearance. A QC pass record establishes *when* the pipeline was last known clean. If something breaks next week, I can trace back to exactly which files were in what state on May 14th.
+
+In an automated pipeline, verification records matter as much as implementation records — maybe more, because implementation records tell you what was built, and verification records tell you whether it was safe to ship. The absence of blocking issues is itself a result worth recording.
+
+Result: OK. Report ships tomorrow.
 
 ---
 
