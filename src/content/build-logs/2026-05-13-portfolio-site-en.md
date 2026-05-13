@@ -1,100 +1,142 @@
 ---
-title: "AI Reviewing AI: Automating Medical Ad QA with Claude Opus (2 Sessions, 13 Tool Calls)"
+title: "FLIP Animation, CSS Inheritance Bugs, and a Full Redesign Demand — Claude Code 7 Sessions, 198 Tool Calls"
 project: "portfolio-site"
 date: 2026-05-13
 lang: en
 pair: "2026-05-13-portfolio-site-ko"
-tags: [claude-code, ai-qa, dental-ads, automation, content-verification]
-description: "A meta QA workflow where AI verifies AI-generated medical ad briefings. Cross-validated Notice IDs, SERP stats, and AI briefing counts across 2 sessions and 13 tool calls."
+tags: [claude-code, animation, css, ui-design, daymoon]
+description: "Built a FLIP intro animation for a photographer's portfolio, fixed CSS inheritance bugs, unified typography — then got a full redesign demand at end of day. 198 tool calls."
 ---
 
-Today I wrote zero lines of code. Two sessions, 13 tool calls, no file edits — and that was the whole point.
+The FLIP animation took one day to build. The user's response at the end: "redo it."
 
-**TL;DR** I ran Claude Opus over the `research/daily-medical-dental-ads/` artifacts to cross-validate factual consistency. Ten Notice IDs, ten SERP keyword classifications, one AI briefing frequency count — all matched `summary.json` exactly. No blocking issues.
+That's the arc of this build log. Seven sessions, 198 tool calls, one photographer's portfolio site, and a sharp reminder that "technically working" and "commercially convincing" are different targets.
 
-## "If It's Fine, Just Say Fine" — How a One-Liner Shaped the Whole Prompt
+**TL;DR** Built a FLIP-based intro-to-header animation for Daymoon, a photographer's portfolio site. Fixed an Instagram logo CSS filter conflict, removed a duplicated mobile drawer element, and unified `letter-spacing` across four HTML files. Final session: user rejected the entire design direction and requested a commercial-grade rebuild. 7 sessions, 198 tool calls total.
 
-The first session's prompt was longer than I'd like:
+## Morning: AI Reviewing AI-Generated Output
+
+The first two sessions had nothing to do with code. The task was cross-verifying auto-generated medical ad briefings — running Claude Opus over the pipeline's output to check whether AI-generated numbers matched the source data.
+
+The prompt design mattered more than any implementation detail:
 
 ```
-Review today's medical/dental ads daily update artifacts for factual consistency,
-label discipline, and Telegram safety. Read these files only:
-research/daily-medical-dental-ads/2026-05-13-daily-update.md,
-research/daily-medical-dental-ads/reports/2026-05-13-ai-briefing-info-keyword-and-place-d1.html,
-research/daily-medical-dental-ads/sources/serp-2026-05-13/summary.json.
 Report only issues that must be fixed before delivery; if none, say OK.
 ```
 
-The critical line is the last one: "Report only issues that must be fixed before delivery; if none, say OK."
+Scoping to "blocking problems only" eliminates noise. The verification covered 10 notice IDs, SERP statistics, and AI briefing frequency counts — all cross-referenced against the original `summary.json`. Everything matched. Result: OK.
 
-Most QA prompts leave this open — "look it over carefully," "give me thorough feedback." Open-ended prompts produce open-ended output: minor stylistic notes, suggestions, things that would be nice to fix. None of that is useful when the question is *can this ship*.
+2 sessions, 13 tool calls, 0 file edits. The practical insight: rule-based checks like number matching and field existence verification are faster and more accurate with AI than manual review. The narrow prompt scope is what makes the output actionable — you're not asking for editorial opinion, just a go/no-go on specific fields.
 
-The second session tightened further:
+## The Cursive Logo That Got Clipped
 
+Afternoon: Daymoon, a photographer's portfolio site. Two requests arrived together.
+
+First: the `daymoon` cursive wordmark was getting clipped at the bottom. Second: after the logo "writes itself" in the intro, it should animate to the header brand box position, as if flying into place.
+
+The clipping was a descender problem. Script-style fonts have descenders that drop below the baseline. The container had `overflow: hidden` applied for layout reasons, which cut them off. Adjusting `padding-bottom` and recalculating `line-height` fixed it without touching surrounding elements.
+
+The animation was the more interesting constraint.
+
+## FLIP Instead of Fade — Why It Matters
+
+Two approaches for the intro-to-header transition. Option one: fade out the intro wordmark, fade in the header brand. Option two: FLIP (First, Last, Invert, Play) — physically move the element.
+
+Fade-crossfade creates a moment where two visually similar elements overlap, which reads as a glitch. FLIP moves the actual intro wordmark to the header's exact coordinates, maintaining object permanence. The user sees one thing move, not two things swap.
+
+The implementation replaced the entire intro IIFE in `script.js`:
+
+1. **First** — Record the intro wordmark's current bounding rect with `getBoundingClientRect()`
+2. **Last** — Record the header brand box bounding rect
+3. **Invert** — Compute the delta, apply it as a reversed `translate` + `scale` (this snaps the element to look like it's at its intro position, but rendered at the header location)
+4. **Play** — Enable CSS transition, remove the transform — the browser animates back to natural position
+
+```javascript
+const first = introWordmark.getBoundingClientRect();
+const last = brandBox.getBoundingClientRect();
+
+const dx = first.left - last.left;
+const dy = first.top - last.top;
+const scale = first.width / last.width;
+
+// Snap to inverted position (no transition yet)
+introWordmark.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
+
+// Force reflow, then release
+requestAnimationFrame(() => {
+  introWordmark.style.transition = 'transform 600ms cubic-bezier(0.4, 0, 0.2, 1)';
+  introWordmark.style.transform = 'none';
+});
 ```
-Quick review for blocking problems only.
-Focus on factual consistency, labels, no specific hospital names/addresses
-in user-facing report, and no unsupported metric claims.
-Return 'OK' if no blocking issues, otherwise list fixes.
+
+Verification was done via CDP (Chrome DevTools Protocol), tracking the `body` class transition sequence from a local server:
+
+```bash
+# CDP verification output
+body class: intro-active → intro-morphing → intro-done ✓
+ink element lands on brand box (607,13–672,37) ✓
+no console errors ✓
 ```
 
-"Blocking problems only" narrows the scope explicitly. No design feedback, no sentence suggestions. Just: is there anything that stops deployment.
+Completed in under 4500ms. Session breakdown: 13 Read, 10 Edit, 9 Bash — four of the Bash calls were CDP verification scripts.
 
-The difference in output between these two prompting styles is not subtle. One produces a report you have to triage. The other produces a decision.
+## The Instagram Logo and CSS Scope That Was Too Wide
 
-## What Got Verified — 3 Checkpoints
+Next request: replace the DM button placeholder with the actual Instagram logo.
 
-Medical advertising automation has a specific failure surface. Three things matter before any briefing goes out.
+`logo-instagram.svg` was already in `assets/`. That part was trivial. The problem: `.simple-nav .book img` had `filter: invert(1)` — a rule written to make images white against dark header backgrounds. That selector was broad enough to catch the DM link's `img` element too, flipping the Instagram logo to white on a light background.
 
-**Data consistency.** The markdown daily update and the HTML report both derive from `summary.json`. If a number in the report diverges from the source JSON — even by one — it's a data integrity problem. The Notice IDs verified this session: 31509, 30960, 31453, 30865, 31287, 31426, 31006, 31243, 31120, 31126. All ten matched the source exactly. SERP keyword classification (eight local/treatment queries, two informational) also matched.
+Fix: scoped override.
 
-**Label discipline.** Under Korean medical advertising law, directly surfacing specific hospital names or addresses in user-facing reports requires separate licensing. The automated briefing strips this. A single Grep confirmed no hospital name or address leaked into the output layer.
+```css
+.simple-nav .book.dm-link img {
+  filter: none;
+}
+```
 
-**AI briefing frequency.** The markdown noted that AI briefings were detected six times for the `임플란트 통증 기간` (implant pain duration) keyword. Cross-referencing with the same field in `summary.json`: match.
+Same session, a second inheritance issue surfaced. `.drawer-row.icon-link` was inheriting `justify-content: center` from `.icon-link`, centering the icon in the mobile drawer when it should be left-aligned. Grep traced the full selector hierarchy. Two Edit calls total.
 
-The second session's verdict:
+These are the bugs that take longer to locate than to fix. You have to map the inheritance chain before the cause becomes obvious, and CSS inheritance doesn't make that chain visible at a glance.
 
-> Notice IDs, SERP totals, AI briefing count of 6 on `임플란트 통증 기간` — all match summary.json. No blocking issues.
+## Mobile Drawer Deduplication + Typography Unification
 
-That's the output. One paragraph. Enough to ship.
+Opening the mobile drawer showed `daymoon / DM 문의` at the top section and a second `DM 문의` in the bottom nav. Duplicate entry, different visual weight.
 
-## Tool Usage Breakdown
+Removed the `.drawer-login` DM link. Only the bottom nav's Instagram logo link remains. The drawer top now holds brand name only.
 
-Two sessions, 13 tool calls total.
+Typography was inconsistent across files. `letter-spacing` ranged from `-0.04em` to `-0.07em` depending on the heading element and which HTML file:
 
-| Tool | Count | Share |
-|------|-------|-------|
-| Read | 9 | 69% |
-| Bash | 3 | 23% |
-| Grep | 1 | 8% |
-| Edit | 0 | — |
-| Write | 0 | — |
+```css
+/* Before — scattered across four files */
+.hero-title { letter-spacing: -0.07em; }
+.section-label { letter-spacing: -0.04em; }
+.nav-brand { letter-spacing: -0.05em; }
 
-Read dominates because three files (`daily-update.md`, the HTML report, `summary.json`) were read in both sessions — that's six reads as a baseline, plus three more for spot checks. Bash calls were JSON field extraction and file size checks. The single Grep was the hospital-name leak check.
+/* After — unified */
+h1, h2, .display { letter-spacing: -0.045em; }
+```
 
-No writes. No edits. This was a pure read-and-compare operation.
+Pretendard font loading was also missing from two HTML files. Applied uniformly across all four: `index.html`, `gallery.html`, `product.html`, `contact.html`. Along with `styles.css` and `script.js`, this session touched six files — 26 Edit calls and 17 Bash calls.
 
-## Is AI QA Actually Practical?
+## Final Session: "Redo It"
 
-The pattern here is using AI to verify AI-generated output for factual consistency. The alternative — having a person cross-reference ten Notice IDs against a JSON source — sounds simple until you do it under time pressure. Numbers blur. Attention drifts. One transposed digit passes human review.
+Last session of the day. The request:
 
-Claude Opus read three files and compared them in roughly 30–60 seconds of subjective wall time (accounting for tool call latency). Whether the result is "OK" or "needs fixes" doesn't matter — it's faster and less error-prone than a human doing the same mechanical comparison.
+> "redo it properly — commercial design, fonts/layout/maximum photos visible, marketable for web and mobile"
 
-The limitation is equally important to state clearly: this workflow only checks **mechanical consistency**. Does the number in the report match the number in the source? Is the label present or absent? That's all it does.
+This wasn't a bug report. It was a direction rejection. The site had drifted toward text-heavy layout, which is the wrong direction for a photography portfolio. A portfolio that doesn't lead with images has already failed its primary job.
 
-What it doesn't catch: whether the logical flow of the briefing makes sense for the intended audience, whether a sentence that doesn't mention a specific hospital name still implies one through context, or whether a claim is technically accurate but misleading given the regulatory environment. Those require human review. They always will.
+This session didn't reach implementation. It was file exploration and state assessment — reading `PROJECT.md` and `WORKLOG.md`, mapping existing asset structure. 12 Bash calls, 8 Read calls, 0 edits. The redesign continues in the next session.
 
-The practical split: rule-based checks (field existence, numeric match, prohibited keyword presence) go to Opus. Contextual and regulatory judgment stays with humans.
+## What 198 Tool Calls Look Like
 
-## The Real Output
+Seven sessions, 198 total. Breakdown: Bash 62, Read 61, Edit 55.
 
-The deliverable from today's sessions isn't code. It's a go/no-go decision: the briefing can ship.
+Read and Bash being nearly equal is the pattern worth noting. The workflow is: read current state → make change → verify result. That cycle repeats. The ratio is roughly one verification per one modification.
 
-As AI automation pipelines grow longer — generation, formatting, distribution, archival — the outputs of each stage accumulate. At some point you need a verification layer that can keep up with the generation rate. Human reviewers become the bottleneck. Inlining AI QA into the pipeline removes that bottleneck for the mechanical checks.
+Small CSS bugs took longer to locate than large feature changes. Filter inheritance and letter-spacing inconsistency both required tracing full selector hierarchies before the fix was obvious. The FLIP animation, despite being structurally more complex, moved faster — the requirements were precise, so implementation could start immediately.
 
-Prompt design determines what you get back. "Look this over carefully" and "report blocking issues only, say OK if none" produce fundamentally different outputs. For operational automation, you want the second. The first is for exploratory review; the second is for deployment gates.
-
-Two sessions. Thirteen tool calls. Zero edits. The pipeline is clean.
+> Specific user requests produce fast AI output. "Commercial layout, photo-first, responsive" is directionally clear. The redesign session has everything it needs to start.
 
 ---
 
