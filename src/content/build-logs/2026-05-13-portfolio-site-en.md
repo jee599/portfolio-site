@@ -1,142 +1,131 @@
 ---
-title: "FLIP Animation, CSS Inheritance Bugs, and a Full Redesign Demand — Claude Code 7 Sessions, 198 Tool Calls"
+title: "4 Pivots, 604 Tool Calls: Building a Photographer Portfolio in One Day with Claude Code"
 project: "portfolio-site"
 date: 2026-05-13
 lang: en
 pair: "2026-05-13-portfolio-site-ko"
-tags: [claude-code, animation, css, ui-design, daymoon]
-description: "Built a FLIP intro animation for a photographer's portfolio, fixed CSS inheritance bugs, unified typography — then got a full redesign demand at end of day. 198 tool calls."
+tags: [claude-code, astro, animation, ui-ux]
+description: "Built Daymoon's photography portfolio across 19 Claude Code sessions in one day — FLIP animation, full redesign, slideshow, 4 direction changes. 604 tool calls, transparent."
 ---
 
-The FLIP animation took one day to build. The user's response at the end: "redo it."
+Nineteen sessions in a single day. 604 tool calls. Fourteen files modified. And four complete direction changes.
 
-That's the arc of this build log. Seven sessions, 198 tool calls, one photographer's portfolio site, and a sharp reminder that "technically working" and "commercially convincing" are different targets.
+That's the shape of today's work on `daymoon-pic-site` — a photography portfolio for Daymoon. Not a clean, linear build. A working day that went wherever the user's vision went, with Claude Code following each pivot.
 
-**TL;DR** Built a FLIP-based intro-to-header animation for Daymoon, a photographer's portfolio site. Fixed an Instagram logo CSS filter conflict, removed a duplicated mobile drawer element, and unified `letter-spacing` across four HTML files. Final session: user rejected the entire design direction and requested a commercial-grade rebuild. 7 sessions, 198 tool calls total.
+**TL;DR** The user changed direction four times over 19 sessions: cursive FLIP animation → commercial editorial redesign → slideshow → Korean/English language toggle. Claude Code rewrote hundreds of lines each time. The day's highlight was a Stop hook false positive triggered by a verification note inside `WORKLOG.md` — not by actual debug code. Tool distribution: Bash 193, Read 172, Edit 141.
 
-## Morning: AI Reviewing AI-Generated Output
+## Session 1: A Cursive Logo That Flies Into the Header
 
-The first two sessions had nothing to do with code. The task was cross-verifying auto-generated medical ad briefings — running Claude Opus over the pipeline's output to check whether AI-generated numbers matched the source data.
+The first session started with two requests delivered together.
 
-The prompt design mattered more than any implementation detail:
+> "the daymoon cursive logo is getting clipped at the bottom — fix that, and I want to see the letters write themselves, then the logo naturally move to where it sits in the header"
+
+The clipping was a descender problem. Script-style fonts have letterforms that drop below the baseline, and the container had `overflow: hidden` cutting them off. Adjusting `padding-bottom` and recalculating `line-height` fixed it without affecting surrounding layout.
+
+The animation was the more interesting constraint. Two approaches exist for an intro-to-header transition: fade-crossfade, or FLIP (First, Last, Invert, Play). Fade-crossfade causes a moment where two visually similar elements overlap — a glitch. FLIP physically moves the element, preserving object permanence. The viewer sees one thing travel, not two things swap.
+
+Implementation replaced the intro IIFE in `script.js` with a three-phase body class sequence:
 
 ```
-Report only issues that must be fixed before delivery; if none, say OK.
+intro-active → intro-morphing → intro-done
 ```
 
-Scoping to "blocking problems only" eliminates noise. The verification covered 10 notice IDs, SERP statistics, and AI briefing frequency counts — all cross-referenced against the original `summary.json`. Everything matched. Result: OK.
+At the `intro-morphing` phase, `getBoundingClientRect()` captures the intro wordmark's current position and the header brand box's position. The delta is applied as a reversed `translate` transform — snapping the wordmark to appear at its intro position while it's already rendered at the header location. Enabling CSS transition and removing the transform lets the browser animate back to natural position.
 
-2 sessions, 13 tool calls, 0 file edits. The practical insight: rule-based checks like number matching and field existence verification are faster and more accurate with AI than manual review. The narrow prompt scope is what makes the output actionable — you're not asking for editorial opinion, just a go/no-go on specific fields.
+Verified via CDP (Chrome DevTools Protocol): intro removed within 4500ms, brand opacity returning from 0 to 1 on schedule, no console errors.
 
-## The Cursive Logo That Got Clipped
+Tool breakdown: Read(13), Edit(10), Bash(9), TodoWrite(5), Grep(4) — 43 total.
 
-Afternoon: Daymoon, a photographer's portfolio site. Two requests arrived together.
+## "Redo It. This Is AI/Generic."
 
-First: the `daymoon` cursive wordmark was getting clipped at the bottom. Second: after the logo "writes itself" in the intro, it should animate to the header brand box position, as if flying into place.
+Three sessions later, the direction changed completely.
 
-The clipping was a descender problem. Script-style fonts have descenders that drop below the baseline. The container had `overflow: hidden` applied for layout reasons, which cut them off. Adjusting `padding-bottom` and recalculating `line-height` fixed it without touching surrounding elements.
+> "redo it properly — commercial design fonts / layout / as many photos visible as possible / marketable for web and mobile both"
 
-The animation was the more interesting constraint.
+The handwriting intro and single-photo emotional layout were both out. The new target: editorial commercial photography site. 5-column contact-sheet grid, dense product strip, mobile sticky DM bar. `styles.css` was rewritten from scratch.
 
-## FLIP Instead of Fade — Why It Matters
+This is where something interesting happened with the workflow system. The plan-orchestrator was called to produce `plan.md`, and the orchestrator gate classified this as `standard` complexity — which blocked direct editing until the stage advanced to `implementing`. The classification wasn't wrong, but the actual work was structurally simple: one file, full rewrite. The complexity label and the practical task didn't match, which added overhead to a straightforward operation.
 
-Two approaches for the intro-to-header transition. Option one: fade out the intro wordmark, fade in the header brand. Option two: FLIP (First, Last, Invert, Play) — physically move the element.
+The rewrite completed without issues once the stage cleared. The grid, the strip, the mobile bar — all implemented in the target session. The workflow classification friction is worth noting because it surfaces a real question: when does architectural staging improve quality versus add latency?
 
-Fade-crossfade creates a moment where two visually similar elements overlap, which reads as a glitch. FLIP moves the actual intro wordmark to the header's exact coordinates, maintaining object permanence. The user sees one thing move, not two things swap.
+## Slideshow, and the Stop Hook That Cried Wolf
 
-The implementation replaced the entire intro IIFE in `script.js`:
+After several more sessions, the home layout changed again. The contact-sheet grid was out. The user wanted a single large photo cycling through a fade-in / fade-out slideshow.
 
-1. **First** — Record the intro wordmark's current bounding rect with `getBoundingClientRect()`
-2. **Last** — Record the header brand box bounding rect
-3. **Invert** — Compute the delta, apply it as a reversed `translate` + `scale` (this snaps the element to look like it's at its intro position, but rendered at the header location)
-4. **Play** — Enable CSS transition, remove the transform — the browser animates back to natural position
+The implementation was straightforward. Actual photos from `assets/` loaded into a JavaScript array, `setInterval` advancing the index, CSS `transition` handling the crossfade. One dead-end worth noting: the first draft used a pool of `<figure>` elements in the DOM as an asset holder. The code got messy quickly and was reverted to a simple JS array.
 
-```javascript
-const first = introWordmark.getBoundingClientRect();
-const last = brandBox.getBoundingClientRect();
+Then the Stop hook fired at end-of-session:
 
-const dx = first.left - last.left;
-const dy = first.top - last.top;
-const scale = first.width / last.width;
-
-// Snap to inverted position (no transition yet)
-introWordmark.style.transform = `translate(${dx}px, ${dy}px) scale(${scale})`;
-
-// Force reflow, then release
-requestAnimationFrame(() => {
-  introWordmark.style.transition = 'transform 600ms cubic-bezier(0.4, 0, 0.2, 1)';
-  introWordmark.style.transform = 'none';
-});
+```
+Stop hook feedback:
+Found 1 debug/잔존마커 leftover(s) in working tree.
 ```
 
-Verification was done via CDP (Chrome DevTools Protocol), tracking the `body` class transition sequence from a local server:
+There was no debug code. Grep traced the flag to this line in `WORKLOG.md`:
 
-```bash
-# CDP verification output
-body class: intro-active → intro-morphing → intro-done ✓
-ink element lands on brand box (607,13–672,37) ✓
-no console errors ✓
+```
+디버그 코드·잔존마커 0건
 ```
 
-Completed in under 4500ms. Session breakdown: 13 Read, 10 Edit, 9 Bash — four of the Bash calls were CDP verification scripts.
+"Zero debug markers" — a verification note confirming nothing was left behind — contained the exact keyword the hook was grepping for. The context didn't matter. The hook matched the string.
 
-## The Instagram Logo and CSS Scope That Was Too Wide
+Fixed by rewriting the phrase to avoid the trigger keyword. The broader rule: verification notes in `WORKLOG.md` shouldn't literally contain the strings that validation hooks search for. The hook can't distinguish between "this word appears in code" and "this word appears in a sentence about the word."
 
-Next request: replace the DM button placeholder with the actual Instagram logo.
+Session 11 tool breakdown: Bash(27), Edit(16), Read(12), Grep(8) — 64 total.
 
-`logo-instagram.svg` was already in `assets/`. That part was trivial. The problem: `.simple-nav .book img` had `filter: invert(1)` — a rule written to make images white against dark header backgrounds. That selector was broad enough to catch the DM link's `img` element too, flipping the Instagram logo to white on a light background.
+## Five Sessions of Language Switching
 
-Fix: scoped override.
+The final five sessions were the most revealing part of the day — not technically complex, but operationally interesting.
 
-```css
-.simple-nav .book.dm-link img {
-  filter: none;
-}
+Session 14 unified the product page to English: `Graduation / Couple / Friend / Wedding`.
+
+Session 15 reversed it: "make all of that page Korean" — `졸업스냅 / 커플스냅 / 우정·가족 / 웨딩스냅`.
+
+Session 16 extended Korean to in-page navigation anchors.
+
+Session 17 replaced the `DM` token with `문의하기` throughout.
+
+Session 18: "restore navigation to English, keep content Korean."
+
+Each session modified only what was asked. Session 18 was the cleanest: navigation strings reverted to English, and the inline `<style>` blocks added in previous sessions were removed at the same time — the diff was tighter than if cleanup had been deferred. Cache-busting version strings across six HTML files stayed in sync via Edit calls each session:
+
+```
+?v=dm-clean-home-20260513-1
+?v=dm-product-lang-20260513-1
+?v=dm-product-nav-restore-20260513
 ```
 
-Same session, a second inheritance issue surfaced. `.drawer-row.icon-link` was inheriting `justify-content: center` from `.icon-link`, centering the icon in the mobile drawer when it should be left-aligned. Grep traced the full selector hierarchy. Two Edit calls total.
+The version suffix acts as a change log — you can read the history from the URL.
 
-These are the bugs that take longer to locate than to fix. You have to map the inheritance chain before the cause becomes obvious, and CSS inheritance doesn't make that chain visible at a glance.
+What this sequence demonstrates: Claude Code in rapid iteration mode works better with tight scope. "This file only", "this section only", "don't touch the other pages" — explicit constraints reduced tool call counts and error rates. Open scope leads to unnecessary reads and accidental side effects. Tight scope keeps each session fast and reversible.
 
-## Mobile Drawer Deduplication + Typography Unification
+## What 604 Tool Calls Look Like
 
-Opening the mobile drawer showed `daymoon / DM 문의` at the top section and a second `DM 문의` in the bottom nav. Duplicate entry, different visual weight.
+Full day breakdown:
 
-Removed the `.drawer-login` DM link. Only the bottom nav's Instagram logo link remains. The drawer top now holds brand name only.
+| Tool | Count |
+|------|-------|
+| Bash | 193 |
+| Read | 172 |
+| Edit | 141 |
+| Grep | ~50 |
+| Other | ~48 |
 
-Typography was inconsistent across files. `letter-spacing` ranged from `-0.04em` to `-0.07em` depending on the heading element and which HTML file:
+Bash leading is expected — verification, git ops, CDP checks, workflow state updates. Read nearly matching Bash is the pattern worth noting. The rhythm is: read current state, make change, verify result. That's two Read/Bash calls per one Edit. Exploration costs more than implementation.
 
-```css
-/* Before — scattered across four files */
-.hero-title { letter-spacing: -0.07em; }
-.section-label { letter-spacing: -0.04em; }
-.nav-brand { letter-spacing: -0.05em; }
+FLIP animation, despite being architecturally non-trivial, moved fast because the requirements were precise. The commercial redesign took longer — not because of technical difficulty, but because "commercial and marketable" required resolving a visual direction before implementation could start. The language sessions moved fastest of all: explicit string targets, clear before/after.
 
-/* After — unified */
-h1, h2, .display { letter-spacing: -0.045em; }
-```
+> Specific requests produce fast output. Directional requests require a resolution step first. Knowing which kind of request you're making is more important than the request itself.
 
-Pretendard font loading was also missing from two HTML files. Applied uniformly across all four: `index.html`, `gallery.html`, `product.html`, `contact.html`. Along with `styles.css` and `script.js`, this session touched six files — 26 Edit calls and 17 Bash calls.
+## What Changed About How I'll Work
 
-## Final Session: "Redo It"
+Three patterns from today that hold across any Claude Code session:
 
-Last session of the day. The request:
+**Scope constraints are a feature.** Telling Claude Code "only this file" or "only this section" isn't limiting — it's accurate. Models work better with narrow scope because they can read the relevant code completely without drifting into adjacent files. Open-ended requests invite unnecessary exploration.
 
-> "redo it properly — commercial design, fonts/layout/maximum photos visible, marketable for web and mobile"
+**Hook greps are context-free.** The Stop hook that flagged `WORKLOG.md` did exactly what it was configured to do. Validation systems operate on pattern matching, not semantics. Write verification notes with that in mind — avoid putting the very strings you're checking for into prose about those strings.
 
-This wasn't a bug report. It was a direction rejection. The site had drifted toward text-heavy layout, which is the wrong direction for a photography portfolio. A portfolio that doesn't lead with images has already failed its primary job.
-
-This session didn't reach implementation. It was file exploration and state assessment — reading `PROJECT.md` and `WORKLOG.md`, mapping existing asset structure. 12 Bash calls, 8 Read calls, 0 edits. The redesign continues in the next session.
-
-## What 198 Tool Calls Look Like
-
-Seven sessions, 198 total. Breakdown: Bash 62, Read 61, Edit 55.
-
-Read and Bash being nearly equal is the pattern worth noting. The workflow is: read current state → make change → verify result. That cycle repeats. The ratio is roughly one verification per one modification.
-
-Small CSS bugs took longer to locate than large feature changes. Filter inheritance and letter-spacing inconsistency both required tracing full selector hierarchies before the fix was obvious. The FLIP animation, despite being structurally more complex, moved faster — the requirements were precise, so implementation could start immediately.
-
-> Specific user requests produce fast AI output. "Commercial layout, photo-first, responsive" is directionally clear. The redesign session has everything it needs to start.
+**Direction changes are recoverable.** Four pivots in one day sounds chaotic. In practice, each pivot was a clean cut: commit, then rebuild. The commit history after this day is a complete record of every approach, including the ones that got replaced. That's not waste — that's informed iteration with full rollback.
 
 ---
 

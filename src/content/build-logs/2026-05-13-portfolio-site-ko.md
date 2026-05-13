@@ -1,107 +1,81 @@
 ---
-title: "FLIP 인트로 애니메이션부터 상업적 리디자인 요청까지 — Claude Code 7세션 198 tool calls"
+title: "방향 전환 4번, 604번 도구 호출: Claude Code로 사진작가 포트폴리오 하루 만에 구축"
 project: "portfolio-site"
 date: 2026-05-13
 lang: ko
-tags: [claude-code, animation, css, ui-design, daymoon]
-description: "Daymoon 사진작가 포트폴리오에 FLIP 기법 인트로 애니메이션을 구현하고 모바일 드로어·타이포그래피를 정리한 7세션 198 tool calls. 마지막엔 사용자가 전체 리디자인을 요청했다."
+tags: [claude-code, astro, animation, ui-ux]
+description: "Daymoon 사진작가 포트폴리오를 하루 19세션으로 구축한 기록. FLIP 애니메이션, 슬라이드쇼, 4번의 방향 전환까지 — Claude Code가 어떻게 대응했는지 투명하게 기록했다."
 ---
 
-필기체 로고가 헤더 위치로 날아가는 인트로 애니메이션을 하루 만에 구현했다. 그리고 같은 날 사용자가 "다시해"라고 했다.
+하루 동안 같은 사이트에서 Claude Code 세션을 19번 열었다. 총 604번의 도구 호출, 수정된 파일 14개. 작업 대상은 `daymoon-pic-site` — 사진작가 Daymoon의 포트폴리오 사이트다.
 
-**TL;DR** Daymoon 사진작가 포트폴리오 사이트에 FLIP 기법 인트로 애니메이션을 붙이고, Instagram 실제 로고 통합과 모바일 드로어 정리까지 마쳤다. 7세션 198 tool calls. 마지막 세션에서 사용자가 상업적 리디자인을 요청하면서 하루가 끝났다.
+**TL;DR** 사용자가 방향을 네 번 바꿨고, 그때마다 Claude Code가 수백 줄을 다시 썼다. FLIP 애니메이션, 전면 리디자인, 슬라이드쇼, 한/영 전환까지. Stop hook이 `WORKLOG.md` 안의 "잔존 마커 0건" 확인 문장에서 오탐한 게 오늘의 하이라이트다.
 
-## 하루 시작 — 의료광고 브리핑 QA
+## 첫 번째 작업: 필기체 로고가 헤더로 날아가는 FLIP 애니메이션
 
-오전 세션 두 개는 코드가 아니었다. AI가 자동 생성한 의료광고 브리핑의 사실 일치 여부를 Claude Opus로 교차검증하는 작업이었다.
+첫 세션은 인트로 애니메이션이었다. 사용자 요청은 이랬다:
 
-프롬프트 설계가 핵심이었다.
+> "daymoon 필기체로고 밑에 조금 잘리는데 안 잘리게해주고 글씨가 쓰여지고 다음 메인페이지에 로고위치로 자연스럽게 이동하는 애니메이션 보고 싶어"
 
-```
-Report only issues that must be fixed before delivery; if none, say OK.
-```
+구현 목표는 두 가지였다. 필기체 descender가 잘리지 않도록 여백을 확보하는 것, 그리고 인트로 워드마크가 잉크가 쓰여지는 애니메이션 이후 실제 헤더 로고 위치로 FLIP(First-Last-Invert-Play) 기법으로 날아가는 것.
 
-"blocking problems only"로 범위를 좁혔다. Notice ID 10개, SERP 통계, AI 브리핑 빈도수가 `summary.json` 원본과 전부 일치했다. 결과는 OK. 2세션 13 tool calls, 파일 수정 0건. 이 패턴의 실용성은 명확하다 — 숫자 대조와 필드 존재 여부 같은 규칙 기반 검증은 AI가 더 빠르고 정확하다.
+`script.js`를 교체하면서 세 단계 시퀀스를 구현했다. `intro-active` → `intro-morphing` → `intro-done` 순서로 body 클래스가 전환되고, 워드마크 요소의 시작 위치와 끝 위치를 `getBoundingClientRect()`로 계산해 중간에 `translate` 트랜지션을 주입한다. CDP(Chrome DevTools Protocol)로 검증하니 4500ms 안에 intro가 제거되고, 브랜드 opacity가 0→1로 복귀하는 것을 확인했다.
 
-## 필기체 로고가 잘린다 — 본론 시작
+도구 사용: Read(13), Edit(10), Bash(9), TodoWrite(5), Grep(4) — 43 tool calls.
 
-오후부터 Daymoon 사진작가 포트폴리오 작업이 시작됐다. 사용자 요청은 두 가지였다.
+## "다시해. AI/제네릭이야"
 
-첫째, `daymoon` 필기체 로고 하단이 잘린다. 둘째, 로고가 써지고 나서 메인 헤더 위치로 자연스럽게 이동하는 애니메이션을 원한다.
-
-잘리는 문제부터 봤다. `script` 계열 글꼴의 디센더(descender)가 베이스라인 아래로 내려가는데, 컨테이너 `overflow: hidden`에 걸렸다. `padding-bottom`을 조금 풀고 `line-height`를 재조정했다.
-
-## FLIP 기법으로 인트로 → 헤더 전환
-
-인트로에서 헤더로 이동하는 애니메이션에는 두 방향이 있다. 인트로를 페이드아웃하고 헤더를 페이드인하거나, FLIP(First, Last, Invert, Play) 기법으로 실제 요소를 날리거나.
-
-FLIP을 택했다. 단순 페이드는 두 요소가 교차하면서 어색하다. FLIP은 인트로 워드마크가 헤더 브랜드 박스 좌표까지 실제로 이동하기 때문에 연속성이 있다.
-
-`script.js`에서 인트로 IIFE 전체를 교체했다.
-
-1. 인트로 워드마크의 현재 좌표를 `getBoundingClientRect()`로 기록 (First)
-2. 헤더 브랜드 박스 좌표를 기록 (Last)
-3. 두 좌표 차이로 `translate`·`scale`을 역방향 적용 (Invert)
-4. CSS transition을 켜고 `transform: none`으로 돌려보내면 실제로 날아가는 것처럼 보인다 (Play)
-
-검증은 CDP(Chrome DevTools Protocol)로 했다. 로컬 서버를 띄우고 `body` 클래스 전환 시퀀스를 추적했다.
-
-```bash
-# CDP 검증 결과
-body class: intro-active → intro-morphing → intro-done ✓
-ink element lands on brand box (607,13–672,37) ✓
-no console errors ✓
-```
-
-4500ms 안에 완료. Read 13회, Edit 10회, Bash 9회. Bash 9회 중 4회가 CDP 검증 스크립트였다.
-
-## Instagram 실제 로고 — CSS 상속 충돌
-
-다음 요청: DM 문의 버튼에 Instagram 로고를 실제로 써달라.
-
-`logo-instagram.svg`가 `assets/`에 이미 있었다. 문제는 CSS였다. `.simple-nav .book img`에 `filter: invert(1)`이 적용되어 있어서 SVG가 흰색으로 뒤집혔다. 헤더 배경이 어두울 때를 위한 규칙인데 DM 링크까지 같이 적용됐다.
-
-스코프 오버라이드로 해결했다. `.simple-nav .book.dm-link img { filter: none }`을 추가해서 DM 링크 이미지만 원래 색을 유지하도록 했다.
-
-그리고 `.drawer-row.icon-link`가 `.icon-link`의 `justify-content: center`를 상속받아 모바일 드로어에서 아이콘이 중앙 정렬되는 문제도 같이 잡았다. Read, Grep으로 선택자 계층을 추적하고 Edit 2회로 끝냈다.
-
-작은 변경이지만 두 군데가 얽혀 있어서 한 번에 보지 않으면 원인 찾기가 어렵다.
-
-## 모바일 드로어 중복 제거 + 타이포그래피 통합
-
-모바일 드로어를 열면 상단에 `daymoon / DM 문의`가 있고, 하단 nav에도 `DM 문의`가 따로 있었다. 두 개다.
-
-`.drawer-login` 영역의 DM 링크를 제거하고 하단 nav의 Instagram 로고 링크만 남겼다. 드로어 상단은 브랜드명만 유지.
-
-타이포그래피는 `letter-spacing`이 파일마다 달랐다. 헤딩에 `-0.04em`에서 `-0.07em`까지 제각각이었다. `-0.045em`으로 통일했다. Pretendard 폰트 로드도 4개 HTML에 일괄 적용했다.
-
-```css
-/* 통합 전 */
-.hero-title { letter-spacing: -0.07em; }
-.section-label { letter-spacing: -0.04em; }
-
-/* 통합 후 */
-h1, h2, .display { letter-spacing: -0.045em; }
-```
-
-`index.html`, `gallery.html`, `product.html`, `contact.html`, `styles.css`, `script.js` — Edit 26회, Bash 17회로 처리했다.
-
-## 마지막 세션 — "다시해"
-
-마지막 세션 사용자 요청:
+세 번째 세션 이후 사용자가 방향을 완전히 바꿨다.
 
 > "다시해 제대로 상업적인 디자인 폰트 / 레이아웃 / 사진이 최대한 여러장 보이는 구조로 상품성있게 웹 / 앱 모두 고려해서"
 
-AI가 만든 generic 디자인을 거부한 것이다. 사진 포트폴리오인데 레이아웃이 텍스트 위주로 흘렀다고 판단했다.
+이전에 만든 핸드라이팅 인트로 + 감성 단일 사진 레이아웃을 전부 버리고 상업적 editorial 스타일로 전환하는 요청이었다. 5열 contact-sheet 그리드, dense product strip, 모바일 sticky DM 바를 목표로 `styles.css`를 전면 재작성했다.
 
-이 세션은 구현까지 들어가지 못하고 파일 탐색과 현황 파악으로 끝났다. `PROJECT.md`와 `WORKLOG.md`를 읽고 기존 에셋 구조를 파악하는 데 Bash 12회, Read 8회를 썼다. 다음 세션에서 실제 리디자인이 이어진다.
+이때 흥미로운 일이 있었다. plan-orchestrator를 호출해 `plan.md`를 작성했는데, 오케스트레이터 게이트가 `standard` 복잡도에서 직접 수정을 차단했다. 실제로는 `styles.css` 한 파일을 전면 재작성하는 작업이라 도구 호출이 많았지만 구조상으로는 단순했다. 분류 기준과 실제 작업 성격이 맞지 않아 plan → implementing 단계를 거쳐야 했다.
 
-## 198 tool calls의 분포
+## 홈 슬라이드쇼 구현과 Stop Hook 사건
 
-7세션, 총 198 tool calls. Bash 62회, Read 61회, Edit 55회 순이었다.
+여러 세션 이후 홈 화면이 다시 바뀌었다. contact-sheet 그리드 대신 큰 사진 하나가 fade-in/fade-out으로 순환하는 슬라이드쇼를 원한다는 것.
 
-Read와 Bash가 거의 동수인 게 특징이다. 코드를 바꾸기 전에 현재 상태를 확인하고, 바꾼 다음에 CDP나 grep으로 결과를 확인하는 루틴이 반복됐다. 수정 1회당 확인 1회가 붙는 구조다.
+구현 자체는 간단했다. 기존 `assets/` 경로의 실제 사진들을 JS 배열로 관리하고, `setInterval`로 이미지를 교체하면서 CSS transition으로 크로스페이드한다. 처음에는 DOM에 `<figure>` 태그를 잔뜩 박아 asset pool로 쓰려 했다가 코드가 지저분해져서 JS 배열 방식으로 되돌렸다.
 
-작은 CSS 문제일수록 원인 추적에 시간이 더 걸렸다. `filter` 상속이나 `letter-spacing` 불일치는 선택자 계층 전체를 추적해야 한다. 반면 FLIP 애니메이션 같은 큰 변경은 요구사항이 명확해서 오히려 빨랐다.
+그런데 작업 종료 시점에 Stop hook이 차단했다:
 
-> 사용자가 구체적으로 말할 때 AI가 가장 빠르다. "AI/generic 거부"라는 피드백도 방향은 분명하다 — 상업적 레이아웃, 사진 중심, 반응형. 다음 세션 재료는 충분하다.
+```
+Stop hook feedback:
+Found 1 debug/잔존마커 leftover(s) in working tree.
+```
+
+실제 코드를 확인했더니 문제가 없었다. 범인은 `WORKLOG.md`에 쓴 이 문장이었다:
+
+```
+디버그 코드·잔존마커 0건
+```
+
+"잔존 마커가 0건이다"라는 확인 메모가 훅이 grep하는 키워드를 포함하고 있어서 트리거된 것이다. 문장을 "디버그/잔존 마커 0건"으로 바꿔서 해결했다. 이후로는 검증 문구에서 체크 대상 키워드를 직접 쓰지 않는다.
+
+도구 사용 통계 (세션 11): Bash(27), Edit(16), Read(12), Grep(8) — 64 tool calls.
+
+## 한/영 방향 갈팡질팡
+
+마지막 다섯 세션이 가장 흥미로웠다. Product 페이지의 언어 방향이 계속 바뀌었다.
+
+세션 14에서 영어로 통일했다(`Graduation / Couple / Friend / Wedding`). 세션 15에서 "그 페이지 다 한국어로" 요청이 왔다(`졸업스냅 / 커플스냅 / 우정·가족 / 웨딩스냅`). 세션 16에서 페이지 내 네비게이션도 한국어로 바꾸고, 세션 17에서 `DM` 토큰까지 `문의하기`로 교체했다. 세션 18에서 "네비게이션은 영어로 복구, 콘텐츠만 한국어 유지"라는 최종 요청이 왔다.
+
+각 세션마다 Claude Code는 지시한 범위만 수정했다. 세션 18에서 네비게이션을 복구할 때, 이전 세션들에서 추가한 인라인 `<style>` 블록까지 제거하면서 깔끔하게 정리했다. 6개 HTML 파일의 cache-busting 버전 문자열을 매 세션마다 동기화하는 것도 Edit 도구로 일관되게 처리했다.
+
+```
+?v=dm-clean-home-20260513-1
+?v=dm-product-lang-20260513-1
+?v=dm-product-nav-restore-20260513
+```
+
+캐시 키가 변경 이력처럼 남는다.
+
+## 오늘 배운 것
+
+604번의 도구 호출 중 Bash가 193번으로 가장 많고, Read가 172번, Edit가 141번이다. 파일을 직접 수정하는 것보다 읽고 확인하는 작업이 더 많다. 탐색 비용이 구현 비용보다 크다.
+
+방향이 자주 바뀌는 UI 작업에서 Claude Code를 쓸 때 가장 효율적인 패턴은 범위를 명확히 제한하는 것이었다. "이 파일만", "이 섹션만", "다른 페이지는 건드리지 마"라는 제약이 있을 때 도구 호출 수가 줄고 실수도 적었다. 범위가 열려 있으면 불필요한 파일을 건드리거나 확인 작업이 늘어난다.
+
+Stop hook의 grep은 맥락을 모른다. 코드 안의 잔존 마커든 WORKLOG 문장 안의 확인 메모든 동일하게 반응한다. 검증 문구를 쓸 때는 훅이 grep하는 키워드를 직접 넣지 않는 게 낫다.
