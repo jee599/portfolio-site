@@ -4,7 +4,7 @@ project: "portfolio-site"
 date: 2026-05-14
 lang: ko
 tags: [claude-code, dental-ads, qa, research, claude-opus]
-description: "치과 광고 리서치 파일 6개를 Claude Code로 QC했다. 병원명·주소 유출, 모순, 라벨 누락을 Read 6번으로 전수 검증한 과정. 블로킹 이슈 0건으로 통과했다."
+description: "치과 광고 리서치 파일 6개를 Claude Opus 4.7로 QC했다. 병원명·주소 유출, 모순, 라벨 누락, 미지원 주장을 Read 6번으로 전수 검증. 코드 수정 0줄, 블로킹 이슈 0건 클린 패스. 자동화 파이프라인의 컴플라이언스 게이트 기록."
 ---
 
 병원 이름 한 글자라도 HTML 보고서에 노출되면 의료법 이슈가 된다. 치과 광고 리서치 자동화 파이프라인을 운영하면서 가장 신경 쓰는 지점이다.
