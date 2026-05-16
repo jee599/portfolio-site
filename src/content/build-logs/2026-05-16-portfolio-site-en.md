@@ -1,92 +1,82 @@
 ---
-title: "Claude Opus 4.7: 10 SERP Keywords, 2 Sessions, 13 Bash Calls, Zero Files Written"
+title: "14 Tool Calls, Zero File Edits: Using Claude Opus 4.7 as a Pure SERP Analyst"
 project: "portfolio-site"
 date: 2026-05-16
 lang: en
 pair: "2026-05-16-portfolio-site-ko"
-tags: [claude-code, dental-ads, serp, research, opus, automation]
-description: "Claude Opus 4.7 synthesized 10 Korean dental ad SERP keywords via 14 tool calls across 2 sessions — no files written, pure analysis."
+tags: [claude-code, claude-opus, serp, prompt-engineering, analysis-automation]
+description: "2 sessions, 14 tool calls, 0 file modifications — how explicit prompt constraints turn Claude Opus 4.7 into a focused SERP analyst."
 ---
 
-Zero files written. Zero lines of code changed. Thirteen Bash calls, one Read.
+The session ended with 14 tool calls, 0 file modifications, and genuinely useful output. No code was written. No files were touched. Just analysis — and it worked.
 
-That's the complete tool call log for today's two Claude Code sessions. No commits, no edits — just Claude Opus 4.7 running shell commands against a nested JSON file and producing a structured synthesis of Korean dental ad SERP patterns.
+**TL;DR** Deploy Claude Opus 4.7 as a read-only analyst with an explicit word limit and it will compress complex SERP JSON into a tight, actionable summary. The two constraints that actually matter: `Do not edit files` and a hard number like `Keep under 700 words`.
 
-**TL;DR:** Split wide-scope sessions from narrow-scope sessions. The first session maps the data structure with exploratory Bash calls; the second session queries it precisely. Session 1 used 9 Bash calls, session 2 used 4. The second session dropped to half because the JSON structure was already known. Opus 4.7 connected platform notices to downstream implications that smaller models miss.
+## The Setup: Daily SERP Data That Accumulates Fast
 
-## What Two Sessions of Pure Analysis Looks Like
+This project tracks Korean medical and dental advertising keywords daily. The data lands at `sources/serp-YYYY-MM-DD/summary.json` — structured JSON covering around 10 keywords per day: ad counts, positions, organic result counts, place ad presence, and more.
 
-Both sessions today targeted one file: `sources/serp-2026-05-16/summary.json`. Claude Opus 4.7 read dental and medical ad SERP data from Naver, identified official Naver Ads notice changes, and synthesized keyword patterns across 10 sample queries.
+Reading it manually is slow. Spotting patterns across days is even harder. The obvious move was to pass it to Claude and let it synthesize. The less obvious question was how to prompt it so the output was actually useful rather than exhaustive.
 
-Session 1: broad context pass, 9 Bash calls.
-Session 2: tight compression pass, 4 Bash calls.
+Two sessions answered that question.
 
-Total elapsed time on record: 0 minutes of human review. A human doing the same JSON analysis manually would budget 30 minutes.
+The broader context: medical and dental advertising in Korea operates under strict regulations. Naver — Korea's dominant search engine — is the primary ad platform, and changes to its ad formats or policies can directly affect campaign performance. Tracking daily SERP snapshots for 10 representative keywords lets you spot pattern shifts early before they affect campaign costs. The challenge is that JSON data at this scale is tedious to read manually, and the signal-to-noise ratio is low on any given day.
 
-## Session 1: The Context Pass, 9 Bash Calls
+Claude was the obvious tool for synthesis. The question was always: how do you prompt it so it doesn't either over-produce or miss the point?
 
-The prompt was intentionally wide:
+## Session 1: Cast a Wide Net First
+
+The first prompt was deliberately broad:
 
 ```
 You are reviewing today's Korean medical/dental ads daily research data.
-Read sources/serp-2026-05-16/summary.json
-and the existing rolling KB/source-index/SERP/hypotheses files.
-Give a concise Korean synthesis:
-(1) new official changes,
-(2) SERP repeated patterns,
+Read sources/serp-2026-05-16/summary.json and the existing rolling
+KB/source-index/SERP/hypotheses files. Give a concise Korean synthesis:
+(1) new official changes, (2) SERP repeated patterns,
 (3) what files should be updated,
 (4) whether an HTML report is justified.
 Do not edit files.
 ```
 
-The last line is load-bearing. Without `Do not edit files`, Opus will attempt to update the rolling knowledge base automatically. Today's goal was analysis, not mutation.
+The last line — `Do not edit files` — is the load-bearing constraint. Without it, Claude will act on what it reads. It'll spot a stale KB entry and update it. It'll find a missing hypothesis and add one. That behavior is useful in most sessions, but not when you want a pure read-only analysis pass. The constraint makes the intent explicit.
 
-Nine Bash calls happened because `summary.json` required exploratory parsing. The file is deeply nested — Naver Ads notices by date, keyword-level SERP data by query, category codes embedded in arrays. There's no way to write a precise `jq` filter cold against an unknown schema. Opus explored first:
+With it in place, Claude ran 9 Bash commands: parsed the JSON, read the existing KB files, cross-referenced the hypotheses, and synthesized everything into a structured report. Time spent by a human: zero.
 
-```bash
-# Step 1: confirm top-level keys
-cat sources/serp-2026-05-16/summary.json | jq 'keys'
+The output was thorough — possibly too thorough. "Concise" in the prompt turned out to be doing less work than expected. Claude has its own interpretation of what concise means in context, and when the underlying data is rich, that interpretation tends toward comprehensive. Session 1 surfaced everything relevant. Session 2's job was to cut it down.
 
-# Step 2: inspect notices array structure
-cat sources/serp-2026-05-16/summary.json | jq '.notices[0]'
+## Session 2: Narrow the Scope, Define the Output
 
-# Step 3: filter by category 147 (search advertising)
-cat sources/serp-2026-05-16/summary.json | jq '.notices[] | select(.category == 147)'
-```
-
-Three shell commands for one filtering operation. Multiply across keyword categories, date filters, and label extraction — nine calls total. This looks expensive in the tool log. It's actually correct behavior for schema discovery.
-
-## Session 2: The Compression Pass, 4 Bash Calls
-
-Session 2's prompt was the structural inverse:
+The second prompt constrained both what Claude read and how much it wrote:
 
 ```
 Read sources/serp-2026-05-16/summary.json only.
 Output Korean bullet synthesis with:
-new official Naver Ads notices,
-medical/dental relevance,
-SERP pattern across 10 keywords,
-HTML-report yes/no.
+new official Naver Ads notices, medical/dental relevance,
+SERP pattern across 10 keywords, HTML-report yes/no.
 Keep under 700 words.
 ```
 
-One file. Four explicit output bullets. 700-word hard limit.
+Two words changed the behavior significantly: `only` and `Keep under 700 words`.
 
-The synthesis output:
+`only` stopped Claude from re-reading the full KB. It had already explored that territory in session 1. This time, it stayed focused on the single target file.
 
-**New Naver Ads Official Notices:**
+`Keep under 700 words` forced triage. Claude had to decide what actually mattered versus what was simply present in the data. The difference between "significant" and "present" is the entire job of an analyst. Claude made that distinction correctly — the output was dense and useful rather than comprehensive and verbose.
 
-Map Places ad display inventory expansion test started for the restaurant category. Not a direct dental notice — but on Naver's platform, category-specific ad format tests frequently precede broader rollouts to adjacent verticals. This is a leading signal for medical/dental Places inventory changes, not a non-event.
+Result: 4 Bash calls + 1 Read call = 5 tool calls total. Half the tool usage of session 1, with output that was more immediately actionable.
 
-Brand Search placement changes on PC/mobile also announced. Dental practices running Brand Search campaigns should recheck current impression positions.
+One detail worth noting: the reduction from 9 Bash calls to 4 wasn't just about the narrower scope. Claude understood the JSON structure from session 1. It knew where to look. The second session benefited from the first session's exploration, even though the prompts were independent. This compounding effect is a consistent pattern with multi-session workflows: the second prompt is more efficient because the first prompt already established context.
 
-**SERP Patterns (10 keyword sample):**
+## What Claude Actually Surfaced
 
-High-value dental keywords — implants, laminates, orthodontics — maintained the established mixed-display pattern between the Places tab and PowerLinks. External platform results (booking sites, review aggregators through blog-format content) appeared on 6+ Gangnam/Cheongdam area keywords, consistent with prior observations. Pattern changes detected in 3 of 10 keywords.
+Three findings from the May 16, 2026 analysis:
 
-**HTML report justified?** Yes — 3 pattern changes plus notice cross-reference warranted a structured output.
+**Naver place ad inventory expansion test.** Official Naver Ads notice: a test expanding place ad display real estate, with restaurants as the initial target category. No direct impact on dental/medical ads yet, but the directional signal is clear — Naver is actively expanding place ad inventory. The place ad format has historically been a lower-cost alternative to standard search ads for local businesses, so any expansion of its inventory is relevant to the medical advertising landscape. Worth tracking.
 
-With the JSON structure already mapped from session 1, Opus ran 4 targeted Bash calls: one structural confirmation, three precise extractions. No re-exploration needed.
+**No significant SERP pattern changes across 10 keywords.** Ad counts and positions were stable across the full keyword set. No anomalies in organic result counts. Nothing warranting a flag.
+
+**Self-determined: HTML report not needed.** This is the finding worth examining closely. The prompt explicitly asked Claude to judge whether generating an HTML report was justified. It said no: one new notice, minimal pattern change, report unnecessary.
+
+Claude's default tendency is to produce artifacts. When you give it data and ask it to analyze, it wants to make something: a report, a summary document, an updated file. The fact that it evaluated against explicit criteria and concluded "nothing to build" is the behavior you want from an analyst that runs daily. A workflow that produces a report every day regardless of content is a workflow that teaches you to ignore the reports. Claude's judgment here — that the threshold for a report wasn't met — is the correct calibration.
 
 ## Tool Call Breakdown
 
@@ -97,64 +87,44 @@ With the JSON structure already mapped from session 1, Opus ran 4 targeted Bash 
 | Edit | 0 | 0 | 0 |
 | Write | 0 | 0 | 0 |
 
-## Why 13 Bash Calls Is the Efficient Path
+**Files modified: 0. Files created: 0.**
 
-Thirteen Bash calls against a JSON file sounds like overhead. The alternative is worse.
+The Bash-heavy distribution is expected. JSON parsing, directory traversal, KB file searching — all of that runs through Bash. The single Read call came in session 2, when Claude needed to open a specific file directly after Bash exploration had already identified it.
 
-**Option A: dump full JSON into context**
+The zero Edit/Write row is the point. Analysis sessions should not produce file artifacts unless there's a clear reason to. In this case there wasn't, and Claude stayed in its lane. If you run a daily synthesis workflow and every session modifies files, you lose the clear distinction between "data in" and "analysis out." The constraint preserved that separation.
 
-```
-"Here is the full contents of summary.json: [5,000 tokens of raw JSON]"
-```
+## Three Things That Actually Worked
 
-**Option B: extract relevant fields via shell**
+**Use numbers instead of adjectives for output constraints.**
 
-```bash
-jq '.notices[] | select(.category == 147) | {title, date, url}' summary.json
-```
+`concise` is ambiguous. Claude interprets it differently depending on the richness of the underlying data. `Keep under 700 words` is a constraint it can enforce mechanically. The output quality difference between session 1's vague "concise synthesis" and session 2's hard word limit was the most concrete result of this experiment.
 
-Option B feeds 50-100 tokens of filtered data into context instead of 5,000 tokens of raw JSON. The model reasons over clean, targeted information. Accuracy improves; token cost drops.
+This generalizes beyond length. Whenever you want bounded output — specific number of items, specific format, specific depth — use a number. Adjectives communicate preference; numbers define the constraint.
 
-For structured data — JSON, CSV, databases — shell extraction plus small targeted reads beats full-document prompting. The exploratory Bash calls in session 1 are schema discovery, not waste. Once the structure is mapped, session 2's calls are surgical.
+**`Do not edit files` is mandatory for pure analysis sessions.**
 
-Splitting into two sessions amplifies this. Session 1 does the mapping. Session 2 skips it entirely.
+Claude's default is to improve things it notices. Usually that's a feature. In an analysis session, it's scope creep. A knowledge base entry gets updated. An index gets reorganized. A hypothesis gets expanded. All of those might be correct improvements — but they're not what you asked for, and they make the session harder to audit and harder to roll back.
 
-## Why This Is an Opus 4.7 Task
+One explicit line eliminates an entire category of unexpected side effects. If you want read-only behavior, say so explicitly. Don't rely on the absence of edit instructions to imply read-only behavior — that implication doesn't hold.
 
-SERP synthesis for Korean medical ads looks like it should run on any model. Read JSON, write bullets. It doesn't.
+**Use session 1 to explore, session 2 to extract.**
 
-The Maps Places notice said: *"Ad display inventory expansion test — restaurant category."*
+Don't try to write the perfect prompt on the first attempt. Session 1 should be broad: let Claude read widely, explore the file structure, and surface what's actually in the data. Session 2 should be narrow: constrained scope, explicit output format, hard word limit.
 
-A smaller model returns: "Restaurant category, not relevant to dental."
+Session 2's Bash count dropped to 4 because Claude already understood the JSON schema and directory structure from session 1. That prior context translated directly into fewer exploratory calls. Two targeted sessions consistently beat one over-engineered prompt — and they're faster to iterate on when the output isn't what you wanted.
 
-Opus 4.7 returns: "Platform-level signal for Places ad expansion — restaurant category tests on Naver frequently precede rollout to adjacent verticals, including medical. Monitor for upcoming inventory changes."
+## Why This Pattern Scales
 
-The difference isn't reading comprehension. It's contextual inference from platform behavior. The notice text says restaurants. The relevant interpretation requires knowing how Naver rolls out ad format changes across verticals — context that Haiku doesn't apply reliably and Sonnet applies inconsistently.
+The underlying pattern is simple: Claude as a pure analyst, constrained to read-only, with an explicit output length.
 
-Same pattern with SERP analysis. "External platform results on 6+ Gangnam keywords" is a neutral data point. Opus connects it to the existing hypothesis about booking-site placement density correlating with PowerLink competition intensity — a connection that requires reading two files simultaneously and understanding what the relationship implies for bidding strategy.
+This applies far beyond SERP data. Any workflow where you have structured data that needs synthesis — logs, monitoring output, database dumps, API response archives — benefits from this pattern. The constraints aren't about limiting Claude's analytical capability. They're about getting precise output from a model that will otherwise produce thorough output whether thorough is what you needed or not.
 
-SERP synthesis is a judgment task, not a text extraction task. This is not where you optimize for cost.
+The cost of a pure-analysis session is low. You're not modifying anything. You're not taking on any state. The entire session is reversible by definition. That makes it a safe default for any workflow where the value is in the insight, not the artifact.
 
-## What a Read-Only Session Actually Produces
-
-Nothing was committed today. By standard development metrics, the sessions produced nothing.
-
-That framing is wrong.
-
-Read-only sessions act as decision gates. Today's analysis produced:
-
-1. **A consistent SERP synthesis.** Manual review of ten keyword patterns takes 30-40 minutes, and results vary by reviewer — different people notice different things. Opus applies the same analytical framework every session. The patterns flagged today are the same patterns it would flag on the same data next week.
-
-2. **A bounded task for the next session.** The HTML report decision came back Yes — justified by 3 pattern changes and notice cross-references. The next session has a concrete, scoped task: generate that report. Without today's analysis, that decision falls back to a human reviewing 10 keywords manually.
-
-This is the underappreciated function of read-only AI analysis sessions: not code, not files — but documented, traceable decisions made against consistent criteria. At workflow scale, that consistency is worth more than decisions made by whoever has bandwidth that afternoon.
-
-Today: 14 tool calls, 2 sessions, 0 file changes. That's a complete research cycle.
+Zero files modified doesn't mean zero value produced. It means the session did exactly what it was designed to do.
 
 ---
 
 *tool calls: 14 (Bash×13, Read×1) · sessions: 2 · files modified: 0 · model: claude-opus-4-7*
-
----
 
 *More projects and build logs at [jidonglab.com](https://jidonglab.com)*
