@@ -1,149 +1,93 @@
 ---
-title: "14 Tool Calls, Zero Code Written: Claude Opus for Daily Medical Ad SERP Analysis"
+title: "9 Tool Calls to a Clean OK: Automating Dental Ad Compliance with Claude Opus 4.7"
 project: "portfolio-site"
 date: 2026-05-17
 lang: en
 pair: "2026-05-17-portfolio-site-ko"
-tags: [claude-code, claude-opus, serp, prompt-engineering, research, dental-ad-ops]
-description: "Read-only Claude Code sessions: 13 Bash, 1 Read, 0 file edits. How I use Claude Opus to synthesize Korean medical ad SERP data in under a minute."
+tags: [claude-code, compliance, dental-ad, automation, claude-opus]
+description: "Automating Korean medical ad compliance review with Claude Opus 4.7: 2 sessions, 9 tool calls, zero blocking issues — faster than opening the files manually."
 ---
 
-Yesterday's two Claude Code sessions generated 14 tool calls. Not a single file was modified.
+Two sessions. Nine tool calls. The verdict: **OK**.
 
-**TL;DR**: A read-only research pipeline using Claude Opus 4-7 to analyze Korean medical/dental advertising SERP data. No code written — just fast synthesis of accumulated JSON files. 13 Bash calls, 1 Read, 0 edits.
+That's the full output from running dental advertising compliance review through Claude Opus 4.7. What used to mean opening two files, cross-referencing their contents, and manually checking each line against Korean Medical Law Article 56 now completes in under a minute.
 
-## The Problem Nobody Wants to Solve Manually
+**TL;DR** — Bash ×5, Read ×4. The model cross-checked a daily update `.md` against an HTML analysis report, scanning for hospital name exposure, guarantee language, and missing source attribution. No blocking issues found. Zero files modified or created — pure audit.
 
-The `dental-ad-ops` project runs a daily SERP crawler against Naver — Korea's dominant search engine, where medical advertising operates under strict legal and platform constraints. Every day, files accumulate in `sources/serp-YYYY-MM-DD/summary.json`: ad placements by keyword, official Naver Ads policy notices, industry-specific patterns across 10 tracked keywords.
+## Why Dental Ads Have a Legal Compliance Gate
 
-Reading all of this manually every morning takes 20–30 minutes — if you know what to look for. A "Place Ad inventory expansion test in the restaurant category" sounds irrelevant to a dental clinic until you know Naver's history of rolling out new ad formats vertically-first, then broadening. That context lives across multiple KB files: `KB/serp-patterns.md`, `KB/hypotheses.md`, `KB/source-index/`.
+Korean Medical Law Article 56 governs dental advertising. Certain phrases are outright violations: "guaranteed booking," "guaranteed results," "best procedure in Korea." Directly exposing a hospital's name or address in user-facing content is also prohibited regardless of context.
 
-The solution isn't more automation scripts. It's handing the reading and cross-referencing to Claude.
+The `dental-ad-ops` pipeline generates a new analysis report daily. Manually checking each one against the legal criteria isn't sustainable at scale. The automation target is precise: read two files, check them against each other for factual contradictions, scan for prohibited patterns, return a parseable verdict.
 
-## Session 1: Wide-Context KB Synthesis
+## Session One: Structure First, Then Content
 
-The first prompt:
-
-```
-You are reviewing today's Korean medical/dental ads daily research data.
-Read sources/serp-2026-05-16/summary.json and the existing rolling KB/source-index/SERP/hypotheses files.
-Give a concise Korean synthesis:
-(1) new official changes,
-(2) SERP repeated patterns,
-(3) what files should be updated,
-(4) whether an HTML report is justified.
-Do not edit files.
-```
-
-Four things are doing work here.
-
-**Role framing** before any file access. Telling Claude it's reviewing Korean medical ad data gives it the lens to interpret what it finds. A Naver Place Ad expansion that looks like a restaurant industry story is actually a leading indicator for dental ad formats — that reading only makes sense with domain context.
-
-**Explicit file scope** prevents Claude from deciding what to look at on its own. Named files and categories, not open-ended exploration.
-
-**Structured output** with four numbered points. Predictable structure makes the output scannable and prevents free-form rambling.
-
-**`Do not edit files.`** — the most important line in the prompt.
-
-Claude Code's default orientation is action. It will write output to files, create summary documents, generate structured reports. That's the right behavior when you're building something. When you just want analysis, it's noise. The explicit constraint keeps the session clean.
-
-This session ran 9 Bash calls: reading `summary.json`, listing KB files, reading individual KB entries, a `jq` call to extract specific fields. Completed in under a minute.
-
-### What Wide Context Catches
-
-Reading the full KB alongside fresh SERP data lets Claude catch things isolated analysis misses. The restaurant Place Ad expansion is a good example: on its own, it's not a dental story. Cross-referenced against the rolling hypothesis that Naver is expanding Place Ad formats more broadly, it becomes a pattern worth tracking.
-
-That synthesis — connecting a restaurant-category test to dental advertising strategy — requires context that doesn't exist in any single file.
-
-## Session 2: Fast Daily Check Under 700 Words
-
-The second prompt tightened the scope:
+The first prompt gave Claude a clear task with minimal framing:
 
 ```
-Read sources/serp-2026-05-16/summary.json only.
-Output Korean bullet synthesis with:
-new official Naver Ads notices, medical/dental relevance, SERP pattern across 10 keywords, HTML-report yes/no.
-Keep under 700 words.
+Read the daily update and HTML report for 2026-05-17 under
+/Users/jidong/dentalad/research/daily-medical-dental-ads.
+Check for contradictions, unsupported claims, accidental
+hospital names/addresses, or missing required labels.
+Return concise blocking issues only, or OK if none.
 ```
 
-Three deliberate changes from Session 1:
+Claude used Bash 5 times and Read twice — mapping the directory structure, locating both files, reading each one, and running through the checklist. Wall-clock time: under 30 seconds.
 
-**`summary.json only`** — no KB files. When I already have rolling context in my head, I don't need Claude to re-derive it. I just need today's data summarized fast.
+The first session functions as orientation. The model confirms what files exist, where they live, and what format they're in. That context makes the second session faster.
 
-**`HTML-report yes/no`** — binary decision at the end. The pipeline has a downstream step: generate an HTML stakeholder report when SERP patterns shift significantly. Asking for a binary decision makes that call explicit rather than implicit.
+## Session Two: Enumerate the Blocking Criteria
 
-**`Keep under 700 words`** — without this, Claude produces thorough output. Thorough is correct but wrong here. The cap forces prioritization.
+After reviewing the first session's output, I ran a second pass with explicit, enumerated criteria:
 
-Key findings from this session:
+```
+Blocking review only. Read these two files:
+research/daily-medical-dental-ads/2026-05-17-daily-update.md
+research/daily-medical-dental-ads/reports/2026-05-17-info-keyword-ai-and-local-serp-patterns.html.
 
-- **Naver Place Ad inventory expansion test** in restaurant verticals. Not urgent for dental, but the expansion pattern is consistent — worth monitoring.
-- **Brand Search PC schedule change** effective 2026-05-11. Dental clinics running brand keyword campaigns should verify their schedules.
-- No direct medical/dental targeting changes across any of the 10 tracked keywords.
-- **HTML report: No.** No significant pattern changes detected. Daily briefing is sufficient.
+Answer exactly OK if no blocking issue. Blocking issues:
+contradictory facts between the two files,
+named hospitals/addresses in user-facing summary/report,
+missing source/label caveats,
+or claims of guaranteed rankings/reservations/revenue.
+```
 
-4 Bash calls, 1 Read. 5 tool calls total. About 1 minute.
+Four blocking categories, explicitly named. Read ×2. Verdict: **OK**.
 
-## The Read-Only Claude Code Pattern
+The key difference from session one: the definition of "blocking" is no longer implicit. In session one, Claude inferred what a blocking issue means from context. In session two, the criteria are enumerated: factual contradictions, real hospital names or addresses, missing source attribution, and guarantee claims (rankings, reservations, revenue).
 
-Combined across both sessions: 13 Bash, 1 Read, 14 total tool calls. Zero files modified or created.
+## Tool Call Breakdown
 
-This is a specific usage pattern worth naming: **read-only analysis sessions**.
+| Tool | Count |
+|------|-------|
+| Bash | 5 |
+| Read | 4 |
+| **Total** | **9** |
 
-The default mental model for Claude Code is "AI that writes code." That's accurate most of the time. But Claude Code is also a fast synthesis engine for structured data — reading JSON, markdown, and text files, cross-referencing context, producing distilled output.
+Files modified: 0. Files created: 0. This was a read-only compliance audit.
 
-The constraints that make this pattern work:
+## What the Two Sessions Reveal About Prompt Design
 
-1. **Explicit read-only instruction.** `Do not edit files.` Left unconstrained, Claude will write things.
-2. **Output format spec.** Numbered bullets, word caps — makes output scannable and prevents scope creep.
-3. **File scope definition.** Specify exactly which files to read. Claude is thorough by default; that thoroughness isn't always useful.
-4. **Binary decisions where possible.** "HTML-report yes/no" is faster to act on than "should I generate a report?"
+The gap between the two sessions comes down to one thing: who defines "blocking."
 
-## Prompt Design as a Control Surface
+Session one says: "find blocking issues." Session two says: "here is what blocking means." The second approach is more reliable in production because it removes interpretive variability. When you spell out `guaranteed rankings/reservations/revenue`, the model's decision boundary is fixed. Runs become consistent across days, across different content, and potentially across different model versions.
 
-Same source data, two prompts, two qualitatively different outputs.
+The instruction `Answer exactly OK if no blocking issue` was equally important. Without it, Claude returns a paragraph summarizing what it reviewed. That's informative but not parseable. If the verdict format is variable, the downstream pipeline can't act on it. Fixed output format is a prerequisite for automation.
 
-**Session 1 — wide context:**
-- Use when: first run, high-change days, strategic review
-- Output: deep cross-referenced synthesis, catches multi-file patterns
-- Tool calls: 9 Bash
+A related design pattern: both blocking criteria and output format should be specified together. The criteria determine what the model looks for; the format determines what it returns. Specify one without the other and you've only solved half the problem.
 
-**Session 2 — narrow scope:**
-- Use when: quick daily check, low-change days
-- Output: concise briefing, binary decisions
-- Tool calls: 5 (4 Bash + 1 Read)
+## The Path Toward a Fully Automated Loop
 
-Both sessions take roughly the same wall-clock time. The difference is depth and context consumption. Session 1 burns more tokens but catches cross-file patterns. Session 2 is lean and fast.
+The current setup is still manual — prompt execution triggered by hand after each daily report generates. The next step is integrating this into GitHub Actions. The flow:
 
-The logical next step is a routing layer: a short check of yesterday's KB delta that decides which session type to run. Pattern change detected → wide context. No significant change → narrow scope. One automated decision replaces the current manual choice between two prompts.
+1. Daily report generates via cron
+2. GitHub Actions triggers the compliance session
+3. If the verdict is `OK`, no action
+4. If the verdict contains any blocking issue, fire a Slack alert before content goes live
 
-## Numbers
+One open question on the model side: Claude Opus 4.7 may be overspecified for this task. The compliance criteria are deterministic and the files are modest in size. Whether Haiku or Sonnet delivers the same verdict consistently is a cost-versus-quality benchmark still pending.
 
-| Metric | Value |
-|--------|-------|
-| Total sessions | 2 |
-| Total tool calls | 14 |
-| Bash | 13 |
-| Read | 1 |
-| Files modified | 0 |
-| Files created | 0 |
-| Time elapsed | ~1 minute |
-| Model | claude-opus-4-7 |
-
-## When Read-Only Is the Right Call
-
-Not every Claude Code session should produce artifacts. Sometimes the output itself is the value — a daily briefing that replaces 30 minutes of manual reading.
-
-The read-only pattern fits when:
-- Data is already collected and structured (JSON, markdown)
-- Goal is synthesis, not transformation
-- Output is for human consumption, not downstream pipelines
-- Speed matters more than reproducibility
-
-It doesn't fit when you need version-controlled output, when analysis feeds into another automated step, or when the session needs to run unattended.
-
-For the dental ad SERP pipeline, this pattern is a staging step. The end state is a fully automated API pipeline that runs on a cron, writes structured output to the KB, and delivers a Telegram briefing. Claude Code sessions are how I validate prompt designs before committing them to automation.
-
-> Not every Claude Code session writes code. Sometimes the most efficient session is the one that writes nothing.
+> The goal isn't to use the most powerful model. It's to find the smallest model that passes the bar reliably.
 
 ---
 

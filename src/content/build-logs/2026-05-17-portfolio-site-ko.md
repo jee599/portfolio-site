@@ -1,92 +1,76 @@
 ---
-title: "코드 한 줄 없이 14 tool calls: Claude Opus로 의료광고 SERP 일일 분석"
+title: "Claude Opus 4.7로 치과 광고 컴플라이언스 검수 자동화 — 9번의 도구 호출로 OK 판정까지"
 project: "portfolio-site"
 date: 2026-05-17
 lang: ko
-tags: [claude-code, claude-opus, serp, dental-ad, prompt-engineering, research]
-description: "Claude Code를 코드 작성이 아닌 리서치 도구로 쓴 사례. Bash 13번, Read 1번으로 네이버 의료광고 SERP 데이터를 분석하고 일일 브리핑을 뽑아냈다. 수정 파일 0개."
+tags: [claude-code, compliance, dental-ad, automation, claude-opus]
+description: "Claude Opus 4.7로 치과 광고 컴플라이언스를 자동 검수했다. 2세션, 9번의 tool call로 모순 사실·병원 실명 노출·보장성 표현 등 의료광고법 위반 여부를 체크하고 OK 판정까지 받는 과정을 기록한다."
 ---
 
-어제 Claude Code 세션 2개에서 tool call이 14번 발생했다. 수정된 파일은 0개다.
+2세션, 9번의 tool call, 결과는 단 두 글자 — **OK**.
 
-**TL;DR** 의료·치과 광고 SERP 데이터를 Claude Opus 4-7로 분석하는 읽기 전용 리서치 파이프라인이다. 코드를 짜는 게 아니라, 쌓인 데이터를 빠르게 요약·종합하는 데 Claude를 쓰는 패턴.
+치과 광고 컴플라이언스 검수를 Claude Opus 4.7에게 맡겼다. 수동으로 했다면 파일 두 개를 열고, 내용을 비교하고, 의료광고법 기준으로 항목별로 체크해야 했을 작업이다. Claude는 9번 도구를 쓰고 판정을 내렸다.
 
-## 배경: 왜 Claude Code로 SERP를 분석하나
+**TL;DR** Bash 5번, Read 4번으로 일일 업데이트 `.md`와 HTML 리포트를 교차 검수했다. 병원 실명 노출, 보장 표현, 출처 미표기 등 블로킹 이슈 없음.
 
-치과 광고 프로젝트(`dental-ad-ops`)에는 매일 수집되는 네이버 SERP 데이터가 있다. `sources/serp-2026-05-16/summary.json` 같은 파일들이 날짜별로 쌓인다. 키워드 10개, 광고 공지, 업종별 패턴.
+## 검수가 필요한 이유
 
-매일 이걸 직접 읽는 건 비효율적이다. 그래서 Claude에게 넘긴다. 코드 변경 없이, 파일을 읽고 한국어로 요약하는 역할만 맡긴다.
+치과 광고에는 의료법 56조가 적용된다. "예약 보장", "효과 보장", "최고의 시술" 같은 표현이 들어가면 위반이다. 병원 이름이나 주소가 유저 대면 콘텐츠에 직접 노출돼도 문제다. 매일 생성되는 리포트마다 이걸 손으로 확인하는 건 비현실적이다.
 
-## 세션 1: 전체 KB 맥락 포함 종합 분석
+자동화 포인트는 명확하다. 정해진 기준으로 파일을 읽고, 두 파일 간 사실 모순을 찾고, 블로킹 이슈 목록을 뽑으면 된다.
 
-첫 번째 프롬프트는 이랬다.
+## 첫 번째 세션: 기준 설정과 탐색
 
-```
-You are reviewing today's Korean medical/dental ads daily research data.
-Read sources/serp-2026-05-16/summary.json and the existing rolling KB/source-index/SERP/hypotheses files.
-Give a concise Korean synthesis:
-(1) new official changes,
-(2) SERP repeated patterns,
-(3) what files should be updated,
-(4) whether an HTML report is justified.
-Do not edit files.
-```
-
-마지막 줄이 핵심이다. `Do not edit files.` Claude Code는 기본적으로 행동하려 한다. 분석 결과를 파일로 떨어뜨리거나, 요약 문서를 새로 만들거나. 여기서는 그게 필요 없다. 출력만 받으면 된다.
-
-이 세션에서 Bash를 9번 썼다. json 파싱, 파일 목록 확인, 기존 KB 파일 읽기 등. 시간은 0분 — 사실상 즉시 완료였다.
-
-## 세션 2: 700자 제한 압축 브리핑
-
-두 번째 프롬프트는 범위를 더 좁혔다.
+첫 프롬프트는 이랬다:
 
 ```
-Read sources/serp-2026-05-16/summary.json only.
-Output Korean bullet synthesis with:
-new official Naver Ads notices, medical/dental relevance, SERP pattern across 10 keywords, HTML-report yes/no.
-Keep under 700 words.
+Read the daily update and HTML report for 2026-05-17 under
+/Users/jidong/dentalad/research/daily-medical-dental-ads.
+Check for contradictions, unsupported claims, accidental
+hospital names/addresses, or missing required labels.
+Return concise blocking issues only, or OK if none.
 ```
 
-`summary.json only` — 첫 번째 세션에서 여러 파일을 읽다 보니 결과가 길어졌다. 두 번째에서는 단일 파일로 제한해서 속도를 높였다.
+Claude는 Bash 5번, Read 2번을 썼다. 파일 구조를 확인하고, 두 파일을 읽고, 기준에 맞게 내용을 검토했다. 이 세션에서 소요된 시간은 체감상 30초 이내.
 
-출력 결과의 핵심 내용은 이랬다:
+## 두 번째 세션: 블로킹 기준을 명시적으로 열거
 
-- **지도 플레이스광고 지면 확대 테스트** — 음식점 업종 대상이지만, 플레이스광고 확대 기조의 연장선이라 치과에도 영향 가능
-- **브랜드검색 PC 일정 변경** (2026-05-11) — 브랜드 키워드 운영 중인 치과는 모니터링 필요
-- SERP 10개 키워드 중 의료 업종 직접 대상 공지는 없음
-- HTML 리포트 불필요 — 패턴 변화 없음
+첫 세션 결과를 확인한 뒤 더 엄격한 기준으로 두 번째 검수를 돌렸다.
 
-Bash 4번, Read 1번. 총 5 tool calls, 1분.
+```
+Blocking review only. Read these two files:
+research/daily-medical-dental-ads/2026-05-17-daily-update.md
+research/daily-medical-dental-ads/reports/2026-05-17-info-keyword-ai-and-local-serp-patterns.html.
 
-## 읽기 전용 Claude의 효율
+Answer exactly OK if no blocking issue. Blocking issues:
+contradictory facts between the two files,
+named hospitals/addresses in user-facing summary/report,
+missing source/label caveats,
+or claims of guaranteed rankings/reservations/revenue.
+```
 
-두 세션 합쳐서 Bash 13번, Read 1번, 총 14 tool calls. 파일 수정 0개, 파일 생성 0개.
+기준을 더 명시적으로 열거했다. 모순 사실, 병원 실명/주소, 출처 미표기, 순위/예약/매출 보장 주장. Read 2번으로 두 파일을 읽고 판정: **OK**.
 
-Claude Code를 쓸 때 기본 전제는 "코드를 만드는 도구"다. 그런데 이 세션들은 반대다. 기존 데이터를 읽고, 사람이 30분 걸릴 분석을 1분 안에 요약해 준다.
+## 도구 사용 통계
 
-이 패턴에서 프롬프트 설계가 중요한 이유가 있다. Claude는 기본적으로 뭔가를 하려 한다. `Do not edit files`나 `Keep under 700 words` 같은 명시적 제약을 안 걸면, 결과가 필요 이상으로 길어지거나 파일을 생성하려 한다.
+| 도구 | 횟수 |
+|------|------|
+| Bash | 5 |
+| Read | 4 |
+| 합계 | 9 |
 
-## 프롬프트 설계의 두 가지 패턴
+수정 파일: 0개. 생성 파일: 0개. 순수 검수만 했다.
 
-첫 번째 세션과 두 번째 세션의 프롬프트는 같은 목적이지만 전략이 달랐다.
+## 프롬프트 설계에서 배운 것
 
-**첫 번째**: 컨텍스트를 넓게 잡는다. KB 전체, 기존 가설 파일까지 읽게 해서 rolling 인사이트를 뽑아낸다. 처음 파이프라인을 돌릴 때나, 변화가 많은 날에 쓴다.
+두 세션의 차이는 프롬프트 구체성이다. 첫 번째는 "블로킹 이슈를 찾아라"는 방향을 줬고, 두 번째는 블로킹 이슈의 정의를 직접 열거했다.
 
-**두 번째**: 범위를 좁히고 출력 길이에 cap을 건다. `summary.json only` + `under 700 words`. 변화가 없는 날 빠른 확인용이다.
+두 번째 방식이 더 안정적이다. `guaranteed rankings/reservations/revenue`처럼 위반 표현을 명시하면 판단 기준이 고정된다. 모델이 알아서 해석하는 부분을 줄일수록 검수 결과의 일관성이 올라간다.
 
-같은 데이터, 다른 프롬프트 → 다른 깊이의 결과. 매일 자동으로 어떤 프롬프트를 쓸지 결정하는 레이어를 붙이면 더 효율적인 파이프라인이 나올 것이다.
+`Answer exactly OK if no blocking issue`라는 지시도 중요했다. 출력 형식을 고정해야 후속 파이프라인에서 파싱이 가능하다.
 
-## 수치
+## 자동화 루프로 가는 방향
 
-| 항목 | 값 |
-|------|-----|
-| 총 세션 | 2 |
-| 총 tool calls | 14 |
-| Bash | 13 |
-| Read | 1 |
-| 수정 파일 | 0 |
-| 생성 파일 | 0 |
-| 소요 시간 | ~1분 |
-| 사용 모델 | claude-opus-4-7 |
+지금은 수동으로 프롬프트를 실행하는 구조다. 다음 단계는 GitHub Actions에 붙이는 것이다. 매일 리포트가 생성되면 자동으로 검수 세션을 돌리고, OK가 아니면 Slack으로 알림을 보내는 흐름이다.
 
-> 코드를 짜지 않는 Claude Code 세션도 있다. 그게 효율적일 때가 있다.
+Claude Opus 4.7은 이런 반복 검수 작업에 과스펙일 수 있다. Haiku나 Sonnet으로도 동일한 판정이 가능한지 비용 대비 품질 테스트가 남아 있다.
