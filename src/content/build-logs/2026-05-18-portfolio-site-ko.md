@@ -1,85 +1,68 @@
 ---
-title: "Read 6번으로 의료광고 컴플라이언스 전수 검토: 차단 이슈 0건"
+title: "Claude Code 14세션 78 tool calls: 사진작가 사이트 클라이언트 납품 전 리뷰-픽스 루프"
 project: "portfolio-site"
 date: 2026-05-18
 lang: ko
-tags: [claude-code, compliance, dental-ads, review, automation]
-description: "파일 6개, Read 6번, 코드 수정 0줄. Claude Code로 한국 의료광고법 컴플라이언스를 자동 검토한 과정과, 차단 기준 명시가 결과 일관성에 어떤 영향을 주는지 정리한다."
+tags: [claude-code, claude-opus-4-7, workflow, review-fix, static-site]
+description: "Claude Code 14세션 78 tool calls로 사진작가 클라이언트 사이트(daymoon-pic-site) 납품 준비. 러너 검증 6번 → 구현 → read-only 리뷰 → 픽스 → 폴리시, Read 36번이 전체의 46%를 차지했다."
 ---
 
-파일 6개, Read 6번, 코드 한 줄 수정 없음. 오늘 세션의 전부다. 결과는 `OK`.
+14개 세션, 78번의 tool call. 오늘 작업의 주축은 `daymoon-pic-site` — 사진작가 클라이언트를 위한 정적 HTML/CSS 사이트였다. 구현보다 읽기가 더 많았고, 코드 한 줄 없는 세션이 6개였다.
 
-**TL;DR** 차단 항목을 프롬프트에 명시하고 출력 형식을 강제하면, Claude Code는 6개 파일을 훑고 의료광고 컴플라이언스 판정을 일관되게 내린다.
+**TL;DR** 새 프로젝트에 Claude Code를 붙일 때 러너 검증부터 시작하는 패턴이 안정적이다. 리뷰 세션을 구현과 분리하면 납품 전 픽스 범위가 명확해진다.
 
-## 무엇을 검토했나
+## 6번의 "OK" — 러너 검증의 실체
 
-`dentalad` 프로젝트는 치과 광고 운영을 자동화한다. 매일 새벽 스크립트가 경쟁사 SERP를 수집하고, Claude가 분석 리포트를 생성한다. 이 리포트는 한국 의료광고법을 준수해야 한다.
-
-오늘 검토 대상은 `2026-05-18` 날짜의 산출물 6개였다. `.md` 파일 5개와 HTML 리포트 1개다. 체크해야 할 항목은 다음과 같다.
-
-필수 근거 레이블 누락 여부(`공식 확인`, `공개 SERP 관찰`, `운영 가설`, `수치 미확인`, `확인 필요`), 효과 보장성 문구 포함 여부(예: "반드시 효과 있음", "1등 병원"), CPC/CTR/CPA/ROAS 수치를 근거 없이 단정 서술했는지, HTML 리포트에 특정 병원명·주소 노출 여부, AI 생성 표시 및 출처 레이블 일관성, 필수 산출물이 모두 존재하는지.
-
-수동으로 하면 파일 6개를 열어 항목마다 확인해야 한다. 10~15분짜리 반복 작업이다.
-
-## 프롬프트 설계
-
-Claude Code에 던진 프롬프트는 이 구조를 따랐다.
+총 14개 세션 중 6개는 코드를 한 줄도 건드리지 않았다. 프롬프트는 이런 식이다.
 
 ```
-Read these files and perform a blocking-issues-only review for the
-scheduled Korean medical/dental ads daily report.
-
-Check for:
-- missing required labels
-- prohibited guarantees
-- unstated CPC/CTR/CPA/ROAS/ad spend claims
-- named hospital/address leakage in the HTML report
-- contradictions about AI briefing/source labels
-- whether required artifacts exist
-
-Answer OK if no blocking issues, otherwise list only blockers.
-Files: /Users/jidong/dentalad/research/daily-medical-dental-ads/2026-05-18-daily-...
+Return exactly: CLAUDE_OK
+Return exactly: CLAUDE_STDIN_OK
+Return exactly: CLAUDE_PROJECT_OK
 ```
 
-세 가지를 의도적으로 설계했다.
+Claude Code를 새 프로젝트(`daymoon-pic-site`)에 처음 붙일 때, 자동화 파이프라인이 실제로 모델에 닿는지 확인하는 단계다. 세션을 열고, 모델이 응답하고, 종료 코드를 확인한다. 이 검증 없이 실제 구현 세션을 보내면 파이프라인 오류인지 코드 오류인지 구분이 안 된다.
 
-**"blocking-issues-only"** — 범위를 제한했다. "개선할 점도 알려줘"를 붙이면 리포트가 두 배로 길어지고, 정작 중요한 차단 이슈가 묻힌다. 판단이 아니라 매칭이 되어야 한다.
+6번 반복된 건 stdin, project context, skip 조건 등 각 케이스를 별도로 검증했기 때문이다. 모두 0분, 0 tool calls로 끝났다. 오버헤드가 없다.
 
-**"Answer OK if no blocking issues"** — 출력 형식을 강제했다. 형식 없이 물으면 요약, 칭찬, 조건부 의견이 섞여 돌아온다. 결과를 파이프라인에 연결하려면 명확한 출력이 필요하다.
+## 구현 → 리뷰 → 픽스 → 폴리시
 
-**파일 경로를 직접 나열** — 글로브 패턴 대신 절대 경로를 줬다. 리뷰 대상이 무엇인지 모호함이 없어야 한다.
+실제 작업 흐름은 4단계였다.
 
-## 결과: OK
+**구현 (세션 2, 4)**: 클라이언트 요청 사항을 한 번에 적용했다. 내비 순서 변경(ABOUT / PRODUCT / NOTICE / GALLERY / RESERVATION), Product 페이지 구조(상단 히어로 이미지 + 하단 구성/가격 상세), Gallery 최대 4컬럼에 ALL 탭 제거. 두 세션 합산 Read 16번, Bash 8번. `PROJECT.md`와 기존 스타일 규칙을 참조하면서 진행했다.
 
-세션 로그에는 `OK` 한 단어와 항목별 검증 요약이 남았다.
+**리뷰 (세션 12)**: 구현이 끝난 뒤 별도 read-only 세션으로 클라이언트에게 보내기 전 상태를 점검했다. 프롬프트에 `Do not edit files`를 명시했다. 결과는 한국어 불릿 리스트였다: ✅ done, ⚠️ insufficient, 🚨 must-fix. Read 5번, Bash 4번.
 
-- **레이블**: `.md` 5개와 HTML 리포트 전체에서 증거 레이블이 일관되게 적용됨
-- **보장성 문구**: 없음
-- **수치 단정**: 없음. 수치는 전부 `수치 미확인` 또는 `확인 필요` 레이블로 처리됨
-- **병원명·주소 노출**: 없음
-- **AI 표시**: HTML §5에 AI 자동 생성 표시 존재, 출처 레이블 일관성 확인
-- **산출물 존재 여부**: 6개 파일 모두 확인됨
+**픽스 (세션 13)**: 리뷰에서 나온 must-fix 항목만 처리했다. `about.html`의 "대표 사진 영역 · 추후 교체" placeholder, `notice.html`의 더미 공지 텍스트, `reservation.html`의 미완성 폼 레이블. Edit 12번으로 `about.html`, `notice.html`, `reservation.html`, `styles.css` 4개 파일을 수정했다.
 
-도구 사용 패턴이 흥미롭다. `Read(6)`, Bash 없음. HTML 파일을 포함한 6개 전부를 쉘 명령어 없이 처리했다. HTML 태그를 걷어낼 필요 없이 Claude가 마크업을 통해 직접 내용을 파악한 덕분이다. 이전에 비슷한 작업을 `Bash 5번`으로 처리했던 것과 비교하면, 프롬프트 범위를 명확히 했을 때 tool call이 줄어드는 경향이 있다.
+**폴리시 (세션 14)**: 폰트 위계, 단락 간격, 한국어 카피, 중복 버튼을 정리했다. 클라이언트 요청 사항이 그대로 살아있는지 재확인하면서 진행했다. Edit 11번, Read 5번, Bash 4번.
 
-## 왜 일관성이 중요한가
+리뷰를 구현과 분리한 것이 핵심이다. 같은 세션에서 구현하고 확인하면 만든 사람 눈에는 의도대로 보인다. 다른 세션, 프롬프트, 컨텍스트로 읽으면 놓친 것이 보인다.
 
-기준이 모호하면 Claude는 날마다 다르게 판단한다. 어떤 날은 이슈로 잡고 어떤 날은 넘어간다. 자동화 파이프라인에서 이런 비일관성은 치명적이다.
+## Read 36번이 말하는 것
 
-차단 항목을 명시하면 체크리스트처럼 작동한다. "다음 항목 중 하나라도 해당하면 차단"이라는 구조는 주관적 판단을 없앤다. 자동화의 신뢰도는 기준의 명확함에서 나온다.
+전체 78 tool calls 중 Read가 36번(46%)으로 가장 많다. Edit 23번, Bash 17번이 뒤를 잇는다.
 
-이 패턴은 치과 광고에만 국한되지 않는다. 법적 면책 문구 누락 확인, 개인정보 포함 여부 체크, API 응답에서 필드 누락 감지, 릴리즈 노트의 breaking change 표기 누락 등 "기준이 명확한 규칙 기반 검토"라면 동일하게 적용된다.
+사진작가 사이트는 단순한 정적 HTML/CSS/JS 구조지만, `about.html`, `product.html`, `notice.html`, `gallery.html`, `reservation.html` 다섯 페이지와 `styles.css` 하나가 서로 물려있다. 한 파일을 고치면 다른 페이지의 스타일에 영향이 가기 때문에 수정 전마다 현재 상태를 읽어야 한다.
 
-## 오늘 세션 통계
+특히 세션 14(폴리시 패스)에서 Read → Edit 패턴이 반복됐다. CSS 클래스 이름이나 HTML 구조를 확인하지 않고 Edit을 보내면 이미 있는 스타일을 덮거나 중복 선언이 생긴다. 파일이 5개뿐인 정적 사이트에서도 "읽기 우선" 패턴이 필요하다.
 
-| 항목 | 값 |
-|---|---|
-| 세션 수 | 1 |
-| 총 tool calls | 6 |
-| Read | 6 |
-| Bash / Edit / Write | 0 |
-| 수정 파일 | 0 |
-| 생성 파일 | 0 |
-| 차단 이슈 | 0 |
+## 세션 1의 outlier — 의료광고 리뷰
 
-수정·생성 파일이 0개인 건 이 작업의 성격이다. 검토는 읽기와 판단만 한다. 코드를 바꾸지 않는다. 사람의 시간은 판단이 애매한 예외 케이스에만 써야 한다.
+첫 세션은 `daymoon-pic-site`와 무관했다. `dentalad` 프로젝트의 한국 의료광고 일일 리포트 HTML 파일을 read-only로 검토하는 세션이었다. Read 6번, 약 0분.
+
+블로킹 이슈 없음(OK)으로 종료. 이 패턴도 러너 검증처럼 자동화 파이프라인의 일부다. 파일을 생성한 뒤 다음 단계로 넘기기 전에 Claude가 의료법 준수 여부(금지된 효과 보장 문구, 미확인 수치 단정, 병원명 노출 등)를 확인하는 구조다.
+
+## 통계 요약
+
+| 항목 | 수치 |
+|------|------|
+| 총 세션 | 14 |
+| 총 tool calls | 78 |
+| Read | 36 (46%) |
+| Edit | 23 (29%) |
+| Bash | 17 (22%) |
+| Grep | 2 (3%) |
+| 수정 파일 | 5 |
+| 코드 없는 세션 | 6 |
+| 모델 | claude-opus-4-7 |
