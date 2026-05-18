@@ -1,150 +1,175 @@
 ---
-title: "Claude Code in 14 Sessions, 78 Tool Calls: The Review-Fix Loop That Shipped a Photographer's Site"
+title: "Claude Code 18 Sessions, 145 Tool Calls: Health Checks and a Client Site Polish"
 project: "portfolio-site"
 date: 2026-05-18
 lang: en
 pair: "2026-05-18-portfolio-site-ko"
-tags: [claude-code, claude-opus-4-7, workflow, review-fix, static-site]
-description: "46% of tool calls were reads, 6 sessions touched zero code. How runner validation and a separated review pass made client delivery reliable."
+tags: [claude-code, claude-opus-4-7, workflow, review-fix, static-site, claude-runner]
+description: "8 of 18 sessions returned only CLAUDE_OK. The other 9 polished a photographer's static HTML site with 39 edits, 0 new files."
 ---
 
-14 sessions. 78 tool calls. 6 of those sessions touched exactly zero lines of code — and that wasn't a mistake.
+8 of my 18 Claude Code sessions today had zero tool calls, zero edits, zero elapsed time. Each returned a single phrase: `CLAUDE_OK`, `CLAUDE_STDIN_OK`, `CLAUDE_SKIP_OK`.
 
-This is a build log from wiring Claude Code into `daymoon-pic-site`, a static HTML/CSS site for a photographer client. The numbers tell a specific story: **Read dominated at 46%**, implementation was cleanly separated from review, and the most productive sessions produced no code at all.
+That's not waste — those 8 sessions are the reason the other 9 sessions worked cleanly.
 
-**TL;DR** Start every new Claude Code project with runner validation before touching real code. Separating the review session from implementation sessions makes your pre-delivery fix list precise and your delivery predictable.
+**TL;DR** — Today's work split between validating a Claude Code runner automation pipeline (8 health-check sessions, 0 tool calls each) and polishing a photographer's static site (`daymoon-pic-site`) across 9 sessions. 145 total tool calls. 8 files refined, 0 created.
 
-## Six Sessions, Zero Code — What Runner Validation Actually Costs
+## The 8 Sessions That Did Nothing — On Purpose
 
-When you first connect Claude Code to a project, your automation pipeline needs to prove it can reach the model before you trust it with real work. The prompts for those six sessions looked like this:
-
-```
-Return exactly: CLAUDE_OK
-Return exactly: CLAUDE_STDIN_OK
-Return exactly: CLAUDE_PROJECT_OK
-```
-
-Each one validates a different case: can the runner open a session and get a response? Does stdin pass through correctly? Does the project context load? Does the skip condition work as expected?
-
-Without these checks, when something fails during a real implementation session, you're debugging two things simultaneously: the pipeline and the code. That ambiguity compounds. A broken edit lands in the codebase, you assume it's a logic error, you spend 20 minutes chasing a bug that was actually a malformed stdin payload. The runner validation separates those failure modes cleanly.
-
-All six sessions completed at 0 minutes, 0 tool calls. The overhead is negligible. The confidence is not.
-
-This pattern generalizes beyond this specific project. Any time Claude Code gets attached to a new repo, a different language, or a new execution environment — runner validation comes first. It's the minimum viable evidence that the system works end-to-end before you trust it with actual client deliverables.
-
-## The Four-Phase Loop That Makes Delivery Predictable
-
-Once the pipeline was validated, the actual work followed four distinct phases. The key word is *distinct* — each phase ran as a separate Claude Code session with its own prompt and fresh context.
-
-### Implementation (Sessions 2 and 4)
-
-The client's requests went in all at once across two sessions:
-
-- **Navigation reorder**: ABOUT / PRODUCT / NOTICE / GALLERY / RESERVATION
-- **Product page structure**: Hero image at the top, then product configuration and pricing details below
-- **Gallery**: Maximum 4 columns, ALL tab removed
-
-Two sessions combined: Read 16, Bash 8. Both started by reading `PROJECT.md` and the existing CSS before touching anything. The read-first discipline at this stage prevents the class collision problems that show up later in the polish pass.
-
-### Review (Session 12)
-
-Implementation ended. Then nothing. No immediate review in the same session.
-
-Session 12 was a dedicated read-only pass — the prompt said `Do not edit files` explicitly. The output was a severity-tagged bullet list:
+Sessions 3, 5, 6, 7, 8, 9, 10, and 11 all followed the same pattern:
 
 ```
-✅ Nav order correct
-✅ Product hero layout implemented
-⚠️ Gallery mobile layout insufficient on 375px
-🚨 about.html: placeholder text still visible in production
-🚨 notice.html: dummy notice content remains
-🚨 reservation.html: form labels incomplete
+User: Return exactly: CLAUDE_OK
+Claude: CLAUDE_OK
 ```
 
-Read 5, Bash 4. No edits.
-
-The rationale: when you build and review in the same session, you see what you intended to build. The context carries your intent. In a fresh session, with a fresh prompt and no prior knowledge of what was *supposed* to be there, you see what was actually built. These are not the same thing — and for client delivery, only the second one matters.
-
-### Fix (Session 13)
-
-Only the 🚨 must-fix items. Not the ⚠️ items. Not improvements. Not anything discovered incidentally. Just what blocks delivery.
-
-The fixes: a visible placeholder in `about.html`, dummy announcement text in `notice.html`, and incomplete form field labels in `reservation.html`. 12 Edit calls across four files: `about.html`, `notice.html`, `reservation.html`, `styles.css`.
-
-Scoped review produces scoped fixes. When the review outputs a clear severity taxonomy, the fix session stays focused and fast.
-
-### Polish (Session 14)
-
-Typography hierarchy. Paragraph spacing. Korean copy refinement. Duplicate button removal.
-
-Before touching anything: verify all original client requests still hold. This is the regression check that matters — not automated tests, but a deliberate confirmation that the fix session didn't disturb the implementation session's work. Edit 11, Read 5, Bash 4.
-
-## 36 Reads Out of 78 Tool Calls — The Read-First Discipline
-
-Read was 36 of 78 total tool calls — 46%. Edit was 23 (29%), Bash 17 (22%), Grep 2 (3%).
-
-On a static HTML/CSS/JS site with five pages and one stylesheet, that ratio looks excessive. It isn't.
-
-`daymoon-pic-site` has a structure that appears simple but has tight coupling:
-
 ```
-about.html
-product.html
-notice.html
-gallery.html
-reservation.html
-styles.css         ← shared by all five pages
+User: Return exactly: CLAUDE_STDIN_OK
+Claude: CLAUDE_STDIN_OK
 ```
 
-Every CSS change affects all five pages. Every structural HTML change may break the shared stylesheet's selectors. Before every edit, you need the current state of the file you're changing — and often the current state of the file that depends on it.
+When wiring Claude Code as an automated runner for a new project, the first engineering question isn't "will the AI produce good code?" It's "does the pipeline actually reach the model?"
 
-The Read → Edit chain was most visible in Session 14. During the polish pass, the pattern was consistent:
+The automation setup routes different input modes through different code paths. Each health-check session targets one failure mode in isolation:
 
-1. Read `styles.css` to find the existing class for the component being touched
-2. Edit only the specific declaration that needed changing
-3. Read the HTML page that uses that class to verify surrounding structure
-4. Edit the HTML only if the class application was wrong
+- **`CLAUDE_OK`** — baseline stdin injection works
+- **`CLAUDE_STDIN_OK`** — stdin piping with project context loaded correctly
+- **`CLAUDE_PROJECT_OK`** — project-level context (`CLAUDE.md`, rules files) loads on startup
+- **`CLAUDE_SKIP_OK`** — skip/abort routing sends the right response code
 
-Skipping any Read in that chain means guessing. Guessing in a shared stylesheet produces duplicate declarations, overrides that don't stick, or changes that work on one page and silently break another. Even on a five-file project with no build step, no bundler, and no framework — read-first is the right discipline.
+Each case gets a dedicated session because mixing them makes failures ambiguous. If a combined session fails, you don't know which path broke. If a single-purpose session fails, you know exactly where to look.
 
-## Session 1 Was a Different Pipeline Entirely
+The overhead per session: 0 minutes, 0 tool calls. The alternative — skipping validation and debugging "why isn't my code change landing?" mid-project — costs far more. Debugging pipeline failures disguised as code failures is slow precisely because they look the same from the outside.
 
-The first session had nothing to do with `daymoon-pic-site`. It was a read-only review of a Korean medical advertising daily report HTML file from the `dentalad` project — a completely different client, different domain, different compliance context.
+This pattern generalizes. Any time you have a multi-stage automation (generate → validate → publish → notify), validating each stage independently before running the full pipeline saves hours of mixed-signal debugging later.
 
-Read 6, approximately 0 minutes. Closed with no blocking issues.
+## Daymoon: A Photographer's Static Site in 9 Sessions
 
-This session is part of a separate automation pipeline: after a medical ad report file is generated, Claude reviews it for Korean medical advertising law compliance before the file moves to the next stage. The checks are specific:
+`daymoon-pic-site` is a portfolio site for photographer Daymoon. The stack is intentionally minimal: five HTML pages (`about.html`, `product.html`, `notice.html`, `gallery.html`, `reservation.html`) plus a single `styles.css`. No React, no Vite, no build step. The client wanted a fast-loading site that could be updated without touching a terminal.
 
-- No prohibited efficacy guarantee phrasing
-- No unverified statistics stated as factual claims
-- No hospital name or personal identification exposure
-- No before/after treatment comparisons without required disclaimers
+Client feedback came in multiple waves — some via KakaoTalk screenshots, some as written notes — so the work spread across 9 sessions rather than one long run.
 
-The review runs read-only, produces a pass/fail verdict, and gates the downstream step. The same pattern as runner validation — a cheap verification pass that catches compliance failures before they become legal problems. Different domain, identical structure.
+### Sessions 2 and 4: The Same Prompt, Run Twice
 
-## By the Numbers
+Sessions 2 and 4 both started from the same prompt. Session 2 spent its entire context budget on exploration: 7 Reads, 3 Bash calls, mapping the file structure. It never reached an Edit.
 
-| Metric | Count |
+This is a real failure mode in large-context Claude Code sessions. Exploration consumes tokens. If the first-pass scouting is thorough enough, the model runs out of runway before it starts writing. Session 4 ran the same prompt and succeeded because it was given explicit scope constraints — don't re-explore, start from these files, execute these changes.
+
+The three changes from sessions 2/4:
+- **Nav order**: ABOUT / PRODUCT / NOTICE / GALLERY / RESERVATION across all pages
+- **Product page structure**: hero image at full width on top, composition details and pricing below
+- **Gallery layout**: fixed 4-column grid, ALL tab removed (client wanted categorized views only)
+
+### Session 12: Read-Only Review Before Showing the Client
+
+After the initial implementation, session 12 ran a standalone review pass. Explicit constraint in the prompt: `Do not edit files.`
+
+9 tool calls, 5 Reads, 4 Bash. Output: a Korean bullet list in three categories.
+
+```
+Review the current state of all pages. Do not edit files.
+Return Korean bullet list: done, insufficient, must-fix before showing client.
+```
+
+The three-category constraint is the mechanism. Without it, the model produces assessments like "this section is mostly complete but could benefit from..." — technically accurate and useless for deciding what to fix. With `done / insufficient / must-fix`, every item has to land in exactly one bin. The model has to make a judgment, not hedge.
+
+The output from session 12 became the literal scope definition for session 13. Every `must-fix` item in the bullet list was a task. Every `insufficient` item was flagged but deferred. Nothing from `done` was touched.
+
+### Session 13: Must-Fix Items, Nothing Else
+
+Session 13 touched four files based on session 12's output:
+
+- `about.html`: placeholder text "대표 사진 영역 · 추후 교체" (a note to replace the hero photo) still visible in deployed HTML
+- `notice.html`: dummy notice body copy still in the template
+- `reservation.html`: form labels referencing internal notes instead of user-facing text
+- `styles.css`: orphaned rules from early iterations
+
+12 Edits. Scope discipline held — nothing outside the must-fix list was touched, even when "obvious" improvements were visible.
+
+### Session 14: Full Polish Pass
+
+With must-fix items resolved, session 14 ran a broader polish: font hierarchy consistency, paragraph spacing normalization, Korean copy review, duplicate button removal. This session also re-verified that original client requirements from sessions 2/4 survived the session 13 edits — a lightweight regression check embedded in the polish pass.
+
+11 Edits, 5 Reads, 4 Bash.
+
+### Session 15: Stripping the AI Template Aesthetic
+
+The client's feedback on the product page: "It looks like an AI template."
+
+This is a legitimate critique that gets harder to address the more you lean into common AI-generated design patterns. The specific culprits:
+
+- Gradient cards with soft blue-to-purple fills
+- Emoji icons used as decorative bullet points
+- Heavy `box-shadow` stacking creating a "floating" card effect
+
+Session 15 removed all three and moved to a flat, minimal layout. Tight typography, no decorative chrome, generous whitespace — closer to Apple's product photography page structure than the typical AI-generated portfolio aesthetic.
+
+7 Reads, 7 Edits. The high Read count reflects careful checking before each CSS Edit — all styles live in one file, and the product page shares classes with other pages.
+
+### Sessions 16, 17, 18: Three Discrete Feedback Loops
+
+Each of the final three sessions was a single atomic client feedback unit:
+
+**Session 16** — A KakaoTalk screenshot arrived. The `<dl class="product-meta">` block on each product panel — containing meta-labels for "recommended audience," "mood," and "composition type" — was adding clutter the client didn't want. Removed entirely from `product.html` and `styles.css`.
+
+**Session 17** — The KakaoTalk channel URL (`https://pf.kakao.com/_TuhCn`) needed to be wired to the reservation CTA button. One change, one session.
+
+**Session 18** — Remove the HOME link from the mobile navigation drawer. This sounds like a one-liner but touched 7 files: `about.html`, `contact.html`, `gallery.html`, `index.html`, `notice.html`, `product.html`, `reservation.html`. Same line, 7 deletions.
+
+Treating each as its own session rather than batching them into one "feedback round" session keeps the diff clean and makes it easy to trace which client request caused which change.
+
+## The Case for Separating Review From Implementation
+
+Session 12's read-only pattern is deliberate and reusable. The core problem with reviewing your own implementation in the same session you built it: the model fills ambiguous gaps with its own intent. It sees what it meant to build, not what it actually built.
+
+A fresh session with a clean context window has no preconceptions about what a section "should" look like. It reads what's there.
+
+The three-category output format does more work than it looks like. It converts a subjective review into an actionable task list. Forcing every observation into one of three bins prevents the model from sitting in the comfortable middle ground of "could be improved." The output from one session's review becomes the input spec for the next session's implementation. Each step has clear boundaries.
+
+## What the 43% Read Rate Reflects
+
+145 total tool calls. Distribution:
+
+- **Read: 63 (43%)**
+- **Edit: 39 (27%)**
+- **Bash: 32 (22%)**
+- **Grep: 11 (8%)**
+
+On a 5-file static site, you might expect the Read percentage to be lower. Everything fits in a short codebase. But the reason Read dominates is the `styles.css` architecture: all page styles in one file. Before each CSS Edit, the current class definitions need to be confirmed. Skip that Read, and you're writing CSS blind — duplicating declarations, overwriting rules, creating specificity conflicts that only show up visually.
+
+The 43% Read rate isn't overhead. It's what prevents "I made a change and broke another page."
+
+For static HTML projects especially, the read-first discipline matters more than in a componentized React setup where styles are scoped to components. A monolithic CSS file is a shared resource with hidden dependencies.
+
+## Session 1: A Different Automation Pipeline
+
+Session 1 was unrelated to `daymoon-pic-site`. It ran a compliance review on a daily report file from the `dentalad` project — checking for Korean medical advertising law violations before the report moved to the next pipeline stage.
+
+Checked items:
+- Guaranteed efficacy claims ("100% success rate," "certain to cure")
+- Unverified statistics presented as established fact
+- Exposed clinic names or addresses that shouldn't appear in automated content
+
+Result: no blocking issues. 6 Reads, 0 edits, 0 minutes.
+
+The architecture mirrors the health-check pattern: a single-purpose read-only session that runs at a pipeline stage boundary, produces a binary verdict, and either passes work forward or blocks it. The same modular session design applied in a completely different domain.
+
+## Stats
+
+| Metric | Value |
 |--------|-------|
-| Total sessions | 14 |
-| Total tool calls | 78 |
-| Read | 36 (46%) |
-| Edit | 23 (29%) |
-| Bash | 17 (22%) |
-| Grep | 2 (3%) |
-| Files modified | 5 |
-| Zero-code sessions | 6 |
+| Total sessions | 18 |
+| Total tool calls | 145 |
+| Read | 63 (43%) |
+| Edit | 39 (27%) |
+| Bash | 32 (22%) |
+| Grep | 11 (8%) |
+| Files modified | 8 |
+| Files created | 0 |
+| Code-free sessions | 8 |
 | Model | claude-opus-4-7 |
 
-## Two Patterns Worth Keeping
-
-Both patterns from today generalize.
-
-**Validation before implementation.** Six zero-code sessions isn't overhead — it's the foundation that makes every subsequent session debuggable. When an implementation session fails, you know it's the implementation, not the pipeline. That distinction saves compounding debugging time across every session that follows.
-
-**Review as a separate context.** The review session (Session 12) produced a precise, actionable fix list because it ran with no knowledge of implementation intent — only what was actually present in the files. The must-fix items were obvious in that fresh context, but would have been easy to rationalize away if the review happened immediately after implementation in the same session. Separate context is not just a workflow preference; it's the mechanism that makes the review reliable.
-
-Both apply to any Claude Code workflow where delivery quality matters: client projects, production deploys, automated content pipelines. The cost is a few extra sessions with 0 tool calls. The payoff is a fix list you can trust.
+> Isolating health-check sessions from implementation sessions means when something breaks, you know exactly which layer to investigate.
 
 ---
 
