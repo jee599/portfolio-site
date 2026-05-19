@@ -1,129 +1,139 @@
 ---
-title: "Claude Code Client Delivery Pattern: 18 Sessions, 145 Tool Calls, One Day"
+title: "Claude Code as a Compliance Reviewer: Catching a Date Attribution Bug in 4 Tool Calls"
 project: "portfolio-site"
 date: 2026-05-19
 lang: en
 pair: "2026-05-19-portfolio-site-ko"
-tags: [claude-code, workflow, static-site, client-work, daymoon]
-description: "18 Claude Code sessions, 145 tool calls, 8 files changed — how a review-first, scope-sliced pattern delivered a photographer's site in a single day."
+tags: [claude-code, compliance-review, dental-ad, blocking-issue, medical-law]
+description: "Used Claude Code as a blocking-issues-only compliance reviewer for Korean medical ad content. Caught 1 date attribution bug in 4 Read calls, 0 files modified."
 ---
 
-18 Claude Code sessions in one day. 8 of them returned a single word. The remaining 10 did the actual work — 145 tool calls, 8 files changed — bringing the Daymoon photographer site to a state ready to show a real client.
+A single Naver policy announcement was referenced twice in the same document — under two different dates, pointing to two different meanings. Without a dedicated review pass, it would have shipped and become part of the public record.
 
-**TL;DR** Run a read-only review session before implementation. Slice implementation into single-concern sessions. Use runner ping sessions to validate your automation environment before committing long runs. This pattern produced client-delivery quality in one day.
+**TL;DR** Using a `blocking-issues-only` prompt pattern, I delegated Korean medical/dental ad compliance review to Claude Code. It caught 1 date misattribution in the first pass. After fixing, a second review returned OK. Total: 4 tool calls, all `Read`, 0 files modified by Claude.
 
-## Why 8 Sessions Just Say "OK"
+## Why Medical Ad Compliance Needs a Dedicated Reviewer
 
-Looking at the session list, these stand out immediately:
+Korean medical advertising law (의료법) places strict requirements on how clinics can promote their services. Prohibited language includes claims of guaranteed outcomes, direct comparisons between clinics, rankings without substantiated methodology, and testimonial-style phrasing that implies typical results. Beyond what you can say, there are attribution requirements: if you reference a policy change, regulatory update, or platform announcement, the dates and facts have to be exactly right.
 
-```
-Session 3:  "Say OK only"                                         → OK
-Session 5:  "Return exactly: CLAUDE_OK"                          → CLAUDE_OK
-Session 6:  "In this repo ... return exactly CLAUDE_PROJECT_OK"  → CLAUDE_PROJECT_OK
-Session 7:  "Return exactly: CLAUDE_SKIP_OK"                     → CLAUDE_SKIP_OK
-Session 8:  "Return exactly: CLAUDE_STDIN_OK"                    → CLAUDE_STDIN_OK
-Session 9:  "Claude runner is operating normally on Daymoon."
-Session 10: (same)
-Session 11: (same)
-```
+The daily report I run compiles policy changes from Naver Place, new keyword trends, and campaign performance notes into a structured document delivered to dental clinic operators. Each operator makes strategy decisions based on what's in that report. A misattributed policy date doesn't just look sloppy — it can lead an advertiser to apply a tactic at the wrong time, or justify a decision based on a policy change that didn't happen when claimed.
 
-These are runner health checks for the Claude Code automation pipeline. Before handing any real work to Claude, the execution environment needs to be verified as stable. If a session fails or returns nothing, subsequent implementation sessions don't trigger.
+This is the kind of document where a single factual error has downstream consequences. It needed a review step that didn't depend on my own attention being consistent.
 
-Eight checks because the environment setup and connection method changed several times during initial configuration.
+## The Prompt Pattern That Hires a Reviewer
 
-It looks wasteful. It's the opposite. Starting a long implementation session with an unstable runner means it dies mid-run, leaving files in a partially modified state. That's the more expensive failure.
+Most LLM review prompts fail in the same way: they're too open-ended. "Check this for issues" returns a mix of blocking problems, minor style notes, vague suggestions, and observations that require human judgment to triage. The output is long and doesn't tell you what to do next.
 
-## Run the Review Session First
-
-Session 12 is unusual: 19 tool calls, zero file modifications.
+The `blocking-issues-only` pattern is about constraint, not instruction. By defining what *not* to report, you eliminate an entire output category before it's generated:
 
 ```
-Session 12: prompt includes "Do not edit files. Review whether the client request was implemented."
-            → Read(5), Bash(4)
-            → Returns ✅/⚠️/🔴 three-tier report
+Read these files and perform a blocking-issues-only review for
+scheduled Korean medical/dental ads daily report.
+Check contradictions, missing required labels/caveats,
+named hospital/address leakage, prohibited guarantees, stale notes.
+Answer OK if no blocking issues; otherwise list exact fixes.
+Files: [MD file path] [HTML report path]
 ```
 
-This is intentional. Before implementation starts, evaluate current state in read-only mode. The review caught exactly one blocker: placeholder and TODO text exposed on public-facing pages. Without this session, the client would have found it instead.
+The checklist maps directly to actual legal and operational risk categories — the non-negotiables. Anything not on the list doesn't need to appear in the response.
 
-The review session prompt structure:
+The required output format is equally important: `OK` or *exact fixes*. Not "you might want to consider" — exact location, exact problem, exact correction. A vague suggestion still requires human interpretation before action. An exact fix can be acted on immediately.
 
-> "Do not edit files. Review whether the client request was implemented: [checklist]. Return bullet list: done, insufficient, must-fix before showing client."
+## First Pass: One Issue Found
 
-Classifying findings into `must-fix` and `done` automatically scopes the next implementation session. No need to re-read the entire project.
+The first session didn't return OK. Claude flagged a contradiction at line 27 of `2026-05-19-daily-update.md`.
 
-## Slice Implementation by Concern
+Earlier in the document, two Naver Place policy announcements were clearly separated:
 
-Six implementation sessions, each owning one concern.
+- **Lines 5, 12**: May 7 announcement — Place Ad impression count increased
+- **Lines 5, 12**: May 14 announcement — PC map Place Ad display space expansion test, limited to restaurant category
 
-**Session 13 — Remove public-facing blockers** (20 tool calls, 12 edits)
-- `about.html`: removed placeholder captions
-- `notice.html`: removed TODO comments, wrote actual notice content
-- `reservation.html`: replaced incomplete form guidance
-- `styles.css`: cleaned up unnecessary fallback styles
+Both were accurately described in the header section. The problem was in the analysis section. **Line 27** read:
 
-**Session 14 — Copy and typography polish** (20 tool calls, 11 edits)
-- Normalized heading hierarchy and paragraph spacing
-- Removed duplicate buttons
-- Re-confirmed prior client requests still applied before proceeding
+> "Since the 5/14 Place Ad impression count increase, competition for top placements has intensified…"
 
-**Session 15 — Product page design** (18 tool calls, 7 edits)
-- Goal: strip the AI/template aesthetic
-- Changes limited to `product.html` and `styles.css`
+The May 14 announcement was about a display space expansion test in a different ad product category. The impression count change was the May 7 update. Line 27 had attributed "impression count increase" to the wrong date — conflating two distinct policy updates that had different implications.
 
-This session had an interesting moment. A grep result came back mangled. Claude switched strategies without prompting:
+This isn't a typo. It's a factual error in context: a reader who understood the May 14 policy correctly would recognize the contradiction. A reader who didn't would carry the wrong model of when the impression count policy changed into their strategy decisions.
 
-> "The grep output got mangled. Let me read the actual product CSS section."
+In a daily report sent to clinic operators managing ad budgets, that's not acceptable.
 
-Tool choice is fluid. grep fails, Read takes over. This works naturally.
+## The Fix and Why Re-Review Matters
 
-**Session 16 — Remove product-meta block** (12 tool calls)
-- Triggered by KakaoTalk screenshot feedback from the client
-- Full removal of `<dl class="product-meta">...</dl>`
-- Associated CSS cleaned up in the same pass
+The fix was one line: update the attribution on line 27 from 5/14 to 5/07. Simple, clearly correct.
 
-**Session 17 — KakaoChannel integration** (18 tool calls, 2 edits)
-- Added KakaoChannel link to `reservation.html`
-- Verified `https://pf.kakao.com/_TuhCn` URL before wiring it in
-- Applied `target="_blank" rel="noreferrer"`
+But "simple fix, clearly correct" is exactly when skipping re-review feels justified — and exactly when it shouldn't be. Re-review isn't checking whether the file was saved. It's verifying that the correction, in context, resolves the issue without introducing new ones. A reference change in one line can make an adjacent sentence wrong, or contradict a later section written assuming the original attribution.
 
-**Session 18 — Remove HOME button from mobile drawer** (19 tool calls, 7 edits)
-- Same pattern applied across 7 HTML files
-- Brand link preserved, only the HOME row in the drawer removed
-- CSS/JS cache-busting included
+The second session used a slightly modified prompt:
 
-## Tool Usage Breakdown
+```
+Blocking-issues-only re-review after the 5/07 attribution fix.
+Check these two files for contradictions, missing labels/caveats,
+named hospital/address leakage, or prohibited guarantees.
+Answer OK if none.
+Files: [same file paths]
+```
 
-| Tool | Count | Share |
-|------|-------|-------|
-| Read | 63 | 43% |
-| Edit | 39 | 27% |
-| Bash | 32 | 22% |
-| Grep | 11 | 8% |
+Naming the specific fix in the prompt tells Claude what to verify landed and prompts checking of surrounding context. Not just "is it fixed" but "is the document consistent now."
 
-Read outnumbers Edit by 1.6x. This reflects the pattern of understanding current state before modifying it. Editing without reading first often breaks existing structure in ways that aren't immediately visible.
+The second pass returned OK with confirmation across four categories:
 
-Bash's 32 calls were mostly commits, cache-bust verification, and file existence checks — not build or server operations. Static HTML means there's no build step to run.
+**Date consistency** — Both `daily-update.md` and the HTML report consistently attributed the May 7 announcement to impression count increases, and the May 8 announcement to new conversion tracking metrics. No cross-file discrepancy.
 
-## What 18 Sessions Taught About Prompt Design
+**No clinic-specific leakage** — All location and treatment references used generic combinations ("Gangnam implant," "Mapo orthodontics") with no specific clinic names, registration numbers, or addresses.
 
-**State constraints explicitly.** Negative instructions like "Do not edit files", "Do not commit/deploy", "Do not use Codex" lock the session scope. Without them, Claude tends to interpret scope broadly.
+**Disclaimer coverage** — Both files included the required non-guarantee statement: "We do not guarantee improvements in ranking, appointment volume, patient visits, or revenue."
 
-**Make it re-confirm prior work.** Session 14's prompt included:
+**Risk expression coverage** — Terms in the monitored category (painless, 100%, guaranteed, lowest price, #1, testimonial-style phrasing) appeared only in the "watch and avoid" section, not as claims.
 
-> "Confirm the prior client request remains applied."
+## Session Statistics
 
-When implementation sessions iterate, earlier changes can regress. A re-confirmation check at session start prevents expensive rollbacks later.
+| Item | Value |
+|------|-------|
+| Sessions | 2 |
+| Total tool calls | 4 |
+| Tools used | Read × 4 |
+| Files modified by Claude | 0 |
+| Files created by Claude | 0 |
+| Blocking issues detected | 1 |
 
-**Define done with content, not intent.** "Ready to show the client" is too abstract. "No placeholder text visible on public pages" is a specific, checkable condition. The latter produces more accurate results.
+The tool use pattern is worth noting. Read-only review produces no artifact risk — Claude cannot accidentally modify a file it's only reading. The actual correction happened outside the review session. The review confirmed correctness; it didn't do the editing.
 
-## The Pattern
+## Why This Pattern Works
 
-18 sessions total: 10 real work, 8 infrastructure validation. 145 tool calls for a small static site polish pass sounds like a lot — it's what the review-implement-reconfirm loop naturally produces.
+A general "review this for me" prompt produces output with no priority signal. The `blocking-issues-only` pattern forces two things: a binary ship/no-ship verdict, and when there's an issue, the exact location and what to fix.
 
-Three things that made this work:
-- Runner ping sessions before any implementation run
-- Read-only review session to catch blockers before touching files
-- One concern per implementation session, no exceptions
+Medical ad compliance has a fixed checklist and clear judgment criteria — exactly the conditions where this pattern fits. Encoding the checklist in the prompt means every review runs against the same standard. What a tired human misses at the end of the day, Claude doesn't.
+
+The two-pass structure matters too. "I fixed it so it should be fine" is not the same as confirmed OK. The re-review catches cases where the correction is locally right but contextually wrong — a sentence in a later section that assumed the old (wrong) attribution and now reads as inconsistent.
+
+## Adapting to Other Compliance Domains
+
+The same prompt structure applies wherever you have a fixed checklist and binary criteria:
+
+**GDPR/privacy reviews**: Check for PII in logs, missing consent disclosures, or data retention claims that contradict the privacy policy.
+
+**Financial content**: Verify past performance disclaimers are present, no specific return guarantees are implied, and all cited figures trace back to disclosed sources.
+
+**Terms of service compliance**: Check that user-facing copy aligns with the ToS, no capabilities are claimed that aren't contractually guaranteed, no prohibited comparisons appear.
+
+The prompt shape stays the same:
+
+```
+Perform a blocking-issues-only review for [domain].
+Check [specific categories for that domain].
+Answer OK if none; otherwise list exact location and fix.
+```
+
+The work is identifying the right checklist for your domain. Once that's done, the pattern is reusable across documents, teams, and time.
+
+## What This Doesn't Replace
+
+This pattern catches factual contradictions and known-prohibited content. It doesn't replace human judgment on edge cases, evolving regulatory interpretations, or situations requiring understanding of the full business and legal context.
+
+A misattributed date is mechanically detectable. Whether a borderline guarantee claim crosses the legal threshold in a specific jurisdiction, under a specific enforcement posture — that's still a human call.
+
+The pattern is a first filter, not a final authority. Its value is making the first filter reliable and consistent, so human review time can focus on cases that actually need it.
 
 ---
 
