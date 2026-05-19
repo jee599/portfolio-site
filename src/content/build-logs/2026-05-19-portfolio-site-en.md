@@ -1,30 +1,48 @@
 ---
-title: "Claude Code as a Compliance Reviewer: Catching a Date Attribution Bug in 4 Tool Calls"
+title: "Auto-Detecting a Medical Ad Compliance Bug and Replacing Fonts Across 7 Pages: 4 Sessions, 52 Tool Calls"
 project: "portfolio-site"
 date: 2026-05-19
 lang: en
 pair: "2026-05-19-portfolio-site-ko"
-tags: [claude-code, compliance-review, dental-ad, blocking-issue, medical-law]
-description: "Used Claude Code as a blocking-issues-only compliance reviewer for Korean medical ad content. Caught 1 date attribution bug in 4 Read calls, 0 files modified."
+tags: [claude-code, compliance-review, typography, dental-ad, daymoon, prompting]
+description: "Claude Code caught a date misattribution in Korean medical ad copy with a blocking-issues-only prompt, then resumed an interrupted 7-page font swap."
 ---
 
-A single Naver policy announcement was referenced twice in the same document — under two different dates, pointing to two different meanings. Without a dedicated review pass, it would have shipped and become part of the public record.
+One date in a document silently meant two different things.
 
-**TL;DR** Using a `blocking-issues-only` prompt pattern, I delegated Korean medical/dental ad compliance review to Claude Code. It caught 1 date misattribution in the first pass. After fixing, a second review returned OK. Total: 4 tool calls, all `Read`, 0 files modified by Claude.
+Line 27 in `2026-05-19-daily-update.md` referenced "the 5/14 impression count increase" — but the 5/14 notice wasn't about impression counts. That was the 5/7 notice. The 5/14 notice was about a placement expansion test for restaurant categories on PC map. Someone had transposed the dates during editing, and the error was invisible to anyone who hadn't read both source notices side by side.
 
-## Why Medical Ad Compliance Needs a Dedicated Reviewer
+If the report shipped without review, it would have gone out wrong. This is what Korean medical advertising compliance review actually looks like: not catching obviously illegal claims, but finding subtle inconsistencies that create legal exposure.
 
-Korean medical advertising law (의료법) places strict requirements on how clinics can promote their services. Prohibited language includes claims of guaranteed outcomes, direct comparisons between clinics, rankings without substantiated methodology, and testimonial-style phrasing that implies typical results. Beyond what you can say, there are attribution requirements: if you reference a policy change, regulatory update, or platform announcement, the dates and facts have to be exactly right.
+Sessions 1 and 2 handled that: 4 tool calls, 0 file edits, 1 blocking issue found and fixed. Sessions 3 and 4 ran in parallel — a separate project replacing fonts across a 7-page photography studio site — where session 3 updated CSS and ended, and session 4 resumed from the exact stopping point.
 
-The daily report I run compiles policy changes from Naver Place, new keyword trends, and campaign performance notes into a structured document delivered to dental clinic operators. Each operator makes strategy decisions based on what's in that report. A misattributed policy date doesn't just look sloppy — it can lead an advertiser to apply a tactic at the wrong time, or justify a decision based on a policy change that didn't happen when claimed.
+52 tool calls across 4 sessions. 8 files modified, 0 created.
 
-This is the kind of document where a single factual error has downstream consequences. It needed a review step that didn't depend on my own attention being consistent.
+**TL;DR**: A `blocking-issues-only` Claude Code prompt caught a date misattribution in a Korean medical ad daily report. A session-resume handoff pattern finished an interrupted 7-page font replacement. Both prompt structures are shown in full below.
 
-## The Prompt Pattern That Hires a Reviewer
+## Two Tasks, One Day
 
-Most LLM review prompts fail in the same way: they're too open-ended. "Check this for issues" returns a mix of blocking problems, minor style notes, vague suggestions, and observations that require human judgment to triage. The output is long and doesn't tell you what to do next.
+These sessions didn't run sequentially. The compliance review (sessions 1 and 2) ran as two quick passes before the ad report shipped — under 20 minutes total. The typography work (sessions 3 and 4) ran separately, with session 3 starting the same day and session 4 completing the task on the next open.
 
-The `blocking-issues-only` pattern is about constraint, not instruction. By defining what *not* to report, you eliminate an entire output category before it's generated:
+The pattern here is Claude Code as a set of specialized tools rather than one long assistant session. The compliance review sessions were read-only, output-constrained, and purpose-built for a specific content type. The typography sessions were scoped to a specific repo with explicit file targets and explicit skip constraints.
+
+Neither session tried to do too much. When the task is well-scoped, the call counts stay proportionate.
+
+## Korean Medical Advertising: Why Consistency Matters More Than Legality
+
+Korea's Medical Service Advertising Act prohibits guaranteed outcomes, comparative rankings, specific facility names without authorization, and missing required disclaimers. Those are the clear violations. The harder compliance problems aren't clear.
+
+A daily ad performance report for a dental client aggregates platform updates, policy changes, and copy recommendations — each citing a source notice with a date. If a date is wrong, a recommendation may trace to the wrong policy. In an audit, that reads as a fabricated justification even if the recommendation itself is correct.
+
+What makes this difficult is context: you need to hold multiple source documents simultaneously and verify that each claim in the report matches the source it cites. A human reviewer can do this, but it requires complete context and focused attention. The kind of check that gets done carefully when there's time and less carefully when there isn't.
+
+Claude holds all documents in context and applies the check mechanically. Encode the compliance criteria in the prompt once, run the same check before every publish.
+
+## What "Blocking Issues Only" Does to a Review Prompt
+
+Most review prompts ask for quality evaluation. "Is this good? What could be improved?" These produce suggestion lists, which require human judgment to triage. For compliance, that's the wrong abstraction.
+
+The prompt for sessions 1 and 2:
 
 ```
 Read these files and perform a blocking-issues-only review for
@@ -35,105 +53,123 @@ Answer OK if no blocking issues; otherwise list exact fixes.
 Files: [MD file path] [HTML report path]
 ```
 
-The checklist maps directly to actual legal and operational risk categories — the non-negotiables. Anything not on the list doesn't need to appear in the response.
+Four specific checks. Binary output: `OK` — report can ship — or a numbered list of exact line numbers and required changes. No "consider," no "might want to," no hedging.
 
-The required output format is equally important: `OK` or *exact fixes*. Not "you might want to consider" — exact location, exact problem, exact correction. A vague suggestion still requires human interpretation before action. An exact fix can be acted on immediately.
+The word "blocking" sets the output contract: you're asking for a gate, not an evaluation. When Claude can't hedge, the result is immediately actionable.
 
-## First Pass: One Issue Found
+The four checks map to known failure modes:
 
-The first session didn't return OK. Claude flagged a contradiction at line 27 of `2026-05-19-daily-update.md`.
+- **Contradictions**: Does any claim conflict with another claim or source notice?
+- **Missing required labels/caveats**: Are mandatory disclaimer patterns present?
+- **Named hospital/address leakage**: Is any specific facility named without authorization?
+- **Prohibited guarantees**: Does any copy guarantee outcomes or rankings?
 
-Earlier in the document, two Naver Place policy announcements were clearly separated:
+Once these criteria are encoded in the prompt, the review runs consistently before every publish without additional configuration.
 
-- **Lines 5, 12**: May 7 announcement — Place Ad impression count increased
-- **Lines 5, 12**: May 14 announcement — PC map Place Ad display space expansion test, limited to restaurant category
+## The Bug: One Line, Two Meanings
 
-Both were accurately described in the header section. The problem was in the analysis section. **Line 27** read:
+The report covered two Naver platform notices:
 
-> "Since the 5/14 Place Ad impression count increase, competition for top placements has intensified…"
+- **2026-05-07**: Naver Place ad impression count increase
+- **2026-05-14**: PC map Place ad placement expansion test (restaurant category)
 
-The May 14 announcement was about a display space expansion test in a different ad product category. The impression count change was the May 7 update. Line 27 had attributed "impression count increase" to the wrong date — conflating two distinct policy updates that had different implications.
+Two distinct changes: 5/7 affected how many ads appeared; 5/14 affected which placement surfaces were available. Lines 5 and 12 documented both correctly. Line 27 didn't.
 
-This isn't a typo. It's a factual error in context: a reader who understood the May 14 policy correctly would recognize the contradiction. A reader who didn't would carry the wrong model of when the impression count policy changed into their strategy decisions.
+Line 27: "After the 5/14 impression count increase..." — using the 5/14 date to refer to the impression count event, which was 5/7. The 5/14 notice was about placement expansion.
 
-In a daily report sent to clinic operators managing ad budgets, that's not acceptable.
+This is a factual contradiction: a statement attributing behavior X to date Y, when date Y is documented elsewhere in the same file as being about behavior Z.
 
-## The Fix and Why Re-Review Matters
+Session 1 returned the finding with the exact location and change required. One sentence to fix. Session 2 re-ran the same prompt on the corrected file: `OK` across all four categories. Date consistency verified, no hospital name leakage, no prohibited guarantee expressions, risk language handled appropriately.
 
-The fix was one line: update the attribution on line 27 from 5/14 to 5/07. Simple, clearly correct.
+Total: 4 Read calls. 0 file edits. Claude acted as reviewer only.
 
-But "simple fix, clearly correct" is exactly when skipping re-review feels justified — and exactly when it shouldn't be. Re-review isn't checking whether the file was saved. It's verifying that the correction, in context, resolves the issue without introducing new ones. A reference change in one line can make an adjacent sentence wrong, or contradict a later section written assuming the original attribution.
+## Resuming a Stalled Session Without Starting Over
 
-The second session used a slightly modified prompt:
+The Daymoon project was a photography studio site. Font direction: `Outfit` for English text, navigation, and brand elements; `Pretendard` for Korean body text. Both geometric sans-serif — the combination holds visual consistency across scripts.
+
+Session 3 started cold. Explored the repo structure, confirmed the existing font load setup (Noto Sans KR + Outfit via Google Fonts), updated `styles.css` with new font declarations and CSS variable reassignments. Session ended before the HTML files were updated.
+
+Seven pages remained: index, about, product, gallery, contact, notice, reservation. Each `<head>` still loaded Noto Sans KR. Without the webfont link in HTML, `Pretendard` would fall back silently on a fresh cache load.
+
+Session 4 prompt:
 
 ```
-Blocking-issues-only re-review after the 5/07 attribution fix.
-Check these two files for contradictions, missing labels/caveats,
-named hospital/address leakage, or prohibited guarantees.
-Answer OK if none.
-Files: [same file paths]
+Continue the Daymoon typography update. The previous run changed styles.css but stopped before completing.
+Finish the task in /Users/jidong/daymoon-pic-site:
+1. Ensure Pretendard actually loads on all real site pages.
+   Current HTML pages load Google Fonts for Noto Sans KR + Outfit.
+   Add a safe Pretendard webfont load consistently to real pages
+   (index/about/product/gallery/contact/notice/reservation as applicable),
+   or otherwise make Pretendard available. Keep Outfit too. Do NOT add serif fonts.
 ```
 
-Naming the specific fix in the prompt tells Claude what to verify landed and prompts checking of surrounding context. Not just "is it fixed" but "is the document consistent now."
+"The previous run changed X but stopped before completing. Finish Y." One sentence establishes state. Claude didn't re-explore to figure out the current position — the prompt provided it directly.
 
-The second pass returned OK with confirmation across four categories:
+Session 3 spent 14 Bash calls on discovery: locating files, reading font load patterns, tracing CSS variable references. None of that repeated in session 4.
 
-**Date consistency** — Both `daily-update.md` and the HTML report consistently attributed the May 7 announcement to impression count increases, and the May 8 announcement to new conversion tracking metrics. No cross-file discrepancy.
+This pattern also applies to intentional splits. Deliberately stopping at a natural checkpoint — CSS first, HTML separately — creates a smaller rollback unit. If `styles.css` had introduced an unintended override, you'd catch it before propagating the change to 7 HTML files. The "Continue the previous run" structure works for both accidental and intentional session breaks.
 
-**No clinic-specific leakage** — All location and treatment references used generic combinations ("Gangnam implant," "Mapo orthodontics") with no specific clinic names, registration numbers, or addresses.
+## The Font Pairing Decision
 
-**Disclaimer coverage** — Both files included the required non-guarantee statement: "We do not guarantee improvements in ranking, appointment volume, patient visits, or revenue."
+Before replacing fonts, the direction was "Quiet Minimal" — the site should support the photography, not compete with it. Neutral, editorial, without being generic.
 
-**Risk expression coverage** — Terms in the monitored category (painless, 100%, guaranteed, lowest price, #1, testimonial-style phrasing) appeared only in the "watch and avoid" section, not as claims.
+`Outfit` for English and navigation:
+
+- Low stroke contrast keeps it from drawing attention to itself
+- Humanist proportions without quirky letterforms — legible at small sizes, interesting at display sizes
+- Available as a variable font on Google Fonts, so no additional CDN dependency for English characters
+
+`Pretendard` for Korean body text:
+
+- Designed specifically to pair with Western grotesks — proportions calibrated for mixed Korean/English layouts
+- Covers the full character set for Korean web use including Hanja and special characters
+- Variable version handles the full weight range in one file
+
+The pairing produces visual continuity between scripts: similar x-height, similar stroke weight, similar overall texture. On a photography site where the content is images, type consistency keeps the UI from pulling focus.
+
+## Variable Font, Dynamic Subset: What the CDN Link Does
+
+The `<link>` added to each page's `<head>`:
+
+```html
+<link rel="stylesheet" as="style" crossorigin
+  href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css" />
+```
+
+Two technical choices:
+
+**Variable over static weights**: Loading separate `.woff2` files per weight creates one HTTP request per weight file. A variable font bundles all weights in one file and one request. For a site using 3-4 Korean font weights, this is a meaningful reduction in HTTP overhead.
+
+**Dynamic subset over full character set**: A full static Korean font covers the KS X 1001 character set plus extensions — 2–4 MB per weight file. Dynamic subset serves only the characters present on the current page, then loads additional subsets on demand. For pages where Korean text is limited to navigation labels and short headings, the initial font payload drops significantly.
+
+The jsDelivr link handles both in one import. No custom font loading strategy required.
 
 ## Session Statistics
 
-| Item | Value |
-|------|-------|
-| Sessions | 2 |
-| Total tool calls | 4 |
-| Tools used | Read × 4 |
-| Files modified by Claude | 0 |
-| Files created by Claude | 0 |
-| Blocking issues detected | 1 |
+| Session | Task | Tool Calls | Primary Tools |
+|---------|------|-----------|---------------|
+| 1 | Medical ad review (issue found) | 2 | Read × 2 |
+| 2 | Re-review (OK confirmed) | 2 | Read × 2 |
+| 3 | `styles.css` update (incomplete) | 23 | Bash × 14, Read × 5, Edit × 4 |
+| 4 | 7 HTML pages completed | 25 | Edit × 13, Read × 7, Bash × 4 |
 
-The tool use pattern is worth noting. Read-only review produces no artifact risk — Claude cannot accidentally modify a file it's only reading. The actual correction happened outside the review session. The review confirmed correctness; it didn't do the editing.
+Total: 52 tool calls. Bash (18), Edit (17), Read (16), Grep (1). 8 files modified, 0 created.
 
-## Why This Pattern Works
+Session 3's Bash count (14) reflects the cold-start discovery phase. Session 4's Bash count (4) reflects execution on a known target.
 
-A general "review this for me" prompt produces output with no priority signal. The `blocking-issues-only` pattern forces two things: a binary ship/no-ship verdict, and when there's an issue, the exact location and what to fix.
+The shift from Bash-dominant to Edit-dominant is a diagnostic signal. Bash-heavy sessions are in discovery mode. Edit-heavy sessions are in execution mode. When a session starts with an explicit state handoff, it skips the discovery phase entirely.
 
-Medical ad compliance has a fixed checklist and clear judgment criteria — exactly the conditions where this pattern fits. Encoding the checklist in the prompt means every review runs against the same standard. What a tired human misses at the end of the day, Claude doesn't.
+## Patterns Worth Keeping
 
-The two-pass structure matters too. "I fixed it so it should be fine" is not the same as confirmed OK. The re-review catches cases where the correction is locally right but contextually wrong — a sentence in a later section that assumed the old (wrong) attribution and now reads as inconsistent.
+**Constrained output format over open-ended review.** "Blocking issues only" with binary output removes ambiguity. The structure applies to any review with a known failure mode list: deploy checklists, API security audits, legal copy, content moderation.
 
-## Adapting to Other Compliance Domains
+**State handoff between sessions.** "The previous run changed X but stopped before completing" is a one-sentence state transfer that replaces re-discovery. It works for both accidental and intentional session splits, making mid-task verification safe without losing accumulated context.
 
-The same prompt structure applies wherever you have a fixed checklist and binary criteria:
+**Split at dependency layers.** CSS before HTML is the right boundary. If the CSS direction is wrong, you want to know before propagating it to 7 files. Splitting at natural dependency layers keeps rollback units small and verification meaningful.
 
-**GDPR/privacy reviews**: Check for PII in logs, missing consent disclosures, or data retention claims that contradict the privacy policy.
+Running these as four separate sessions instead of one long session meant each had a clear, narrow scope. The compliance reviewer never saw the font files. The font updater never had to think about compliance. Narrow sessions with constrained output produce predictable results.
 
-**Financial content**: Verify past performance disclaimers are present, no specific return guarantees are implied, and all cited figures trace back to disclosed sources.
-
-**Terms of service compliance**: Check that user-facing copy aligns with the ToS, no capabilities are claimed that aren't contractually guaranteed, no prohibited comparisons appear.
-
-The prompt shape stays the same:
-
-```
-Perform a blocking-issues-only review for [domain].
-Check [specific categories for that domain].
-Answer OK if none; otherwise list exact location and fix.
-```
-
-The work is identifying the right checklist for your domain. Once that's done, the pattern is reusable across documents, teams, and time.
-
-## What This Doesn't Replace
-
-This pattern catches factual contradictions and known-prohibited content. It doesn't replace human judgment on edge cases, evolving regulatory interpretations, or situations requiring understanding of the full business and legal context.
-
-A misattributed date is mechanically detectable. Whether a borderline guarantee claim crosses the legal threshold in a specific jurisdiction, under a specific enforcement posture — that's still a human call.
-
-The pattern is a first filter, not a final authority. Its value is making the first filter reliable and consistent, so human review time can focus on cases that actually need it.
+> The cost of restarting a session is lower than the cost of missing a mid-task verification step.
 
 ---
 
