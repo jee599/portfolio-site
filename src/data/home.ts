@@ -25,15 +25,6 @@ export interface HomeProject {
   details: Array<{ k: string; v: string }>;
 }
 
-export interface HomeExperiment {
-  num: string;
-  title: string;
-  titleSerif: boolean;
-  desc: string;
-  tag: string;
-  status: ProjectStatus;
-}
-
 // Source of truth: src/content/projects/*.yaml — 운영중/개발중 projects only,
 // ordered by `order` then by what's getting active commits.
 export const PROJECTS: HomeProject[] = [
@@ -42,8 +33,8 @@ export const PROJECTS: HomeProject[] = [
     idx: '001',
     title: 'jidonglab.com',
     titleEn: 'jidonglab.com',
-    tagline: 'AI research portfolio + auto-blogging site',
-    taglineKo: 'AI 연구 포트폴리오 + 자동 블로깅 사이트',
+    tagline: 'Personal portfolio and build-log archive',
+    taglineKo: '포트폴리오 + 빌드 로그 아카이브',
     status: 'live',
     year: 2026,
     stack: ['Astro', 'Tailwind', 'Cloudflare', 'Claude Code'],
@@ -52,13 +43,13 @@ export const PROJECTS: HomeProject[] = [
     size: 'wide',
     url: 'https://jidonglab.com',
     github: 'https://github.com/jee599/portfolio-site',
-    summary: 'Long-running log of builds, essays, and small experiments. Bilingual by default. Every commit auto-generates a build log via Claude Code.',
-    summaryKo: '빌드·에세이·작은 실험을 모으는 장기 로그. 기본 2개 언어. 커밋마다 Claude Code가 자동으로 빌드 로그를 쓴다.',
+    summary: 'Long-running archive of builds, essays, and small experiments. Bilingual by default.',
+    summaryKo: '빌드·에세이·작은 실험을 모으는 장기 아카이브. 기본 2개 언어.',
     role: 'solo',
     details: [
       { k: 'Stack', v: 'Astro + MDX' },
       { k: 'Runtime', v: 'Cloudflare Pages' },
-      { k: 'Auto', v: 'build-log + dev.to sync' },
+      { k: 'Content', v: 'build logs + essays' },
     ],
   },
   {
@@ -77,7 +68,7 @@ export const PROJECTS: HomeProject[] = [
     url: 'https://fortunelab.store',
     github: 'https://github.com/jee599/saju',
     summary: 'Bilingual saju reader. Treats classical pillars as structured input and leaves only interpretation to the model. Currently migrating billing from Toss to PayPal for global reach.',
-    summaryKo: '사주 기둥을 구조화된 입력으로 다루고, 해석만 LLM에 맡긴다. 글로벌 전환을 위해 결제를 Toss에서 PayPal로 옮기는 중.',
+    summaryKo: '만세력으로 기둥을 직접 계산하고, 해석만 LLM에 맡긴다. 글로벌 결제는 Toss에서 PayPal로 이관 중.',
     role: 'solo',
     details: [
       { k: 'Status', v: 'live' },
@@ -121,8 +112,8 @@ export const PROJECTS: HomeProject[] = [
     size: 'normal',
     url: 'https://line-b.vercel.app/',
     github: 'https://github.com/jee599/claudebook',
-    summary: 'Korean-language book covering Claude API, Claude Code, and skill/agent patterns. Drafted chapter-by-chapter alongside active projects.',
-    summaryKo: 'Claude API·Claude Code·스킬·에이전트 패턴을 담은 한국어 책. 활성 프로젝트를 쓰면서 챕터 단위로 초안을 쌓는다.',
+    summary: 'Korean-language book covering Claude API, Claude Code, and the automation patterns built around them. Drafted chapter-by-chapter alongside active projects.',
+    summaryKo: 'Claude API·Claude Code·그 위에 쌓은 자동화 패턴을 담은 한국어 책. 활성 프로젝트를 쓰면서 챕터 단위로 초안을 쌓는다.',
     role: 'solo',
     details: [
       { k: 'Status', v: 'in progress' },
@@ -157,8 +148,8 @@ export const PROJECTS: HomeProject[] = [
     idx: '006',
     title: 'spoonai',
     titleEn: 'spoonai',
-    tagline: 'AI news collected, analyzed, and auto-published daily',
-    taglineKo: 'AI 뉴스를 매일 수집·분석·자동 발행하는 서비스',
+    tagline: 'A quiet archive of AI news, summarized and emailed',
+    taglineKo: 'AI 뉴스를 모아 요약·발송하는 작은 서비스',
     status: 'live',
     year: 2026,
     stack: ['Next.js', 'Claude', 'Resend', 'Vercel'],
@@ -167,13 +158,12 @@ export const PROJECTS: HomeProject[] = [
     size: 'normal',
     url: 'https://spoonai.me',
     github: 'https://github.com/jee599/news4ai',
-    summary: 'Every morning at 08:00 KST a scheduled agent crawls, summarizes, publishes, and emails the day\'s AI news. Individually delivered — no BCC.',
-    summaryKo: '매일 08:00 KST에 스케줄 에이전트가 크롤링·요약·발행·메일 발송까지 한다. BCC 없이 개별 발송.',
+    summary: 'Collects, summarizes, and emails AI news. Individually delivered — no BCC.',
+    summaryKo: 'AI 뉴스를 모아 요약하고 메일로 보낸다. BCC 없이 개별 발송.',
     role: 'solo',
     details: [
-      { k: 'Schedule', v: '08:00 KST daily' },
+      { k: 'Format', v: 'web + email' },
       { k: 'Delivery', v: 'Resend, per-user' },
-      { k: 'Agent', v: 'spoonai-daily-briefing' },
     ],
   },
   {
@@ -181,7 +171,7 @@ export const PROJECTS: HomeProject[] = [
     idx: '007',
     title: 'agentcrow',
     tagline: 'Claude Code auto-dispatcher over 144 specialist agents',
-    taglineKo: 'Claude Code 에이전트 자동 디스패처. 144개 전문 에이전트 오케스트레이션',
+    taglineKo: 'Claude Code 144개 전문 에이전트 자동 디스패처',
     status: 'live',
     year: 2026,
     stack: ['TypeScript', 'Claude', 'MCP'],
@@ -212,12 +202,12 @@ export const PROJECTS: HomeProject[] = [
     size: 'normal',
     url: 'https://claude-old.vercel.app',
     github: 'https://github.com/jee599/uddental',
-    summary: 'Dental clinic website wired into the dental-ad-ops skill pipeline — blog, image generation, and monthly reports all driven from a single clinic.md.',
-    summaryKo: '치과 사이트를 dental-ad-ops 스킬 파이프라인과 연결. 블로그·이미지·월간 리포트까지 clinic.md 하나로 굴러간다.',
+    summary: 'Dental clinic website with end-to-end ad-ops automation — blog posts, image assets, and monthly reports all driven from a single clinic.md.',
+    summaryKo: '치과 사이트와 광고 운영 자동화를 한 줄로 묶었다. 블로그·이미지·월간 리포트까지 clinic.md 하나로 굴러간다.',
     role: 'solo',
     details: [
       { k: 'Stack', v: 'Next.js + Tailwind' },
-      { k: 'Pipeline', v: 'dental-ad-ops skill' },
+      { k: 'Ops', v: 'ad-ops automation' },
     ],
   },
   {
@@ -225,7 +215,7 @@ export const PROJECTS: HomeProject[] = [
     idx: '009',
     title: 'cleantech',
     tagline: 'B2B air filter company site, ko/en',
-    taglineKo: '에어필터 B2B 회사 사이트 (한/영)',
+    taglineKo: '에어필터 제조사 한·영 사이트',
     status: 'live',
     year: 2026,
     stack: ['Next.js 16', 'TypeScript', 'Tailwind'],
@@ -288,7 +278,7 @@ export const PROJECTS: HomeProject[] = [
     idx: '012',
     title: 'refmade',
     tagline: 'A small place for reference-made pages',
-    taglineKo: '레퍼런스 기반으로 만든 페이지들의 작은 보관소',
+    taglineKo: '레퍼런스로 만든 페이지 아카이브',
     status: 'live',
     year: 2026,
     stack: ['HTML'],
@@ -308,8 +298,8 @@ export const PROJECTS: HomeProject[] = [
     slug: 'dev_blog',
     idx: '013',
     title: 'dev.to blog',
-    tagline: 'Bilingual dev.to mirror, auto-synced',
-    taglineKo: 'dev.to 이중 언어 미러. 자동 싱크',
+    tagline: 'Bilingual dev.to mirror of build logs',
+    taglineKo: 'dev.to 한·영 미러',
     status: 'live',
     year: 2026,
     stack: ['Shell', 'dev.to API'],
@@ -318,35 +308,35 @@ export const PROJECTS: HomeProject[] = [
     size: 'normal',
     url: 'https://dev.to/ji_ai',
     github: 'https://github.com/jee599/dev_blog',
-    summary: 'Every bilingual build log on jidonglab.com mirrors to dev.to via API. Canonical URLs point home.',
-    summaryKo: 'jidonglab.com의 한/영 빌드 로그가 API로 dev.to에 자동 미러링. canonical은 홈 기준.',
+    summary: 'Bilingual build logs from jidonglab.com mirror over to dev.to. Canonical URLs point home.',
+    summaryKo: 'jidonglab.com의 한/영 빌드 로그를 dev.to에 미러링. canonical은 홈 기준.',
     role: 'solo',
     details: [
-      { k: 'Sync', v: 'daily via cron' },
+      { k: 'Sync', v: 'dev.to API' },
       { k: 'Canonical', v: 'jidonglab.com' },
     ],
   },
 ];
 
-// Smaller experiments / lab entries. Kept as-is in shape; content trimmed to truth.
-export const EXPERIMENTS: HomeExperiment[] = [
-  { num: 'L.01', title: 'auto-publish', titleSerif: false, desc: '하나의 스킬로 spoonai·DEV.to·Hashnode에 동시 발행. canonical은 jidonglab.com.', tag: 'skill', status: 'live' },
-  { num: 'L.02', title: 'dental-ad-ops', titleSerif: false, desc: '치과 광고 대행 전체 파이프라인. 온보딩·블로그·이미지·월간 리포트 자동화.', tag: 'skill', status: 'live' },
-  { num: 'L.03', title: 'spoonai-daily', titleSerif: false, desc: '매일 08:00 KST에 AI 뉴스 수집·분석·발행·메일 발송을 자동으로 돈다.', tag: 'cron', status: 'live' },
-  { num: 'L.04', title: 'weekly-review', titleSerif: false, desc: '지난 7일 git 활동 + 세션 + 메모리 교차 리뷰. 주말 자동 집계.', tag: 'skill', status: 'live' },
-  { num: 'L.05', title: 'harness-audit', titleSerif: false, desc: '~/.claude 상태 점검. 스킬·훅·에이전트·플러그인·메모리 건강도.', tag: 'skill', status: 'live' },
-  { num: 'L.06', title: 'research', titleSerif: false, desc: '주제 던지면 4개 서브에이전트 병렬 디스패치. 각 1500단어, 교차검증.', tag: 'skill', status: 'live' },
-];
+// Map slug → screenshot path under /public/images/projects.
+// Only slugs listed here render an <img>; the rest fall back to a CSS visual.
+export const PROJECT_IMAGE: Record<string, string> = {
+  'portfolio-site': '/images/projects/jidonglab.png',
+  'saju_global': '/images/projects/fortunelab.png',
+  'coffee-chat': '/images/projects/coffeechat.png',
+  'news4ai': '/images/projects/spoonai.png',
+  'uddental': '/images/projects/uddental.png',
+  'cleantech': '/images/projects/cleantech.png',
+  'refmade': '/images/projects/refmade.png',
+  'dev_blog': '/images/projects/devto.png',
+};
 
-// Real "what I'm working on now" — pulled from build logs, active projects, and
-// the dental-ad-ops / spoonai pipelines that are actually running.
+// 짧게. 지금 무엇이 돌아가고 있는지만.
 export const NOW_ITEMS = [
-  { tag: '지금', txt: 'jidonglab 홈 v2 리디자인 — Astro 네이티브로 포팅 중' },
-  { tag: '오늘', txt: '데이터 레이어 정리 — /api/now SSR + 홈 데이터 실사 교체' },
-  { tag: '이번 주', txt: 'saju 결제 Toss → PayPal 전환' },
-  { tag: '운영중', txt: 'spoonai 매일 08:00 KST 자동 발행' },
-  { tag: '운영중', txt: 'dental-ad-ops — 치과 광고 파이프라인 가동' },
-  { tag: '진행중', txt: 'Claude Code 소스 80K LOC 역분석 ebook' },
+  { tag: '지금', txt: '홈 카피 다듬는 중' },
+  { tag: '이번 주', txt: '사주 결제 Toss → PayPal 이관' },
+  { tag: '운영중', txt: 'spoonai · AI 뉴스 큐레이션' },
+  { tag: '운영중', txt: 'uddental · 치과 광고 운영 자동화' },
 ];
 
 export interface ShipRow {

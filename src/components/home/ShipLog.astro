@@ -4,7 +4,7 @@ import { getCollection } from 'astro:content';
 const logs = (await getCollection('build-logs'))
   .filter((p) => p.data.lang === 'ko')
   .sort((a, b) => b.data.date.getTime() - a.data.date.getTime())
-  .slice(0, 6);
+  .slice(0, 7);
 
 const fmtDate = (d: Date) => {
   const y = d.getFullYear();
@@ -15,22 +15,23 @@ const fmtDate = (d: Date) => {
 ---
 <section id="logs" class="sec">
   <div class="sec-head">
-    <div class="sec-kicker">
-      <span class="ln"></span>
-      <span class="n">02</span>
-      <span>Build Logs · 빌드 로그</span>
+    <div class="lead">
+      <div class="sec-kicker">
+        <span class="n">02</span>
+        <span class="sep">/</span>
+        <span>build logs</span>
+      </div>
+      <h2 class="sec-h" data-ko="ko/en 쌍으로 쌓이는 로그" data-en="Logs in ko/en pairs">
+        ko/en 쌍으로 쌓이는 로그
+      </h2>
+      <p class="sec-desc" data-ko="커밋 diff에서 한국어와 영어 로그가 같이 정리된다. 잘된 결정보다 막힌 기록이 더 많다." data-en="Each commit diff becomes a paired Korean/English log. More dead ends than wins.">
+        커밋 diff에서 한국어와 영어 로그가 같이 정리된다. 잘된 결정보다 막힌 기록이 더 많다.
+      </p>
     </div>
-    <h2 class="sec-h">
-      <span data-ko="매 결정의 " data-en="Every decision, ">매 결정의 </span>
-      <span class="italic" data-ko="기록" data-en="logged">기록</span>
-      <span data-ko="." data-en=".">.</span>
-    </h2>
-    <p class="sec-desc" data-ko="매일 ko/en 쌍으로 작성. 성공담보다 실패의 밀도가 높다. Content Collection으로 관리한다." data-en="Daily ko/en pairs. More failures than wins. Managed via Content Collections.">
-      매일 ko/en 쌍으로 작성. 성공담보다 <strong>실패의 밀도</strong>가 높다. Content Collection으로 관리한다.
-    </p>
+    <a class="sec-link" href="/posts" data-ko="전체 빌드 로그 →" data-en="all logs →">전체 빌드 로그 →</a>
   </div>
 
-  <div class="logs">
+  <div class="logs-wrap">
     {logs.map((log) => {
       const type = log.data.tags?.[0] ?? 'build';
       return (
@@ -42,8 +43,4 @@ const fmtDate = (d: Date) => {
       );
     })}
   </div>
-
-  <p class="sec-foot">
-    <a href="/posts" data-ko="전체 빌드 로그 보기 →" data-en="All build logs →">전체 빌드 로그 보기 →</a>
-  </p>
 </section>

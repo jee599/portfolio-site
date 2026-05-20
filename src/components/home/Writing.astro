@@ -4,7 +4,7 @@ const links = [
     kind: 'dev.to',
     name: 'DEV.to',
     handle: '@jee599',
-    desc: '영문 기술 포스트. 매주 일요일 발행.',
+    desc: '영문 기술 포스트.',
     href: 'https://dev.to/jee599',
     external: true,
   },
@@ -12,7 +12,7 @@ const links = [
     kind: 'spoonai',
     name: 'SpoonAI',
     handle: 'spoonai.me',
-    desc: 'AI 뉴스 자동 큐레이션. 매일 아침 KST.',
+    desc: 'AI 뉴스 큐레이션.',
     href: 'https://spoonai.me',
     external: true,
   },
@@ -20,7 +20,7 @@ const links = [
     kind: 'feed',
     name: 'RSS',
     handle: '/rss.xml',
-    desc: '전체 빌드 로그·AI 뉴스 피드.',
+    desc: '빌드 로그와 AI 뉴스 피드.',
     href: '/rss.xml',
     external: false,
   },
@@ -28,36 +28,38 @@ const links = [
 ---
 <section id="writing" class="sec">
   <div class="sec-head">
-    <div class="sec-kicker">
-      <span class="ln"></span>
-      <span class="n">05</span>
-      <span>Writing · 글</span>
+    <div class="lead">
+      <div class="sec-kicker">
+        <span class="n">04</span>
+        <span class="sep">/</span>
+        <span>writing</span>
+      </div>
+      <h2 class="sec-h" data-ko="다른 곳에도 쓴다" data-en="Also writes here">
+        다른 곳에도 쓴다
+      </h2>
+      <p class="sec-desc" data-ko="플랫폼마다 톤이 다르다. 핵심만 남긴 포인터." data-en="Tone varies by platform. Pointers only.">
+        플랫폼마다 톤이 다르다. 핵심만 남긴 포인터.
+      </p>
     </div>
-    <h2 class="sec-h" data-ko="다른 곳에도 쓴다." data-en="Also writes here.">
-      다른 곳에도 쓴다.
-    </h2>
-    <p class="sec-desc" data-ko="플랫폼별로 톤이 다르다. 요점만 남긴 피드." data-en="Tone varies by platform. Pointers only.">
-      플랫폼별로 톤이 다르다. 요점만 남긴 피드.
-    </p>
   </div>
 
-  <div class="writing">
-    {links.map((l) => (
-      <a
-        class="writing-link"
-        href={l.href}
-        target={l.external ? '_blank' : undefined}
-        rel={l.external ? 'noreferrer' : undefined}
-      >
-        <span class="wl-kind">{l.kind}</span>
-        <span class="wl-name">
-          {l.name}
-          <span class="arr">→</span>
-        </span>
-        <span class="wl-desc">
-          {l.handle} · {l.desc}
-        </span>
-      </a>
-    ))}
+  <div class="writing-wrap">
+    <div class="writing">
+      {links.map((l) => (
+        <a
+          class="writing-link"
+          href={l.href}
+          target={l.external ? '_blank' : undefined}
+          rel={l.external ? 'noreferrer' : undefined}
+        >
+          <span class="wl-kind">{l.kind}</span>
+          <span class="wl-name">
+            {l.name}
+            <span class="arr">→</span>
+          </span>
+          <span class="wl-desc">{l.handle} · {l.desc}</span>
+        </a>
+      ))}
+    </div>
   </div>
 </section>

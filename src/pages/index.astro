@@ -2,7 +2,6 @@
 import Hero from '../components/home/Hero';
 import Projects from '../components/home/Projects';
 import TechBlock from '../components/home/TechBlock';
-import Lab from '../components/home/Lab';
 import Topbar from '../components/home/Topbar.astro';
 import NowStrip from '../components/home/NowStrip.astro';
 import ShipLog from '../components/home/ShipLog.astro';
@@ -12,8 +11,8 @@ import Wordmark from '../components/home/Wordmark.astro';
 import Footer from '../components/home/Footer.astro';
 import '../styles/home.css';
 
-const title = 'jidonglab — AI 빌더의 작업실';
-const description = '서울에서 혼자 AI 에이전트 인프라 도구를 만드는 사람의 홈. 작업, 실험, 기록, 소개.';
+const title = 'jidonglab — 작업실';
+const description = '프로젝트, 빌드 로그, 글 모음. jidonglab의 포트폴리오.';
 const siteUrl = 'https://jidonglab.com';
 ---
 <!doctype html>
@@ -66,7 +65,6 @@ const siteUrl = 'https://jidonglab.com';
     <NowStrip />
     <Projects client:visible />
     <TechBlock client:visible />
-    <Lab client:visible />
     <ShipLog />
     <Writing />
     <About />

@@ -1,43 +1,63 @@
 export default function Hero() {
   return (
-    <section id="top" className="hero">
-      <div className="hero-inner">
-        <div className="hero-tag">
-          <span className="led" />
-          <span data-ko="2026 2분기 프로젝트 수주 받는 중" data-en="Taking on Q2 2026 projects">
-            2026 2분기 프로젝트 수주 받는 중
-          </span>
-        </div>
-
-        <h1 className="hero-h">
-          <span data-ko="혼자서 " data-en="Building ">혼자서 </span>
-          <span className="mark" data-ko="AI 프로덕트" data-en="AI products">AI 프로덕트</span>
-          <span data-ko="를 " data-en=" ">를 </span>
-          <span className="italic" data-ko="공개적으로" data-en="in public">공개적으로</span>
-          <span data-ko=" 만든다." data-en=", solo.">{' '}만든다.</span>
-        </h1>
-
-        <div className="hero-bottom">
-          <p className="hero-sub">
+    <section id="top" className="masthead">
+      <div className="masthead-inner">
+        <div>
+          <h1 className="masthead-title">
+            <span data-ko="혼자 만들고 " data-en="Built and run ">
+              혼자 만들고{' '}
+            </span>
+            <em data-ko="혼자 굴린다" data-en="solo">
+              혼자 굴린다
+            </em>
+            <span>.</span>
+          </h1>
+          <p className="masthead-lede">
             <span
-              data-ko="회사가 아니라 "
-              data-en="Not a company. "
-            >회사가 아니라 </span>
-            <strong data-ko="1인 연구실" data-en="a one-person lab">1인 연구실</strong>
-            <span
-              data-ko="이다. 아이디어부터 배포·운영까지 혼자. 매 결정에 근거가 있고, 매 실패에 기록이 있다."
-              data-en=". Idea to deploy to ops — alone. Every decision has a reason, every failure a log."
-            >이다. 아이디어부터 배포·운영까지 혼자. 매 결정에 근거가 있고, 매 실패에 기록이 있다.</span>
+              data-ko="작은 프로덕트 몇 개를 혼자 만들고 운영한다. 이 사이트는 그 기록이다."
+              data-en="A few small products, built and run alone. This site is the record."
+            >
+              작은 프로덕트 몇 개를 혼자 만들고 운영한다. 이 사이트는 그 기록이다.
+            </span>
           </p>
-          <div className="hero-ctas">
-            <a href="#projects" className="cta acid" data-ko="프로젝트 보기 →" data-en="View projects →">
-              프로젝트 보기 →
+          <div className="masthead-actions">
+            <a href="#projects" className="btn primary" data-ko="프로젝트 →" data-en="Projects →">
+              프로젝트 →
             </a>
-            <a href="#logs" className="cta ghost" data-ko="빌드 로그" data-en="Build logs">
+            <a href="#logs" className="btn" data-ko="빌드 로그" data-en="Build logs">
               빌드 로그
+            </a>
+            <a
+              href="https://github.com/jee599"
+              target="_blank"
+              rel="noreferrer"
+              className="btn"
+            >
+              github ↗
             </a>
           </div>
         </div>
+
+        <aside className="masthead-meta">
+          <div className="row">
+            <span className="k">name</span>
+            <span className="v">jidonglab</span>
+          </div>
+          <div className="row">
+            <span className="k">loc</span>
+            <span className="v" data-ko="서울 · 원격" data-en="Seoul · remote">
+              서울 · 원격
+            </span>
+          </div>
+          <div className="row">
+            <span className="k">stack</span>
+            <span className="v">TypeScript · Astro · Claude</span>
+          </div>
+          <div className="row">
+            <span className="k">contact</span>
+            <span className="v">jidongs45@gmail.com</span>
+          </div>
+        </aside>
       </div>
     </section>
   );

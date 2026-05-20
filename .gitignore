@@ -2,7 +2,10 @@ node_modules/
 dist/
 .vercel/
 .astro/
+.wrangler/
 .env
 .env.local
 .claude/agents/
+.claude/agent-memory/
+.claude/worktrees/
 .claude/CLAUDE.md

@@ -33,7 +33,7 @@ const modelLabels: Record<string, string> = {
 <Base title="AI News">
   <div class="page-header fade-in">
     <h1 class="page-title">AI News</h1>
-    <p class="page-desc" data-ko="매일 아침 9시, 주요 LLM 모델 소식을 자동으로 수집하고 포스팅한다." data-en="AI news is auto-collected and posted every morning at 9 AM KST.">AI news is auto-collected and posted every morning at 9 AM KST.</p>
+    <p class="page-desc" data-ko="주요 LLM 모델 소식을 모아두는 곳." data-en="A quiet archive of LLM news.">A quiet archive of LLM news.</p>
   </div>
 
   <div class="model-filters fade-in stagger-1">
@@ -63,8 +63,8 @@ const modelLabels: Record<string, string> = {
   </div>
 
   {filteredNews.length === 0 && (
-    <p class="text-muted fade-in stagger-1" data-ko={modelFilter ? `${modelLabels[modelFilter] || modelFilter} 관련 소식이 아직 없다.` : '아직 AI 뉴스가 없다. 매일 아침 9시에 자동으로 생성된다.'} data-en={modelFilter ? `No ${modelLabels[modelFilter] || modelFilter} news yet.` : 'No AI news yet. Auto-generated daily at 9 AM KST.'}>
-      {modelFilter ? `No ${modelLabels[modelFilter] || modelFilter} news yet.` : 'No AI news yet. Auto-generated daily at 9 AM KST.'}
+    <p class="text-muted fade-in stagger-1" data-ko={modelFilter ? `${modelLabels[modelFilter] || modelFilter} 관련 소식이 아직 없다.` : '아직 AI 뉴스가 없다.'} data-en={modelFilter ? `No ${modelLabels[modelFilter] || modelFilter} news yet.` : 'No AI news yet.'}>
+      {modelFilter ? `No ${modelLabels[modelFilter] || modelFilter} news yet.` : 'No AI news yet.'}
     </p>
   )}
 </Base>

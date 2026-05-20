@@ -1,162 +1,204 @@
 import { PROJECTS, type HomeProject } from '../../data/home';
+import { ProjectThumb } from './Thumbnails';
 
 type CardLang = 'ts' | 'py' | 'as' | 'rs' | 'js';
 
 interface CardMeta {
-  status: 'live' | 'oss' | 'beta';
+  status: 'live' | 'oss' | 'dev' | 'beta';
   statusLabel: string;
   lang: CardLang;
-  langLabel: string;
+  stackLabel: string;
 }
 
-// Bridge data-driven projects into the v2-pro card shape.
+const OSS_SLUGS = new Set(['agentcrow', 'contextzip', 'clisync']);
+
 function cardMeta(p: HomeProject): CardMeta {
   const stackStr = p.stack.join(' ').toLowerCase();
   let lang: CardLang = 'ts';
   if (stackStr.includes('python')) lang = 'py';
   else if (stackStr.includes('astro')) lang = 'as';
   else if (stackStr.includes('rust')) lang = 'rs';
-  else if (stackStr.includes('next') || stackStr.includes('typescript')) lang = 'ts';
+  else if (stackStr.includes('shell') || stackStr.includes('javascript')) lang = 'js';
 
-  const ossSlugs = new Set(['agentcrow', 'contextzip']);
   let status: CardMeta['status'];
   let statusLabel: string;
-  if (ossSlugs.has(p.slug)) {
+  if (OSS_SLUGS.has(p.slug)) {
     status = 'oss';
-    statusLabel = '오픈소스';
+    statusLabel = 'OSS';
   } else if (p.status === 'live') {
     status = 'live';
-    statusLabel = '운영 중';
+    statusLabel = 'live';
+  } else if (p.status === 'dev') {
+    status = 'dev';
+    statusLabel = 'dev';
   } else {
     status = 'beta';
-    statusLabel = p.status === 'beta' ? '베타' : p.status === 'dev' ? '개발 중' : '아카이브';
+    statusLabel = p.status;
   }
 
   return {
     status,
     statusLabel,
     lang,
-    langLabel: p.stack.slice(0, 2).join(' · '),
+    stackLabel: p.stack.slice(0, 2).join(' · '),
   };
 }
 
-function ProjectCard({ p }: { p: HomeProject }) {
+function projectHref(p: HomeProject): string {
+  return p.url ?? p.github ?? `https://github.com/jee599/${p.slug}`;
+}
+
+function ActiveCard({ p }: { p: HomeProject }) {
   const m = cardMeta(p);
-  const href = `https://github.com/jee599/${p.slug}`;
   return (
     <a
       className="pcard"
-      href={href}
+      href={projectHref(p)}
       target="_blank"
       rel="noreferrer"
       aria-label={`${p.title} — ${p.taglineKo}`}
     >
-      <div>
-        <span className={`p-status ${m.status}`}>{m.statusLabel}</span>
+      <ProjectThumb slug={p.slug} title={p.title} variant="card" />
+      <div className="p-body">
+        <div className="p-row1">
+          <span className={`p-status ${m.status}`}>
+            <span className="dot" />
+            {m.statusLabel}
+          </span>
+          <span className="p-idx">{p.idx}</span>
+        </div>
         <div className="p-title">{p.title}</div>
         <p className="p-desc">{p.taglineKo}</p>
-      </div>
-      <div className="p-bot">
-        <span className="p-lang">
-          <span className={`lang-dot ${m.lang}`} />
-          {m.langLabel}
-        </span>
-        <span className="lang-arr">→</span>
+        <div className="p-bot">
+          <span className="p-stack">
+            <span className={`lang-dot ${m.lang}`} />
+            {m.stackLabel}
+          </span>
+          <span className="p-arr">→</span>
+        </div>
       </div>
     </a>
   );
 }
 
+function IndexRow({ p }: { p: HomeProject }) {
+  const m = cardMeta(p);
+  return (
+    <a className="pindex-row" href={projectHref(p)} target="_blank" rel="noreferrer">
+      <span className="idx">{p.idx}</span>
+      <span className="name">{p.title}</span>
+      <span className="desc">{p.taglineKo}</span>
+      <span className="stack">{p.stack.slice(0, 2).join(' · ')}</span>
+      <span className={`stat ${m.status}`}>{m.statusLabel}</span>
+    </a>
+  );
+}
+
 export default function Projects() {
-  // Featured: portfolio-site (this site itself, currently in rebuild).
-  const featured = PROJECTS.find((p) => p.slug === 'portfolio-site');
-  const rest = PROJECTS.filter((p) => p.slug !== 'portfolio-site').slice(0, 6);
+  const featuredSlugs = ['saju_global', 'contextzip', 'news4ai'];
+  const featured =
+    PROJECTS.find((p) => p.slug === featuredSlugs[0]) ??
+    PROJECTS.find((p) => p.status === 'live' && p.slug !== 'portfolio-site');
+
+  const activePool = PROJECTS.filter(
+    (p) => p.slug !== featured?.slug && p.slug !== 'portfolio-site' && p.status === 'live'
+  ).slice(0, 3);
+
+  const indexed = PROJECTS.filter(
+    (p) =>
+      p.slug !== featured?.slug && !activePool.some((a) => a.slug === p.slug)
+  );
 
   return (
     <section id="projects" className="sec">
       <div className="sec-head">
-        <div className="sec-kicker">
-          <span className="ln" />
-          <span className="n">01</span>
-          <span>Projects · 프로젝트</span>
+        <div className="lead">
+          <div className="sec-kicker">
+            <span className="n">01</span>
+            <span className="sep">/</span>
+            <span>projects</span>
+          </div>
+          <h2 className="sec-h">
+            <span data-ko="돌아가는 것들" data-en="What's running">
+              돌아가는 것들
+            </span>
+          </h2>
+          <p className="sec-desc">
+            <span
+              data-ko="대표 1개와 활성 3개를 카드로, 나머지는 아래 인덱스로."
+              data-en="One featured + 3 active as cards, the rest as an index."
+            >
+              대표 1개와 활성 3개를 카드로, 나머지는 아래 인덱스로.
+            </span>
+          </p>
         </div>
-        <h2 className="sec-h">
-          실제로 <span className="mark">돌아가는 것</span>만.
-        </h2>
-        <p className="sec-desc">
-          아이디어 단계는 뺐다. 유저가 있거나 주기적으로 유지되는 것만 노출한다.
-        </p>
+        <a className="sec-link" href="/projects" data-ko={`전체 ${PROJECTS.length}개 →`} data-en={`all ${PROJECTS.length} →`}>
+          {`전체 ${PROJECTS.length}개 →`}
+        </a>
       </div>
 
       {featured && (
-        <div className="featured">
-          <div>
-            <div className="f-kicker">작업 중 · Astro 리디자인</div>
-            <h3 className="f-title">
-              <a href={`https://github.com/jee599/${featured.slug}`} target="_blank" rel="noreferrer">
-                {featured.title}
-              </a>
-            </h3>
-            <p className="f-desc">
-              이 사이트 자체. Astro + React + Content Collections.
-              빌드 로그·AI 뉴스·프로젝트를 같은 스키마로 관리한다.
-              홈 섹션을 새 디자인 토큰으로 다시 짜는 중.
-            </p>
-            <div className="f-tags">
-              <span className="acid">작업 중</span>
-              {featured.stack.map((s) => (
-                <span key={s}>{s}</span>
-              ))}
-              <span>Cloudflare</span>
+        <div className="featured-wrap">
+          <article className="featured">
+            <ProjectThumb slug={featured.slug} title={featured.title} variant="featured" />
+            <div className="f-body">
+              <div className="f-top">
+                <span className="f-status">
+                  <span className="dot" />
+                  <span>featured · {featured.status}</span>
+                </span>
+                <span>{featured.idx}</span>
+              </div>
+              <h3 className="f-title">
+                <a href={projectHref(featured)} target="_blank" rel="noreferrer">
+                  {featured.title}
+                </a>
+              </h3>
+              <p className="f-desc">{featured.summaryKo}</p>
+              <div className="f-tags">
+                {featured.stack.map((s) => (
+                  <span key={s}>{s}</span>
+                ))}
+              </div>
+              <div className="f-links">
+                {featured.url && (
+                  <a href={featured.url} target="_blank" rel="noreferrer">
+                    live ↗
+                  </a>
+                )}
+                {featured.github && (
+                  <a href={featured.github} target="_blank" rel="noreferrer">
+                    github ↗
+                  </a>
+                )}
+              </div>
             </div>
-            <a href="#logs" className="f-cta">
-              관련 빌드 로그 보기 <span>→</span>
-            </a>
-          </div>
-          <div className="f-visual">
-            <div className="mac-bar">
-              <span className="mac-dot mac-r" />
-              <span className="mac-dot mac-y" />
-              <span className="mac-dot mac-g" />
-              <span className="mac-title">~/portfolio/portfolio-site · main</span>
-            </div>
-            <pre className="mac-body">
-{`# 어제 작업 기록
-$ git log --oneline | head
-  fd288c5 feat: v2-pro home redesign
-  721bb60 chore: baseline before port
-  43bc6a0 feat: build logs auto
-
-# 새로 쓴 컴포넌트 (14개)
-src/components/home/
-  Hero.tsx · Lab.tsx · Projects.tsx
-  TechBlock.tsx · Thumbnails.tsx
-
-src/components/home/
-  About.astro · Footer.astro
-  NowStrip.astro · ShipLog.astro
-  Topbar.astro · Wordmark.astro
-  Writing.astro`}
-            </pre>
-          </div>
+          </article>
         </div>
       )}
 
-      <div className="pgrid">
-        {rest.map((p) => (
-          <ProjectCard key={p.slug} p={p} />
-        ))}
+      <div className="pgrid-wrap">
+        <div className="pgrid">
+          {activePool.map((p) => (
+            <ActiveCard key={p.slug} p={p} />
+          ))}
+        </div>
       </div>
 
-      <p className="sec-foot">
-        <a
-          href="/projects"
-          data-ko={`전체 프로젝트 ${PROJECTS.length}개 보기 →`}
-          data-en={`View all ${PROJECTS.length} projects →`}
-        >
-          전체 프로젝트 {PROJECTS.length}개 보기 →
-        </a>
-      </p>
+      <div className="pindex-wrap">
+        <div className="pindex">
+          <div className="pindex-h">
+            <span className="idx">#</span>
+            <span className="name" data-ko="이름" data-en="name">이름</span>
+            <span className="desc" data-ko="설명" data-en="description">설명</span>
+            <span className="stack" data-ko="스택" data-en="stack">스택</span>
+            <span className="stat" data-ko="상태" data-en="status">상태</span>
+          </div>
+          {indexed.map((p) => (
+            <IndexRow key={p.slug} p={p} />
+          ))}
+        </div>
+      </div>
     </section>
   );
 }

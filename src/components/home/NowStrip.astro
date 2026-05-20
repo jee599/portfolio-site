@@ -1,33 +1,25 @@
 ---
 import { NOW_ITEMS } from '../../data/home';
 
-const recent = NOW_ITEMS.slice(0, 4);
+const items = NOW_ITEMS.slice(0, 4);
 ---
-<section class="now" id="now">
-  <div class="now-inner">
-    <div class="now-label">
-      <span class="led"></span>
-      <span data-ko="지금 작업 중" data-en="Now building">지금 작업 중</span>
+<section class="status" id="now">
+  <div class="status-inner">
+    <div class="status-label">
+      <span class="pulse"></span>
+      <span data-ko="지금" data-en="Now">지금</span>
     </div>
-    <div>
-      <p class="now-body">
-        <strong>{recent[0]?.txt ?? '작업 중'}</strong>
-        <span data-ko=" — 작업은 공개적으로 한다. 매 커밋은 기록으로 남는다." data-en=" — built in public. Every commit leaves a trace."> — 작업은 공개적으로 한다. 매 커밋은 기록으로 남는다.</span>
-      </p>
-      <div class="now-recent">
-        {recent.map((it) => (
-          <span class="item">
-            <span class="ts">{it.tag}</span>
-            <span class="t">{it.txt}</span>
-          </span>
-        ))}
-      </div>
+    <div class="status-stream">
+      {items.map((it) => (
+        <span class="item">
+          <span class="tag">{it.tag} ·</span>
+          <span>{it.txt}</span>
+        </span>
+      ))}
     </div>
-    <div class="now-meta">
-      <span data-ko="서울 · " data-en="Seoul · ">서울 · </span>
-      <span data-now-clock>--:--:--</span> KST<br>
-      <span data-ko="자동 동기화 · git log" data-en="auto sync · git log">자동 동기화 · git log</span><br>
-      claude-opus-4.7
+    <div class="status-meta">
+      <span data-now-clock>--:--</span>
+      <span data-ko=" KST · git 기준" data-en=" KST · from git"> KST · git 기준</span>
     </div>
   </div>
 </section>

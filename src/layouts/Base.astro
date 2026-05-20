@@ -14,7 +14,7 @@ interface Props {
   hreflangs?: HreflangLink[];
 }
 
-const { title, description = 'AI developer building tools, agents, and open-source projects. Build logs, AI news, and technical articles.', ogImage, ogType = 'website', publishedTime, tags, hreflangs } = Astro.props;
+const { title, description = 'Portfolio, build logs, and notes by jidonglab.', ogImage, ogType = 'website', publishedTime, tags, hreflangs } = Astro.props;
 const siteUrl = 'https://jidonglab.com';
 const canonicalUrl = new URL(Astro.url.pathname, siteUrl).href;
 const currentPath = Astro.url.pathname;
@@ -65,7 +65,7 @@ const navItems = [
         '@type': 'WebSite',
         name: 'jidonglab',
         url: siteUrl,
-        description: 'AI developer building tools, agents, and open-source projects. Build logs, AI news, and technical articles in Korean and English.',
+        description: 'Personal portfolio and build-log archive by jidonglab. Projects, notes, and articles in Korean and English.',
         author: { '@type': 'Person', name: 'jidonglab', url: siteUrl },
         inLanguage: ['ko-KR', 'en-US'],
         potentialAction: {
@@ -82,15 +82,15 @@ const navItems = [
         '@type': 'Person',
         name: 'jidonglab',
         url: siteUrl,
-        description: 'AI developer and builder focused on LLM tooling, multi-agent orchestration, and build-in-public culture.',
+        description: 'Developer. Writes build logs and notes about projects.',
         sameAs: [
           'https://x.com/jidonglab',
           'https://dev.to/jee599',
           'https://www.linkedin.com/in/jidonglab',
           'https://github.com/jee599',
         ],
-        jobTitle: 'AI Developer',
-        knowsAbout: ['Claude Code', 'MCP Servers', 'LLM Orchestration', 'Multi-Agent Systems', 'TypeScript', 'Next.js', 'Astro'],
+        jobTitle: 'Developer',
+        knowsAbout: ['TypeScript', 'Next.js', 'Astro'],
       })}
     />
     <style is:inline>
@@ -272,7 +272,7 @@ const navItems = [
           </div>
         </div>
         <div class="footer-bottom">
-          <p>&copy; {new Date().getFullYear()} jidonglab. Built with Astro + Claude Code.</p>
+          <p>&copy; {new Date().getFullYear()} jidonglab.</p>
         </div>
       </div>
     </footer>
