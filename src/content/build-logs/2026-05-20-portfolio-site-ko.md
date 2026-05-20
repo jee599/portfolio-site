@@ -4,7 +4,7 @@ project: "portfolio-site"
 date: 2026-05-20
 lang: ko
 tags: [claude-code, redesign, astro, react, tailwind, codex]
-description: "Apple 클론 시안이 거부되고 '개발자 연구실 logbook' 방향으로 전면 리디자인. 10개 컴포넌트 재작성, Codex 2회 교차검증, 카피 다듬기 5라운드까지."
+description: "Apple 클론 시안이 거부된 뒤 Claude Code 26세션으로 포트폴리오 사이트를 전면 리디자인했다. 10개 컴포넌트 재작성, Codex 교차검증 2라운드, 카피 다듬기 5라운드, 총 350+ tool calls."
 ---
 
 이전 시안이 거부됐다. "애플풍 흰 여백, 큰 글자, 카드식"이 문제였다. jidonglab은 제품 하나 파는 랜딩이 아니라 1인 빌더의 연구실 운영 기록이다. generic AI 템플릿 느낌이 나면 안 됐다.
