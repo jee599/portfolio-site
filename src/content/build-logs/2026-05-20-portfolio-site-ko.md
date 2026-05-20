@@ -1,120 +1,93 @@
 ---
-title: "Pretendard 7개 페이지 일괄 적용: 중단된 세션을 이어받아 25번 만에 끝낸 법"
+title: "의료광고 컴플라이언스 QA: Claude가 16번의 tool call로 차단 이슈 1개 잡은 과정"
 project: "portfolio-site"
 date: 2026-05-20
 lang: ko
-tags: [claude-code, typography, font, daymoon, pretendard, session-continuation]
-description: "Claude Code 세션이 중단된 후 이어받아 완성하는 패턴. Daymoon 사진작가 사이트 폰트를 Pretendard로 전환, 7개 HTML 페이지에 25번의 tool call로 일괄 적용했다."
+tags: [claude-code, compliance, review, medical-ad, claude-opus]
+description: "코드 한 줄 안 쓰고 Claude Code로 의료광고 컴플라이언스 리뷰를 자동화했다. 3세션, 16회 tool call 만에 차단 이슈 1개를 잡고 OK 판정까지 받은 과정."
 ---
 
-## 세션이 중단됐다, 그리고 이어받았다
+의료광고 보고서 하나를 출력하기 전, claude-opus-4-7이 16번의 tool call로 차단 이슈를 스스로 찾아냈다.
 
-Claude Code로 작업하다 보면 세션이 중간에 끊기는 경우가 생긴다. `styles.css`만 바꾸고 멈춘 세션을 다음 세션이 이어받아 완성하는 패턴 — 오늘 기록할 내용이다.
+**TL;DR** 코드가 아닌 컴플라이언스 QA에 Claude Code를 썼다. 첫 세션에서 "지원되지 않는 사실 주장"이라는 차단 이슈를 정확히 집어냈고, 두 번째 세션에서 수정 확인, 세 번째 세션에서 최종 OK. 총 소요 시간: 2분 남짓.
 
-**TL;DR** Daymoon 사진작가 사이트 폰트 전환 작업. 세션 1에서 CSS만 바꾸고 중단됐고, 세션 2에서 7개 HTML 페이지 전체에 Pretendard를 추가해 마무리했다. 총 48번의 tool call.
+## 배경: 의료광고에는 틀리면 안 되는 문장이 있다
 
----
+한국 의료광고 심의 기준은 까다롭다. 근거 없는 수치, 미지원 주장, 특정 병원명 노출, 심의번호 오용 — 이 중 하나만 걸려도 보고서 전체가 날아간다. 매일 생성되는 보고서를 사람이 일일이 검수하는 건 비효율적이다. 그래서 Claude Code를 리뷰어로 투입했다.
 
-## 폰트 방향 선택: Quiet Minimal
-
-작업 시작 전 사용자가 스케치에서 폰트 방향을 선택했다. 선택지 B, "Quiet Minimal" 방향.
-
-- 영문/브랜드/내비게이션: `Outfit`
-- 한국어 본문: `Pretendard` (또는 Noto Sans KR 스타일)
-
-하드룰이 명확했다. serif 폰트(`Cormorant`, `EB Garamond` 등) 금지. 마케팅 카피 추가 금지. 사진이 주인공인 사이트 스타일을 건드리지 않는다.
-
-이 컨텍스트가 프롬프트에 그대로 들어갔다:
+첫 번째 프롬프트는 이렇게 생겼다:
 
 ```
-Hard rules:
-- Follow existing Daymoon style: photo-first, minimal, white/near-white
-- Do NOT add serif fonts.
-- Do NOT use Cormorant/EB Garamond/Ci...
+Read these files and do a blocking-issues-only final review for today's
+scheduled Korean medical/dental ads report. Check: contradictions,
+missing required labels/caveats, prohibited guarantees,
+named hospital/address leakage, stale dates around 5/07 vs 5/14...
 ```
 
-명확한 금지 목록이 있으면 Claude가 "더 예쁜" 방향으로 탈선하지 않는다.
+"blocking-issues-only"가 핵심이다. 전체 리뷰를 요청하면 노이즈가 많아진다. 실제로 막아야 할 이슈만 보고하도록 범위를 좁혔다.
 
----
+## 세션 1: Read 6번, Bash 4번으로 6개 파일 전수 검토
 
-## 세션 3: CSS는 바꿨지만 멈췄다
+claude-opus-4-7은 6개 파일을 읽었다: `2026-05-20-daily-update.md`, `rolling-knowledge-base.md`, `source-index.md`, 그리고 HTML 보고서 포함. 총 Read 6번, Bash 4번.
 
-첫 세션(23번 tool call, `Bash 14 / Read 5 / Edit 4`)은 레포 구조 파악부터 시작했다. `styles.css`를 수정해 폰트 스택을 업데이트했고, 거기서 세션이 끊겼다.
+결과는 두 가지였다.
 
-문제는 CSS만 바꿔도 HTML 파일들이 실제로 Pretendard를 로드하지 않으면 적용이 안 된다는 점이다. 7개 HTML 파일 각각의 `<head>`에 웹폰트 로드 태그가 있었고, 그걸 손대기 전에 세션이 종료됐다.
+**차단 이슈 (blocking)**: `reports/2026-05-20-mobile-powerlink-layout-and-info-ai.html` 2번 섹션, 공지 30960 관련 bullet이 지원되지 않는 사실 주장을 포함하고 있었다. 의료광고 심의위원회 문의처가 본문에 포함된 형태였는데, 실제 심의 문서에서 근거를 찾을 수 없는 내용이었다.
 
----
+**버그 (numbering)**: `rolling-knowledge-base.md`에 중복 헤더가 있었다. `### 5.7 2026-05-19`와 `### 5.8 2026-05-20`이 동시에 존재했다. 차단 수준은 아니지만 데이터 일관성 문제라 같이 플래그했다.
 
-## 세션 4: 이어받기 프롬프트
+코드 변경은 0건. Claude는 읽고 보고만 했다. 수정은 사람 몫이었다.
 
-두 번째 세션 프롬프트가 핵심이다:
+## 세션 2: 수정 후 재검증
+
+수정이 완료된 뒤 두 번째 세션을 열었다. 프롬프트는 훨씬 좁았다:
 
 ```
-Continue the Daymoon typography update. The previous run changed styles.css
-but stopped before completing.
-
-Finish the task in /Users/jidong/daymoon-pic-site:
-1. Ensure Pretendard actually loads on all real site pages...
+Re-check only the prior blocker after fixes.
+Read reports/2026-05-20-mobile-powerlink-layout-and-info-ai.html
+and rolling-knowledge-base.md.
+Answer OK if the unsupported 30960 claim is gone
+and the KB duplicate 5.7/5.8 issue is fixed;
+otherwise list exact remaining issue.
 ```
 
-"이전 세션이 여기까지 했고, 이걸 마저 해라"는 구조. Claude Code는 이전 세션의 메모리가 없다. 그래서 프롬프트에 현재 상태(`styles.css`는 완료)와 남은 작업(HTML 7개)을 명시해야 한다.
+두 파일만 읽었다. Bash 2번, Read 2번. 이전 세션의 컨텍스트를 넘기지 않고, 고쳤다는 사실만 전달하고 독립적으로 재검증시켰다. 이 세션에서는 아직 남은 이슈가 있었다.
 
-세션 4는 25번 tool call(`Edit 13 / Read 7 / Bash 4 / Grep 1`)로 마무리됐다.
+## 세션 3: 최종 OK — tool call 2번
 
----
+마지막 세션. 프롬프트를 더 정밀하게 좁혔다:
 
-## 7개 파일이 동일한 패턴이었다
-
-Claude가 먼저 확인한 건 패턴의 일치 여부다.
-
-> All 7 real pages share identical font-loading lines.
-
-`index.html`, `about.html`, `contact.html`, `gallery.html`, `notice.html`, `product.html`, `reservation.html` — 헤드 섹션이 동일한 구조였다. 이 확인이 중요했다. 하나만 읽고 패턴을 파악하면 나머지 6개는 같은 수술을 반복하면 된다.
-
-적용 방식은 jsDelivr CDN의 Pretendard Variable 동적 서브셋:
-
-```html
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css">
+```
+Blocking-only recheck. Read ONLY reports/2026-05-20-mobile-powerlink-layout-and-info-ai.html
+and rolling-knowledge-base.md.
+Confirm: (1) HTML no longer says '의료광고 심의위원회 문의처가 본문에 포함',
+(2) KB no longer has duplicate headers '### 5.7 2026-05-19' and '### 5.8 2026-05-20'.
+Answer exactly OK if fixed; otherwise list issue.
 ```
 
-기존 `Outfit` + `Noto Sans KR`은 그대로 유지하고, Pretendard를 추가하는 방식으로 안전하게 처리했다. 캐시 버스트 버전도 올렸다.
-
----
-
-## 의료광고 리뷰도 있었다
-
-같은 날 세션 1~2는 다른 프로젝트였다. 치과 광고 일일 리포트 블로킹 이슈 리뷰(`dentalad` 프로젝트).
-
-- 세션 1: `2026-05-19-daily-update.md:27`에서 날짜 귀속 오류 발견. 5/14 공지에 플레이스광고 노출 개수 상향을 잘못 귀속시킨 케이스. 실제로는 5/07 공지였다.
-- 세션 2: 수정 후 재검수. OK.
-
-4번의 `Read` tool call, 결과는 블로킹 이슈 1건 발견 후 수정, 재확인 클리어. 짧지만 명확한 파이프라인이다.
-
----
+Read 2번. 응답: `OK`.
 
 ## 전체 통계
 
 | 항목 | 수치 |
 |------|------|
-| 총 세션 | 4 |
-| 총 tool calls | 52 |
-| Edit | 17 |
-| Bash | 18 |
-| Read | 16 |
-| Grep | 1 |
-| 수정 파일 | 8개 |
+| 총 세션 | 3 |
+| 총 tool calls | 16 |
+| Read | 10 |
+| Bash | 6 |
+| 수정 파일 | 0개 |
 | 생성 파일 | 0개 |
+| 차단 이슈 발견 | 1건 |
+| 소요 시간 | 약 2분 |
 
-Bash가 Edit보다 많은 건 세션 3에서 레포 구조 탐색과 git 작업이 많았기 때문이다.
+## 배운 것: 좁은 프롬프트가 정확한 결과를 만든다
 
----
+이번 세션에서 얻은 가장 큰 인사이트는 프롬프트 설계다. "전체 리뷰해줘"가 아니라 "blocking 이슈만 보고해줘"로 범위를 잡았더니, 실제로 막아야 할 것만 올라왔다. 두 번째, 세 번째 세션에서는 읽어야 할 파일도 딱 2개로 제한했다. 컨텍스트가 좁을수록 답이 빠르고 정확했다.
 
-## 세션 이어받기의 핵심
+의료광고 컴플라이언스는 "확인해야 할 항목 목록"이 명확하다. 그 목록을 프롬프트에 그대로 넣으면 Claude는 체크리스트 실행기가 된다. 코드 리뷰와 같은 논리다.
 
-세션이 중단됐을 때 두 번째 세션을 효율적으로 쓰는 방법:
+`answer exactly OK if fixed; otherwise list issue` — 이 패턴이 핵심이다. 애매한 답을 막고, 사람이 바로 다음 행동을 결정할 수 있는 응답을 강제한다.
 
-1. **현재 상태를 명시한다.** "이전 세션이 X까지 했다"를 프롬프트에 쓴다.
-2. **남은 작업을 구체적으로 나열한다.** "HTML 7개 파일 헤드에 폰트 로드 추가"처럼.
-3. **하드룰을 반복한다.** 새 세션은 이전 컨텍스트가 없다. 금지 사항을 다시 명시한다.
+## 다음
 
-이 패턴을 쓰면 중단된 작업도 낭비 없이 마무리된다.
+매일 아침 보고서가 자동 생성된다. 지금은 사람이 프롬프트를 직접 입력하고 있는데, 이걸 GitHub Actions 단계에 QA 스텝으로 붙이는 게 자연스러운 다음 단계다. 보고서 생성 → Claude 리뷰 → OK면 배포, FAIL이면 알림. 코드 변경 없이 Claude Code를 QA 게이트로 쓰는 구조다.
