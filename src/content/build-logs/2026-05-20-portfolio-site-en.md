@@ -1,103 +1,98 @@
 ---
-title: "Claude Code as a QA Gate: Catching a Medical Ad Compliance Blocker with 16 Tool Calls"
+title: "Rejected Apple Clone to Codex Approval: Redesigning a Dev Portfolio in 27 Sessions (350+ Tool Calls)"
 project: "portfolio-site"
 date: 2026-05-20
 lang: en
 pair: "2026-05-20-portfolio-site-ko"
-tags: [claude-code, compliance, qa, medical-ad, claude-opus]
-description: "Zero code written. Claude Code ran 16 tool calls across 3 sessions and flagged one blocking compliance issue in Korean medical ad reports — in under 2 minutes."
+tags: [claude-code, redesign, astro, react, tailwind, codex]
+description: "Apple-style mock rejected, 10 home components rewritten from scratch, 2 Codex cross-validation passes, and 5 rounds of copy editing to kill the AI-generated feel."
 ---
 
-claude-opus-4-7 ran 16 tool calls, read 6 files, and found one blocking compliance issue — without writing a single line of code.
+The previous design got rejected before a single line of implementation code was written.
 
-**TL;DR** Used Claude Code for compliance QA, not coding. Session 1 identified an "unsupported factual claim" blocker. Session 2 verified the fix. Session 3 returned `OK`. Total elapsed time: ~2 minutes.
+"Apple-style white space, oversized type, card-based layout" — that was the verdict. jidonglab isn't a product landing page. It's the operational log of a solo builder. A generic AI template feel was exactly what it couldn't be.
 
-## Why Medical Ad Compliance Is a Different Kind of Problem
+**TL;DR** Rewrote 10 home components from scratch, ran Codex cross-validation twice, and spent more rounds on copy than on code. The two recurring feedback notes: "remove translated-sounding phrases" and "stop exposing internal toolchain details in public copy."
 
-Korean medical advertising regulations are strict. Unsupported statistics, unverifiable claims, hospital name leaks, misuse of review registration numbers — any one of these can invalidate an entire report. When reports are generated daily, manual review doesn't scale.
+## The Mock That Got Rejected
 
-The standard approach is to bolt on a human QA step. The better approach is to treat Claude Code as the QA gate.
+The previous session produced a Swiss-studio cream/acid aesthetic: 104px serif headline, Instrument Serif italic, Space Grotesk display. It looked like an agency landing page. The user rejected it explicitly and listed three requirements instead:
 
-The first prompt looked like this:
+- "Developer lab + personal publishing + operational log + project index" feel
+- No generic AI templates, excessive 3D, or hollow hero copy
+- Information density beats type spectacle
 
-```
-Read these files and do a blocking-issues-only final review for today's
-scheduled Korean medical/dental ads report. Check: contradictions,
-missing required labels/caveats, prohibited guarantees,
-named hospital/address leakage, stale dates around 5/07 vs 5/14...
-```
+First step: understand the codebase. Read through `src/components/home/` for existing components, `src/data/home.ts` for data structure, `src/styles/home.css` for styles. The existing code was far enough from the new direction that a full rewrite was effectively necessary.
 
-"blocking-issues-only" is load-bearing. Ask for a general review and you get noise. Narrow the scope to real blockers and you get signal.
+Design system declaration before touching any component. JetBrains Mono for section kickers, status labels, dates, and project metadata. IBM Plex Sans KR for body text. Green `#00c471` as accent, but never decorative. Section separators via 1px border + monospace kicker.
 
-## Session 1: 6 Files, 10 Reads, One Blocker Found
+## 57 Tool Calls, 10 Components Rewritten
 
-claude-opus-4-7 read six files: `2026-05-20-daily-update.md`, `rolling-knowledge-base.md`, `source-index.md`, and the HTML report. Ten Read calls, 6 Bash calls.
+Started with `home.css` — wiped the existing styles and rebuilt from the new design system. Then rewrote components one by one:
 
-Two findings came back.
+- `Hero.tsx` — short identity statement + current active status
+- `NowStrip.astro` — three live status indicators (last commit, build status, active project)
+- `Projects.tsx` — featured (1) + active grid (3) + indexed archive (rest)
+- `ShipLog.astro` — last 3 build logs
+- `Writing.astro` — recent posts list
+- `About.astro`, `Footer.astro`, `Topbar.astro`, `Lab.tsx` — created new
 
-**Blocking issue**: Section 2 of `reports/2026-05-20-mobile-powerlink-layout-and-info-ai.html` contained a bullet related to public notice 30960 that made an unsupported factual claim — a reference to a medical ad review committee contact embedded in the body copy, with no traceable source in the review documentation.
+`Projects.tsx` took the most work. Featured project renders large with a visual. Active projects sit in a 2×2 grid. The rest appear as a monospace index. All data is centrally managed in `src/data/home.ts`.
 
-**Non-blocking bug**: `rolling-knowledge-base.md` had a duplicate header — `### 5.7 2026-05-19` and `### 5.8 2026-05-20` both existed. Not a blocker, but a data consistency problem worth flagging alongside.
+The session hit max turns mid-way. After reconnecting, ran `git diff` to assess state, then continued and finished the remaining components through build validation:
 
-Files modified: 0. Files created: 0. Claude read and reported. Fixing was a human job.
-
-## Session 2: Verifying the Fix with Minimal Context
-
-After the fix was applied, a second session opened with a tighter prompt:
-
-```
-Re-check only the prior blocker after fixes.
-Read reports/2026-05-20-mobile-powerlink-layout-and-info-ai.html
-and rolling-knowledge-base.md.
-Answer OK if the unsupported 30960 claim is gone
-and the KB duplicate 5.7/5.8 issue is fixed;
-otherwise list exact remaining issue.
+```bash
+npm run build
+# ✓ Built in 8.23s
 ```
 
-Two files. Two Reads. Two Bash calls. No prior session context was passed — just the facts: something was fixed, verify it independently. This session still had a remaining issue to flag.
+## First Codex Pass: 4 Issues Found, 1 Blocking
 
-## Session 3: Final OK — 2 Tool Calls
+After implementation, ran Codex CLI for cross-validation. Result: `request-changes`.
 
-The last session used the most precise prompt of the three:
+One blocking issue. In `Projects.tsx`, mobile CSS hid elements by targeting `.desc` and `.stack` classes — but the header `<span>` elements didn't carry those classes. Below 960px, the header column count misaligned with the row grid. Fix: add the same classes to header spans.
 
-```
-Blocking-only recheck. Read ONLY reports/2026-05-20-mobile-powerlink-layout-and-info-ai.html
-and rolling-knowledge-base.md.
-Confirm: (1) HTML no longer says '의료광고 심의위원회 문의처가 본문에 포함',
-(2) KB no longer has duplicate headers '### 5.7 2026-05-19' and '### 5.8 2026-05-20'.
-Answer exactly OK if fixed; otherwise list issue.
-```
+Three non-blocking issues, addressed at the same time:
 
-Two Reads. Response: `OK`.
+- Added `prefers-reduced-motion` media query to `home.css` (pulse animation)
+- Removed empty `data-ko="."` span in `Hero.tsx`
+- Restructured `<strong>` inside `<p>` in `ShipLog.astro` — nesting conflicted with the language-switching script
 
-## The Numbers
+Second Codex pass: `approve`. No blocking issues, build passed, `git diff --check` clean.
 
-| Metric | Value |
-|--------|-------|
-| Sessions | 3 |
-| Total tool calls | 16 |
-| Read calls | 10 |
-| Bash calls | 6 |
-| Files modified | 0 |
-| Files created | 0 |
-| Blocking issues found | 1 |
-| Elapsed time | ~2 minutes |
+## Five Rounds to Kill the AI-Generated Voice
 
-## The Pattern That Made It Work
+After build validation, user feedback: "Design is solid. But the copy reads like a translation and has information I don't want public."
 
-The most transferable insight from this session is prompt design, not AI capability.
+Looking at actual sentences confirmed it. Words like "operations index," "AI builder," and "experiments" showed up repeatedly. Abstract, slightly inflated phrasing — the kind that's characteristic of generated copy. Five rounds to fix it.
 
-"Tell me everything wrong" → noise. "Blocking issues only" → one actionable finding.
+**Round 1** — Direction change across all copy. Shorter. More concrete. Delete if not necessary.
 
-Each subsequent session narrowed further: fewer files to read, more precise confirmation criteria. The narrower the context, the faster and more accurate the response.
+**Round 2** — Add project images. Found 8 screenshots in `public/images/projects/`. Added a `PROJECT_IMAGE` mapping to `src/data/home.ts` and rendered via `<img>` tags in `Projects.tsx`. Projects without images fall back to a CSS-based color swatch. Codex caught a bug during review: `PROJECT_IMAGE` was added to `home.ts` but never imported in `Projects.tsx`, so images weren't rendering at all.
 
-Medical ad compliance maps cleanly to this structure because the checklist is known in advance. Unsupported claims, prohibited guarantees, leaking identifiers, stale dates — these are concrete conditions, not fuzzy judgments. Put them in the prompt and Claude becomes a checklist executor. The same logic applies to code review.
+**Round 3** — Remove the Lab section. There was a section marketing the internal Claude Code skills, hooks, and pipelines as features. User request: "Take out the daily toolchain stuff." Removed `<Lab>` import and component from `src/pages/index.astro`.
 
-The critical phrase: `answer exactly OK if fixed; otherwise list issue`. It removes ambiguity. Either the condition is met or it isn't. The human on the other side can act immediately without parsing hedged language.
+**Round 4** — Jargon sweep across all public pages. Cleaned `about.astro`, `ai-news/index.astro`, and `public/llms.txt`. Removed phrases like "Claude Code skills," "multi-agent orchestration," and "daily 08:00 KST cron" — internal implementation details that don't belong in public copy. Rewrote `llms.txt` entirely as an understated portfolio/build-log archive description.
 
-## What Comes Next
+**Round 5** — Metadata cleanup. Removed "AI agent," "MCP server," and "Built with Claude Code" from schema.org, footer, and default description in `src/layouts/Base.astro`.
 
-Reports generate automatically every morning. The prompt is currently typed manually. The natural next step: add a QA step to the GitHub Actions pipeline. Report generation → Claude review → deploy on `OK`, alert on `FAIL`. Claude Code as a compliance gate, no code changes required.
+## .gitignore Cleanup (Codex Flagged It)
+
+Separate Codex note: several untracked local directories weren't in `.gitignore`, which meant they could accidentally end up in production commits.
+
+Added `.claude/agent-memory/`, `.claude/worktrees/`, and `.wrangler/`. Deduplicated a redundant `.vercel/` entry. Kept `.vercelignore` as a deployment safety net and included it in the commit.
+
+## What This Build Taught Me
+
+**Copy takes more rounds than code.** The component rewrite finished in one session. Copy editing ran five rounds. "Remove translated-sounding phrases" doesn't work as a single instruction — you have to look at actual sentences and remove them one by one. Prompts with specific examples ("change this phrase to that") resolved faster than abstract direction.
+
+**Don't expose internal implementation in public copy.** "Auto-generated daily by Claude Code" is technically true. But making it a marketing point is odd. Public pages describe what users experience, not what CLI tools built it.
+
+**Cross-validation finds bugs that familiarity hides.** The missing `PROJECT_IMAGE` import and the mobile header misalignment were both caught by Codex, not during the main implementation session. Running a separate pass against a diff catches the things you stop seeing after hours in the same codebase.
+
+Tool call breakdown: Session 8 (core implementation) — Bash 22×, Read 20×, Write 10×, Edit 5×. Copy editing sessions were Read- and Edit-heavy. Total across 27 sessions: 350+ tool calls.
+
+> The design took a day. Making the copy sound like a person took the rest of the time.
 
 ---
 
