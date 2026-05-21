@@ -1,176 +1,156 @@
 ---
-title: "Codex Caught a Lie in My Portfolio Copy: Redesigning with Claude Code"
+title: "My Portfolio Said 'Every Commit' When It Meant 'Sometimes': Claude Code, 3 Codex Reviews, and Full SEO/AEO in One Day"
 project: "portfolio-site"
 date: 2026-05-21
 lang: en
 pair: "2026-05-21-portfolio-site-ko"
-tags: [claude-code, astro, redesign, copywriting, codex-review]
-description: "14 Claude Code sessions, 194 tool calls to build a Capabilities section and sharpen portfolio positioning—plus how Codex cross-verification caught two false copy claims."
+tags: [claude-code, portfolio, seo, aeo, redesign, codex]
+description: "20 Claude Code sessions rebuilt jidonglab.com into a portfolio business card—with JSON-LD, llms.txt, AI crawler rules, and 3 Codex passes that caught 2 false copy claims."
 ---
 
-194 tool calls. 14 sessions. One new Astro component. And a two-model review loop that flagged marketing copy I didn't realize was factually wrong.
+A friend received `jidonglab.com` and replied: "So what do you actually do?"
 
-**TL;DR** — Built `Capabilities.astro` (a 4-card "what I do" section), rewrote Hero/Projects/ShipLog positioning copy, and ran Codex cross-verification twice. The second Codex pass caught an overclaimed sentence in the new component before it shipped. Sessions fragmented into 14 because the 30-turn max_turns limit kept hitting mid-task.
+That question ended the old homepage. If a portfolio page can't answer "who is this person and what do they do" in three seconds, it's not a portfolio — it's a maze. The redesign had one criterion: hand someone the URL and they immediately know. Like a business card.
 
-## The Three-Second Test My Old Portfolio Failed
+**TL;DR** Rebuilt the homepage as a portfolio business card. New `Capabilities.astro` component, rewritten Hero/About/Projects copy, fixed Korean localization tone, and shipped full SEO/AEO infrastructure — 3 JSON-LD schemas, `llms.txt`, `robots.txt` with 13 AI crawler groups, GA4 — in the same day. Three Codex cross-review cycles caught 2 factual copy errors and 1 contradictory sentence. Zero code bugs across all three passes.
 
-Someone gets your portfolio URL. They have about three seconds before they decide to scroll or leave. In those three seconds, can they answer: *who is this person and what do they do?*
+## The Brief
 
-The old jidonglab.com couldn't pass it. There was a build log section, a projects section, an About section — a standard developer portfolio layout. Visitors had to piece together the story themselves by scrolling through five sections. It was fine as a reference document. It failed as a first impression.
+The redesign started from one prompt:
 
-The redesign had one criterion:
+> "Redesign jidonglab.com so it works like a personal business card / portfolio sales page. If someone only receives this site URL, they should immediately understand what Jidong does and why they might work with him."
 
-> Hand someone the URL and they immediately know who you are and what you do — like a business card.
+Before writing a line, Claude read the existing state: `Hero.tsx`, `About.astro`, `Projects.tsx`, `index.astro`, `home.css`. 12 Read calls. Then 11 Edit calls. Then a build and typecheck to confirm nothing broke.
 
-That collapsed into two concrete changes: sharpen the Hero copy into a positioning statement, and add a new section that directly answers "what do you actually do." No mystery, no inferring from project names.
+The main new artifact: `src/components/home/Capabilities.astro`.
 
-## What Gets Built When You're Serious About Positioning
+Four cards: automation pipelines, agent orchestration, dental ad operations, build logging. Bilingual (Korean + English) via `data-ko`/`data-en` attributes. Grid layout using `.do-grid`/`.do-card` classes with a single-column mobile fallback. The component names what I actually do rather than implying it through project names.
 
-The biggest change was a new file: `src/components/home/Capabilities.astro`.
+## When the Session Breaks Mid-Flight
 
-Four cards. **Automation**, **Product Operations**, **AI Utilization**, **Writing**. Each card has a two-digit number (`01`–`04`), an English title, and a short Korean description. The intent is immediate: a visitor sees four labeled tiles and has a summary of the work in under ten seconds.
+The first real problem wasn't code — it was a workflow artifact. The session hit Hermes's `max_turns` limit mid-flight. `Capabilities.astro` got created as an untracked file. `index.astro` was already importing it. The commit diff was non-self-contained: apply it, get a broken import.
 
-```astro
----
-const items = [
-  {
-    no: '01',
-    title: 'Automation',
-    desc: '반복되는 운영 작업을 스크립트와 AI 에이전트로 대체한다.',
-  },
-  {
-    no: '02',
-    title: 'Product Operations',
-    desc: '프로덕트를 직접 운영하고 지표를 측정한다.',
-  },
-  {
-    no: '03',
-    title: 'AI Utilization',
-    desc: 'Claude Code, Codex, 멀티 에이전트 워크플로로 개발한다.',
-  },
-  {
-    no: '04',
-    title: 'Writing',
-    desc: '진행 중인 작업을 한국어·영어 빌드 로그로 꾸준히 남긴다.',
-  },
-];
----
-<section class="do-section">
-  <div class="do-grid">
-    {items.map(item => (
-      <div class="do-card">
-        <span class="do-no">{item.no}</span>
-        <h3 class="do-title">{item.title}</h3>
-        <p class="do-desc">{item.desc}</p>
-      </div>
-    ))}
-  </div>
-</section>
-```
+Codex caught this on cross-review pass #1:
 
-CSS namespace: `.do-grid`, `.do-card`, `.do-no`, `.do-title`, `.do-desc`. The component uses `--accent-soft` and `--paper` variables already defined in `home.css`, so there's no new design token surface. `.do-grid` has a 1-column fallback for mobile.
+> "`src/pages/index.astro` imports/uses `src/components/home/Capabilities.astro`, but the file is untracked. Do not leave the tracked diff non-self-contained."
 
-`home.css` got two new class groups: `.masthead-eyebrow` for the section kicker label, and the full `.do-*` family. The component is imported in `index.astro` and placed below the NowStrip — high enough that it's visible on most screens without scrolling.
+Passing that review back to Claude: stage the missing file. While there, also fix a copy mismatch in `Projects.tsx` — the section header said "things currently running" but the list included projects still in development. Changed the header to cover both states.
 
-The design principle here is economy: tell the visitor what you do before asking them to scroll. If a portfolio makes someone work to understand the person, it's already lost.
+This illustrates why cross-review catches things self-review doesn't. When you're implementing, you track intent. When an external model reads the diff cold, it reads state. The diff said "import from here" while the file didn't exist — not a subtle bug.
 
-## Why a Simple Component Took 14 Sessions
+## "Every Commit Diff Becomes a Bilingual Build Log" Was a Lie
 
-Tool call breakdown across the full run: Read (91), Bash (61), Edit (30), Grep (8), Write (4). Model: claude-opus-4-7.
+Cross-review pass #2 found a subtler error: a factual claim in `Capabilities.astro` that wasn't true.
 
-Read outpacing Edit nearly 3:1 is expected for a redesign — you spend more time understanding what's already there than changing it. But 14 sessions is high for the scope of the actual changes. Two factors drove that.
-
-**The max_turns wall.** Claude Code sessions have a 30-turn cap. Sessions 3 and 4 hit it mid-task, producing identical partial work — both sessions read the same files and began the same edits before cutting off. Hermes (the orchestrator) issued `Continue the previous task` to restart, but the new session started from the same point, creating another duplicate cycle. Sessions 5 and 6 repeated the pattern.
-
-This isn't a complaint about the 30-turn limit — it's a reasonable boundary. The problem is starting a large task without per-session scope. "Redesign the portfolio" is not a session-sized task. "Build `Capabilities.astro` from this spec" is. When scope is ambiguous, the orchestrator fills a session doing whatever it can before hitting the wall, then restarts with the same ambiguous task.
-
-The fix for next time: before starting, break the work into session-sized chunks and assign a concrete deliverable per session. One session, one component. One session, copy pass. One session, verification.
-
-**The Codex review loops.** Sessions 7–10 are the cross-verification cycles. Implementation finishes → Codex reviews the diff → requests changes → Claude applies fixes → Codex re-reviews. Three full cycles for this work. These loops are intentional (more on what they caught below), but each cycle costs a session.
-
-Total sessions if the max_turns issue hadn't happened: probably 6–8. Still not trivial, but more proportionate to the actual scope.
-
-## The Sentence That Wasn't True
-
-Session 9 is the most interesting one.
-
-The Writing card in `Capabilities.astro` originally had this copy:
+The Writing card originally read:
 
 ```
 EN: Every commit diff becomes a Korean/English build log.
 KO: 커밋 diff를 한국어·영어 빌드 로그로 매일 쌓는다.
 ```
 
-Codex's verdict on the second review pass: **blocking issue**.
+Codex flagged it: **blocking issue**. Not every commit produces a build log. Some build logs are written after a series of commits. Purely mechanical commits — dependency bumps, typo fixes — never generate one. The Korean version doubled down with "매일" (daily), which is also inaccurate.
 
-The problem is the word "every." Not every commit produces a build log. Some build logs are written manually after a series of commits. Some commits are purely mechanical — dependency bumps, typo fixes — and don't produce any log at all. The Korean version doubles down with "매일" (daily), which is also inaccurate.
+This kind of error doesn't get caught in standard code review because it's not a logic bug — it's a fact error. The code compiles. The component renders correctly. But the sentence doesn't describe reality.
 
-This kind of claim is easy to write when you're building the feature and living in its context. "Every commit becomes a build log" feels true when you've been writing build logs regularly. It sounds right. But it's objectively overclaimed, and a first-time visitor who later notices the discrepancy will trust the site less.
-
-Fix:
+The fix:
 
 ```
+EN: Progress gets documented as bilingual build logs.
 KO: 진행 중인 작업을 한국어·영어 빌드 로그로 꾸준히 남긴다.
-EN: Work-in-progress captured as Korean and English build logs.
 ```
 
-Changed absolute quantifiers ("every," "daily") to directional ones ("꾸준히" = consistently, "captured as"). The meaning survives. The overclaim doesn't.
+Absolute quantifiers ("every", "daily") became directional statements ("gets documented", "꾸준히" — consistently). The meaning survives; the overclaim doesn't.
 
-The first Codex pass had flagged a smaller version of the same problem in `Hero.tsx`: two sentences in a row both used "매일" (daily). One use is emphasis. Two uses in a 40-word section is redundancy. One instance was removed.
+Why use an external model for copy validation? When you wrote the code, you know what you meant. Reading your own copy for factual accuracy is like proofreading your own writing — you see intent, not what's written. A separate model reading cold sees what's written. That's the gap. **Whether phrasing matches reality** is a judgment that's easier to make when you didn't write the first draft.
 
-This is the practical case for running copy through an external model. A self-review pass won't catch this — you're too close to the intent. A second model reading the copy cold, with a brief to check whether claims are factually supported, will flag absolutist language that a human reviewer rationalizes away. It's not that Claude Code misses these; it's that the model writing the copy is also the one reviewing it, which creates a blind spot.
+## "Building Alone, Together" Doesn't Parse
 
-For AI automation and multi-agent workflows, copy verification is a legitimate use case that gets overlooked.
+Cross-review pass #3 caught a different kind of error: a self-contradicting sentence.
 
-## Hero and Projects Were Smaller Fixes
+`Capabilities.astro` included: `"혼자 같이 만든다."` Literally: "building alone, together." The intent is clear — working solo but with AI as collaborator. In Korean, it reads as a logical contradiction. A native speaker stalls on it.
 
-`Hero.tsx` needed one change: remove the duplicate "daily" that Codex flagged in the first pass. Two adjacent sentences both opened with "every day" or "daily." After the edit, one sentence carries that weight.
+Claude rewrote it: `"AI와 함께, 실제로 혼자 만든다."` — "With AI, building alone in practice."
 
-`Projects.tsx` had a section heading that said something to the effect of "currently operating" — but the list included projects still in active development. This isn't a bug in the traditional sense, but it's a misalignment between label and content. A visitor reading "operating" and seeing "in progress" items gets a small cognitive mismatch that adds up.
+English aligned: `"Building alone, but with AI as co-pilot."`
 
-Changed the heading to cover both states: live projects and projects in development. Simple wording change, noticeable improvement in accuracy.
+Same concept. The meaning now lands on first read instead of making the reader do work.
 
-The full list of changed files:
+Three Codex cross-review cycles, final tally: **0 code bugs, 2 factual copy errors, 1 contradictory sentence.** Build passed all three times. Copy verification is a legitimate use case for multi-model review that usually gets overlooked in favor of code-focused checks.
 
-- `src/components/home/Capabilities.astro` — new file, copy revised twice post-Codex
-- `src/components/home/Hero.tsx` — positioning copy, duplicate "daily" removed
-- `src/components/home/Projects.tsx` — section heading to match actual content
-- `src/components/home/About.astro` — ongoing-tense revision
-- `src/components/home/Topbar.astro` — nav cleanup
-- `src/components/home/ShipLog.astro` — NowStrip data updated
-- `src/data/home.ts` — data cleanup
-- `src/pages/index.astro` — Capabilities import and placement
-- `src/styles/home.css` — `.masthead-eyebrow` and `.do-*` classes added
+## "The Korean Copy Tone Is Off"
 
-## The i18n Bug That's Still Open
+After the redesign, feedback arrived:
 
-Sessions 11–14 address user feedback: "the Korean copy tone feels off."
+> "Looks good, but the language toggle feels broken and the Korean phrasing is off."
 
-Two issues were happening simultaneously. First, the `data-ko`/`data-en` attribute content across homepage sections was inconsistent — some sections written in formal register, some in the flatter toss-tech style the site is supposed to use throughout.
+Two distinct problems were happening simultaneously.
 
-Second, a structural problem: `index.astro` doesn't extend `Base.astro`. The language toggle logic — which reads `localStorage.lang` and swaps between `data-ko` and `data-en` attribute content — lives in a script that `Base.astro` injects. Since the homepage bypasses `Base.astro`, the script never loads. You can have perfectly written bilingual attributes on every element and none of them switch, because nothing reads them.
+**Language toggle not loading.** Sub-pages using `Base.astro` had the `data-ko`/`data-en` attribute toggle script. But `index.astro` uses its own independent layout — the toggle script never got injected. Bilingual attributes were in the DOM; nothing was reading them.
 
-Sessions 13 and 14 hit max_turns while reading files and exited without any changes. The issue is documented but not fixed.
+**Copy tone was too literal.** Some Korean was reverse-translated from English rather than written naturally in Korean. Professional-sounding in English, slightly stilted in Korean.
 
-The fix is one of two options: extend `Base.astro` from `index.astro`, or add an explicit `<script>` block in the homepage frontmatter that handles the language toggle directly. The second option is more surgical and avoids inheriting other `Base.astro` globals that the homepage currently doesn't use.
+Fixing this took two sessions. The first was pure reconnaissance: 13 Reads + 3 Greps to map the layout structure, script injection points, and which copy needed work. No edits. The second session made the changes: `Hero.tsx`, `Capabilities.astro`, `Projects.tsx`, `ShipLog.astro`. 7 Reads, 5 Edits.
 
-This is next.
+Separating exploration from implementation paid off here. Start editing before you understand the layout structure and you fix symptoms instead of the cause. The cause was that `index.astro` doesn't extend `Base.astro` — so it inherits none of `Base.astro`'s global scripts.
 
-## What Three Things This Build Taught
+## The Sitemap That Was Pointing to 404
 
-**Copy verification is a legitimate use for external model review.** The Codex cross-verification workflow is usually framed around code — catching mobile grid bugs, missing class names, performance issues. This redesign shows it catches something different: factual accuracy in marketing copy. Overclaimed absolute statements ("every commit," "daily") are invisible to the model that wrote them and visible to one that didn't. The two-model loop is worth the session cost for any public-facing copy.
+Shifting to SEO/AEO work, the first step was an audit of what was actually there.
 
-**Large redesigns need per-session scope before you start.** The max_turns fragmentation in sessions 3–6 added at least 4–6 unnecessary sessions to the total count. The root cause is scoping — not the session limit itself. "Redesign the portfolio" is too broad for a 30-turn session. Assigning a concrete deliverable per session (one component, one copy pass, one verification run) prevents the orchestrator from spinning in ambiguous restart loops.
+**Finding #1:** `Base.astro` referenced `/sitemap-index.xml` as the sitemap path. The actual Astro sitemap route is `/sitemap.xml`. Every sub-page's `<link rel="sitemap">` was pointing to a 404. The sitemap existed; the reference was wrong.
 
-**Homepage i18n needs an explicit script injection strategy.** If a page doesn't extend the base layout, it doesn't inherit global scripts. This seems obvious in retrospect, but it's easy to miss when you're building the layout and the content page in separate sessions. The rule: any page that deviates from the base layout needs an explicit inventory of what scripts it's missing and how to get them back.
+**Finding #2:** No JSON-LD anywhere. Without structured data, a personal site surfaces in search results with zero context — no rich snippets, no entity recognition, no connection to a named person. Google can index the page; it can't tell what it's *about*.
 
----
+One session handled everything:
 
-14 sessions and 194 tool calls for a single new component looks expensive. Strip out the max_turns restarts and the Codex review cycles, and the actual Capabilities build was probably 15–20 tool calls in a single session. The rest was verification, copy revisions, and repeated restarts from ambiguous scope.
+**`src/components/Analytics.astro`** (new file) — gates the GA4 snippet behind `PUBLIC_GA_MEASUREMENT_ID`. If the env var isn't set, no `<script>` tag is emitted. Build doesn't fail; site just runs without analytics. This is the right pattern for optional third-party scripts: don't couple the build to credentials.
 
-> The code took an afternoon. The copy took the week. That ratio is consistent.
+**`src/pages/index.astro`** — 3 JSON-LD schemas added to `<head>`:
+- `Person` — name, job title, skills, linked social profiles
+- `WebSite` — site name, URL, description
+- `ProfilePage` — connects the page to the Person entity
 
-Code problems have correct solutions. Copy problems require reading with fresh eyes — ideally more than one pair, ideally from a model that didn't write the first draft.
+Also strengthened OG tags: explicit `og:type`, `og:image`, `twitter:card`.
+
+**`src/layouts/Base.astro`** — sitemap path corrected (`/sitemap-index.xml` → `/sitemap.xml`), Analytics component wired in.
+
+**`public/robots.txt`** (new file) — explicit `Allow: /` for 13 AI crawler groups (GPTBot, ClaudeBot, Bingbot, Googlebot, PerplexityBot, and others), global `Disallow` for `/api/` and `/admin`.
+
+**`public/llms.txt`** (new file) — AEO entity context. A plain-text file describing who Jidong is, what jidonglab.com covers, and which topics it's authoritative on. Helps LLMs build accurate context when indexing the site for AI-powered search.
+
+Tool usage this session: 14 Reads, 6 Bash, 6 Edits, 3 Greps, 3 Writes.
+
+## The robots.txt Trap
+
+Codex flagged one more issue in `robots.txt`.
+
+The original structure for AI crawler groups:
+
+```
+User-agent: GPTBot
+Allow: /
+Disallow: /api/
+Disallow: /admin
+```
+
+The problem: `Allow: /` in the same user-agent block as `Disallow: /api/` creates ambiguity. Different crawler implementations resolve rule precedence differently. Some honor the more-specific Disallow. Others see the broad Allow first and skip the Disallow entirely.
+
+Safe fix: remove the explicit `Allow: /` from each AI crawler group (crawlers crawl by default if not blocked) and keep only the Disallow rules. Apply to all 13 groups explicitly.
+
+`robots.txt` looks simple but the spec permits conflicting rules, and there's no canonical crawler behavior for resolving them. The safest pattern is additive: only write what you want to restrict; let default crawl behavior handle the rest.
+
+## What Changed
+
+**Modified:** `Hero.tsx`, `About.astro`, `Projects.tsx`, `ShipLog.astro`, `Topbar.astro`, `home.ts`, `index.astro`, `home.css`, `Base.astro`, `.env.example`
+
+**New files:** `Capabilities.astro`, `Analytics.astro`, `public/robots.txt`, `public/llms.txt`
+
+**Sessions:** 20 total (including fragments from Hermes max_turns splits)
+
+**Codex cross-review cycles:** 3
+
+The test for a portfolio page is whether a stranger who only has the URL has a reason to reach out. That's the bar. Today's work moved the site closer to clearing it.
 
 ---
 
