@@ -10,11 +10,67 @@ import Writing from '../components/home/Writing.astro';
 import About from '../components/home/About.astro';
 import Wordmark from '../components/home/Wordmark.astro';
 import Footer from '../components/home/Footer.astro';
+import Analytics from '../components/Analytics.astro';
 import '../styles/home.css';
 
 const title = 'jidonglab — AI 프로덕트를 짓고 운영하는 한 사람';
 const description = 'AI 프로덕트·운영 자동화·작은 웹 제품을 혼자 만들고 매일 운영한다. 프로젝트, 빌드 로그, 의뢰까지 한 페이지.';
 const siteUrl = 'https://jidonglab.com';
+const ogImage = `${siteUrl}/og/default-og.svg`;
+
+const personId = `${siteUrl}/#person`;
+const websiteId = `${siteUrl}/#website`;
+
+const personSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'Person',
+  '@id': personId,
+  name: 'jidonglab',
+  alternateName: ['지동랩', 'Jidong Lab'],
+  url: siteUrl,
+  email: 'mailto:jidongs45@gmail.com',
+  jobTitle: 'Independent AI product builder',
+  description: 'Solo builder of AI products, ops automation, and small web products. Ships and operates daily.',
+  knowsAbout: [
+    'AI products',
+    'Large language models',
+    'LLM application development',
+    'Anthropic Claude API',
+    'Ops automation',
+    'TypeScript',
+    'Astro',
+    'Next.js',
+    'Cloudflare Pages',
+  ],
+  address: { '@type': 'PostalAddress', addressLocality: 'Seoul', addressCountry: 'KR' },
+  sameAs: [
+    'https://github.com/jee599',
+    'https://dev.to/ji_ai',
+  ],
+};
+
+const websiteSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  '@id': websiteId,
+  name: 'jidonglab',
+  alternateName: '지동랩',
+  url: siteUrl,
+  description,
+  inLanguage: ['ko-KR', 'en-US'],
+  author: { '@id': personId },
+  publisher: { '@id': personId },
+};
+
+const profileSchema = {
+  '@context': 'https://schema.org',
+  '@type': 'ProfilePage',
+  url: siteUrl,
+  inLanguage: 'ko-KR',
+  mainEntity: { '@id': personId },
+  about: { '@id': personId },
+  isPartOf: { '@id': websiteId },
+};
 ---
 <!doctype html>
 <html lang="ko">
@@ -23,8 +79,14 @@ const siteUrl = 'https://jidonglab.com';
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{title}</title>
     <meta name="description" content={description} />
+    <meta name="author" content="jidonglab" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="canonical" href={siteUrl} />
+
+    <link rel="alternate" hreflang="ko-KR" href={siteUrl} />
+    <link rel="alternate" hreflang="en-US" href={siteUrl} />
+    <link rel="alternate" hreflang="x-default" href={siteUrl} />
 
     <meta property="og:type" content="website" />
     <meta property="og:title" content={title} />
@@ -32,14 +94,17 @@ const siteUrl = 'https://jidonglab.com';
     <meta property="og:url" content={siteUrl} />
     <meta property="og:site_name" content="jidonglab" />
     <meta property="og:locale" content="ko_KR" />
-    <meta property="og:image" content={`${siteUrl}/og/default-og.svg`} />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:image" content={ogImage} />
+    <meta property="og:image:alt" content="jidonglab — independent AI product builder" />
 
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:site" content="@jidonglab" />
     <meta name="twitter:title" content={title} />
     <meta name="twitter:description" content={description} />
+    <meta name="twitter:image" content={ogImage} />
 
-    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="sitemap" href="/sitemap.xml" />
     <link rel="alternate" type="application/rss+xml" title="jidonglab" href="/rss.xml" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -47,18 +112,10 @@ const siteUrl = 'https://jidonglab.com';
     <link href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css" rel="stylesheet" />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 
-    <script
-      type="application/ld+json"
-      set:html={JSON.stringify({
-        '@context': 'https://schema.org',
-        '@type': 'WebSite',
-        name: 'jidonglab',
-        url: siteUrl,
-        description,
-        author: { '@type': 'Person', name: 'jidonglab', url: siteUrl },
-        inLanguage: ['ko-KR', 'en-US'],
-      })}
-    />
+    <script type="application/ld+json" set:html={JSON.stringify(personSchema)} />
+    <script type="application/ld+json" set:html={JSON.stringify(websiteSchema)} />
+    <script type="application/ld+json" set:html={JSON.stringify(profileSchema)} />
+    <Analytics />
   </head>
   <body>
     <Topbar />

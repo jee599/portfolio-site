@@ -1,4 +1,6 @@
 ---
+import Analytics from '../components/Analytics.astro';
+
 interface HreflangLink {
   lang: string;
   url: string;
@@ -55,7 +57,7 @@ const navItems = [
     {hreflangs && hreflangs.map(hl => (
       <link rel="alternate" hreflang={hl.lang} href={hl.url} />
     ))}
-    <link rel="sitemap" href="/sitemap-index.xml" />
+    <link rel="sitemap" href="/sitemap.xml" />
     <link rel="alternate" type="application/rss+xml" title="jidonglab" href="/rss.xml" />
 
     <script
@@ -68,11 +70,6 @@ const navItems = [
         description: 'Personal portfolio and build-log archive by jidonglab. Projects, notes, and articles in Korean and English.',
         author: { '@type': 'Person', name: 'jidonglab', url: siteUrl },
         inLanguage: ['ko-KR', 'en-US'],
-        potentialAction: {
-          '@type': 'SearchAction',
-          target: `${siteUrl}/posts?q={search_term_string}`,
-          'query-input': 'required name=search_term_string',
-        },
       })}
     />
     <script
@@ -93,6 +90,7 @@ const navItems = [
         knowsAbout: ['TypeScript', 'Next.js', 'Astro'],
       })}
     />
+    <Analytics />
     <style is:inline>
       .prose{font-size:1.05rem;color:#1e293b;line-height:1.9;word-break:keep-all;overflow-wrap:break-word}
       .prose h2{font-size:1.5rem;font-weight:700;color:#0f172a;margin:3.5rem 0 1.25rem;padding-bottom:.6rem;border-bottom:1px solid #e2e8f0;letter-spacing:-.02em;line-height:1.4}

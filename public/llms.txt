@@ -1,31 +1,58 @@
 # jidonglab
-> Personal site and portfolio of jidonglab — a developer working on small AI-adjacent products. The site collects build logs, project notes, and occasional articles in Korean and English.
+> jidonglab (지동랩) is the personal site and portfolio of an independent AI product builder based in Seoul, Korea. The site collects build logs, project notes, and articles in Korean and English.
 
-jidonglab.com is the personal site of jidonglab. It serves as a portfolio, a public archive of build logs, and an index of side projects.
+jidonglab.com is the homepage of jidonglab. The author builds and operates small AI products, ops automation, and small web products solo — model, server, frontend, billing, deploy, support all handled by one person.
 
-## Site Structure
+## Entity
+- Name: jidonglab
+- Korean name: 지동랩
+- Role: Independent AI product builder
+- Location: Seoul, Korea (KST · UTC+9)
+- Languages: Korean, English
+- Contact: jidongs45@gmail.com
+- Primary site: https://jidonglab.com
+
+## Focus areas
+- AI / LLM products with billing, auth, and UI built in
+- Ops automation (ad-ops, content pipelines, bilingual logs, news curation)
+- Small SaaS and company websites in Next.js and Astro
+- Technical writing and Korean-language books about Claude and Claude Code
+
+## Stack
+- Languages: TypeScript
+- Frameworks: Astro, Next.js, React
+- Models / SDKs: Anthropic Claude API
+- Hosting: Cloudflare Pages, Vercel
+- Storage: Upstash Redis
+
+## Site structure
 - Homepage: https://jidonglab.com
-- Blog: https://jidonglab.com/blog — Articles and notes
-- AI News: https://jidonglab.com/ai-news — AI industry news summaries
-- Build Logs: https://jidonglab.com/posts — Project build logs
-- Projects: https://jidonglab.com/projects — Project index
 - About: https://jidonglab.com/about
+- Projects: https://jidonglab.com/projects
+- Build logs (posts): https://jidonglab.com/posts
+- Blog: https://jidonglab.com/blog
+- AI News (auto, twice daily): https://jidonglab.com/ai-news
+- RSS: https://jidonglab.com/rss.xml
+- Sitemap: https://jidonglab.com/sitemap.xml
 
-## Content Categories
-- Build logs from in-progress projects
+## Content categories
+- Build logs from in-progress AI products and automation
 - Short technical notes and tips
-- AI news summaries
+- AI industry news summaries published twice a day (KST 9AM / 9PM)
 - Project pages with links and descriptions
 
 ## Projects (selected)
-- AgentCrow
-- ContextZip
-- LLMMixer
-- FortuneLab
-- spoonai
+- AgentCrow — agent tooling
+- ContextZip — token-optimized CLI proxy
+- LLMMixer — multi-model utility
+- FortuneLab — saju (Korean fortune) reader
+- spoonai — AI news mailer
 
-## Key Facts
-- Author: jidonglab
-- Languages: Korean, English
-- Tech stack: Astro, Cloudflare Pages
-- External profiles: DEV.to (jee599), GitHub (jee599)
+## External profiles
+- GitHub: https://github.com/jee599
+- DEV.to: https://dev.to/ji_ai
+
+## Availability
+- Open to consulting, contract work, and talks
+- Prefers work with clear scope and deadline
+- Reply within 24h on weekdays

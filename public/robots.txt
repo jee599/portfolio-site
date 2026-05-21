@@ -1,40 +1,71 @@
+# jidonglab.com — robots policy
+# Search and AI crawlers are welcome. API and admin routes are not useful to index.
+# Each named user-agent group must repeat the /api/ and /admin disallows because
+# crawlers only match the most specific group, not the wildcard fallback.
+
 User-agent: *
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: GPTBot
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: ClaudeBot
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: PerplexityBot
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: GoogleOther
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: Google-Extended
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: ChatGPT-User
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: Amazonbot
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: anthropic-ai
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: Bytespider
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: cohere-ai
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: Diffbot
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 User-agent: YouBot
 Allow: /
+Disallow: /api/
+Disallow: /admin
 
 Sitemap: https://jidonglab.com/sitemap.xml
