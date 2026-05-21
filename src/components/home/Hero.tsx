@@ -10,8 +10,8 @@ export default function Hero() {
             </span>
           </p>
           <h1 className="masthead-title">
-            <span data-ko="AI 프로덕트를 만들고, 고치고, " data-en="I build, fix, and ">
-              AI 프로덕트를 만들고, 고치고,{' '}
+            <span data-ko="AI 제품을 만들고, 고치고, " data-en="I build, fix, and ">
+              AI 제품을 만들고, 고치고,{' '}
             </span>
             <em data-ko="매일 운영한다" data-en="run AI products daily">
               매일 운영한다
@@ -20,10 +20,10 @@ export default function Hero() {
           </h1>
           <p className="masthead-lede">
             <span
-              data-ko="LLM 서비스·운영 자동화·작은 웹 제품을 혼자 짓는다. 어제 짠 코드가 오늘도 돌고, 그 기록을 이 사이트에 쌓아둔다."
-              data-en="LLM products, ops automation, and small web apps — all solo. Yesterday's code is still running today, and the trail of it lives here."
+              data-ko="LLM 서비스, 운영 자동화, 작은 웹 제품을 혼자 끝까지 만든다. 어제 짠 코드가 오늘도 돌고, 그 기록을 이 사이트에 쌓는다."
+              data-en="LLM services, ops automation, and small web apps — built solo, end to end. Yesterday's code still runs today, and the log of it lives here."
             >
-              LLM 서비스·운영 자동화·작은 웹 제품을 혼자 짓는다. 어제 짠 코드가 오늘도 돌고, 그 기록을 이 사이트에 쌓아둔다.
+              LLM 서비스, 운영 자동화, 작은 웹 제품을 혼자 끝까지 만든다. 어제 짠 코드가 오늘도 돌고, 그 기록을 이 사이트에 쌓는다.
             </span>
           </p>
           <div className="masthead-actions">
