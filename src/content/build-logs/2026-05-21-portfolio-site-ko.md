@@ -1,127 +1,119 @@
 ---
-title: "jidonglab 전면 리디자인: 거부당한 시안에서 Codex 검수 통과까지 14개 컴포넌트"
+title: "jidonglab.com 리디자인: URL 하나로 설명되는 포트폴리오 + Capabilities 섹션 신설"
 project: "portfolio-site"
 date: 2026-05-21
 lang: ko
-tags: [claude-code, redesign, astro, tailwind, codex, portfolio]
-description: "Apple 클론 시안이 거부된 후 처음부터 다시. 14개 컴포넌트 재작성, Codex 2라운드 검수, 카피 7번 수정. Claude Code로 jidonglab.com 홈을 '개인 연구실 logbook'으로 바꾼 과정."
+tags: [claude-code, astro, redesign, copywriting, codex-review]
+description: "14세션 194번의 tool call로 jidonglab.com을 명함형 포트폴리오로 재설계했다. Capabilities 컴포넌트 신설, Codex 2라운드 검수, 사실이 아닌 copy 표현 수정 과정 기록."
 ---
 
-이전 시안은 한 번 거부됐다. 흰 여백, 큰 글자, 카드 그리드. "Apple 클론"이었다.
+URL 하나만 받은 사람이 "이 사람 뭐하는 사람인지" 3초 안에 파악할 수 있어야 한다. 이번 리디자인의 유일한 기준이었다.
 
-**TL;DR** 14개 컴포넌트를 새로 짜고, Codex 교차검증을 2라운드 통과하고, 카피를 7번 다듬었다. 가장 오래 걸린 건 코드가 아니라 "뭘 보여줄 것인가"를 결정하는 일이었다.
+**TL;DR** — `Capabilities.astro` 컴포넌트를 새로 만들고 Hero/Projects/About 전반의 포지셔닝 copy를 정리했다. Codex 교차검증이 사실과 다른 문장을 두 차례 잡아냈고, max_turns 초과로 세션이 여러 번 쪼개졌다.
 
-## 방향은 한 줄로 정했다
+## 왜 리디자인했나
 
-설계 논쟁은 없었다. 프롬프트에 배경이 명확히 있었기 때문이다.
+기존 홈페이지는 빌드 로그, 프로젝트, About이 있는 일반적인 개발자 포트폴리오였다. 방문자가 5개 섹션을 훑어야 이 사람이 뭘 하는지 짐작할 수 있는 구조다.
 
-> "지동랩은 제품 하나 파는 랜딩이 아니라 개인 빌더/랩/프로젝트 운영체계 사이트다. 디자인은 '개발자 연구실 + 개인 출판 + 운영 로그 + 프로젝트 인덱스'가 느껴져야 한다."
+목표는 단순했다.
 
-거기서 도출된 방향은 **"개인 연구실 logbook"**이었다. 에이전시 랜딩이 아니라 1인 연구실의 운영 현황판. 정보 밀도가 typography spectacle보다 우선한다. section kicker, status, date, project metadata는 mono 폰트. body는 IBM Plex Sans KR.
+> URL만 받아도 즉시 이해되는 명함 같은 포트폴리오.
 
-이전 시안의 Space Grotesk 104px serif, cream/acid 배경, 거대한 hero 문구는 전부 버렸다.
+Hero copy를 포지셔닝 문장으로 날카롭게 다듬고, "내가 하는 일"을 카드 형태로 보여주는 `Capabilities.astro` 섹션을 새로 추가했다.
 
-## 14개 컴포넌트를 한 세션에
+## 세션이 14개나 된 이유
 
-`src/components/home/` 아래 컴포넌트들을 전면 재작성했다. 세션 하나에 57 tool calls, 17분.
+이번 작업은 claude-opus-4-7 기반 세션 14개, 총 194번의 tool call이 소비됐다. 도구별 분포는 Read(91), Bash(61), Edit(30), Grep(8), Write(4)다.
 
-새로 생성하거나 전면 재작성한 파일:
+세션이 많아진 이유는 두 가지다.
 
-- `Hero.tsx` — 이름, 한 줄 소개, status strip
-- `Topbar.astro` — nav
-- `NowStrip.astro` — 지금 뭘 하고 있나
-- `Projects.tsx` — featured(1) + active grid + indexed archive
-- `ShipLog.astro` — 최근 커밋 기반 활동 로그
-- `Writing.astro` — 글 목록
-- `About.astro` — 짧은 자기소개
-- `Footer.astro` — 바닥
-- `src/styles/home.css` — 전면 재작성
+첫째, **max_turns 초과**다. 세션 3~4가 동일한 작업을 두 번 수행한 기록으로 남아 있다. 30번의 tool call 이후 max_turns에 걸려 중단됐고, 오케스트레이터(Hermes)가 "Continue the previous task"로 재시작을 지시했다. 세션 5~6도 같은 패턴으로 중복 실행됐다.
 
-CSS는 Tailwind utility를 wrapping하는 방식이 아니라 CSS custom property 기반으로 짰다. `--color-accent: #00c471`, mono spine 규칙을 토큰으로 정의하고 컴포넌트들이 참조하는 구조.
+둘째, **Codex 교차검증 루프**다. 구현 후 Codex CLI가 diff를 검토하고 수정을 요청하는 사이클이 세 차례 돌았다. 세션 7~10이 그 흔적이다.
 
-`npm run build`는 첫 번째 시도에서 통과했다.
+## Capabilities 섹션 — "내가 하는 일" 4카드
 
-## Codex 1차: request-changes
+가장 핵심 변경이다. `src/components/home/Capabilities.astro`를 새로 만들었다.
 
-빌드 통과 직후 Codex 교차검증을 돌렸다.
+카드 4개로 구성했다. **자동화**, **제품 운영**, **AI 활용**, **글쓰기**. 각 카드는 번호(`01`~`04`), 영문 제목, 한국어 설명으로 이루어진다. CSS 클래스는 `.do-grid`, `.do-card`, `.do-no`, `.do-title`, `.do-desc`로 namespace를 잡았다.
 
-verdict: **request-changes**.
+```astro
+---
+const items = [
+  {
+    no: '01',
+    title: 'Automation',
+    desc: '반복되는 운영 작업을 스크립트와 AI 에이전트로 대체한다.',
+  },
+  // ...
+];
+---
+<section class="do-section">
+  <div class="do-grid">
+    {items.map(item => (
+      <div class="do-card">
+        <span class="do-no">{item.no}</span>
+        <h3 class="do-title">{item.title}</h3>
+        <p class="do-desc">{item.desc}</p>
+      </div>
+    ))}
+  </div>
+</section>
+```
 
-blocking은 하나였다. `Projects.tsx`의 모바일 그리드 불일치. `.desc`와 `.stack` 클래스를 960px 이하에서 숨기도록 CSS가 되어 있었는데, header span에는 같은 클래스가 없었다. 결과적으로 헤더 셀 수와 row 셀 수가 어긋났다.
+CSS에서 `--accent-soft`와 `--paper` 변수를 사용하는데, `home.css`에 이미 정의돼 있던 것들이다. `Capabilities`를 `index.astro`에 import하고 NowStrip 아래에 삽입했다.
 
-수정 방향은 간단했다. header span에 row와 동일한 클래스를 붙이거나, CSS를 `nth-child` 기준으로 맞추는 것. 전자를 택했다.
+`home.css`에는 `.masthead-eyebrow`와 `.do-*` 계열 클래스도 새로 추가했다. 모바일 대응을 위해 `.do-grid`는 1열 fallback을 추가했다.
 
-non-blocking도 같이 처리했다.
+## Codex가 거짓말 문장을 잡아냈다
 
-- `prefers-reduced-motion` 미대응 pulse animation → `@media (prefers-reduced-motion: reduce)` 블록 추가
-- `Hero.tsx`의 빈 `data-ko="."` span → 의미 없는 마침표 제거
-- `ShipLog.astro`의 `<p>` 안 `<strong>` 중첩 언어 스크립트 충돌 가능성 → 구조 정리
+세션 9가 흥미롭다. Codex 두 번째 리뷰에서 `Capabilities.astro`의 writing/build-log 카드 copy를 blocking issue로 올렸다.
 
-## Codex 2차: approve
+문제가 된 원문:
 
-재검증 결과 모든 blocking이 해소됐다. verdict: **approve**.
+```
+EN: Every commit diff becomes a Korean/English build log.
+KO: 커밋 diff를 한국어·영어 빌드 로그로 매일 쌓는다.
+```
 
-빌드도 통과. `git diff --check` 클린.
+Codex의 지적: "모든 커밋이 이중언어 빌드 로그가 된다는 건 사실이 아니다."
 
-## 사용자 피드백: "디자인은 좋은데"
+맞는 말이다. 수동으로 쓰는 빌드 로그도 있고, 커밋마다 로그가 생기지는 않는다. 수정 후:
 
-코드 검수가 끝난 후 사용자 피드백이 왔다.
+```
+KO: 진행 중인 작업을 한국어·영어 빌드 로그로 꾸준히 남긴다.
+EN: Work-in-progress captured as Korean and English build logs.
+```
 
-> "좋아 디자인 자체는 좋은데 번역 투랑 불필요한 정보 / 심플함이나 각 프로젝트별 이미지가 있으면 좋겠어"
+절대값 표현("every", "매일")을 방향성 표현("꾸준히", "captured as")으로 바꿨다. copy 검증에 외부 모델을 활용하는 이유가 이것이다. 구현 자체를 검토하는 것과 달리, **표현이 사실과 부합하는지**를 다른 모델이 판단하면 더 날카롭게 잡힌다.
 
-세 가지였다. 번역투 제거, 정보량 다이어트, 프로젝트 이미지.
+## Hero와 Projects copy 정리
 
-번역투는 예상보다 많았다. "운영 인덱스", "AI 빌더", "실험 중인 것들" 같은 표현이 곳곳에 있었다. Claude가 영어로 설계하고 한국어로 옮긴 흔적이었다. 이걸 한국어 원어민이 쓴 것처럼 다듬는 작업이 세 세션에 걸쳐 진행됐다.
+`Hero.tsx`에서 "매일" 중복 표현을 제거했다. 원래 두 문장에서 "매일"이 반복됐는데, Codex 1차 리뷰에서 지적받았다.
 
-이미지는 `public/images/projects/`에 있는 스크린샷 8개를 쓰기로 했다. 나머지 프로젝트는 CSS/토큰 기반 visual fallback. `src/data/home.ts`에 `PROJECT_IMAGE` 매핑을 추가하고, `Projects.tsx`에서 import해서 카드에 붙이는 구조.
+`Projects.tsx`는 섹션 제목 "지금 운영 중인 것들"과 실제 프로젝트 목록이 맞지 않는 문제가 있었다. 목록에 개발 중인 프로젝트도 포함돼 있어서 제목을 운영 중 + 개발 중 양쪽을 아우르는 표현으로 교체했다.
 
-한 가지 삽질이 있었다. Codex가 "이미지가 렌더링되지 않는다"고 지적했는데, 원인은 `PROJECT_IMAGE` 매핑은 `home.ts`에 추가됐지만 `Projects.tsx`가 실제로 import하지 않았기 때문이었다. 데이터 레이어와 컴포넌트가 연결되지 않은 상태로 빌드가 통과한 것이다. `Thumbnails.tsx`도 no-op 상태였다.
+이번 작업에서 수정된 파일 전체 목록:
 
-수정: `Projects.tsx`에서 이미지 경로를 받아서 `<img>` 태그로 렌더링하게 수정. fallback은 CSS `background`로 처리.
+- `src/components/home/Capabilities.astro` — 신규 생성, copy 2회 수정
+- `src/components/home/Hero.tsx` — Hero copy 정리, 중복 표현 제거
+- `src/components/home/Projects.tsx` — 섹션 제목 수정
+- `src/components/home/About.astro` — ongoing 톤으로 수정
+- `src/components/home/Topbar.astro` — nav 정리
+- `src/components/home/ShipLog.astro` — NowStrip 데이터 갱신
+- `src/data/home.ts` — 데이터 정리
+- `src/pages/index.astro` — Capabilities import 및 배치
+- `src/styles/home.css` — `.masthead-eyebrow`, `.do-*` 클래스 추가
 
-## "매일 굴리는 툴체인"을 지우다
+## 한국어 copy 톤 이슈 — 미완료
 
-이 작업이 예상보다 여러 라운드에 걸렸다.
+세션 11~14에서 사용자가 "한글 맨트 톤이 이상하다"는 피드백을 줬다. 홈페이지 `data-ko`/`data-en` 속성과 언어 스위칭 스크립트 간 불일치도 발견됐다.
 
-사용자 요청은 "실제에 적용해주고 매일 굴리는 툴체인 빼주고 전체적으로 말투 수정해줘"였다.
+`index.astro`는 `Base.astro`를 사용하지 않아서 언어 toggle 스크립트가 로드되지 않는 구조였다. 세션 13~14가 파일을 읽다가 max_turns에 걸려 실제 수정 없이 종료됐다. 이 부분은 다음 세션에서 이어서 수정해야 한다.
 
-문제는 cron 스케줄, 내부 파이프라인, Claude Code 스킬 이름이 공개 카피에 노출돼 있었다는 것이다. `Lab` 섹션이 특히 심했다. "매일 08:00 KST 자동 실행", "Claude Code 훅", "멀티에이전트 오케스트레이션" 같은 표현들이 사이트 전면에 있었다.
+## 정리
 
-지운 것들:
-
-- `Lab` 섹션 전체 (`src/pages/index.astro`에서 import 제거)
-- `NowStrip`의 `매일 08:00 KST` 시간 표기
-- `src/data/home.ts`의 `spoonai` 프로젝트 설명에서 "AI 뉴스 자동 발행 파이프라인" → "AI 뉴스 아카이브"
-- `src/pages/about.astro`의 "모든 프로젝트는 Claude Code로 빌드됩니다" 문구
-- `public/llms.txt`에서 MCP 서버, 멀티에이전트 오케스트레이션, 훅 관련 내용
-- `src/layouts/Base.astro` footer의 "Built with Claude Code"
-
-공개 카피에서 내부 인프라를 보여주는 건 나쁜 신호다. 사이트를 처음 보는 사람은 cron 스케줄이 얼마나 정교한지 알고 싶은 게 아니라, 이 사람이 뭘 만들었는지가 궁금하다.
-
-## .gitignore도 고쳤다
-
-Codex가 마지막으로 지적한 것. `.claude/agent-memory/`, `.claude/worktrees/`, `.wrangler/`가 untracked 상태로 있었는데, `.gitignore`에 없었다. production commit에 로컬 상태 디렉토리가 딸려가는 상황을 방지하기 위해 추가했다. 기존 `.vercel/` 항목도 중복이 있어서 정리했다.
-
-## 도구 사용 통계
-
-전체 리디자인 과정에서 집계한 수치 (중복 세션 제외):
-
-- 총 세션 수: 10개 이상 (초기 설계부터 최종 카피 패스까지)
-- Bash: ~70회 (빌드 검증, git diff, dev 서버)
-- Read: ~65회 (기존 컴포넌트 파악, 카피 확인)
-- Edit: ~40회 (카피 수정, 버그 픽스)
-- Write: ~15회 (새 컴포넌트, CSS, 데이터 파일)
-
-Codex 교차검증: 2라운드. 1차 request-changes → 수정 → 2차 approve.
-
-코드보다 카피 수정에 더 많은 라운드가 들었다는 게 흥미롭다. CSS 그리드 버그 수정은 한 세션. "번역투를 없애고 내부 툴체인 냄새를 지우는 것"은 6~7 세션.
-
-## 남은 것
-
-로컬에서 Cloudflare Pages 환경(`wrangler pages dev`)으로 preview를 돌려봤다. Cloudflare adapter는 `astro preview`를 지원 안 한다. `dist/`를 직접 serve해야 한다.
-
-공개 preview URL이 필요했지만, Cloudflare API 토큰이 없고 Vercel MCP도 권한 미승인 상태였다. 로컬 preview로 확인하고 진행했다.
-
-프로덕션 배포는 이후 main 브랜치 merge + Cloudflare Pages 자동 빌드로 진행할 예정이다.
-
-> 코드보다 "이걸 왜 보여주나"를 결정하는 게 더 어렵다. 그 판단이 결정되면 Claude는 빠르게 따라온다.
+- **Capabilities 섹션** — "내가 하는 일" 4카드로 첫 인상 포지셔닝을 정리했다.
+- **Codex 교차검증** — copy의 사실 여부까지 잡아내는 데 유효했다. "every commit"처럼 과장된 절대값 표현은 구현자 혼자서는 놓치기 쉽다.
+- **max_turns 분산** — 30-turn 한도에 걸려 동일 작업이 중복 실행됐다. 대형 리디자인 작업은 처음부터 단계를 쪼개서 세션별 범위를 좁게 잡는 게 낫다.
+- **홈 i18n** — `Base.astro` 밖에서 동작하는 홈페이지의 언어 스위칭은 별도 스크립트 주입이 필요하다. 미완료 상태.
