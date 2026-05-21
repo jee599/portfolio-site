@@ -119,16 +119,16 @@ export default function Projects() {
             <span>projects</span>
           </div>
           <h2 className="sec-h">
-            <span data-ko="돌아가는 것들" data-en="What's running">
-              돌아가는 것들
+            <span data-ko="지금 짓고 운영 중인 것들" data-en="Building and running">
+              지금 짓고 운영 중인 것들
             </span>
           </h2>
           <p className="sec-desc">
             <span
-              data-ko="대표 1개와 활성 3개를 카드로, 나머지는 아래 인덱스로."
-              data-en="One featured + 3 active as cards, the rest as an index."
+              data-ko="운영 중인 프로덕트와 짓는 중인 것까지 함께 둔다. 대표 1개와 활성 3개는 카드로, 나머지는 아래 인덱스로 본다."
+              data-en="Live products and works in progress, side by side. One featured plus three active as cards, the rest indexed below."
             >
-              대표 1개와 활성 3개를 카드로, 나머지는 아래 인덱스로.
+              운영 중인 프로덕트와 짓는 중인 것까지 함께 둔다. 대표 1개와 활성 3개는 카드로, 나머지는 아래 인덱스로 본다.
             </span>
           </p>
         </div>

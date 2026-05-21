@@ -119,6 +119,34 @@ button { font: inherit; cursor: pointer; }
   padding: 56px 0 40px;
   border-bottom: 1px solid var(--line);
 }
+.masthead-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  font-weight: 600;
+  padding: 6px 10px;
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  margin-bottom: 18px;
+}
+.masthead-eyebrow .dot {
+  width: 6px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 50%;
+  animation: pulse 2.2s infinite;
+}
+.masthead-meta .row .v a {
+  border-bottom: 1px solid var(--ink3);
+  padding-bottom: 1px;
+  transition: border-color 0.15s;
+}
+.masthead-meta .row .v a:hover { border-bottom-color: var(--ink); }
 .masthead-inner {
   max-width: var(--wrap);
   margin: 0 auto;
@@ -337,6 +365,85 @@ button { font: inherit; cursor: pointer; }
   white-space: nowrap;
 }
 .sec-link:hover { border-bottom-color: var(--ink); }
+
+/* ─── Capabilities (what I do) ─── */
+.do-wrap {
+  max-width: var(--wrap);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+}
+.do-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  border: 1px solid var(--line);
+  border-bottom: none;
+  border-right: none;
+}
+.do-card {
+  background: var(--paper);
+  padding: 24px 26px 22px;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  position: relative;
+}
+.do-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 0;
+  height: 2px;
+  background: var(--accent);
+  transition: width 0.35s ease;
+}
+.do-card:hover::before { width: 100%; }
+.do-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-family: var(--mono);
+}
+.do-no {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  color: var(--ink4);
+}
+.do-tag {
+  font-size: 10.5px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink3);
+  padding: 3px 8px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+}
+.do-title {
+  font-family: var(--sans-kr);
+  font-weight: 600;
+  font-size: 19px;
+  letter-spacing: -0.015em;
+  color: var(--ink);
+  line-height: 1.3;
+}
+.do-desc {
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--ink2);
+  flex: 1;
+}
+.do-meta {
+  margin-top: 6px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-soft);
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--ink3);
+  letter-spacing: 0.02em;
+}
 
 /* ─── Project thumbnail (shared) ─── */
 .thumb {
@@ -998,6 +1105,7 @@ button { font: inherit; cursor: pointer; }
   .featured .f-body { padding: 22px; }
   .featured .f-side { border-left: none; padding-left: 0; border-top: 1px solid var(--line); padding-top: 18px; }
   .pgrid, .lab-grid, .writing { grid-template-columns: repeat(2, 1fr); }
+  .do-grid { grid-template-columns: 1fr; }
   .pindex-h, .pindex-row { grid-template-columns: 28px 1fr 90px 56px; }
   .pindex-h .desc, .pindex-row .desc { display: none; }
   .about-wrap { grid-template-columns: 1fr; gap: 32px; }
