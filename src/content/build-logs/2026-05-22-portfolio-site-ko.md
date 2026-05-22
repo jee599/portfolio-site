@@ -1,82 +1,82 @@
 ---
-title: "Claude Code 6세션 80 tool calls — 하루 3개 프로젝트 동시 자동화한 날"
+title: "Claude Opus 4 하루 7세션 86 calls — 소켓 에러·Stop 훅 false positive·Complexity 재분류 실록"
 project: "portfolio-site"
 date: 2026-05-22
 lang: ko
-tags: [claude-code, automation, spoonai, claude-opus, pipeline]
-description: "하루 6개 Claude Code 세션, 총 80 tool calls로 SpoonAI 인텔리전스 수집, 치과 광고 리서치, HTML 보고서 생성을 병렬로 돌렸다. Bash 43회·Read 23회·Write 4회."
+tags: [claude-code, automation, opus, orchestration, build-log]
+description: "Claude Opus 4.7로 하루 7세션 86 tool calls, SpoonAI·치과광고·기술보고서 3개 도메인을 소화했다. API 소켓 에러, Stop 훅 false positive, complexity 재분류까지 — 자동화 파이프라인의 실제 삽질 기록."
 ---
 
-하루에 6개 Claude Code 세션을 돌렸다. 총 80 tool calls, 3개 프로젝트, 산출 파일 8개. Opus 4.7 혼자 이걸 다 처리했다.
+하루에 API 소켓이 한 번 끊겼다. 세션 1이 14번의 tool call을 완료하기 직전, `The socket connection was closed unexpectedly`가 떴다. 결과물은 절반만 나왔다.
 
-**TL;DR** 세션당 역할을 명확히 분리하면 Claude가 컨텍스트 낭비 없이 각 작업을 독립 실행한다. 하나의 긴 세션보다 짧은 세션 여러 개가 실패 격리와 재시도 비용 면에서 유리하다.
+**TL;DR** 2026-05-22, Claude Opus 4.7로 7개 세션, 86 tool calls, 3개 도메인(SpoonAI·치과광고·기술보고서)을 소화했다. 소켓 에러, Stop 훅 false positive, complexity 재분류 — 자동화 파이프라인이 실제로 어떻게 흔들리고 복구되는지 기록한다.
 
-## 하루 6세션을 굴린 이유
+## 하루에 3개 도메인, 7번 세션
 
-SpoonAI 뉴스 사이트, 치과 광고 리서치, 전략 피드백까지 작업 성격이 완전히 달랐다. 한 세션에 다 때려넣으면 컨텍스트가 섞이고 에러 하나가 전체를 날린다. 그래서 세션당 목적을 하나로 제한했다.
+5월 22일 세션은 총 7개였다. 프로젝트별로 분류하면:
 
-세션별 분류는 이렇다.
+- **SpoonAI**: 콘텐츠 인텔리전스 수집(세션 1-2), HTML 보고서 변환(세션 5), 마케팅 피드백(세션 6)
+- **치과광고(dentalad)**: 의료 광고 최신전략 리서치(세션 3-4)
+- **기술보고서**: 담배 재고 인식 앱 MVP 분석(세션 7)
 
-- **세션 1** (15 tool calls, 4분): SpoonAI 일간 인텔 raw JSON → 정제 MD/JSON 변환
-- **세션 2** (2 tool calls, 0분): 성장·스폰서 신호 파일 스키마 컴플라이언스 검증
-- **세션 3** (41 tool calls, 9분): 치과 광고 SERP 수집 + 지식베이스 5개 파일 업데이트
-- **세션 4** (15 tool calls, 5분): 세션 3 타임아웃 이후 HTML 보고서 생성 마무리
-- **세션 5** (4 tool calls, 4분): Markdown 보고서 → 모바일 친화 HTML 재편집
-- **세션 6** (3 tool calls, 3분): /newsite 마케팅·기획 전략 피드백 (코드 변경 없음)
+도메인이 달라도 패턴은 같다. 원자료를 읽고, 정제하고, 구조화된 HTML/MD로 내보낸다. Opus 4.7이 이 파이프라인을 반복한다.
 
-## Bash 43회 — 자동화의 중심이 스크립트였다
+세션당 평균 12.3 tool calls, 평균 소요 약 4분. 세션 2(0분, 2 calls)처럼 검증만 한 짧은 세션을 제외하면 실질 작업 세션은 평균 20 calls였다.
 
-tool call 분포에서 눈에 띄는 건 Bash가 43회로 전체의 절반 이상이라는 점이다. Write 4회, Edit 6회에 비해 압도적으로 많다.
+## API 소켓이 끊겼다
 
-세션 3에서 SERP 수집 Python 스크립트를 직접 생성하고 실행했다. `collect_2026_05_22.py`를 Write로 만든 뒤 Bash로 돌려서 나온 결과를 Read로 읽고, 그걸 바탕으로 5개 KB 파일을 Edit했다. 파이프라인을 Claude가 직접 조립했다.
+세션 1은 SpoonAI raw crawl JSON을 읽어 일반용·전문가용 콘텐츠 후보를 정리하는 작업이었다. Bash 14번, Read 1번 — tool call이 거의 끝나가던 시점에 소켓이 닫혔다.
 
 ```
-Write (스크립트 생성) → Bash (실행) → Read (결과 파싱) → Edit (KB 업데이트)
+API Error: The socket connection was closed unexpectedly.
+For more information, pass `verbose: true` in the second argument to fetch()
 ```
 
-이 패턴이 세션 3에서만 20회 이상 반복됐다.
+세션 2는 그 결과물을 이어받아 바로 검증만 했다. Read 2번으로 MD/JSON 파일을 읽고 스키마 준수 여부를 확인했다. 결과는 PASS. 소켓이 끊겼지만 파일은 이미 저장되어 있었고, 세션을 분리해 검증 전용으로 이어받는 패턴이 자연스럽게 생겼다.
 
-## 소켓 에러로 세션이 끊겼을 때
+세션 3-4도 동일하다. 세션 3에서 SERP 수집, KB 5개 파일 업데이트를 41 calls로 처리하다가 타임아웃 직전에 멈췄다. 세션 4는 HTML 보고서 생성만 이어받아 Bash 7회, Read 4회, Grep 3회, Write 1회로 마무리했다.
 
-세션 1에서 raw JSON 정제 도중 `API Error: The socket connection was closed unexpectedly`가 발생했다. 14 tool calls를 써서 데이터를 다 읽고 구조를 잡은 시점에 연결이 끊겼다.
+에러를 막을 수는 없다. 파일 기반으로 중간 상태를 저장하면 다음 세션에서 "무엇을 만들면 되는지"만 알면 된다. `current/state.json`을 두는 이유다.
 
-해결 방법은 간단했다. 세션을 새로 열고 "이전 세션이 파일 생성 전에 타임아웃됐다, 이미 읽은 맥락을 바탕으로 파일만 생성해라"로 프롬프트를 줬다. 세션 3도 동일하게 타임아웃 이후 세션 4에서 HTML 보고서를 마무리했다.
+## Stop 훅 false positive
 
-타임아웃이 워크플로를 완전히 망가뜨리지 않은 건 산출물 경로를 미리 명확히 지정해뒀기 때문이다. 다음 세션이 "이 파일만 만들면 된다"는 걸 알았다.
-
-## 세션 2: 2 tool calls로 검증 끝
-
-세션 2가 흥미롭다. tool call이 2개뿐이고 시간은 0분에 가깝다. Read 2번으로 MD와 JSON을 읽고 스키마 컴플라이언스 검증 결과를 바로 출력했다.
+세션 6은 코드를 한 줄도 쓰지 않았다. SpoonAI `/newsite`에 대한 마케팅·기획 피드백 자문이었다. 전략 분석 텍스트만 출력하면 끝나는 작업이었는데, 세션 종료 시점에 Stop 훅이 걸렸다.
 
 ```
-sponsor_leads: 17 (MD ↔ JSON match)
-competitor_notes: 7
-content_opportunities: 10
-outreach_hooks: 5
+Stop hook feedback:
+Found 3 debug/TODO leftover(s) in working tree. Clean them up or confirm intentional before stopping.
 ```
 
-프롬프트가 "counts, required fields, PASS/FAIL만"으로 명확하게 제한했기 때문이다. Claude에 모호한 질문을 던지면 쓸데없이 길어진다. 검증 작업은 기준을 먼저 정하고 넘긴다.
+훅이 잡은 것은 `scripts/*.ts`의 `console.log`와 `app/api/subscribe/route.ts`의 로그였다. 이번 세션에서 추가한 코드가 아니었다. `scripts/post-to-x.ts`, `scripts/send-email.ts` 같은 CLI 유틸리티의 `console.log`는 stdout 출력이 목적이라 제거하면 스크립트가 기능을 잃는다.
 
-## 세션 6: 코드 0줄, Stop 훅에 걸렸다
+Grep으로 파일 분포를 확인하고 세션 내 작성 코드가 0줄임을 증명한 뒤 통과했다. 현재 훅 규칙은 "이번 세션에서 작성한 코드"와 "기존에 의도적으로 존재하던 로그"를 구분하지 못한다. 프로젝트별 훅 예외 경로를 설정하는 게 다음 개선 포인트다.
 
-전략 피드백 세션이었다. 파일을 만들지 않았는데 Stop 훅이 `Found 3 debug/TODO leftover(s)`를 잡았다.
+## Complexity 재분류: 선언하고 전환한다
 
-Claude가 Grep으로 직접 확인했다. 해당 마커는 이번 세션에서 생성된 게 아니라 `scripts/*`에 사전 존재하던 `console.log`였다. CLI 유틸리티에서는 `console.log`가 stdout 출력이 목적이라 제거하면 스크립트가 기능을 잃는다.
+세션 6과 7에서 각각 complexity 재분류가 발생했다.
 
-이런 경우 "의도된 로깅"으로 명시하고 넘어가는 게 맞다. 훅이 false positive를 잡은 케이스다. 프로젝트별로 훅 예외 경로를 설정해두는 게 낫다는 걸 확인했다.
+세션 6은 파일 변경이 없는 전략 자문이라 `trivial` 범주였다. 세션 7은 단일 HTML 파일 생성이라 `simple`이었다. 오케스트레이션 훅이 `complexity=simple, stage=implementing`을 자동 주입했지만, 초기 판단이 `major`로 잡혔다.
 
-## 전략 피드백은 코드 읽기 2회로 충분했다
+세션 7에서 재분류 선언:
 
-세션 6은 SpoonAI /newsite에 대한 마케팅 기획 피드백이었다. 코드를 하나도 건드리지 않고 기존 파일 2개를 Read한 뒤 피드백을 썼다.
+> "작업 분류가 잘못되었다. 단일 HTML 파일 생성(콘텐츠 작성)은 `simple` 범위다. 재분류 후 진행한다."
 
-Claude가 잡아낸 위험 포인트는 "AI 인텔리전스"와 "AI 학습"이 메시지 측면에서 겹쳐 보인다는 것이었다. B2B 타겟 $49 → $299 가격 구조에서 Free Tier 없이 유료 진입장벽부터 세우면 전환율 측정이 어렵다는 지적도 나왔다.
+이 선언 이후 Bash 4번, Write 2번으로 끝냈다. plan-orchestrator, codex cross-verify 없이. `major` 파이프라인을 그대로 따랐다면 불필요한 계획 단계와 검증 루프가 붙었을 것이다. 재분류는 빠르게 선언하고 가벼운 경로로 전환하는 게 낫다.
 
-코드 변경 없는 분석은 `trivial`로 분류하고 3 tool calls로 끝낸다. 굳이 리서치 에이전트를 쓸 필요가 없다.
+## 86 calls의 도구 분포
 
-## 이날 배운 것
+전체 7세션, 86 tool calls의 분포:
 
-짧은 세션 여러 개가 긴 세션 하나보다 낫다. 타임아웃이나 에러가 생겨도 그 세션만 재시작하면 된다. 나머지 세션은 멀쩡하다.
+- `Bash`: 47회 (54.7%) — 스크립트 실행, Python 크롤러 호출, 상태 업데이트
+- `Read`: 23회 (26.7%) — raw JSON, KB 파일, 보고서 스타일 참조
+- `Write`: 6회 (7.0%) — HTML 보고서, MD 파일 최종 출력
+- `Edit`: 6회 (7.0%) — 기존 KB 파일 누적 업데이트
+- `Grep`: 4회 (4.7%) — console.log 분포 확인, 마커 탐색
 
-산출물 경로를 인테이크에 명시하는 습관이 중요하다. 이전 세션이 도중에 끊겨도 다음 세션이 "무엇을 만들면 되는지"를 정확히 안다. 프롬프트에 입력 파일 경로와 출력 파일 경로를 둘 다 쓰면 세션 간 핸드오프가 깔끔하다.
+Bash가 절반을 넘는다. SERP 수집 스크립트 실행, 디렉토리 확인, `state.sh` 헬퍼 호출이 많아서다. Write는 6번뿐이지만 각각 20K 이상의 HTML이거나 수천 자의 MD였다. 가장 무거운 세션 3이 41 calls로 전체의 47.7%를 차지했다.
 
-도구 통계: Bash 43 / Read 23 / Edit 6 / Write 4 / Grep 4 — 총 80 calls, 6세션 합산.
+## 정리
+
+소켓 에러는 파일 기반 상태로 세션을 분리해서 풀었다. Stop 훅 false positive는 Grep으로 증거를 모아 반박했다. complexity 재분류는 즉시 선언하고 가벼운 경로로 전환했다.
+
+자동화 파이프라인이 매끄럽게 돌아가는 날은 드물다. 어딘가에서 끊기고, 훅이 걸리고, 분류가 틀린다. 기록을 남기는 이유는 다음번에 같은 지점에서 덜 삽질하기 위해서다.
