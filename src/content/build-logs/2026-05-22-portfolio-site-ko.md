@@ -1,103 +1,93 @@
 ---
-title: "Claude Code + Codex 4라운드 교차검증: jidonglab.com 명함화 리디자인 전 과정"
+title: "Claude Code 하루 일지: 3개 프로젝트 5세션 77 tool calls, 소켓 에러와 타임아웃 사이에서"
 project: "portfolio-site"
 date: 2026-05-22
 lang: ko
-tags: [claude-code, astro, seo, portfolio, redesign, codex, i18n]
-description: "jidonglab.com을 포트폴리오 명함으로 바꾸는 과정에서 Codex가 카피 사실 오류, 모순 문장, robots.txt 규칙 충돌을 잡아냈다. 10세션, 164 tool calls, 교차검증 4라운드 전 과정."
+tags: [claude-code, automation, spoonai, dental-ad, html-report, claude-opus]
+description: "하루 5세션 77 tool calls로 SpoonAI 콘텐츠 수집, 치과광고 리서치, 성장신호 리포트까지 동시에 돌렸다. 소켓 에러 1번, 타임아웃 1번 — 복구 패턴이 더 흥미롭다."
 ---
 
-Codex 교차검증이 코드 버그를 0개 잡고 카피 오류를 3개 잡았다. "Every commit diff becomes a Korean/English build log." — 빌드는 통과하고 타입 에러도 없지만 사실이 아닌 문장이다. 이런 건 자동 검증이 잡을 수 없다.
+하루에 3개 프로젝트를 동시에 돌리면 어떻게 되는가. SpoonAI 콘텐츠 인텔리전스, 치과광고 경쟁분석, 성장신호 리포트 편집 — 세 가지를 Claude Code 세션 5개로 처리했다. 총 77 tool calls, Bash 43회, Read 21회.
 
-**TL;DR** jidonglab.com 홈페이지를 포트폴리오 명함으로 전면 재작업했다. 10세션, 164 tool calls, Codex 4라운드 교차검증. 코드 버그보다 카피 오류와 i18n 누락이 더 많이 나왔다.
+**TL;DR** 세션이 소켓 에러로 끊기거나 타임아웃으로 중단돼도 맥락을 파일로 저장해두면 다음 세션에서 이어 달린다. 네이버 통합검색 플레이스광고 슬롯 확대(2026-05-28)라는 실질적 인사이트도 이 과정에서 나왔다.
 
-## 시작: "어떤 걸 하시는 분이에요?"
+## SpoonAI 콘텐츠 인텔리전스, 그리고 소켓 에러
 
-지인에게 jidonglab.com 링크를 보냈는데 이 질문이 돌아왔다. AI 뉴스가 매일 올라오고, 프로젝트는 스크롤 아래에, Hero 카피는 모호했다. 사이트가 포트폴리오 역할을 못 하고 있었다.
+첫 세션은 SpoonAI 새 사이트용 AI 콘텐츠 후보를 수집하는 작업이었다. 원자료 `2026-05-22-daily-intel-raw.json`을 읽고 일반용 8~15개, 전문가용 10~20개 후보를 선별해 `.md`와 `.json` 두 파일로 저장하는 파이프라인이다.
 
-작업 목표를 하나로 정했다. 낯선 사람이 URL만 받아도 Jidong이 뭘 만드는 사람인지 3초 안에 파악할 수 있을 것. 기술 스택은 건드리지 않고 카피와 섹션 구조만 바꾼다.
-
-Claude는 `Hero.tsx`, `About.astro`, `Projects.tsx`, `index.astro`, `home.css`를 Read 12번으로 파악한 뒤 Edit 11번으로 처리했다. 이 세션에서 새로 생긴 파일이 `src/components/home/Capabilities.astro`다. AI 자동화, 풀스택 개발, 치과 광고 운영, 빌드 로그 작성 네 카드. `data-ko`/`data-en` 속성으로 언어 전환을 달고, `.do-grid` CSS 클래스로 모바일 1열 fallback도 처리했다.
-
-Hermes max_turns 제한으로 세션이 중단되는 일이 반복됐다. 같은 작업 내용이 10개 유효 세션에 분산된 이유다.
-
-## Codex 1라운드: self-contained하지 않은 diff
-
-첫 Codex 교차검증이 돌아왔다.
-
-> "`src/pages/index.astro` imports/uses `src/components/home/Capabilities.astro`, but the file is untracked. Do not leave the tracked diff non-self-contained."
-
-`index.astro`는 이미 `Capabilities.astro`를 import하는데, 파일 자체가 커밋에 없었다. max_turns 중단 후 스테이징이 빠진 것. 파일을 추가하면서 `Projects.tsx` 카피도 같이 잡았다. "지금 운영 중인 것들"이 섹션 제목인데 목록에 개발 중인 프로젝트가 섞여 있었다. 운영 중 / 개발 중을 구분하는 표현으로 교체했다.
-
-## Codex 2라운드: 빌드가 통과하는 거짓말
-
-두 번째 라운드에서 더 흥미로운 것이 나왔다.
-
-> `Capabilities.astro`: "Every commit diff becomes a Korean/English build log." — 이건 사실이 아니다.
-
-모든 커밋에 한영 빌드 로그가 붙지 않는다. 코드 버그도, 타입 에러도 아니다. `npm run build`는 통과한다. 자동 검증이 구조적으로 잡을 수 없는 영역이다.
-
-수정 전후:
-- KO: `"커밋 diff를 한국어·영어 빌드 로그로 매일 쌓는다."` → `"진행 중인 작업을 한국어·영어 빌드 로그로 꾸준히 남긴다."`
-- EN: `"Every commit diff becomes a Korean/English build log."` → `"Progress gets documented as bilingual build logs."`
-
-절대값("every", "매일")을 방향성("꾸준히", "documented")으로 바꿨다. 의미는 같고, 사실이 된다.
-
-## Codex 3라운드: 모순 문장
-
-`"혼자 같이 만든다."` 혼자인데 같이? 의도는 읽히지만 한국어로 모순처럼 읽힌다.
-
-`"AI와 함께, 실제로 혼자 만든다."` / `"Building alone, but with AI as co-pilot."` 으로 교체했다. 같은 의미인데 읽힐 때 선명해진다.
-
-Codex 3라운드 누적: 코드 버그 0개, 카피 사실 오류 2개, 모순 문장 1개.
-
-## "한글 맨트 톤이 이상해"
-
-리디자인 직후 피드백이 왔다.
-
-> "좋은데 언어별 대응이랑 한글 문구들이 이상해 한글 맨트 톤?"
-
-원인이 두 가지였다. 하나는 카피가 직역체였다. 더 근본적인 문제는 `data-ko`/`data-en` 언어 토글 스크립트가 홈페이지에 없었다는 것.
-
-`Base.astro`를 쓰는 서브페이지에는 토글 스크립트가 있다. 그런데 `index.astro`는 독립 레이아웃을 쓰기 때문에 스크립트 자체가 로드되지 않았다. 언어 전환 버튼을 눌러도 아무 일이 안 일어나고 있었다.
-
-파악 세션은 Read 13번 + Grep 3번만 쓰고 수정을 못 했다. 실제 수정은 별도 세션에서 `Hero.tsx`, `Capabilities.astro`, `Projects.tsx`, `ShipLog.astro` 네 파일, Read 7번 Edit 5번.
-
-## sitemap 404 버그와 SEO/AEO 인프라
-
-SEO/AEO 작업에서 현황 감사를 먼저 했다.
-
-오래된 버그가 나왔다. `Base.astro`와 기존 `robots.txt`가 가리키는 sitemap 경로는 `/sitemap-index.xml`인데, 실제 Astro 라우트는 `/sitemap.xml`다. 모든 서브페이지에서 `<link rel="sitemap">` 태그가 404를 가리키고 있었다. 언제부터인지 모른다.
-
-JSON-LD도 없었다. 구조화 데이터 없이 개인 사이트는 Google에 맥락 없이 뜬다.
-
-한 세션에서 처리했다.
-
-- `src/components/Analytics.astro` 신규 — `PUBLIC_GA_MEASUREMENT_ID` 환경변수 없으면 GA 스니펫을 emit하지 않는다. 로컬 개발에서 빌드가 터지지 않는다.
-- `src/pages/index.astro` — JSON-LD Person + WebSite + ProfilePage 삽입, OG 태그 강화
-- `src/layouts/Base.astro` — sitemap 경로 `/sitemap-index.xml` → `/sitemap.xml`, Analytics 컴포넌트 연결
-- `public/robots.txt` 신규 — AI 크롤러 13개 그룹(GPTBot, ClaudeBot, PerplexityBot 등) 명시
-- `public/llms.txt` 신규 — AEO 엔티티 컨텍스트 작성
-
-도구: Read 14번, Bash 6번, Edit 6번, Grep 3번, Write 3번.
-
-## Codex 4라운드: robots.txt 규칙 충돌
+Bash 14번, Read 1번으로 raw feed를 파악하고 JSON·Markdown 구조화까지 진행하다가 세션이 끊겼다.
 
 ```
-User-agent: GPTBot
-Allow: /
-Disallow: /api/
-Disallow: /admin
+API Error: The socket connection was closed unexpectedly.
 ```
 
-`Allow: /`가 있으면 아래 `Disallow` 규칙이 무효화될 수 있다. robots.txt 명세가 rule 우선순위를 명확히 정하지 않아서, 크롤러 구현마다 해석이 다르기 때문이다.
+소켓 에러는 예고 없이 온다. 다시 시작하면 raw 파일 파악은 이미 됐으니 구조화 단계부터 이어받는다. 이 세션에서 얻은 교훈: 중간 산출물을 파일로 떨어뜨리는 단계를 의도적으로 넣어야 재시작 비용이 줄어든다.
 
-GPTBot, ClaudeBot, PerplexityBot, GoogleOther, Google-Extended, ChatGPT-User 등 13개 크롤러 블록 각각에 `Disallow: /api/`와 `Disallow: /admin`을 명시적으로 추가했다. `Allow: /`는 콘텐츠 크롤링을 허용한다는 뜻이고, API 엔드포인트 차단은 별개로 처리해야 한다.
+두 번째 세션은 스키마 컴플라이언스 검증 전용이었다. Read 2번, 1분도 안 걸렸다.
+
+```
+sponsor_leads: 17 (MD ↔ JSON match)
+competitor_notes: 7
+content_opportunities: 10
+outreach_hooks: 5
+```
+
+PASS. 컴팩트하게 끝난 세션이었다.
+
+## 네이버 광고 변화를 포착하는 과정
+
+세 번째 세션이 가장 밀도 높았다. Bash 20회, Read 13회, Edit 6회, Write 2회. 9분.
+
+치과광고 KB에 오늘자 SERP 표본을 누적하는 작업이다. 수집 스크립트 `collect_2026_05_22.py`를 작성해 실행하고, 네이버 공식 공지 5건을 확인하는 과정에서 중요한 항목이 나왔다.
+
+**공지 31700 — 2026-05-28 통합검색 플레이스광고 노출 개수 상향, 병의원 포함.**
+
+기존에 확인된 내용이 아니었다. 5월 28일부터 통합검색에 뜨는 플레이스광고 슬롯이 늘어난다. 병의원이 포함된다는 점이 핵심이다. 치과 클라이언트 입장에서 다음 주 예산 조정 근거가 되는 정보다.
+
+이 발견이 rolling KB, source index, competitive observations, ranking hypotheses 네 파일 업데이트로 이어졌다. `2026-05-22-daily-update.md`도 별도 생성했다.
+
+한 가지 아쉬움: 이 세션은 HTML 리포트 생성 직전에 타임아웃으로 끊겼다. `2026-05-22-daily-update.md` 안에 "HTML 리포트 참고"라는 언급이 있는데 실제 파일이 없는 상태가 됐다.
+
+## 타임아웃 후 후속 세션으로 완성
+
+네 번째 세션은 세 번째 세션이 중단된 자리를 이어받는 작업이었다. 프롬프트가 명시적이었다.
+
+> "The previous Claude run updated the markdown files and sources but timed out before creating the HTML report."
+
+기존 리포트 스타일을 참고해 동일한 포맷으로 작성했다. 모바일 친화 CSS, 한국어 타이포 기반, 자기완결형 단일 HTML 파일. 결과: 23.0K.
+
+Bash 7번, Read 4번, Grep 3번, Write 1번으로 검증까지 완료했다.
+
+```bash
+# 의료광고 금지 문구 체크
+grep -i "보장\|효과 보장\|치료 결과" *.html
+# → 0 matches
+```
+
+의료광고 컴플라이언스 체크는 빌드 통과와 별개로 grep을 직접 돌린다. 자동화가 구조적으로 닿지 못하는 영역이다.
+
+## HTML 리포트 재편집 — Markdown 표에서 구조화 리포트로
+
+마지막 세션은 SpoonAI 성장/스폰서 신호 수집 보고서를 Telegram에서 읽기 좋은 HTML로 재편집하는 작업이었다. Bash 2번, Read 1번, Write 1번. 4분.
+
+기존 Markdown은 표 중심이었다. 모바일에서 옆으로 스크롤해야 하는 형태다. HTML로 재구성하면서 Top 5, 실행 액션, 후보 상세, 콘텐츠 기회 섹션으로 나눴다. 원문 데이터만 사용하고 사실 추가는 금지했다.
+
+`reports/` 디렉토리가 없어서 먼저 만들고 HTML을 작성했다. 실제 작업 4분.
 
 ## 전체 통계
 
-유효 세션 10개 (Hermes max_turns로 중복 분산된 것 제외), tool calls 약 164회. Bash 54회, Read 64회, Edit 31회, Write 4회.
+| 항목 | 수치 |
+|------|------|
+| 세션 수 | 5 |
+| 총 tool calls | 77 |
+| Bash | 43 |
+| Read | 21 |
+| Edit | 6 |
+| Write | 4 |
+| Grep | 3 |
+| 수정 파일 | 4 |
+| 생성 파일 | 4 |
 
-수정 파일 9개, 신규 파일 4개(`Capabilities.astro`, `Analytics.astro`, `robots.txt`, `llms.txt`). Codex 교차검증 4라운드.
+소켓 에러 1회, 타임아웃 1회. 두 경우 모두 중단 시점의 파일 상태가 복구 기준이 됐다. 다음 세션 프롬프트에 "어디까지 됐고 뭐가 없다"를 명시하면 이어 달리는 데 추가 비용이 거의 없다.
 
-> Codex가 코드 버그보다 카피 오류를 더 많이 잡았다. 자동 검증이 닿지 않는 영역이 있다.
+> 중단은 피할 수 없다. 재시작 비용을 낮추는 설계가 더 중요하다.
