@@ -1,32 +1,53 @@
 ---
-title: "Claude Code Across 3 Projects in One Day: 77 Tool Calls, One Socket Error, Two Recovery Patterns"
+title: "6 Claude Code Sessions, 80 Tool Calls — Automating 3 Projects in a Single Day"
 project: "portfolio-site"
 date: 2026-05-22
 lang: en
 pair: "2026-05-22-portfolio-site-ko"
-tags: [claude-code, automation, spoonai, dental-ad, html-report, claude-opus]
-description: "5 Claude Code sessions, 77 tool calls, 3 simultaneous projects — and why interruptions don't have to be expensive."
+tags: [claude-code, automation, multi-agent, pipeline, claude-opus]
+description: "6 Claude Code sessions, 80 total tool calls, 3 parallel projects in one day. Bash dominated at 43 calls. Here's what the session breakdown revealed about failure isolation and prompt design."
 ---
 
-Running 3 projects simultaneously in Claude Code sessions — SpoonAI content intelligence, dental ad competitive analysis, and a growth signal report — generated 77 tool calls across 5 sessions in a single day. One socket error, one timeout. Neither cost more than a few minutes to recover from.
+80 tool calls. 6 sessions. 3 completely unrelated projects — all wrapped up in a single day, with Opus 4.7 running every step.
 
-**TL;DR** When a Claude Code session breaks mid-task, the recovery cost is near-zero if you've been writing intermediate outputs to files. The expensive recovery is when you haven't. One of these sessions also surfaced a real business insight: Naver is expanding place ad slots in integrated search for medical clinics starting May 28.
+**TL;DR** Splitting work into focused single-purpose sessions beats cramming everything into one long session. Each session stays isolated, so a timeout or socket error only kills that one unit — not your entire workflow.
 
-## SpoonAI Content Pipeline Hits a Socket Error at Step 14
+## Why 6 Sessions Instead of One
 
-The first session was content curation for SpoonAI's new site: read `2026-05-22-daily-intel-raw.json`, select 8–15 general-audience candidates and 10–20 expert-audience candidates, write structured output to `.md` and `.json`.
+The day's work spanned three unrelated domains: SpoonAI news intelligence, dental ad research, and a strategy review for a new marketing site. Mixing them into one session means shared context, higher token overhead, and an error in domain A cascading into domains B and C.
 
-14 Bash calls and 1 Read in, the session dropped:
+Instead, each session got exactly one job:
+
+- **Session 1** (15 tool calls, 4 min): Raw SpoonAI intel JSON → cleaned MD/JSON output
+- **Session 2** (2 tool calls, ~0 min): Schema compliance check on growth/sponsor signal files
+- **Session 3** (41 tool calls, 9 min): Dental ad SERP collection + 5 knowledge base file updates
+- **Session 4** (15 tool calls, 5 min): HTML report generation after Session 3 timed out
+- **Session 5** (4 tool calls, 4 min): Markdown report → mobile-friendly HTML rework
+- **Session 6** (3 tool calls, 3 min): Marketing strategy feedback for /newsite (zero code changes)
+
+## Bash 43 Times — Scripts Were the Core of the Automation
+
+The tool call distribution is revealing: Bash 43, Read 23, Edit 6, Write 4, Grep 4. Bash accounts for more than half of all calls — wildly more than Write (4) or Edit (6).
+
+That's because Claude wasn't just reading and writing files. It was building and executing pipelines. Session 3 is the clearest example: Claude wrote a Python SERP collection script (`collect_2026_05_22.py`), ran it via Bash, read the output, then updated 5 KB files based on the results.
 
 ```
-API Error: The socket connection was closed unexpectedly.
+Write (generate script) → Bash (execute) → Read (parse output) → Edit (update KB)
 ```
 
-No warning, no gradual degradation — just gone. When the next session started, raw file analysis was already materialized on disk, so the restart picked up at the structuring step with zero re-investigation overhead.
+That four-step loop repeated 20+ times within Session 3 alone. The pipeline wasn't designed upfront — Claude assembled it incrementally based on what each step returned.
 
-The structural lesson: intermediate file writes should be intentional checkpoints. Every time you write an intermediate result to disk, you're buying down your restart cost. An in-memory step that takes 5 minutes to reproduce is a 5-minute tax on every interruption.
+## When a Socket Error Kills Your Session Mid-Run
 
-Session two was schema compliance validation. 2 Reads, under a minute.
+Session 1 hit `API Error: The socket connection was closed unexpectedly` at the worst possible moment: after 14 tool calls reading and structuring data, but before writing a single output file.
+
+Recovery was one sentence: open a new session and prompt with "the previous session timed out before writing output — use the context already built and generate the files." Session 3 hit the same wall — timed out mid-execution — and Session 4 picked up HTML report generation exactly where it left off.
+
+Neither interruption cost more than a few minutes. The reason: every session's expected output paths were specified in the prompt upfront. The recovery session knew precisely what to produce without re-reading the problem from scratch.
+
+## Session 2: Validation Done in 2 Tool Calls
+
+Session 2 deserves a closer look. Two tool calls, essentially zero elapsed time. Claude read two files — a `.md` and its corresponding `.json` — and immediately output schema compliance results:
 
 ```
 sponsor_leads: 17 (MD ↔ JSON match)
@@ -35,65 +56,31 @@ content_opportunities: 10
 outreach_hooks: 5
 ```
 
-PASS.
+The prompt was tightly constrained: "counts, required fields, PASS/FAIL only." Vague prompts produce verbose responses. Validation tasks should specify the exact success criteria before handing off — Claude doesn't need to explain what it found, just whether it passes.
 
-## Catching a Naver Ad Change Six Days Before It Goes Live
+## Session 6: Zero Code Written, Stop Hook Triggered Anyway
 
-Session three was the densest: 20 Bash, 13 Read, 6 Edit, 2 Write — nine minutes of wall time.
+Session 6 was a pure strategy session — no files created, no code changed. But the Stop hook fired with `Found 3 debug/TODO leftover(s)`.
 
-The task was accumulating daily SERP samples into the dental ad knowledge base. Writing and running `collect_2026_05_22.py`, then reviewing 5 official Naver announcements, one item stood out:
+Claude ran Grep to investigate. The flagged markers weren't from this session at all — they were pre-existing `console.log` statements in `scripts/*`. In CLI utilities, `console.log` *is* the intended stdout output mechanism. Removing it would break the scripts.
 
-**Notice 31700 — May 28, 2026: Naver integrated search place ad slot count increasing. Medical and dental clinics explicitly included.**
+This is a false positive. The right fix isn't to suppress or delete the logs — it's to configure per-project hook exclusion paths so the hook doesn't scan CLI utility directories. Running the same hook rules across all directories without exceptions will surface friction like this regularly.
 
-This wasn't previously tracked. Starting May 28, the number of place ad slots visible in Naver's integrated search results expands. For a dental client, this is a budget reallocation decision for next week — not a hypothetical future change, a dated announcement six days out.
+## Two Files Were Enough for a Strategy Review
 
-That discovery triggered updates across four files: rolling KB, source index, competitive observations, ranking hypotheses. A `2026-05-22-daily-update.md` summary was also created.
+Session 6 covered marketing and positioning feedback for the SpoonAI `/newsite` launch. No code changes — just Read on two existing files, then written analysis.
 
-One problem: the session timed out immediately before HTML report generation. The markdown file references "see HTML report" — but the HTML file doesn't exist yet. This is the second interruption type of the day.
+Claude flagged two friction points: "AI intelligence" and "AI learning" overlap in messaging in a way that muddies B2B positioning. And a $49–$299 pricing structure with no Free Tier means you can't measure conversion before the paywall — the funnel is blind until someone pays.
 
-## Picking Up a Timed-Out Session With a Single-Sentence Handoff
+Code-free analysis is `trivial` complexity. 3 tool calls, done. No research agent, no subagent scaffold needed.
 
-Session four had a deliberately explicit handoff prompt:
+## What This Day Made Clear
 
-> "The previous Claude run updated the markdown files and sources but timed out before creating the HTML report."
+Multiple short sessions outperform one long session on two axes: fault tolerance (a timeout kills one session, not the day) and cost per retry (restarting a 5-minute session costs almost nothing).
 
-That single sentence was sufficient context. The session matched report style from existing examples and produced a mobile-friendly, self-contained single HTML file. 23.0K.
+The single most important habit: put both the input file paths *and* the output file paths in the intake prompt. When a session disconnects mid-run, the recovery session knows exactly what to produce without re-reading the whole problem. Clean inter-session handoffs depend entirely on this.
 
-7 Bash, 4 Read, 3 Grep, 1 Write. Compliance check included:
-
-```bash
-# Medical ad prohibited phrase check
-grep -i "보장\|효과 보장\|치료 결과" *.html
-# → 0 matches
-```
-
-Medical advertising compliance doesn't fit inside the automated pipeline — the content is generated by Claude, and the constraint is regulatory, not structural. Grepping the output artifact directly is the right layer for this check, not a pre-commit hook.
-
-## Markdown Tables Don't Work on Mobile. HTML Does.
-
-Session five took a SpoonAI growth and sponsor signal report — originally Markdown with data tables — and restructured it as HTML for Telegram readability. 2 Bash, 1 Read, 1 Write. Four minutes.
-
-Markdown tables require horizontal scroll on mobile. The HTML version split content into four named sections: Top 5, Action Items, Candidate Detail, Content Opportunities. Source data only — no new facts, no editorial additions.
-
-The `reports/` directory didn't exist, so it was created first, then the file was written. Four minutes total.
-
-## Full Session Stats
-
-| Metric | Count |
-|--------|-------|
-| Sessions | 5 |
-| Total tool calls | 77 |
-| Bash | 43 |
-| Read | 21 |
-| Edit | 6 |
-| Write | 4 |
-| Grep | 3 |
-| Files modified | 4 |
-| Files created | 4 |
-
-One socket error. One timeout. In both cases, the on-disk state at the interruption point was the recovery baseline. A scoped follow-up prompt — "here's what exists, here's what's missing" — costs almost nothing to write and makes the continuation session seamless.
-
-> Interruptions are unavoidable. Designing for cheap restarts matters more than trying to prevent them.
+Tool breakdown: Bash 43 / Read 23 / Edit 6 / Write 4 / Grep 4 — 80 total calls across 6 sessions.
 
 ---
 
