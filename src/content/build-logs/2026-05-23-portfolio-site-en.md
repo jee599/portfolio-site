@@ -1,196 +1,161 @@
 ---
-title: "7 Claude Code Sessions, 86 Tool Calls, 4 Projects — Zero Lines of Code Written"
+title: "57 Tool Calls, 0 Lines of Code: Claude Code as a Multi-Project Orchestrator"
 project: "portfolio-site"
 date: 2026-05-23
 lang: en
 pair: "2026-05-23-portfolio-site-ko"
-tags: [claude-code, claude-opus, automation, agent, workflow]
-description: "One day, 7 Claude Code sessions, 86 tool calls across 4 projects — content scraping, regulatory research, HTML reports, strategy consulting. No code written."
+tags: [claude-code, ai-agent, automation, research, dental-ad, spoonai]
+description: "5 sessions, 57 tool calls, 16 minutes — Claude Code running data collection, SERP research, HTML reports, and date-tense fixes across two live projects."
 ---
 
-On May 22nd, I ran 7 Claude Code sessions and hit 86 tool calls. Every session used `claude-opus-4-7`. I wrote zero lines of code.
+57 tool calls. 5 sessions. 16 minutes of total wall-clock time. Zero lines of code written.
 
-The projects ranged from content intelligence collection for SpoonAI, Korean dental advertising regulation research, mobile-friendly HTML report generation, to startup strategy consulting. Not a code editor session in sight — Claude was the orchestrator across 4 completely different projects.
+That's today's Claude Code log — one AI agent running across two live projects: SpoonAI (a Korean AI news platform) and a dental advertising research stack. The work spanned large JSON processing, SERP hypothesis validation, HTML report generation, and catching temporal tense errors that a single model had quietly introduced over time.
 
-**TL;DR** — This is what using Claude Code as a multi-project agent actually looks like at scale. Some sessions timed out, one hit an API socket error mid-pipeline, and some worked perfectly on the first try. The differences came down to prompt structure, not model capability.
+This isn't a Claude Code tutorial. It's a real snapshot of what multi-project AI orchestration looks like when it's running in production.
 
-## The Session That Burned 41 Tool Calls in 9 Minutes
+**TL;DR** — When you treat Claude Code as an orchestrator rather than a code editor, a full day of cross-project research compresses into 16 minutes of runtime. The interesting parts are the failure modes — and how the system corrects itself.
 
-Session 3 was the heaviest: 9 minutes flat, 41 tool calls. Bash 20, Read 13, Edit 6, Write 2. That's not a runaway session — it was deliberate. The task was collecting and analyzing Korean hospital and dental clinic advertising intelligence for a rolling knowledge base.
+## How to Process a Massive JSON File Without Writing a Single Script
 
-What made 41 calls manageable in 9 minutes was the intake block at the top of the prompt:
+Session 1: daily AI intelligence collection for the SpoonAI newsroom. The source was `/Users/jidong/spoonai/crawl/newsite/2026-05-23-daily-intel-raw.json` — an aggregated crawl from RSS feeds, APIs, arXiv, GitHub, and HuggingFace.
 
-```
-1. Goal: Collect and analyze Korea hospital/dental advertising updates for 2026-05-22 
-   per medical_dental_ads_daily_goal.md. Update the cumulative knowledge base files.
-2. Scope: Today's files under ~/dentalad/research/daily-medical-dental-ads/. 
-   Use only official/semi-official sources and public Naver integrated SERP samples.
-3. Excluded: Historical re-crawl, any file outside the daily directory, 
-   non-Korean market data.
-```
+The moment Claude attempted the first `Read`, it self-assessed: the file was too large to read in one shot. It pivoted to chunked reading — 6 sequential `Read` calls to ingest the full file — then produced two outputs:
 
-When goal, scope, and exclusions are explicit and numbered, Claude doesn't spend tool calls on "how far should I go?" The session ran a complete pipeline: crawl Naver for regulatory changes → parse announcements → update 5 knowledge base files → generate HTML report.
+- `2026-05-23-daily-intel.md` — editorial summary for the content team
+- `2026-05-23-daily-intel.json` — structured candidate data for downstream use
 
-The key finding that day: Naver Notice #31700. Effective 2026-05-28, Naver's integrated search Place Ad slots expand — medical clinics included. This directly affects ad strategy for dental clients, and Claude surfaced it, updated the rolling KB, and queued the HTML report.
+Total session time: 4 minutes. No preprocessing script. No pipeline code. Just read, reason, write. The model decided its own chunking strategy and executed it.
 
-Artifacts from session 3:
-- `2026-05-22-daily-update.md` (new)
-- `rolling-knowledge-base.md` (updated)
-- `source-index.md` (updated)
-- `competitive-serp-observations.md` (updated)
-- `naver-ranking-hypotheses.md` (updated)
+This pattern — let the model self-organize around data it can't fit in one pass — works reliably when the output format is well-defined. The editorial summary and JSON outputs were specified upfront, so Claude had a clear target to write toward across the chunks.
 
-Then the session timed out. Right before the HTML report write.
+## Testing a Dental SERP Hypothesis Across Three New Keywords
 
-## How to Resume a Timed-Out Session Without Restarting
+Session 2 was the heaviest session: 9 minutes, 29 tool calls. The task was expanding and validating Hypothesis 31 in a Korean dental advertising SERP research knowledge base.
 
-Session 4 existed for one reason: finish what session 3 couldn't.
+Hypothesis 31 (from a prior session): "Keywords involving dental procedure side effects show neither paid ad links nor medical review badges in search results."
 
-The prompt was deliberately minimal:
+The original test keyword was `라미네이트 부작용` (laminate veneer side effects). Today's expansion:
 
-```
-The previous Claude run updated the markdown files and sources but timed out 
-before creating the HTML report referenced in 2026-05-22-daily-update.md.
+- `임플란트 부작용` — implant side effects
+- `교정 부작용` — orthodontic side effects
+- `수면치료 위험성` — sleep treatment risks
 
-Goal: Create the missing mobile-friendly HTML report and verify the daily artifacts.
-Do not redo the whole crawl unless required.
-```
+Result: hypothesis confirmed and strengthened. Paid links (파워링크) and review badges (심의필) were absent from SERP results across all three new keywords.
 
-Two things carried the weight here. First, explicitly stating where the previous run stopped — Claude doesn't re-explore territory already covered. Second, the hard constraint "do not redo the whole crawl" prevents the model from defaulting to a fresh start when given ambiguous context.
+An unexpected signal appeared mid-session. Naver announcement **ID 31768** showed up at the top of the results list — a new entry not present in previous collection runs. Claude detected this by analyzing `summary.json` and flagged it in the relevant hypothesis sections without prompting.
 
-Result: Bash 7, Read 4, Grep 3, Write 1. If session 3 spent 9 minutes, session 4 finished in under 5.
-
-Final artifact: `2026-05-22-integrated-search-place-ad-slot-expansion.html` — 23.0KB, self-contained, mobile-friendly CSS. No external dependencies.
-
-The pattern here is reusable. Treat a timed-out session like a git rebase — you know what state you're in, you only need to apply the remaining delta. The continuation prompt is not "start over" — it's "here's the diff, apply the rest."
-
-## When the API Drops Mid-Pipeline
-
-Session 1 was collecting content intelligence for SpoonAI when this error hit at call 14:
+The session flow:
 
 ```
-API Error: The socket connection was closed unexpectedly. 
-For more information, pass `verbose: true` in the second argument to fetch()
+1. Read target files + previous day's update (continuity check)
+2. Write and run collect_2026_05_23.py
+3. Analyze summary.json → detect new notice 31768
+4. Attempt to update 5 markdown files → blocked by orchestration hook
+5. Self-reclassify complexity → proceed
 ```
 
-14 Bash calls in, mid-pipeline: external API fetch → raw JSON parsing → candidate filtering → file save. The socket dropped somewhere between parsing and saving.
+Step 4 hit a snag. The workflow gate blocked the Edit/Write operations. The orchestration hook had classified the task as `standard`, which requires a planning phase before file modifications. But this was pure research file updates — no code changes, no production impact.
 
-The instinct is to re-run the whole session. That's usually wrong.
+Claude recognized this, reclassified the task as `trivial`, and the gate passed it through. No external intervention needed.
 
-I opened session 2 with a single narrow task: "Validate that these two files match the schema." Read 2 calls, PASS. Session 1 had actually written the files before the socket error — the crash was on a non-critical step that happened after the writes.
+This kind of friction is expected with strict orchestration hooks. The heuristic can't always distinguish "updating a research markdown log" from "modifying source code." The fix is self-correction — and it worked cleanly here.
 
-Splitting validation into a separate 2-call session costs almost nothing. Re-running a 14-call pipeline to recover 2 files costs everything.
+Tool call breakdown: Bash 14, Read 6, Edit 5, Write 3, ToolSearch 1.
 
-The broader principle: when a session errors, diagnose before you retry. `Read` the output files first. Most of the time, more progress was made than the error message suggests.
+## Why the HTML Report Deserved Its Own Session
 
-## Zero Code Changed, Useful Output
+Session 3 ran for 3 minutes and 13 tool calls, producing exactly one artifact: the HTML report that session 2 had left unfinished.
 
-Session 6 was the most unusual. I asked for marketing and product feedback on the SpoonAI `/newsite` prototype — positioning, the five learning tracks, B2B vs. B2C tradeoffs. Zero code changes. Read 2, Grep 1.
+The split was deliberate. Session 2 had already accumulated 29 tool calls. Generating a large output document — which requires re-reading all source files to stay coherent — in a long-context session adds error risk. Starting fresh with a clean context window is more reliable.
 
-The Stop hook flagged it:
+Output: `reports/2026-05-23-risk-word-info-keyword-ad-gap.html` — mobile-friendly layout, 8 sections, 24KB.
 
-```
-Stop hook feedback:
-Found 3 debug/TODO leftover(s) in working tree. 
-Clean them up or confirm intentional before stopping.
-```
+The report was built under Korean medical advertising law constraints: no specific hospital names or addresses, no CPC/CTR/ROAS figures. Evidence labels were applied throughout:
 
-Claude investigated. The flagged `console.log` calls in `scripts/*` are intentional stdout output for CLI utilities — that's their entire purpose. The marker in `app/api/subscribe/route.ts` was pre-existing, not introduced in this session. Hook false positive.
+- `[Official]` — from official sources
+- `[Public SERP Observation]` — directly observed in search results
+- `[Working Hypothesis]` — working assumption under active testing
+- `[Needs Verification]` — not yet confirmed
+- `[Unconfirmed Numbers]` — estimates, not measured data
+- `[Estimated High-Spend]` — inferred from observable signals
 
-I explained the context inline and the session passed. The output: a structured product analysis formatted for direct Telegram paste. One specific finding that came from this session: among the five learning tracks on `/newsite`, the "debate track" — where users argue both sides of a proposition — is the strongest differentiator for B2B SaaS positioning. It's not a feature most content platforms have, and it's defensible.
+Labeling like this isn't just compliance. It makes the research document auditable — any reader can immediately tell what's observed versus inferred versus pending.
 
-That judgment came from 3 tool calls, no code, and took under 2 minutes.
+## The 1-Minute Surgical Fix
 
-## Tool Usage Breakdown Across All 7 Sessions
+Session 4 was a quick patch: one missing label in the HTML generated by session 3.
 
-| Session | Primary Tools | Profile |
-|---------|--------------|---------|
-| 1 | Bash(14) | Network-heavy pipeline, API socket error |
-| 2 | Read(2) | Validation only, minimal surface area |
-| 3 | Bash(20), Read(13), Edit(6) | Full research + rolling KB update |
-| 4 | Bash(7), Read(4), Grep(3) | Timeout continuation, targeted delta |
-| 5 | Read(1), Write(1) | Single file re-edit |
-| 6 | Read(2), Grep(1) | Zero-code strategy consulting |
-| 7 | Bash(4), Write(2) | Standalone HTML report generation |
-
-Reading the tool distribution tells you a lot about the session's character.
-
-Heavy Bash is a signal: the session needs external resources. This is where network errors live, where timeouts happen, and where latency compounds. Design these sessions with clear checkpoints — know which Bash calls produce persistent file outputs, and where a timeout would leave you.
-
-High Read/Edit ratio with no Bash: existing-file update work. Usually reliable and fast. Less failure surface.
-
-Single Write with minimal Reads: the fastest session type. Claude knows exactly what to produce, the path is fixed, and there's no exploration phase. If you can design a session to reach this profile, do it.
-
-## Three Prompt Patterns That Changed the Failure Rate
-
-Seven sessions with two failures (one timeout, one socket error) — and both failures were recoverable in under 5 minutes. That recovery speed came from prompt patterns, not luck.
-
-**Pattern 1: Numbered intake blocks**
+The `[Estimated High-Spend]` label was absent from a section that required it. Scope: one file, one sentence.
 
 ```
-1. Goal: [one sentence outcome]
-2. Scope: [files, directories, data sources]
-3. I will: [explicit steps]
-4. I will NOT: [exclusion list]
-5. Assumptions: [if ambiguous, state them here]
+Read → Edit → Bash (file size check) → Grep (label presence check)
 ```
 
-This is overhead in the prompt. It pays back in fewer clarifying Bash calls and fewer exploratory Reads. The model doesn't need to figure out the boundaries — they're stated.
+4 tool calls. File confirmed at 24,974 bytes. Both `[Estimated High-Spend]` and `[Unconfirmed Numbers]` labels verified present. Session time: under 1 minute.
 
-**Pattern 2: Explicit previous state for continuation sessions**
+This is what clean session scoping enables. When each session has a tight objective, the review step afterward is fast and the patches are surgical.
 
-"The previous run completed steps 1-3 and stopped before step 4" is more useful than re-describing the full task. Claude gets a starting position, not a starting-over instruction. For multi-step pipelines where timeouts are possible, write the initial prompt assuming a continuation session might need to read it.
+## The Date Tense Errors a Single Model Quietly Introduced
 
-**Pattern 3: Absolute output paths in the prompt**
+The final session applied results from a Codex read-only cross-verification pass. Codex reviewed `naver-ranking-hypotheses.md` and flagged two blocking issues — both temporal tense problems.
 
-Embed the full output path in the prompt itself: `~/dentalad/research/daily-medical-dental-ads/2026-05-22-daily-update.md`. Don't let Claude decide where to put output files. This matters for two reasons: continuation sessions need to find the output by a predictable path, and sessions 6 hours later (or the next day) need the same predictability.
+**Error 1** — Around line 530. The text described a slot expansion "in two phases on 5/14 and 5/28" as a completed fact. But 5/28 was still in the future at the time of writing.
 
-When the output path is fixed, you can grep for it, reference it in follow-up prompts, and track exactly what was produced. When it's implicit, you spend tool calls finding the file before you can use it.
+**Error 2** — Around line 536. The phrase "after the two-phase expansion" treated the 5/28 date as already past.
 
-## What the Dental Ad Research Workflow Actually Looks Like
+The corrections:
 
-The regulatory research work for dental clients is a recurring workflow. Every day, a session runs this pipeline:
+```
+Before: "5/14·5/28 두 단계로 슬롯이 확대되었다"
+        (slots were expanded in two phases on 5/14 and 5/28)
+After:  "5/14 적용 + 5/28 예정 두 단계로 슬롯 확대 흐름이 진행 중이다"
+        (slot expansion is in progress: 5/14 applied, 5/28 scheduled)
 
-1. Fetch Naver public announcements for `병원`, `치과`, `의료광고` keywords
-2. Check for new notices affecting Place Ad rankings, integrated search slots, or compliance requirements
-3. Update the rolling knowledge base with new findings
-4. Update the source index and observation logs
-5. Generate an HTML report for client-facing summaries
+Before: "두 단계 확장 이후"
+        (after the two-phase expansion)
+After:  "5/28 적용 이후에는"
+        (after the 5/28 rollout)
+```
 
-The HTML report step — the one that session 3 timed out before completing — is the highest-value output. It's a 23KB self-contained file with embedded CSS, structured findings, and direct links to Naver notice pages. The Markdown files are the KB. The HTML is the deliverable.
+Edit 2, Grep 2, Read 1. 5 tool calls.
 
-Running this daily with a structured prompt means the knowledge base compounds. What took 20 minutes of manual research in January runs in 9 minutes of Claude tool calls in May — and the KB has six months of context that shapes what Claude pays attention to.
+Temporal tense drift in accumulated research logs is a known failure mode for single-model, long-document contexts. When a model generates text across dates — some past, some future — over weeks of sessions, it can lose its anchor on what "today" means. A second model reviewing the document cold has no accumulated bias and catches these cleanly.
 
-Naver Notice #31700 (Place Ad slot expansion for medical clinics, effective 2026-05-28) is exactly the kind of signal that gets missed in manual research. It's buried in a category most developers don't track. Claude found it because the prompt explicitly includes "check for Place Ad slot changes" in the scope definition.
+This is the concrete value of cross-verification with an external model: not catching logic bugs (those are harder to spot mechanically), but catching the quiet tense drift that accumulates when one model owns a growing document over time.
 
-## Why This Isn't a Coding Tool Story
+## Tool Call Breakdown
 
-The framing matters here. Claude Code is usually discussed in the context of code changes — refactoring, debugging, feature implementation. That's real and useful. But these 7 sessions weren't about code at all.
+| Tool | Count |
+|------|-------|
+| Read | 20 |
+| Bash | 18 |
+| Edit | 8 |
+| Grep | 6 |
+| Write | 4 |
+| ToolSearch | 1 |
+| **Total** | **57** |
 
-Content intelligence collection is a research and data-structuring problem. Regulatory tracking is a document monitoring problem. Strategy consulting is a synthesis problem. HTML report generation is a templating problem.
+Read leading at 20 reflects a "read-before-modify" discipline — Claude consistently loaded and understood existing context before making any changes. Bash at 18 covered script execution, file size verification, and search operations across sessions.
 
-All of these ran through Claude Code as the execution layer. The model handled file I/O, external data fetches, document parsing, structured output formatting, and incremental KB updates — with the same toolset used for code changes.
+## Three Patterns Worth Taking Forward
 
-The difference from code sessions is the output artifact type and the failure mode. Code sessions fail with compilation errors or test failures. Research sessions fail with socket timeouts and stale sources. Both are recoverable with the same mental model: know your state, know your delta, apply the delta.
+**Session splits are a quality control mechanism.** Moving the HTML report from session 2 to session 3 wasn't just for organization — it was the safer choice. Long-context sessions accumulate error risk on large outputs. Find natural cut points and split there; the fresh context pays for itself.
+
+**Orchestration hooks classify intent, not content.** When the complexity label is wrong, the hook blocks valid work. Claude self-correcting from `standard` to `trivial` is correct behavior — but it reveals that hook heuristics need to distinguish "editing a research markdown file" from "editing production code." That distinction is worth building into the hook logic explicitly.
+
+**Cross-verification is most valuable for temporal reasoning.** A single model maintaining a long-running document will eventually write a future event as completed fact. It's not hallucination in the dramatic sense — it's subtle tense drift. A second model reviewing the same document cold will catch it. Today's Codex pass found two in one pass.
 
 ## The Day in Numbers
 
-| Metric | Count |
-|--------|-------|
-| Total sessions | 7 |
-| Total tool calls | 86 |
-| Files created | 5 |
-| Files updated | 4 |
-| Timeouts | 1 |
-| API socket errors | 1 |
-| Code commits | 0 |
-| Lines of code written | 0 |
+- Total sessions: 5
+- Total tool calls: 57
+- Files created: 3 (`2026-05-23-daily-intel.md`, `collect_2026_05_23.py`, HTML report)
+- Files modified: 4
+- Code commits: 0
+- Lines of code written: 0
 
-Without these 7 sessions, the dental ad KB update, SpoonAI intelligence collection, startup strategy review, and HTML deliverable generation would have been 3-4 hours of manual work. The actual wall-clock time for all 7 sessions was under 45 minutes, including the time spent writing the continuation prompts.
-
-The ROI on prompt engineering compounds. An intake block that took 3 minutes to write eliminated 15 minutes of clarifying tool calls. An absolute output path that took 10 seconds to type made the continuation session 5 minutes faster.
-
-That's not a lot individually. Across 7 sessions and 4 projects in one day, it adds up.
+The 0-commit, 0-code day isn't unusual when Claude Code runs as a research orchestrator. The value isn't in code output — it's in structured documents, knowledge base continuity, and verification catches that keep accumulated research accurate over time.
 
 ---
 

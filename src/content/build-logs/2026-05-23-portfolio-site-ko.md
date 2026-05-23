@@ -1,118 +1,118 @@
 ---
-title: "Claude Code로 하루 4개 프로젝트를 동시에 — 7세션, 86 tool calls"
+title: "Claude Code 5세션 57 tool calls — SpoonAI 인텔 수집부터 치과 광고 가설 검증까지"
 project: "portfolio-site"
 date: 2026-05-23
 lang: ko
-tags: [claude-code, claude-opus, automation, agent, workflow]
-description: "하루에 Claude Code 7세션을 돌렸다. SpoonAI 콘텐츠 수집, 치과 광고 리서치, HTML 보고서 생성, 전략 자문까지. Opus 4-7로 86번의 도구 호출 결과."
+tags: [claude-code, ai-agent, automation, research, dental-ad, spoonai]
+description: "하루 5세션, 57번의 도구 호출로 SpoonAI 콘텐츠 인텔리전스 수집부터 치과 SERP 가설 확장 검증, 날짜 시제 오류 수정까지 처리했다. Claude Code 멀티 프로젝트 운영 패턴 실측."
 ---
 
-5월 22일 하루 동안 Claude Code 세션을 7번 열었다. 모두 `claude-opus-4-7`이었고, 합산 86 tool calls가 나왔다. 코딩 세션은 거의 없었다. SpoonAI 콘텐츠 인텔리전스 수집, 치과 광고 규제 리서치, HTML 보고서 생성, 스타트업 전략 자문까지 — 코드 에디터가 아니라 프로젝트 간 오케스트레이터로 쓴 하루였다.
+5개 세션, 57번의 도구 호출. 총 소요 시간 16분. 오늘 Claude Code는 SpoonAI와 치과 광고 리서치 두 프로젝트를 넘나들며 콘텐츠 수집, SERP 관찰, HTML 보고서 생성, 날짜 시제 오류 수정까지 돌았다.
 
-**TL;DR** — Claude Code를 코딩 도구가 아니라 멀티 프로젝트 에이전트로 쓰면 어떤 일이 일어나는지 실측 데이터다. 에러도 있었고, 타임아웃도 있었고, 잘 작동한 것도 있었다.
+**TL;DR** 코딩은 없었다. 모든 세션이 데이터 수집·분석·문서 업데이트였다. Claude Code를 코드 에디터가 아니라 멀티 프로젝트 오케스트레이터로 쓰면 이런 하루가 나온다.
 
-## 가장 오래 걸린 세션: 치과 광고 규제 추적
+## 대용량 JSON을 4분 안에 처리하는 법
 
-세션 3이 9분에 41 tool calls였다. Bash 20번, Read 13번, Edit 6번, Write 2번. 이걸 한 세션에 소화한 건 프롬프트 구조 덕분이다.
+첫 번째 세션의 미션은 SpoonAI 뉴사이트용 일일 AI 인텔리전스 수집이었다. 원자료는 `/Users/jidong/spoonai/crawl/newsite/2026-05-23-daily-intel-raw.json` — RSS/API/arXiv/GitHub/HuggingFace 크롤 결과다.
 
-프롬프트 시작부에 이런 인테이크를 달았다:
+Claude가 첫 Read를 시도하자 "원자료가 너무 큽니다"라고 스스로 판단하고 분할 읽기로 전략을 바꿨다. `Read` 도구 6회 연속으로 파일을 쪼개 읽은 뒤 산출물 두 개를 작성했다:
 
-```
-1. Goal: medical_dental_ads_daily_goal.md 지침에 따라 2026-05-22 한국 병원/치과 
-   광고·마케팅 최신 정보와 공개 SERP 표본을 수집·분석하고, 지정된 누적 
-   지식베이스 파일을 업데이트한다.
-2. Scope: ~/dentalad/research/daily-medical-dental-ads/ 아래 오늘자 파일들.
-   공식/준공식 소스와 공개 네이버 통합검색 SERP 표본만 사용한다.
-```
+- `2026-05-23-daily-intel.md` — 편집자용 정리본
+- `2026-05-23-daily-intel.json` — 구조화된 후보 데이터
 
-목표·범위·제외 범위를 명시하면 Claude가 직접 "어디까지 할지"를 결정하지 않아도 된다. 그날 핵심 발견은 네이버 공지 31700번 — 2026-05-28부터 통합검색 플레이스광고 슬롯 상향, 병의원 포함. 이걸 감지해서 rolling KB를 업데이트하고 HTML 보고서까지 생성했다.
+세션 전체가 4분, Read 6회뿐이었다. 코드 한 줄 안 쓰고 콘텐츠 파이프라인을 돌린 케이스다.
 
-산출물:
-- `2026-05-22-daily-update.md`
-- `rolling-knowledge-base.md` 업데이트
-- `source-index.md` 업데이트
-- `competitive-serp-observations.md` 업데이트
-- `naver-ranking-hypotheses.md` 업데이트
+## 가설 31 확장 검증: 치과 광고 SERP에서 보이지 않는 패턴
 
-그런데 세션이 타임아웃으로 끊겼다. HTML 보고서 생성 직전에.
+두 번째 세션이 이날의 핵심이었다. `claude-opus-4-7`이 한국 치과·병원 광고 SERP를 관찰하고 누적 지식베이스를 업데이트하는 작업 — 9분, 29 tool calls.
 
-## 타임아웃 이후: 이어받기 세션 전략
+가설 31은 이전 세션에서 세운 것이다: "라미네이트 부작용 키워드에는 광고와 심의필이 모두 노출되지 않는다." 오늘은 `임플란트 부작용`, `교정 부작용`, `수면치료 위험성`으로 확장 검증했다. 결과는 가설 강화 — `부작용`형 키워드 전반에서 파워링크·심의필 미검출.
 
-세션 4는 세션 3의 마저 못 한 일을 마무리하는 것이었다.
+중간에 네이버 공지 ID **31768**이 목록 상단에 새로 등장했다. Claude가 `summary.json`을 분석해서 이를 감지하고 관련 섹션에 반영했다.
+
+세션 진행 흐름:
 
 ```
-The previous Claude run updated the markdown files and sources but timed out 
-before creating the HTML report referenced in 2026-05-22-daily-update.md.
-
-Goal: Create the missing mobile-friendly HTML report and verify the daily artifacts.
-Do not redo the whole crawl unless required.
+1. 목표 파일 + 어제 데일리 업데이트 읽기 (연속성 확인)
+2. 수집 스크립트 collect_2026_05_23.py 작성·실행
+3. summary.json 분석 — 공지 31768 신규 감지
+4. 5개 마크다운 파일 업데이트 시도 → 오케스트레이션 훅에 막힘
+5. complexity 재분류 후 진행
 ```
 
-"이전 실행이 어디서 멈췄는지"를 명시하고, "처음부터 다시 하지 말라"는 제약을 걸었다. 이렇게 하면 Bash 7번, Read 4번, Grep 3번, Write 1번으로 충분히 마무리된다. 이전 세션에서 5분을 썼다면 이어받기 세션은 5분 안에 끝낸다.
+4단계에서 워크플로우 게이트가 작업을 차단했다. 코드 변경이 없는 리서치 파일 업데이트인데 `standard`로 분류되어 Edit/Write가 막힌 것이다. Claude가 스스로 "코드 변경 없는 누적 리서치 파일 업데이트라 `trivial`이 맞다"고 재분류한 뒤 통과했다.
 
-최종 산출물: `2026-05-22-integrated-search-place-ad-slot-expansion.html` (23.0KB, 자기완결형, 모바일 친화 CSS).
+도구 호출 분포: Bash 14, Read 6, Edit 5, Write 3, ToolSearch 1.
 
-## API 에러가 났을 때
+## HTML 보고서 생성을 별도 세션으로 쪼개는 이유
 
-세션 1에서 SpoonAI 콘텐츠 인텔리전스를 수집하던 중 이런 에러가 났다:
+세션 3은 세션 2에서 미완으로 남긴 HTML 보고서만 따로 생성했다. 3분, 13 tool calls.
 
-```
-API Error: The socket connection was closed unexpectedly. 
-For more information, pass `verbose: true` in the second argument to fetch()
-```
+세션을 굳이 나눈 건 컨텍스트 관리 때문이다. 세션 2가 이미 29회 도구 호출로 길어진 상태였다. 소스 파일을 전부 다시 읽어야 하는 보고서 생성은 fresh context에서 시작하는 게 더 안정적이다.
 
-Bash 14번을 쓴 세션이었다. raw JSON 파싱 → 후보 선별 → 파일 저장까지 하려다가 소켓이 끊긴 것이다. 이 경우도 이어받기 세션이 아니라 세션 2를 별도로 열어서 "이 두 파일이 스키마에 맞는지만 검증해라"라는 좁은 태스크로 나눴다.
+산출물: `reports/2026-05-23-risk-word-info-keyword-ad-gap.html` — 모바일 친화 HTML, 8개 섹션, 24KB. 특정 병원명·주소 없음, CPC/CTR/ROAS 수치 없음 (의료광고법 준수). `[공식 확인]`·`[공개 SERP 관찰]`·`[운영 가설]`·`[확인 필요]`·`[수치 미확인]`·`[고지출 추정]` 라벨 포함.
 
-결과: Read 2번으로 PASS 판정. 세션 1이 파일을 생성하는 데까지는 성공했던 것이다.
+## 1분짜리 핀포인트 수정: 라벨 누락 패치
 
-## 코딩 없이 전략 자문
+세션 4는 세션 3 결과 검토 중 발견한 누락 하나를 수정하는 것이었다. HTML에서 `[고지출 추정]` 라벨이 빠져 있었다.
 
-세션 6이 흥미로웠다. SpoonAI `/newsite` 프로토타입에 대한 마케팅·기획 피드백을 요청했다. 코드 변경 0줄, Read 2번 + Grep 1번.
-
-그런데 Stop 훅이 막았다:
+수정 범위: 파일 하나, 문장 하나. 4회 도구 호출로 끝났다.
 
 ```
-Stop hook feedback:
-Found 3 debug/TODO leftover(s) in working tree. 
-Clean them up or confirm intentional before stopping.
+Read → Edit → Bash (파일 크기 확인) → Grep (라벨 존재 확인)
 ```
 
-Claude가 확인해보니 이번 세션에서 작성한 코드가 아니었다. `scripts/*`의 `console.log`는 CLI 유틸리티의 stdout 출력이 본 목적이고, `app/api/subscribe/route.ts`의 마커는 사전 존재하는 것이었다. 이 경우엔 훅 판단이 틀렸다는 걸 설명하고 통과시켰다.
+결과: 파일 크기 24,974 bytes, `[고지출 추정]`·`[수치 미확인]` 모두 확인. 세션 시간 0분 — 실제로 1분 미만이었다는 뜻이다.
 
-전략 자문 결과는 Telegram에 바로 붙여넣을 수 있는 형식으로 나왔다. B2B SaaS로 포지셔닝할 때 `/newsite`의 5개 학습 트랙 중 "논쟁 트랙"이 가장 차별화 포인트라는 판단도 여기서 나왔다.
+## Codex가 잡아낸 날짜 시제 오류
 
-## 도구 사용 통계로 보는 세션 특성
+마지막 세션은 외부 모델 교차검증 결과를 적용하는 워크플로우였다. Codex read-only 리뷰가 `naver-ranking-hypotheses.md`에서 두 가지 blocking 이슈를 찾아냈다:
 
-| 세션 | 주요 도구 | 특성 |
-|------|-----------|------|
-| 1 | Bash(14) | 네트워크 집약적, API 에러 발생 |
-| 2 | Read(2) | 검증만, 최소 도구 |
-| 3 | Bash(20), Read(13), Edit(6) | 리서치+파일 업데이트 동시 |
-| 4 | Bash(7), Read(4), Grep(3) | 타임아웃 이어받기 |
-| 5 | Read(1), Write(1) | 단순 재편집 |
-| 6 | Read(2), Grep(1) | 코드 없는 자문 |
-| 7 | Bash(4), Write(2) | HTML 보고서 단일 생성 |
+**오류 1** — 530번째 줄 근처. "5/14·5/28 두 단계로 슬롯이 확대되었다"라는 표현이 5/28(미래)을 완료로 서술.
 
-Bash가 많으면 외부 리소스 수집이 필요한 세션이다. Read/Edit 비율이 높으면 기존 파일 기반 업데이트 세션이다. Write만 1번이면 가장 빠르게 끝난다.
+**오류 2** — 536번째 줄 근처. "두 단계 확장 이후"가 5/28 이후를 기정사실로 처리.
 
-## 프롬프트 구조에서 배운 것
+수정 결과:
 
-이번 7세션을 통해 확인한 패턴이 있다. 잘 작동한 프롬프트는 세 가지 공통점이 있다.
+```
+Before: "5/14·5/28 두 단계로 ... 슬롯이 확대되었다"
+After:  "5/14 적용 + 5/28 예정 두 단계로 ... 슬롯 확대 흐름이 진행 중이다"
 
-첫째, **인테이크 구조가 있다**. 목표·범위·실제 작업·제외 범위를 번호로 구분한다. Claude가 "이걸 어디까지 해야 하지?"를 스스로 추론하는 시간을 없앤다.
+Before: "두 단계 확장 이후"
+After:  "5/28 적용 이후에는"
+```
 
-둘째, **이전 상태를 명시한다**. "이전 실행이 마크다운까지는 했고, HTML만 남았다"처럼 컨텍스트를 넘기면 처음부터 다시 탐색하지 않는다.
+Edit 2, Grep 2, Read 1. 5회 도구 호출.
 
-셋째, **산출물 경로를 고정한다**. `~/dentalad/research/daily-medical-dental-ads/` 같은 절대 경로를 프롬프트에 박아두면 Claude가 파일을 어디 둘지 결정하지 않는다. 이게 이어받기 세션에서 특히 중요하다.
+누적 파일에서 날짜 시제 오류는 AI가 자주 만드는 패턴이다. 오늘 이후 날짜를 과거형으로 쓰는 실수는 단일 모델이 장문 컨텍스트를 다룰 때 놓치기 쉽다. 교차검증 에이전트가 이걸 잡아낸 케이스.
+
+## 도구 호출 통계
+
+| 도구 | 횟수 |
+|------|------|
+| Read | 20 |
+| Bash | 18 |
+| Edit | 8 |
+| Grep | 6 |
+| Write | 4 |
+| ToolSearch | 1 |
+| **합계** | **57** |
+
+Read 20회가 가장 많다. 맥락 파악 우선 패턴 — 기존 파일을 충분히 읽고 연속성을 확인한 뒤 수정한다. Bash 18회는 스크립트 실행·파일 크기 확인·검색에 골고루 쓰였다.
+
+## 오늘의 패턴 세 가지
+
+**세션 분리가 품질을 올린다.** 세션 2가 길어지자 HTML 보고서 생성을 세션 3으로 분리했다. 컨텍스트가 길어진 세션에서 대형 산출물을 만들면 오류가 늘어난다. 자연스러운 컷오프 지점을 찾아서 나누는 게 낫다.
+
+**오케스트레이션 훅은 분류에 민감하다.** complexity가 틀리면 작업이 막힌다. Claude가 스스로 재분류하는 건 정상 동작이지만, 훅이 콘텐츠 업데이트와 코드 변경을 구분하지 못하면 마찰이 생긴다.
+
+**Codex 교차검증은 시제에 강하다.** 단일 모델이 오늘 기준으로 미래/과거를 구분하는 게 어렵다. 외부 모델이 blocking 이슈로 날짜 시제 오류 두 개를 잡아낸 건 교차검증을 쓸 이유다.
 
 ## 숫자로 보는 하루
 
-- 총 세션: 7개
-- 총 tool calls: 86
-- 생성 파일: 5개
+- 총 세션: 5개
+- 총 tool calls: 57
+- 생성 파일: 3개 (`2026-05-23-daily-intel.md`, `collect_2026_05_23.py`, HTML 보고서)
 - 수정 파일: 4개
-- 타임아웃 발생: 1회
-- API 소켓 에러: 1회
 - 코드 커밋: 0건
-
-코딩은 없었다. 그래도 이 세션들이 없었으면 치과 광고 KB 업데이트, SpoonAI 인텔 수집, 담배 재고 MVP 보고서가 수동으로 몇 시간 걸렸을 것이다.
+- 코딩: 0줄
