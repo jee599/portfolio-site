@@ -1,94 +1,93 @@
 ---
-title: "Claude Code 리서치 에이전트 — 9분, 26 tool calls로 의료광고 데일리 KB 완성"
+title: "Vercel 배포 4번 CANCELED — 481개 파일 검증 후 진짜 원인은 CountUp.tsx였다"
 project: "portfolio-site"
 date: 2026-05-25
 lang: ko
-tags: [claude-code, automation, research, dental-ad]
-description: "Claude Opus 4.7로 의료·치과 광고 데일리 리서치를 자동화했다. 9분, 26 tool calls로 누적 KB 업데이트 + HTML 보고서 생성까지 완료한 에이전트 패턴을 정리한다."
+tags: [claude-code, debugging, vercel, nextjs, yaml]
+description: "Vercel 배포 4번 CANCELED. YAML frontmatter 에러로 추정해 481개 파일을 전부 파싱했지만 깨진 파일 0개. 진짜 원인은 누락된 CountUp.tsx 컴포넌트였다. 2세션 218 tool calls의 디버깅 기록."
 ---
 
-26번의 tool call, 9분. `rolling-knowledge-base.md` 업데이트, 데일리 리포트 생성, 경쟁사 SERP 관찰 기록, HTML 보고서까지 한 세션에 끝났다.
+4일 동안 Vercel 배포가 전부 CANCELED 상태였다. 프로덕션은 4/26 수동 배포 버전에서 멈춰 있었고, 그 이후 올린 기사는 하나도 반영되지 않았다.
 
-**TL;DR** Claude Opus 4.7을 리서치 에이전트로 써서 의료·치과 광고 경쟁분석 KB를 데일리로 자동 업데이트하는 패턴을 검증했다. 핵심은 대용량 JSON을 grep으로 먼저 뽑고, 기존 문서에 append-only로 붙이는 방식이다.
+**TL;DR** 진짜 원인은 YAML이 아니었다. `CountUp.tsx` 파일 하나가 빠져 있었고 Turbopack이 그걸 빌드 실패로 처리했다. YAML은 481개 파일 전부 이상 없음.
 
-## 배경: 반복 리서치를 에이전트에 넘기다
+## 증상 — 에러 메시지가 YAML을 가리켰다
 
-의료·치과 광고 캠페인을 운영하면서 경쟁사 SERP와 키워드 비용 추이를 매일 추적해야 했다. 기존 방식은 수동으로 `daily-update.md`를 작성하고, `rolling-knowledge-base.md`에 항목을 붙이고, 소스 인덱스를 관리하는 일이었다. 반복적이고 구조적이라 에이전트에 넘기기 좋은 작업이다.
+에러 메시지는 명확해 보였다.
 
-세션은 아래 요청으로 시작했다:
-
-> "의료·치과 광고 최신전략 리서치 에이전트로서 2026-05-24 공식/준공식 자료와 공개 SERP 표본을 반영해 데일리 업데이트, 누적 KB, 소스 인덱스, 경쟁 SERP 관찰, 상위노출 운영 가설을 업데이트하고 필요 시 모바일 HTML 보고서를 만든다."
-
-소크라테스식 인테이크 없이 곧바로 작업 지시를 담아 보냈고, Claude는 파일 확인부터 시작했다.
-
-## 에이전트가 실제로 한 일
-
-세션을 분해하면 크게 세 단계다.
-
-**1단계 — 컨텍스트 파악 (Read 10회)**
-
-먼저 기존 산출물을 전부 읽었다. `2026-05-23-daily-update.md`, `rolling-knowledge-base.md`, `source-index.md`, `competitive-serp-observations...`까지. 큰 파일은 chunked read로 나눠 읽었고, 이미 어디까지 작성됐는지 파악한 뒤 오늘 분량만 추가하는 전략을 택했다.
-
-**2단계 — 대용량 JSON 처리 (Bash 12회)**
-
-`sources/serp-2026-05-24/summary.json`은 통째로 읽기엔 너무 컸다. 여기서 Bash grep을 적극적으로 썼다:
-
-```bash
-grep -E '"keyword"|"cpc"|"position"' sources/serp-2026-05-24/summary.json | head -100
+```
+YAMLException: incomplete explicit mapping pair; a key node is missed;
+or followed by a non-tabulated empty line at line 3, column 277
 ```
 
-전체 JSON을 Read 도구로 로드하지 않고 필요한 키만 추출했다. 이 패턴이 token 낭비를 막는 핵심이었다. Bash가 12번 중 절반 이상이 이런 grep·head 조합이었다.
+파일도 지목됐다: `/posts/2026-04-05-furiosa-ai-rngd-commercial-launch-en`. 4/27, 4/28 GitHub push로 트리거된 Vercel 배포가 전부 CANCELED됐다. 사용자의 가설은 합리적이었다. 에러 메시지가 YAML을 가리켰고, 최근 콘텐츠 validation 로직을 추가한 커밋(`feat(validate-content): integrate 5요소 quality-checks`)도 의심 대상이었다.
 
-**3단계 — 산출물 생성 (Write 2회, Edit 2회)**
+## Session 1 — gray-matter로 481개 파일 전부 검증
 
-파악이 끝난 뒤 Write 2회로 신규 파일 두 개를 만들었다:
+첫 번째 접근: `content/posts/`, `content/daily/`, `content/blog/`, `content/weekly/` 전체 MD 파일을 `gray-matter`로 파싱. 481개 파일, 깨진 파일 0개.
 
-- `2026-05-24-daily-update.md` — 오늘 분석 요약
-- `reports/2026-05-24-cost-keyword-serp-split.html` — 모바일 최적화 HTML 보고서
+지목된 furiosa 파일의 line 3은 204자였다. 4/14 배치 수정에서 이미 정리된 상태. 에러 메시지의 `column 277` 패턴과 맞지 않았다.
 
-Edit 2회는 기존 `rolling-knowledge-base.md`와 `source-index.md`에 5/24 항목을 append하는 데 썼다.
-
-## 대용량 파일 처리 패턴
-
-리서치 에이전트를 쓸 때 가장 흔한 실수는 모든 파일을 처음부터 통째로 로드하는 것이다. 이 세션에서 효과적이었던 패턴은 두 가지다.
-
-**grep-first 패턴**: JSON이든 마크다운이든, 우선 grep으로 필요한 줄만 뽑는다. 전체를 읽는 건 마지막 수단이다.
-
-**append-only 편집**: 기존 문서를 통째로 수정하지 않고 끝에 오늘 날짜 섹션만 추가했다. Edit 범위가 최소화되고, diff가 명확해진다.
+여기서 전환점이 왔다. YAML 검증이 통과했으니 빌드를 직접 돌려보자.
 
 ```bash
-# rolling-knowledge-base.md 끝부분 확인 후 append 위치 특정
-tail -30 rolling-knowledge-base.md
+npm run build
 ```
 
-Read 대신 Bash tail로 끝 부분만 확인하고, Edit old_string에 마지막 단락을 넣어 그 뒤에 신규 내용을 붙였다.
+다른 에러가 떴다.
 
-## tool call 분포
+```
+Module not found: Can't resolve './CountUp'
+```
 
-| 도구 | 횟수 | 주요 용도 |
-|------|------|-----------|
-| Bash | 12 | grep, head, tail, state 설정 |
-| Read | 10 | 기존 파일 chunked 읽기 |
-| Write | 2 | 신규 파일 생성 |
-| Edit | 2 | 기존 KB append |
+`HomeContent.tsx`가 `CountUp.tsx`를 import하고 있는데 파일 자체가 없었다. Next.js 16 기본값인 Turbopack이 이 누락을 빌드 실패로 처리했다. Vercel에서 표시된 `YAMLException` 메시지는 이전 배포 실패와 뒤섞인 오래된 로그거나 misleading한 wrapper 에러였다.
 
-Read가 10회인 이유는 큰 파일을 분할해서 읽었기 때문이다. `rolling-knowledge-base.md`는 세 번에 나눠 읽었다. 통째로 한 번에 읽는 것보다 원하는 섹션을 offset으로 지정해서 읽는 게 훨씬 효율적이다.
+## Session 2 — systematic-debugging 스킬 적용, 다시 같은 지점에서 시작
 
-## 모델 선택: Opus 4.7을 쓴 이유
+두 번째 세션은 독립적으로 같은 프롬프트로 시작됐다. 이번엔 `systematic-debugging` 스킬을 적용하고 더 체계적으로 접근했다.
 
-이 세션은 `claude-opus-4-7`로 돌렸다. 리서치 에이전트에서 Opus를 택하는 기준은 단순하다. 여러 문서의 맥락을 동시에 유지하면서 새 내용을 일관된 톤으로 작성해야 할 때, Sonnet보다 Opus가 훨씬 안정적이다.
+`js-yaml`로 직접 파싱, `validate-content.mjs` 코드 분석(line 559의 `matter.stringify` 로직 확인), 최근 커밋 히스토리 탐색. 117 tool calls를 써서 481개 파일을 재검증했다.
 
-데일리 업데이트처럼 이전 날의 패턴을 이어받아야 하는 작업은 모델이 컨텍스트를 오래 붙잡고 있어야 한다. 9분 세션에서 10개 파일을 읽고 4개 산출물을 냈다는 게 그 결과다.
+과정에서 `content/daily/2026-04-10-en.md`와 `2026-04-10.md` 두 파일에 frontmatter가 아예 없는 걸 발견했다. 실제 문제이긴 했지만 배포를 CANCELED 상태로 만드는 직접 원인은 아니었다.
 
-## 자동화 한계와 다음 단계
+Session 2는 thoroughness 측면에선 맞는 접근이었지만, Session 1에서 이미 진짜 원인을 찾았기 때문에 중복 탐색이 됐다. 두 세션이 독립적으로 시작된 결과다.
 
-이번 패턴의 한계도 명확하다. SERP 데이터 수집 자체는 아직 수동이다. `sources/serp-2026-05-24/summary.json`은 사람이 직접 만들어 넣어야 한다. 다음 단계는 Google Custom Search API나 Playwright로 SERP 표본을 자동 수집해서 에이전트에 넘기는 파이프라인을 붙이는 것이다.
+## 수정 — CountUp.tsx 생성 + daily 파일 2개 복구
 
-또 HTML 보고서는 생성됐지만 배포가 자동이 아니다. Cloudflare Pages에 자동으로 올라가도록 GitHub Actions와 연결하면 진짜 "수동 개입 없는" 데일리 리포트가 된다.
+수정 내용은 단순했다. `CountUp.tsx` 컴포넌트를 생성하고, frontmatter가 누락된 두 daily 파일을 올바른 구조로 변환했다.
 
-## 정리
+빌드 검증:
 
-- grep-first + append-only 패턴이 리서치 에이전트의 token 낭비를 막는다
-- 대용량 JSON은 Read 말고 Bash grep으로 먼저 키를 뽑는다
-- 9분, 26 tool calls면 데일리 KB 업데이트 + HTML 보고서까지 충분하다
-- Opus 4.7은 다문서 컨텍스트 유지가 필요한 리서치 작업에 적합하다
+```bash
+npm run build
+# → 480 static pages generated
+```
+
+480개 정적 페이지 생성 확인. `8aa059b` 커밋 후 `origin/main` push. Vercel auto-deploy가 재개됐다.
+
+## 세션 통계
+
+| 항목 | 수치 |
+|------|------|
+| 세션 수 | 3 |
+| 모델 | claude-opus-4-7 |
+| 총 소요 시간 | 약 23분 |
+| 총 tool calls | 218 |
+| Bash | 178 |
+| Read | 30 |
+| TodoWrite | 5 |
+| Write / Edit | 각 1 |
+| 생성 파일 | `CountUp.tsx` |
+| 수정 파일 | `HomeContent.tsx` + daily 2개 |
+
+Bash가 178회로 압도적이다. 481개 파일 파싱, `validate-content.mjs` 분석, 빌드 실행, 커밋/push까지 전부 Bash였다.
+
+## 회고 — 로컬 빌드 재현이 먼저다
+
+증상과 원인이 다른 케이스의 전형이었다.
+
+에러 메시지가 YAML을 지목해도, 실제 빌드를 재현해보기 전까지 확신할 수 없다. `gray-matter` 검증은 필요한 단계였지만, 그보다 먼저 로컬에서 같은 에러를 재현했다면 2세션 22분이 아니라 5분에 끝났을 것이다.
+
+> 로컬에서 재현 안 되면, 가설을 버리고 빌드 파이프라인 전체를 다시 봐야 한다.
+
+`npm run build` 한 번이 481개 파일 검증보다 빠른 진단 도구였다. `systematic-debugging` 스킬의 핵심은 증상 레이어가 아니라 실행 레이어에서 재현하는 것이다.
