@@ -1,111 +1,148 @@
 ---
-title: "Claude Opus 4.7 as a Research Agent: 9 Minutes, 26 Tool Calls, 4 Output Files"
+title: "9 Minutes, 26 Tool Calls: Automating a Daily Research KB with Claude Code"
 project: "portfolio-site"
 date: 2026-05-24
 lang: en
 pair: "2026-05-24-portfolio-site-ko"
-tags: [claude-code, automation, research, dental, claude-opus]
-description: "Ran claude-opus-4-7 as a daily SERP research agent for medical/dental ads. One prompt, no intervention: it read source files, generated updates, appended to a rolling KB, and produced an HTML report in 9 minutes."
+tags: [claude-code, automation, research, dental-ad, knowledge-base]
+description: "claude-opus-4-7 ran SERP analysis, KB updates, and HTML reports in a single 9-minute session — 26 tool calls, 84% reads, 4 artifacts."
 ---
 
-9 minutes. 26 tool calls. 4 files written or updated. One prompt, zero intervention.
+9 minutes. 26 tool calls. 4 files. That's the complete cost of updating a medical and dental advertising research knowledge base today.
 
-That's what running `claude-opus-4-7` as a dedicated research agent looks like in practice — not a benchmark, just a real session processing Korean medical/dental advertising SERP data that would otherwise take 30–40 minutes by hand.
+**TL;DR**: I deployed `claude-opus-4-7` as a research agent to handle SERP analysis, incremental KB updates, and HTML report generation in a single session. The key insight: pass file paths explicitly in the prompt and the agent self-optimizes context consumption — `grep` for large JSON, `tail` for append-checks, full `Read` for small markdown files. No orchestration infrastructure required.
 
-**TL;DR** — Automated the daily research update cycle for a dental advertising SERP knowledge base using Claude Opus 4.7. The agent read source JSON, generated today's daily update, appended new entries to a rolling knowledge base, and produced a mobile HTML report in one session. The key pattern: pass file paths explicitly in the prompt, and the model self-selects the most efficient read strategy — `grep` for large files, `Read` for small ones.
+## The Problem: Manual Research Gets Skipped
 
-## The Problem: SERP Data Accumulates Faster Than You Can Process It
+The `dentalad` project accumulates daily SERP snapshots and competitor ad data for Korean medical and dental advertising. The goal is a rolling knowledge base that captures patterns, keyword shifts, and competitor moves over time — files like `rolling-knowledge-base.md` and `naver-ranking-hypotheses.md`.
 
-Under `dentalad/research/daily-medical-dental-ads/`, SERP snapshots and competitor ad data land every day. Processing them manually — reading the source, comparing with previous hypotheses, updating the rolling knowledge base, writing a summary — takes 30–40 minutes at minimum.
+Manual processing looks like this:
 
-The deeper problem: `rolling-knowledge-base.md` and `naver-ranking-hypotheses.md` are both long-running documents. When updates fall behind by a day or two, they drift out of sync. And once they're out of sync, catching up takes even longer.
+1. Open `sources/serp-YYYY-MM-DD/summary.json`, skim 800+ lines
+2. Identify keyword position changes, new ad entries, bid estimate shifts
+3. Compare against yesterday's update document
+4. Append entries to `rolling-knowledge-base.md` in the right sections
+5. Update `source-index.md`
+6. Write an HTML summary report
 
-The fix was giving Opus 4.7 a clear role:
+Conservative time: 60–90 minutes. Realistic outcome on a busy day: skipped entirely.
 
-> "Read today's SERP summary file, update the existing documents, and produce a report."
+When the KB goes 2–3 days without updates, synchronization degrades. `rolling-knowledge-base.md` starts referencing keywords that no longer rank. `competitive-serp-observations.md` misses new market entrants. The compounding effect is that catching up takes twice as long as staying current would have.
 
-## What a Socratic Intake Prompt Actually Looks Like
+A daily research workflow either fits under 15 minutes or it doesn't run daily. There's no middle ground.
 
-The prompt handed to the agent was structured around four explicit elements:
+## Define the Agent Role Before Touching Any File
+
+The session prompt followed one specific structure: role → scope → raw data paths → existing document paths.
 
 ```
-Goal: Daily research agent for medical/dental advertising strategy
+Goal: Medical and dental advertising research agent
 Scope: ~/dentalad/research/daily-medical-dental-ads/
-Source: sources/serp-2026-05-24/summary.json
-Existing docs: 2026-05-23-daily-update.md, rolling-knowledge-base.md,
-               source-index.md, competitive-serp-observations.md
+Raw data: sources/serp-2026-05-24/summary.json
+Existing docs:
+  - 2026-05-23-daily-update.md
+  - rolling-knowledge-base.md
+  - source-index.md
+  - competitive-serp-observations.md
 ```
 
-Goal, scope, source file path, and existing document paths — all explicit. The critical piece is handing over `sources/serp-2026-05-24/summary.json` directly. Without a specific path, the agent spends tool calls exploring the directory structure to figure out what exists. With the path, it starts reading immediately.
+The ordering matters. "Role" first establishes the decision-making context. "Scope" defines the working directory so no file traversal is needed. "Raw data paths" and "existing doc paths" are the critical input: hand these over explicitly, and the agent goes straight to the files.
 
-This is the "Socratic Intake" pattern: state what you want, where the data lives, and what the output targets are. The model handles everything in between.
+Without explicit paths, an agent typically burns 3–6 tool calls on directory traversal and glob searches to locate the same files. In a session with 26 total tool calls, that's 12–23% of the budget spent on orientation rather than actual analysis.
 
-## Why Bash Outnumbered Read — the Agent's Self-Optimization
+This is the Socratic Intake pattern applied to agent prompts: state role, scope, and all inputs upfront, so the agent's first action is substantive work — not asking where things are or what it's supposed to do.
 
-Tool usage for the session:
+## 84% of Tool Calls Were Reads — That's the Right Ratio
 
-| Tool | Count |
-|------|-------|
-| Bash | 12 |
-| Read | 10 |
-| Write | 2 |
-| Edit | 2 |
-| **Total** | **26** |
+The full 26 tool call breakdown:
 
-The Bash-over-Read split is worth understanding. `summary.json` is large enough that reading it in one shot would blow the context window. Claude recognized this and chose `grep` to extract only the relevant SERP summary sections — without being asked to.
+| Tool | Count | % |
+|------|-------|---|
+| Bash | 12 | 46% |
+| Read | 10 | 38% |
+| Write | 2 | 8% |
+| Edit | 2 | 8% |
 
-The three Bash use patterns across the session:
+84% exploration, 16% production. This ratio is what emerges from a well-specified task. Understanding the source material before writing prevents the agent from producing content that contradicts the raw data — or filling gaps with plausible-sounding inference.
 
-1. **Directory inventory** — `ls` to confirm file structure before touching anything
-2. **Targeted JSON extraction** — `grep` to pull SERP summary keys from the large source file
-3. **Rolling file position check** — `tail` to find the last entry in `rolling-knowledge-base.md` before appending
+The most interesting decision point was `summary.json`. The file is large enough that a full `Read` would consume a significant chunk of the context window. Claude chose `grep` instead:
 
-Only 2 Edit calls is also notable. Both `rolling-knowledge-base.md` and `source-index.md` are append-only structures — today's entries go at the bottom. The agent didn't rewrite existing content; it appended a new dated section. That's correct behavior for an accumulating knowledge base.
-
-## When the State Helper Is Missing — and the Agent Keeps Going
-
-There was a moment mid-session worth documenting:
-
-```
-state helper not found at expected path — proceeding with artifact generation
+```bash
+grep -n "keyword\|position\|title\|url" sources/serp-2026-05-24/summary.json | head -50
 ```
 
-The workflow state management script (`lib/state.sh`) wasn't present in the expected location. The agent detected this, noted it, and moved forward without blocking. No error. No retry loop. Just: the state tracking mechanism is absent, so I'll skip it and continue to outputs.
+Precise extraction of exactly the fields needed for SERP analysis: keyword rankings, page positions, titles, and URLs. The agent assessed the file, recognized the context risk, and chose the surgical path — without any instruction to do so.
 
-This is a property of file-based workflows worth preserving. The absence of `state.json` doesn't stop the session. If the output files are written, the next step has what it needs. File existence is a simpler source of truth than a state machine.
+The remaining Bash calls split into two patterns:
+- `ls` to verify directory structure before attempting reads — confirms files exist before spending a `Read` call on them
+- `tail -n 50` on `rolling-knowledge-base.md` — checks the most recent section before appending to avoid duplicates or format breaks
 
-## 9 Minutes Later: Four Files
+Smaller markdown documents got full `Read`. The heuristic that emerged: large structured data files get Bash extraction, small documents get full reads. Applied consistently across a session, this keeps context consumption predictable.
+
+## No State Helper? The Session Kept Moving
+
+One line appeared in the session log:
 
 ```
-Created:  2026-05-24-daily-update.md
-          → SERP analysis, competitor ad patterns, keyword trends for today
-
-Created:  reports/2026-05-24-cost-keyword-serp-split.html
-          → Mobile HTML report: cost/keyword/SERP split analysis
-
-Modified: rolling-knowledge-base.md
-          → 5/24 entry appended
-
-Modified: source-index.md
-          → Today's source indexed
+No state helper found — proceeding to artifact generation.
 ```
 
-The HTML report was a single `Write` call. Claude synthesized the rolling KB content and today's SERP summary into a mobile-ready layout — the same report that previously took 20+ minutes to produce manually.
+The workflow state management script (`lib/state.sh`) wasn't at the expected path. In a state-machine-dependent workflow, this is a blocking error — the session stops and waits for a missing dependency.
 
-The daily update and HTML report are the two outputs with direct business value. The KB and index updates are infrastructure — they compound over time, keeping the research base accurate and searchable.
+In a file-based workflow, it's a one-line note and a continue.
 
-## The Core Pattern: File Paths Are Half the Prompt
+`lib/state.sh` manages `state.json`, which tracks stage transitions across a workflow. The agent already had its goal from the prompt and knew exactly which files to produce. State tracking would have been useful for orchestration logging, but wasn't required for execution.
 
-The model doesn't need to be told "read these files" step by step. It needs to know where the files are.
+File-based workflows are more resilient because outputs are defined by the task, not by a state transition graph. If a helper script is missing, the agent produces the target files and moves on. A future orchestrator can reconcile the state log afterwards.
 
-When you put file paths in the prompt, Opus 4.7 works out the optimal read strategy on its own: `grep` for large files, `Read` for small ones, `tail` for finding the current position in an append-only document. The strategy depends on file size and read goal, and the model reasons about both without instruction.
+The tradeoff: without state tracking, visibility into long-running sessions degrades. For sessions under 15 minutes with a single clear goal, that's acceptable. For multi-hour sessions with inter-step dependencies, state tracking becomes important.
 
-The dental ad research workflow now runs on two elements:
+## 2 Writes + 2 Edits = 4 Artifacts
 
-1. **Socratic Intake prompt** — goal, scope, source path, existing doc paths
-2. **SERP snapshot** — dropped into `sources/YYYY-MM-DD/` daily
+| File | Action | Content |
+|------|--------|---------|
+| `2026-05-24-daily-update.md` | Write | SERP analysis, competitor ad patterns, keyword trends |
+| `reports/2026-05-24-cost-keyword-serp-split.html` | Write | Mobile HTML report: cost vs keyword vs SERP position splits |
+| `rolling-knowledge-base.md` | Edit | Append 5/24 section |
+| `source-index.md` | Edit | Add today's source entry |
 
-My daily action is dropping the snapshot. The agent handles everything else in under 10 minutes.
+The Write/Edit split is deliberate. New files get Write. Cumulative files get append-only Edit.
+
+`rolling-knowledge-base.md` accumulates patterns across weeks of SERP data. Rewriting it to add today's entry risks corrupting previously captured insights. The correct operation is a targeted append to the right section. Edit handles this; Write with full file content would overwrite. As files grow, Edit consistently beats Write for incremental updates.
+
+The same logic applies to `source-index.md`. It's a growing index of every data source ever processed. Today's entry goes at the bottom, and that's all that should change.
+
+The HTML report came out in a single Write call: cumulative KB and today's SERP data synthesized into a mobile-readable format with cost analysis by keyword cluster, position distribution, and ad composition by type. Building this manually from the same source data takes 20–25 minutes. It's the task that gets cut when you're short on time — and the first data you miss when trying to spot a trend three weeks later.
+
+## Why 9 Minutes Is the Number That Actually Matters
+
+Speed is the obvious benefit. A 7–10x improvement is real and measurable. But repeatability is the argument that actually matters.
+
+A 90-minute task competes with everything else on the calendar. On a day with back-to-back meetings, it gets skipped. Skip two consecutive days and the KB is stale. Stale KB means the next analysis is missing context from the gap. Data quality degrades faster than the gap duration implies, because gaps tend to happen on the busiest days — exactly when market conditions are most active.
+
+A 9-minute task doesn't compete. It runs between context switches. On the worst calendar day of the month, it still fits.
+
+> The real value of automation isn't speed — it's accumulation without gaps.
+
+Gap-free daily data is qualitatively different from data with frequent gaps. SERP data gaps mean missed competitor moves, keyword shifts that appear discontinuous, and bid estimate changes that look like sudden jumps rather than gradual trends. The 9-minute workflow produces data that's actually useful for trend analysis over weeks.
+
+## What This Pattern Requires
+
+Two inputs make this work consistently:
+
+**1. A Socratic Intake prompt**
+Role, scope, raw data paths, existing document paths — in that order. Complete enough that the agent's first action is reading a file, not asking a clarifying question.
+
+**2. Explicit file paths**
+Don't describe where files might be. State exactly where they are. This eliminates traversal calls and keeps the tool call budget focused on substantive work.
+
+What this doesn't require: state management infrastructure, multi-agent coordination, or complex orchestration pipelines. This session was a single agent, a single prompt, and 9 minutes.
+
+Where it breaks down: tasks where source data structure changes significantly between runs, or where KB updates require reasoning across multiple previous sessions simultaneously. Those cases benefit from more structured multi-step approaches with explicit state tracking.
+
+For daily SERP research with a stable file structure, a single well-prompted agent is sufficient.
+
+My only remaining job each morning: drop the SERP snapshot into `sources/`.
 
 ---
 

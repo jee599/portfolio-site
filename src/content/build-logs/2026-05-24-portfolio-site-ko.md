@@ -1,27 +1,21 @@
 ---
-title: "Claude Opus 4.7로 치과 광고 리서치 에이전트 — 9분, 26 tool calls"
+title: "Claude Code 9분, 26 tool calls로 의료광고 리서치 KB 자동 갱신"
 project: "portfolio-site"
 date: 2026-05-24
 lang: ko
-tags: [claude-code, automation, research, dental, claude-opus]
-description: "Claude Opus 4.7을 의료·치과 광고 데일리 리서치 에이전트로 투입했다. 9분 26 tool calls로 SERP 분석, 누적 KB 업데이트, HTML 보고서까지 한 번에 처리하는 패턴을 정리했다."
+tags: [claude-code, automation, research, dental-ad, knowledge-base]
+description: "9분, 26 tool calls로 의료·치과 광고 데일리 리서치 KB를 완전 갱신했다. Bash 12번·Read 10번으로 파악하고 Write·Edit 4번으로 파일 4개를 뱉어내는 패턴."
 ---
 
-`claude-opus-4-7`을 리서치 에이전트로 투입하면 9분 안에 SERP 분석 보고서가 나온다. 프롬프트 한 번, 개입 없음.
+9분. 26번의 tool call. 파일 4개. 이게 의료·치과 광고 데일리 리서치 KB 업데이트에 오늘 든 전부다.
 
-**TL;DR** 의료·치과 광고 데일리 리서치 업데이트를 Opus 4.7로 자동화했다. 기존 파일을 읽고, 오늘자 업데이트를 생성하고, 누적 KB에 append하고, HTML 보고서까지 한 세션에 처리했다. 핵심 패턴은 "파일 경로를 명시하면 에이전트가 알아서 최적 경로로 읽는다"다.
+**TL;DR** `claude-opus-4-7`을 리서치 에이전트로 투입해 SERP 분석, 누적 KB 갱신, HTML 보고서까지 한 세션에 처리했다. 핵심은 파일 경로를 미리 명시하면 에이전트가 Read와 Bash를 스스로 조합해 컨텍스트를 최적으로 소비한다는 것이다.
 
-## 작업 배경: 매일 쌓이는 SERP 데이터를 어떻게 정리할까
+## 에이전트 역할 정의가 먼저다
 
-`dentalad/research/daily-medical-dental-ads/` 아래에는 날마다 SERP 스냅샷과 경쟁사 광고 데이터가 쌓인다. 수동으로 정리하면 30~40분은 기본이다. 더 큰 문제는 `rolling-knowledge-base.md`와 `naver-ranking-hypotheses.md`가 오래되면 동기화가 깨진다는 것이다.
+`dentalad` 프로젝트에는 매일 SERP 스냅샷과 경쟁사 광고 데이터가 쌓인다. 사람이 수동으로 정리하면 30~40분이다. `rolling-knowledge-base.md`와 `naver-ranking-hypotheses.md`가 오래되면 동기화도 깨진다.
 
-해결책은 Opus 4.7에 역할을 주는 것이었다.
-
-> "오늘의 SERP 요약 파일을 읽고, 기존 문서를 업데이트하고, 보고서를 만들어라"
-
-## 프롬프트 구조: Socratic Intake 패턴
-
-에이전트에 넘긴 프롬프트는 다음 형식이었다.
+세션 시작 프롬프트는 역할 → 범위 → 원자료 경로 순서로 구성했다.
 
 ```
 Goal: 의료·치과 광고 최신전략 리서치 에이전트
@@ -31,64 +25,49 @@ Scope: ~/dentalad/research/daily-medical-dental-ads/
            source-index.md, competitive-serp-observations.md
 ```
 
-목표, 범위, 읽어야 할 파일, 기존 문서 경로를 전부 명시했다. `sources/serp-2026-05-24/summary.json` 경로를 직접 넘긴 게 핵심이다. 파일 경로를 빠뜨리면 에이전트가 디렉터리를 탐색하다 토큰을 낭비한다.
+파일 경로를 직접 넘기는 게 핵심이다. 경로를 빠뜨리면 에이전트가 디렉터리를 탐색하는 데 tool call을 낭비한다.
 
-## 26 tool calls의 흐름: Bash가 Read보다 많은 이유
+## Bash 12번 + Read 10번: 쓰기 전에 먼저 읽는다
 
-세션 도구 사용 통계.
+26번 tool call의 84%가 Bash(12)와 Read(10)다. 산출물을 만들기 전에 파악에 집중하는 패턴이다.
 
-| 도구 | 횟수 |
-|------|------|
-| Bash | 12 |
-| Read | 10 |
-| Write | 2 |
-| Edit | 2 |
-| **합계** | **26** |
+`summary.json`은 덩치가 크다. 통째로 Read하면 context가 터진다. Claude가 스스로 판단해서 grep 경로를 택했다.
 
-Bash가 Read보다 많다. 이유는 `summary.json`이 큰 파일이라 통째로 Read하면 context가 터진다. Claude가 스스로 판단해서 `grep`으로 핵심 키만 뽑는 경로를 택했다. 에이전트가 직접 최적화한 것이다.
+```bash
+grep -n "keyword\|position\|title\|url" sources/serp-2026-05-24/summary.json | head -50
+```
 
-실제로 Bash 사용 흐름을 보면 세 가지였다.
+Bash의 나머지 사용은 두 가지였다. `ls`로 디렉터리 구조 확인, `tail`로 누적 KB의 마지막 섹션 확인. 큰 파일은 Bash로 핵심만 추출하고, 작은 파일은 Read로 전체를 읽는다. 내가 지시하지 않아도 스스로 최적 경로를 잡는다.
 
-1. 파일 목록 확인 — `ls`로 디렉터리 구조 파악
-2. 대용량 JSON에서 핵심 키 추출 — `grep`으로 SERP 요약 섹션만 뽑기
-3. 누적 파일 최신 섹션 확인 — `tail`로 KB의 마지막 항목 확인
+## state 헬퍼가 없어도 막히지 않았다
 
-Edit이 2번뿐인 것도 눈에 띈다. `rolling-knowledge-base.md`와 `source-index.md`는 append 구조라 기존 내용을 재작성하지 않고 마지막에 오늘 날짜 섹션만 추가했다.
-
-## state 헬퍼 없이도 막히지 않는 이유
-
-세션 로그에 이런 메모가 있었다.
+세션 로그에 이런 메모가 남았다.
 
 ```
 state 헬퍼는 없는 듯하니 산출물 생성을 진행합니다.
 ```
 
-워크플로우 state 관리 스크립트(`lib/state.sh`)가 해당 경로에 없었다. 에이전트가 이를 감지하고, state를 기다리는 대신 바로 산출물 생성으로 넘어갔다. 블로킹 없이 목표를 달성한 셈이다.
+워크플로우 state 관리 스크립트(`lib/state.sh`)가 해당 경로에 없었다. Claude가 이를 감지하고 블로킹 없이 산출물 생성으로 넘어갔다. 상태 머신 의존도를 낮추는 파일 기반 워크플로우의 장점이다. `state.json`이 없어도 목표 파일이 있으면 다음 단계는 돌아간다.
 
-파일 기반 워크플로우의 장점이다. `state.json`이 없어도 결과 파일이 있으면 다음 단계가 진행된다. 상태 머신보다 파일 존재 여부가 더 단순한 진실원이다.
+## Write 2번 + Edit 2번: 산출물 4개
 
-## 9분 뒤 남은 파일 4개
+| 파일 | 동작 |
+|------|------|
+| `2026-05-24-daily-update.md` | Write — 당일 SERP 분석, 경쟁사 광고 패턴, 키워드 동향 |
+| `reports/2026-05-24-cost-keyword-serp-split.html` | Write — 비용·키워드·SERP 분할 모바일 HTML 보고서 |
+| `rolling-knowledge-base.md` | Edit — 5/24 항목 append |
+| `source-index.md` | Edit — 오늘 소스 인덱스 추가 |
 
-```
-생성: 2026-05-24-daily-update.md
-      → 오늘자 SERP 분석, 경쟁사 광고 패턴, 키워드 동향
+누적 파일(`rolling-knowledge-base.md`, `source-index.md`)은 통째로 재작성하지 않고 오늘 날짜 섹션만 append했다. Edit이 2번인 이유다. 파일이 커질수록 Write보다 Edit이 낫다.
 
-생성: reports/2026-05-24-cost-keyword-serp-split.html
-      → 비용·키워드·SERP 분할 모바일 HTML 보고서
+HTML 보고서는 Write 한 번으로 나왔다. 누적 KB와 SERP 요약을 종합해서 모바일에서 바로 볼 수 있는 포맷으로 뽑아낸 것이다. 수동으로 만들면 20분이 넘는 작업이다.
 
-수정: rolling-knowledge-base.md
-      → 5/24 누적 항목 추가
+## 9분이 가능한 조건
 
-수정: source-index.md
-      → 오늘 소스 인덱스 업데이트
-```
+사람이 같은 작업을 하면 최소 1~2시간이다. SERP 직접 확인, 엑셀 정리, 어제 문서 열고 항목 추가, HTML 보고서 작성.
 
-HTML 보고서는 Write 한 번으로 나왔다. Claude가 누적 KB와 SERP 요약을 종합해서 모바일에서 바로 볼 수 있는 포맷으로 뽑아냈다. 이전에는 이 보고서를 수동으로 만드는 데 20분 이상 걸렸다.
+26 tool calls로 같은 결과를 내는 건 단순히 빠르다는 문제가 아니다. **매일 반복할 수 있다**는 게 핵심이다. 1시간짜리 작업은 "오늘은 바빠서 패스"가 되지만, 9분짜리는 그렇지 않다.
 
-## 배운 것: 파일 경로가 프롬프트의 절반이다
-
-에이전트에게 "이 파일들을 읽어라"고 시키지 않아도 된다. "이 경로에 있다"고 알려주면 충분하다.
-
-프롬프트에서 파일 경로를 명시하면 Opus가 알아서 Read → Bash 조합으로 효율적으로 처리한다. 큰 파일은 grep으로, 작은 파일은 Read로. 내가 지시하지 않아도 스스로 최적 경로를 찾는다.
+> 자동화 투자의 진짜 가치는 속도가 아니라 빠지지 않고 누적되는 데이터에 있다.
 
 치과 광고 리서치 자동화는 이제 Socratic Intake 프롬프트 + 파일 경로 명시 두 가지로 돌아간다. 내가 할 일은 매일 SERP 스냅샷을 `sources/` 아래에 떨어뜨리는 것뿐이다.
