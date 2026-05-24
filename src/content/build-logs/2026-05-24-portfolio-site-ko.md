@@ -1,112 +1,94 @@
 ---
-title: "Claude Code 5세션 57 tool calls — AI 리서치 파이프라인에서 워크플로우 게이트가 막았을 때"
+title: "Claude Opus 4.7로 치과 광고 리서치 에이전트 — 9분, 26 tool calls"
 project: "portfolio-site"
 date: 2026-05-24
 lang: ko
-tags: [claude-code, automation, research, workflow]
-description: "하루 5세션 57 tool calls로 SpoonAI·치과광고 리서치를 자동화했다. 워크플로우 게이트가 Write를 차단했을 때 복잡도를 재분류해서 뚫은 과정, Codex가 미래 시제 오류를 잡아낸 사례까지."
+tags: [claude-code, automation, research, dental, claude-opus]
+description: "Claude Opus 4.7을 의료·치과 광고 데일리 리서치 에이전트로 투입했다. 9분 26 tool calls로 SERP 분석, 누적 KB 업데이트, HTML 보고서까지 한 번에 처리하는 패턴을 정리했다."
 ---
 
-하루 5개 세션, 57 tool calls. 두 프로젝트에 걸쳐 누적 리서치 파일을 업데이트하고 HTML 보고서를 생성했다. 중간에 워크플로우 게이트가 Write를 막았고, Codex cross-verify가 날짜 시제 오류를 잡아냈다.
+`claude-opus-4-7`을 리서치 에이전트로 투입하면 9분 안에 SERP 분석 보고서가 나온다. 프롬프트 한 번, 개입 없음.
 
-**TL;DR** 리서치 자동화는 코드 구현과 달리 "코드 변경 없는 파일 업데이트"가 대부분이다. 이걸 `major`로 분류하면 게이트가 막힌다. `trivial`로 재분류하는 게 핵심이다.
+**TL;DR** 의료·치과 광고 데일리 리서치 업데이트를 Opus 4.7로 자동화했다. 기존 파일을 읽고, 오늘자 업데이트를 생성하고, 누적 KB에 append하고, HTML 보고서까지 한 세션에 처리했다. 핵심 패턴은 "파일 경로를 명시하면 에이전트가 알아서 최적 경로로 읽는다"다.
 
-## 세션 1: 7MB 원자료를 부분 Read로 처리하기
+## 작업 배경: 매일 쌓이는 SERP 데이터를 어떻게 정리할까
 
-SpoonAI 새 사이트용 일간 콘텐츠 인텔리전스 수집이었다. 문제는 원자료 파일이 너무 컸다.
+`dentalad/research/daily-medical-dental-ads/` 아래에는 날마다 SERP 스냅샷과 경쟁사 광고 데이터가 쌓인다. 수동으로 정리하면 30~40분은 기본이다. 더 큰 문제는 `rolling-knowledge-base.md`와 `naver-ranking-hypotheses.md`가 오래되면 동기화가 깨진다는 것이다.
 
-`2026-05-23-daily-intel-raw.json`을 한 번에 읽으려다 실패했다. 파일이 크면 Read 한 번으로 끝낼 수 없다. Read를 3번 나눠서 중요한 구간만 훑었다.
+해결책은 Opus 4.7에 역할을 주는 것이었다.
+
+> "오늘의 SERP 요약 파일을 읽고, 기존 문서를 업데이트하고, 보고서를 만들어라"
+
+## 프롬프트 구조: Socratic Intake 패턴
+
+에이전트에 넘긴 프롬프트는 다음 형식이었다.
 
 ```
-Read(offset=0, limit=200)     → RSS/API 섹션 확인
-Read(offset=200, limit=200)   → arXiv/GitHub/HF 섹션
-Read(offset=400, limit=100)   → 마지막 community 섹션
+Goal: 의료·치과 광고 최신전략 리서치 에이전트
+Scope: ~/dentalad/research/daily-medical-dental-ads/
+원자료: sources/serp-2026-05-24/summary.json
+기존 문서: 2026-05-23-daily-update.md, rolling-knowledge-base.md,
+           source-index.md, competitive-serp-observations.md
 ```
 
-원자료 범위를 파악한 다음에 두 산출물 파일을 한 번에 썼다. Read 6번, 다른 도구는 전혀 없었다. 소요 시간 4분.
+목표, 범위, 읽어야 할 파일, 기존 문서 경로를 전부 명시했다. `sources/serp-2026-05-24/summary.json` 경로를 직접 넘긴 게 핵심이다. 파일 경로를 빠뜨리면 에이전트가 디렉터리를 탐색하다 토큰을 낭비한다.
 
-## 세션 2: 워크플로우 게이트가 Write를 막았다
+## 26 tool calls의 흐름: Bash가 Read보다 많은 이유
 
-치과광고 데일리 리서치 업데이트가 주요 작업이었다. 누적 지식베이스, 소스 인덱스, 가설 파일 등 5개 마크다운을 업데이트해야 했다.
-
-워크플로우 게이트(PreToolUse hook)가 Write 직전에 막았다. 이유는 분류가 `standard`로 잡혔기 때문이다 — 파일이 많으니까 자동으로 올라간 것이다.
-
-실제로는 코드 변경이 전혀 없는 누적 리서치 파일 업데이트였다. 이런 작업에 plan/verifier/codex 파이프라인을 태우는 건 낭비다. 복잡도를 `trivial`로 재분류했다.
-
-```bash
-source ~/.claude/workflow/lib/state.sh && state_set complexity trivial
-```
-
-게이트가 열리고 파일을 썼다. 이 세션이 오늘 중 가장 무거웠다 — Bash 14, Read 6, Edit 5, Write 3, ToolSearch 1. 총 29 tool calls, 9분.
-
-## 세션 3: HTML 보고서 누락 복구
-
-세션 2에서 생성하려던 HTML 보고서가 게이트에 막혀 빠졌다. 세션 3에서 단독으로 처리했다.
-
-소스 파일 4개를 읽고 보고서를 생성했다. 기존 보고서 스타일을 참고하기 위해 `reports/` 아래 이전 파일 하나를 먼저 훑었다. 결과는 24KB 모바일 친화 HTML, 8개 섹션.
-
-주의한 것은 특정 병원명·주소 노출이었다. 생성 후 `grep`으로 확인했다.
-
-```bash
-grep -n "병원\|의원\|클리닉" 2026-05-23-risk-word-info-keyword-ad-gap.html
-```
-
-"병의원"은 공지 본문에 나오는 일반 업종 분류명이라 괜찮다고 판단하고 넘겼다. Read 6, Bash 3, Grep 3, Write 1 — 총 13 tool calls.
-
-## 세션 4: 라벨 한 개가 빠진 걸 Codex가 발견
-
-세션 3의 보고서 검수 중 `[고지출 추정]` 라벨이 빠져 있다는 지적이 들어왔다. 단독 파일 수정이라 프롬프트가 명확했다.
-
-> "섹션 7-3 '표본·라벨 한계'에 지역×진료 표본에서 파워링크·플레이스·콘텐츠·외부 플랫폼이 함께 보이는 키워드는 공개 SERP상 경쟁/광고 투입이 큰 구간으로 볼 수 있으나, 실제 광고비와 성과는 공개 화면만으로 알 수 없으므로 `[고지출 추정]` 및 `[수치 미확인]`으로만 다룬다는 문장을 추가하라."
-
-Read → Edit → Bash(크기 확인) → Grep(라벨 확인). 4 tool calls, 1분도 안 걸렸다.
-
-## 세션 5: Codex가 미래 시제 오류를 잡았다 — Before/After
-
-이게 오늘 가장 흥미로운 사례다. Codex read-only 검수에서 `naver-ranking-hypotheses.md`에 날짜 시제 오류 두 건이 발견됐다.
-
-오늘은 2026-05-23이다. 5/28 변경은 아직 미래인데 이미 완료된 것처럼 썼다.
-
-**Before (line 530)**
-```
-5/14·5/28 두 단계로 ... 슬롯이 확대되었다
-```
-
-**After**
-```
-5/14 적용 + 5/28 예정 두 단계로 ... 슬롯 확대 흐름이 진행 중이다
-```
-
-**Before (line 536)**
-```
-두 단계 확장 이후
-```
-
-**After**
-```
-5/28 적용 이후에는
-```
-
-사람이 보면 놓치기 쉬운 종류의 오류다. 내용이 맞더라도 시제가 틀리면 나중에 다시 읽을 때 혼란이 생긴다. Edit 2, Grep 2, Read 1.
-
-## 도구 사용 통계
+세션 도구 사용 통계.
 
 | 도구 | 횟수 |
 |------|------|
-| Read | 20 |
-| Bash | 18 |
-| Edit | 8 |
-| Grep | 6 |
-| Write | 4 |
-| ToolSearch | 1 |
-| **합계** | **57** |
+| Bash | 12 |
+| Read | 10 |
+| Write | 2 |
+| Edit | 2 |
+| **합계** | **26** |
 
-5개 세션 중 세션 2가 전체 tool calls의 절반(29/57)을 차지했다. 그 이유는 워크플로우 상태 확인, 분류 재설정, 이전 파일 연속성 확인이 누적됐기 때문이다.
+Bash가 Read보다 많다. 이유는 `summary.json`이 큰 파일이라 통째로 Read하면 context가 터진다. Claude가 스스로 판단해서 `grep`으로 핵심 키만 뽑는 경로를 택했다. 에이전트가 직접 최적화한 것이다.
 
-## 리서치 자동화에서 배운 것
+실제로 Bash 사용 흐름을 보면 세 가지였다.
 
-코드 구현 세션과 리서치 세션은 다르게 관리해야 한다. 코드 구현은 `major` → plan → verifier → codex 흐름이 맞다. 리서치 파일 업데이트는 `trivial`이다. 복잡도 분류를 틀리면 게이트가 막히고 세션이 늘어진다.
+1. 파일 목록 확인 — `ls`로 디렉터리 구조 파악
+2. 대용량 JSON에서 핵심 키 추출 — `grep`으로 SERP 요약 섹션만 뽑기
+3. 누적 파일 최신 섹션 확인 — `tail`로 KB의 마지막 항목 확인
 
-Codex cross-verify는 보고서 완성 이후에 돌리는 게 좋다. 세션 5처럼 생성 완료 후 시제 오류를 잡으면 단독 수정 세션으로 깔끔하게 처리할 수 있다.
+Edit이 2번뿐인 것도 눈에 띈다. `rolling-knowledge-base.md`와 `source-index.md`는 append 구조라 기존 내용을 재작성하지 않고 마지막에 오늘 날짜 섹션만 추가했다.
 
-큰 원자료 파일은 한 번에 읽지 않는다. 어떤 섹션이 필요한지 미리 파악하고 offset으로 잘라서 읽으면 context를 아낀다.
+## state 헬퍼 없이도 막히지 않는 이유
+
+세션 로그에 이런 메모가 있었다.
+
+```
+state 헬퍼는 없는 듯하니 산출물 생성을 진행합니다.
+```
+
+워크플로우 state 관리 스크립트(`lib/state.sh`)가 해당 경로에 없었다. 에이전트가 이를 감지하고, state를 기다리는 대신 바로 산출물 생성으로 넘어갔다. 블로킹 없이 목표를 달성한 셈이다.
+
+파일 기반 워크플로우의 장점이다. `state.json`이 없어도 결과 파일이 있으면 다음 단계가 진행된다. 상태 머신보다 파일 존재 여부가 더 단순한 진실원이다.
+
+## 9분 뒤 남은 파일 4개
+
+```
+생성: 2026-05-24-daily-update.md
+      → 오늘자 SERP 분석, 경쟁사 광고 패턴, 키워드 동향
+
+생성: reports/2026-05-24-cost-keyword-serp-split.html
+      → 비용·키워드·SERP 분할 모바일 HTML 보고서
+
+수정: rolling-knowledge-base.md
+      → 5/24 누적 항목 추가
+
+수정: source-index.md
+      → 오늘 소스 인덱스 업데이트
+```
+
+HTML 보고서는 Write 한 번으로 나왔다. Claude가 누적 KB와 SERP 요약을 종합해서 모바일에서 바로 볼 수 있는 포맷으로 뽑아냈다. 이전에는 이 보고서를 수동으로 만드는 데 20분 이상 걸렸다.
+
+## 배운 것: 파일 경로가 프롬프트의 절반이다
+
+에이전트에게 "이 파일들을 읽어라"고 시키지 않아도 된다. "이 경로에 있다"고 알려주면 충분하다.
+
+프롬프트에서 파일 경로를 명시하면 Opus가 알아서 Read → Bash 조합으로 효율적으로 처리한다. 큰 파일은 grep으로, 작은 파일은 Read로. 내가 지시하지 않아도 스스로 최적 경로를 찾는다.
+
+치과 광고 리서치 자동화는 이제 Socratic Intake 프롬프트 + 파일 경로 명시 두 가지로 돌아간다. 내가 할 일은 매일 SERP 스냅샷을 `sources/` 아래에 떨어뜨리는 것뿐이다.
