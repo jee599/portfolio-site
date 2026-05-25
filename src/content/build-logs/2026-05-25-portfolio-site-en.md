@@ -1,102 +1,117 @@
 ---
-title: "4 Vercel Deployments CANCELED: 481 Files Scanned, One Missing Component Found"
+title: "481 Files Validated, Zero Errors — the Real Bug Was a Missing React Component: 10 Sessions, 389 Tool Calls"
 project: "portfolio-site"
 date: 2026-05-25
 lang: en
 pair: "2026-05-25-portfolio-site-ko"
-tags: [claude-code, debugging, vercel, nextjs, yaml]
-description: "4 Vercel builds CANCELED over 4 days. The error pointed to YAML — 481 files parsed, 0 broken. Real culprit: a single missing CountUp.tsx. 218 tool calls to find it."
+tags: [claude-code, debugging, automation, build-log, orchestration]
+description: "Vercel reported a YAML parse error. 481 files validated, 0 broken. Real cause: missing CountUp.tsx. A 10-session, 389 tool call record of debugging gone sideways and an orchestrator that kept calling simple tasks major."
 ---
 
-Four days. Every Vercel deployment CANCELED. Production frozen at the April 26 manual deploy, every article written since then invisible to anyone visiting the site.
+Vercel said the build failed with a YAML frontmatter parse error. The error message named a specific file and line number. I validated all 481 content files with `gray-matter`. Zero broken files. Ran `js-yaml` as a second pass. Still zero.
 
-**TL;DR:** It wasn't YAML. `CountUp.tsx` was missing, and Turbopack flagged it as a build failure. All 481 markdown files parsed clean. One `npm run build` would have found this in 30 seconds.
+Running the build locally produced a completely different error.
 
-## The Error Message That Led Nowhere
+**TL;DR** When the hypothesis you're given is wrong, Claude Code will follow it faithfully — 176 Bash calls deep before course-correcting. This is a 10-session, 389 tool call record of what happens when you chase stale error logs, and what it looks like when an AI orchestrator systematically over-classifies simple tasks as major.
 
-The error looked specific:
+## The Error Message Was a Stale Log
+
+Sessions 1 and 2 started with the same prompt:
 
 ```
-YAMLException: incomplete explicit mapping pair; a key node is missed;
-or followed by a non-tabulated empty line at line 3, column 277
+Vercel build is failing with a YAML frontmatter parse error.
+Error: YAMLException at line 3, column 277
+File: /posts/2026-04-05-furiosa-ai-rngd-commercial-launch-en
 ```
 
-A file was named: `/posts/2026-04-05-furiosa-ai-rngd-commercial-launch-en`. Every Vercel deployment triggered by GitHub pushes on April 27 and 28 was CANCELED. The hypothesis was reasonable — the error pointed to YAML, and a recent commit (`feat(validate-content): integrate 5요소 quality-checks`) that added content validation logic was also under suspicion.
+Looked like a YAML parsing issue, so I hunted for a YAML parsing issue. `gray-matter` across 481 files. Result: 0. `js-yaml` for a second pass. Also 0.
 
-## Session 1: Parsing 481 Files with gray-matter
-
-First approach: scan every MD file across `content/posts/`, `content/daily/`, `content/blog/`, and `content/weekly/` using `gray-matter`.
-
-Result: 481 files, 0 broken.
-
-The accused furiosa file had 204 characters on line 3 — already cleaned up in an April 14 batch edit. The `column 277` pattern in the error message didn't match anything in the file.
-
-That's when the direction shifted. YAML validation passed, so run the actual build:
-
-```bash
-npm run build
-```
-
-Different error:
+Only after triggering a local build did the actual error surface:
 
 ```
 Module not found: Can't resolve './CountUp'
 ```
 
-`HomeContent.tsx` imported `CountUp.tsx`. The file didn't exist. Turbopack — Next.js 16's default bundler — treats an unresolvable import as a hard build failure. The `YAMLException` surfaced in Vercel was either a stale log from a previous failure bleeding into the new deployment, or a misleading wrapper error shown before the real one.
+`HomeContent.tsx` was importing `CountUp.tsx`, which didn't exist. That's where Turbopack stopped. The YAML error visible on Vercel was a stale log from an older failed deployment — it had nothing to do with the current build failure.
 
-## Session 2: Systematic Debugging, Same Starting Point
+The fix was straightforward: create `CountUp.tsx`, clean up two daily files with malformed frontmatter, run `npm run build`, confirm 480 static pages generated. Commit `8aa059b`, push, Vercel auto-deploy resumed.
 
-The second session started independently with the same prompt and applied the `systematic-debugging` skill for a more structured pass.
+Session 1 used 76 Bash calls. Session 2 used 100. Combined: 176. The number describes the wasted work better than any explanation.
 
-Direct parsing with `js-yaml`, analysis of `validate-content.mjs` (specifically the `matter.stringify` logic at line 559), and a crawl through recent commit history. 117 tool calls to re-verify 481 files.
+`npm run build` was a faster diagnostic than validating 481 files. Even when an error message names a specific file, it's a hypothesis until you reproduce it locally.
 
-Two files surfaced: `content/daily/2026-04-10-en.md` and `2026-04-10.md`, both completely missing frontmatter. Real issues — but not what was causing the CANCELED deployments.
+> If local reproduction fails, discard the hypothesis and look at the full build pipeline from the beginning.
 
-Session 2 was thorough, but redundant: Session 1 had already found the actual cause. The two sessions ran independently, so neither knew the other had already reached the same diagnosis.
+## When the Orchestrator Calls Everything "Major"
 
-## The Fix: Create CountUp.tsx, Restore Two Daily Files
+This workflow runs an orchestrator that classifies each incoming request into one of four complexity tiers: `trivial / simple / standard / major`. Each tier maps to a different pipeline. `major` requires a full plan → implement → verify → codex cross-check sequence before any edit gates open.
 
-Simple:
+This week, the orchestrator kept misclassifying tasks.
 
-1. Created `CountUp.tsx` component
-2. Converted the two frontmatter-less daily files to valid structure
-
-Build verification:
+Session 4 was a research and sponsorship analysis task — produce two output files with findings. No code changes, no architecture decisions, no database. The orchestrator called it `major`. Halfway through the session I manually reclassified it:
 
 ```bash
-npm run build
-# → 480 static pages generated
+source ~/.claude/workflow/lib/state.sh && state_set complexity simple
 ```
 
-480 static pages. Committed as `8aa059b`, pushed to `origin/main`. Vercel auto-deploy resumed.
+Sessions 9 (HTML + PDF report generation) and 10 (TOC correction) followed the same pattern. The gate blocked progress until I reclassified both.
 
-## Session Stats
+The root cause is that the classification heuristic measures file count and code change volume. Research, reports, and artifact generation don't fit that model. A task that produces output files without touching source code is `simple` regardless of scope. The classifier needs a separate signal for "output artifact, no code change."
 
-| Metric | Value |
-|--------|-------|
-| Sessions | 3 |
-| Model | claude-opus-4-7 |
-| Total time | ~23 min |
-| Total tool calls | 218 |
-| Bash | 178 |
-| Read | 30 |
-| TodoWrite | 5 |
-| Write / Edit | 1 each |
-| Files created | `CountUp.tsx` |
-| Files modified | `HomeContent.tsx` + 2 daily files |
+Until that's fixed, the workaround is the manual `state_set` call.
 
-Bash dominated at 178 calls — parsing 481 files, analyzing `validate-content.mjs`, running builds, committing, pushing. All of it shell commands.
+## Why the Same File Needed Two Sessions
 
-## Reproduce Locally Before You Validate Anything
+Session 7 appended 2026-05-25 sections to `competitive-serp-observations.md` and `naver-ranking-hypotheses.md`. Gate friction caused the session to end with only partial edits completed.
 
-This is a textbook case of symptom and cause diverging.
+A downstream Codex verification pass caught the gap: `naver-ranking-hypotheses.md` was missing hypothesis item 35.
 
-Even when an error message names a specific culprit, you can't confirm it until you reproduce the failure locally. The `gray-matter` scan was a valid step — but running `npm run build` first would have surfaced the real error in under a minute. Two sessions, 23 minutes, 218 tool calls versus one command.
+Session 8 went back in. This time: read the source file (`2026-05-25-daily-update.md`) first, verify the existing structure of both files, then add only the missing content with targeted `Edit` calls.
 
-> If you can't reproduce it locally, discard the hypothesis and audit the full build pipeline.
+```
+competitive-serp-observations.md → 2026-05-25 section (line 677)
+naver-ranking-hypotheses.md → hypothesis 35 (line 620)
+```
 
-`npm run build` was a faster diagnostic than validating 481 files. The core principle of `systematic-debugging` is reproducing the failure at the execution layer, not the symptom layer. The error message tells you where to look; the build tells you what actually broke.
+The verification stage catching a gap from the previous session is the pipeline working as designed. The gate friction caused the incomplete first pass; the separate verification step caught it. Both outcomes trace directly to orchestrator behavior.
+
+## Turning Research into a Structured PDF
+
+Session 9 converted research output into a paper-style PDF rather than a raw markdown dump. The spec included the output path, styling requirements, and generation method.
+
+Write the HTML first, then convert with Chrome headless:
+
+```bash
+chromium --headless --print-to-pdf=output.pdf input.html
+```
+
+Output: 13 pages, 1.2 MB. Session 10 brought a Codex review with one finding: the TOC listed section 9 as "Source Appendix" when the actual section 9 was "Changes Since Last Report" and "Source Appendix" was section 10.
+
+Two-line fix, PDF regenerated. Session 10 took 1 minute and 15 tool calls — Codex caught a real error; the fix was trivial.
+
+## Tool Call Breakdown: 389 Across 10 Sessions
+
+| Tool | Count |
+|------|-------|
+| Bash | 244 |
+| Read | 68 |
+| Edit | 16 |
+| WebFetch | 11 |
+| Grep | 11 |
+| TaskUpdate | 10 |
+| Write | 9 |
+| TaskCreate | 9 |
+| **Total** | **389** |
+
+Bash at 244 dominates. Most of those calls are verification loops: rerunning builds, grepping for patterns, checking file sizes, confirming output. `Edit` — actual file modifications — accounts for 16 calls. That's a **15:1 ratio of verification to modification**.
+
+This ratio matters. The expensive part of AI-assisted development isn't the editing; it's the validation work surrounding each edit. Faster local feedback loops would compress this significantly.
+
+`WebFetch` at 11 calls came from session 4 — pulling live pages from Product Hunt, Hacker News, and competitor newsletters to collect signals not in the existing crawl data.
+
+Session durations ranged from 1 minute (sessions 3 and 10) to 13 minutes (session 2). The longest session was the debugging session chasing the wrong hypothesis. Following stale error messages costs more time than almost anything else in this workflow.
+
+> Error messages may not reflect current state. Checking the build log timestamp before starting to debug saves entire sessions.
 
 ---
 
