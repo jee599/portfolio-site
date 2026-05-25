@@ -1,109 +1,116 @@
 ---
-title: "YAML 에러 추적했더니 실제 원인은 다른 파일이었다 — 10세션 389 tool calls 기록"
+title: "YAML 에러 481개 전수조사 후 발견한 진짜 원인 — CountUp.tsx 누락"
 project: "portfolio-site"
 date: 2026-05-25
 lang: ko
-tags: [claude-code, debugging, automation, build-log, orchestration]
-description: "Vercel 배포가 YAML frontmatter 에러로 실패한다고 했다. 481개 파일 전수 검증 결과 0개. 진짜 원인은 누락된 CountUp.tsx였다. 10세션 389 tool calls 디버깅·자동화 기록."
+tags: [claude-code, debugging, spoonai, orchestration, build-failure]
+description: "Vercel 빌드 YAML 에러를 의심해 481개 파일 전수조사를 돌렸다. 깨진 파일은 0개. 진짜 원인은 CountUp.tsx 컴포넌트 누락이었다. 11세션 399 tool calls에서 반복된 삽질 패턴을 정리한다."
 ---
 
-Vercel 빌드가 YAML frontmatter 파싱 에러로 실패하고 있다는 리포트를 받았다. 에러 메시지에 파일명과 줄 번호까지 있었다. `gray-matter`로 481개 파일을 전수 검증하니 깨진 파일이 0개였다.
+Vercel 빌드가 YAML frontmatter 파싱 에러로 실패한다는 알림을 받았다. `YAMLException: incomplete explicit mapping pair; a key node is missed` — 에러 메시지는 구체적인 파일명과 줄 번호까지 제시했다. 명확해 보였다.
 
-**TL;DR** 사용자가 준 가설이 틀렸을 때 Claude Code가 어떻게 수렴하는지, 오케스트레이터가 simple 작업을 major로 오분류할 때 어떻게 처리해야 하는지를 10세션에서 직접 겪었다.
+**TL;DR** — 에러 메시지가 틀렸다. 481개 마크다운 파일 전수조사 결과 YAML이 깨진 파일은 0개였고, 진짜 원인은 `HomeContent.tsx`가 import하는 `CountUp.tsx` 컴포넌트가 존재하지 않아서였다. 11세션 399 tool calls, 총 약 75분의 Claude Code 작업에서 이번 삽질이 가장 오래 걸렸다.
 
-## 가설이 틀렸을 때
+## 에러 메시지가 가리킨 파일은 멀쩡했다
 
-세션 1, 2의 시작 프롬프트는 동일했다.
+사용자의 진단은 합리적이었다. 4/27, 4/28 연속 Vercel 배포 CANCELED. 에러 로그에 `2026-04-05-furiosa-ai-rngd-commercial-launch-en.md` line 3, column 277에서 파싱 에러. 그런데 해당 파일을 열어보면 line 3은 204자였다. 에러 메시지의 column 277은 현재 파일 내용과 맞지 않았다.
 
-```
-Vercel 빌드가 YAML frontmatter 파싱 에러로 실패하고 있다.
-에러: YAMLException at line 3, column 277
-파일: /posts/2026-04-05-furiosa-ai-rngd-commercial-launch-en
-```
-
-YAML 파싱 에러로 보였다. 그래서 파싱 에러를 찾았다. `gray-matter`로 481개 파일 전수 검증. 결과: 0개. `js-yaml`로 한 번 더. 역시 0개.
-
-빌드를 직접 돌려 재현해보니 다른 에러가 나왔다.
-
-```
-Module not found: Can't resolve './CountUp'
-```
-
-`HomeContent.tsx`가 `CountUp.tsx`를 import하고 있었는데 파일이 없었다. Turbopack 빌드가 여기서 터진 것이다. Vercel에서 보인 YAML 에러는 이전 배포 실패와 섞인 오래된 로그였다.
-
-수정은 간단했다. `CountUp.tsx`를 만들고, frontmatter 구조가 깨진 daily 파일 2개를 정리했다. `npm run build` 후 480개 정적 페이지 생성 확인. `8aa059b` 커밋 후 push, Vercel auto-deploy 재개.
-
-세션 1에서 Bash 76번, 세션 2에서 100번을 썼다. 합쳐서 176번이다. 삽질의 양은 숫자가 말해준다.
-
-여기서 배운 것: `npm run build` 한 번이 481개 파일 검증보다 빠른 진단 도구였다. 에러 메시지가 파일명을 지목해도, 로컬에서 재현해보기 전까지는 가설이다.
-
-> 로컬에서 재현 안 되면, 가설을 버리고 빌드 파이프라인 전체를 다시 봐야 한다.
-
-## 오케스트레이터가 simple을 major라고 분류한다면
-
-이번 작업 흐름에서 Hermes 오케스트레이터가 요청마다 complexity를 분류한다. `trivial / simple / standard / major` 네 단계가 있고, 각 단계에 따라 다른 파이프라인이 요구된다. major면 plan → verify → codex 전 파이프라인을 다 태워야 한다.
-
-이번 주에는 오분류가 계속 발생했다.
-
-세션 4(SpoonAI 성장/스폰서 리서치)에서 오케스트레이터가 `major`로 분류했다. 그런데 이 작업은 산출물 파일 두 개를 만드는 것이었다. 코드도, 아키텍처도, DB도 없다. 세션 중간에 직접 재분류했다.
+첫 번째 판단 분기점. 에러가 가리키는 파일을 직접 패치하는 대신, 전수조사를 먼저 했다.
 
 ```bash
-source ~/.claude/workflow/lib/state.sh && state_set complexity simple
+node -e "
+const matter = require('gray-matter');
+// content/**/*.md 481개 순회
+files.forEach(f => {
+  try { matter.read(f); }
+  catch(e) { console.error(f, e.message); errors++; }
+});
+console.log('Total:', files.length, 'Errors:', errors);
+"
 ```
 
-세션 9(보고서 HTML + PDF 생성)와 세션 10(TOC 수정)도 같은 패턴이었다. 게이트가 막았고, 재분류 후 진행했다.
+결과: **Total: 481, Errors: 0**
 
-오분류가 반복되는 이유는 분류 기준이 파일 수·코드 변경 규모를 보기 때문이다. 리서치·보고서·산출물 생성은 기준이 다르게 적용돼야 한다. 코드를 건드리지 않는 산출물 생성은 규모와 관계없이 `simple`이다.
+전부 통과했다. 4/14 배치 수정(`3095c96`)에서 YAML 문제들이 이미 정리돼 있었다. `js-yaml`로 한 번 더 돌려봐도 0개였다.
 
-## 같은 파일을 두 세션에서 수정한 이유
+## 로컬 빌드를 돌리니 다른 에러가 나왔다
 
-세션 7에서 `competitive-serp-observations.md`와 `naver-ranking-hypotheses.md`에 2026-05-25 섹션을 추가했다. 오케스트레이터 게이트와 씨름하면서 편집이 부분적으로만 완료된 채 세션이 끝났다.
-
-다음 단계에서 Codex가 검수를 돌렸더니 `naver-ranking-hypotheses.md`에 가설 35 항목이 없었다.
-
-세션 8에서 다시 들어가 누락된 섹션을 추가했다. 이번엔 소스 파일(`2026-05-25-daily-update.md`)을 먼저 읽고, 두 파일의 기존 구조를 확인한 뒤, 필요한 부분만 `Edit`으로 추가했다.
+YAML이 원인이 아니라면 로컬에서 빌드를 직접 재현해야 했다.
 
 ```
-competitive-serp-observations.md → 2026-05-25 section (line 677)
-naver-ranking-hypotheses.md → 가설 35 (line 620)
+Error: Cannot find module './CountUp'
+  at HomeContent.tsx:3:1
 ```
 
-산출물 검증이 다음 단계에서 누락을 잡아낸 건 파이프라인이 의도대로 돌아간 경우다. 게이트 씨름이 첫 번째 세션을 불완전하게 끝낸 원인이었고, 분리된 검수 단계가 그걸 캐치했다.
+`HomeContent.tsx`가 `CountUp`이라는 컴포넌트를 import하고 있었는데 파일이 없었다. Turbopack(Next.js 16 기본값) 빌드 파이프라인이 여기서 터진 것이다. Vercel에서 보인 YAML 에러는 이전 배포 실패 로그가 섞인 오래된 기록이었다.
 
-## 리서치를 PDF 보고서로 만들기
+수정은 두 파일이었다.
 
-세션 9에서는 리서치 결과를 마크다운 덤프가 아니라 페이퍼 스타일 PDF로 만들었다. 요구사항에 출력 경로, 스타일, PDF 생성 방법까지 모두 지정돼 있었다.
+- `HomeContent.tsx`에서 `CountUp` 사용 방식 조정
+- `CountUp.tsx` 신규 작성
 
-HTML을 먼저 작성하고 Chrome headless로 변환했다.
+`npm run build` 후 480 static pages 생성 확인. `8aa059b` 커밋 후 push, Vercel auto-deploy 재개.
+
+세션 1에서 Bash 76번, 세션 2에서 100번 — 합계 176번이다. 삽질의 양은 숫자가 말해준다. `npm run build` 한 번이 481개 파일 전수조사보다 빠른 진단 도구였다.
+
+> 에러 메시지가 파일명을 지목해도, 로컬에서 재현해보기 전까지는 가설이다.
+
+## 같은 프롬프트를 두 번 보낸 이유
+
+세션 1에서 문제를 해결하고 `git push`까지 완료했다. 그런데 세션 2에서 사용자가 동일 프롬프트를 다시 보냈다. 세션 1의 작업 경로를 보면 이유가 드러난다.
+
+```
+~/spoonai-site/.claude/worktrees/confident-bartik-976291/components/CountUp.tsx
+```
+
+워크트리 경로다. `worktrees/confident-bartik-976291/` 하위에서 작업이 이뤄졌고, 이게 `main` 브랜치에 실제로 병합됐는지 사용자 입장에서 확인이 어려웠다. `git worktree`는 격리된 작업 공간이라 push 결과가 어느 브랜치로, 어느 remote로 갔는지 바로 눈에 띄지 않는다.
+
+세션 2는 다른 경로로 접근했다. `systematic-debugging` 스킬을 먼저 호출하고, `gray-matter` → `js-yaml` 순서로 YAML 파싱 레이어를 분리해서 검증했다. `validate-content.mjs` line 559에서 `matter.stringify`로 파일을 덮어쓰는 코드도 발견했고, `content/daily/2026-04-10-en.md`에 frontmatter 자체가 없다는 별개 문제도 찾아냈다.
+
+같은 문제를 두 번 접근했지만 각 세션은 다른 경로로 다른 것을 발견했다. 첫 번째 세션이 진짜 원인을 빠르게 잡았다면, 두 번째 세션은 YAML 경로를 깊이 파면서 숨어있던 다른 문제들을 드러냈다.
+
+## 오케스트레이터가 자꾸 틀렸다
+
+이번 주 11세션에서 반복된 패턴이 있다. 오케스트레이터가 작업을 `major`로 분류하는데, Claude CLI가 직접 `simple`로 재분류하고 진행한 케이스가 4번이었다.
+
+세션 4 (SpoonAI 성장 신호 리서치):
+
+> "The orchestrator gate misclassified this as `major` requiring full plan/verify/codex pipeline. But this is just producing two artifact files per a well-defined spec — no code, no architecture, no migrations. Reclassifying to `simple`."
+
+세션 9 (PDF 보고서 생성):
+
+> "이미 제공된 리서치를 두 파일(HTML+PDF)로 포맷하는 작업은 `simple` 수준입니다."
+
+오케스트레이터 분류 로직이 "파일 수"를 complexity의 주요 신호로 쓰는 듯하다. 파일 여러 개를 만든다고 `major`가 되지는 않는다. 이미 설계가 끝난 리서치 결과를 포맷만 바꿔 저장하거나, 기존 아티팩트에 섹션을 추가하는 작업은 파일 개수와 무관하게 `simple`이다.
+
+complexity는 변경의 성격으로 판단해야 한다. 구조적 결정이 필요한지, 되돌리기 어려운 상태 변경이 있는지. 코드를 건드리지 않는 산출물 생성은 규모와 관계없이 `simple`이다.
+
+## 하루 11세션, 도구별 통계
+
+이번 주 Claude Code 세션이 다룬 도메인: spoonai 빌드 디버깅, SpoonAI 콘텐츠 인텔리전스 아티팩트 생성, 치과 의료광고 리서치 일일 업데이트, HTML/PDF 보고서 생성 2건.
+
+총 399 tool calls 분포:
+
+| 도구 | 횟수 | 비중 |
+|---|---|---|
+| `Bash` | 252 | 63% |
+| `Read` | 68 | 17% |
+| `Edit` | 17 | 4% |
+| `WebFetch` | 11 | 3% |
+| `Grep` | 11 | 3% |
+| `Write` | 10 | 3% |
+| `TaskUpdate`/`TaskCreate` | 19 | 5% |
+
+`Bash`가 63%다. 로컬 빌드 실행, Python 스크립트로 YAML 전수조사, `chromium --headless` PDF 변환까지 쉘이 대부분의 검증을 담당했다. 실제 파일 수정인 `Edit`는 17번뿐이다. 비율로 보면 수정 한 번에 확인이 열다섯 번 돌아가는 셈이다.
+
+HTML 보고서를 PDF로 바꾸는 것도 결국 `bash` 한 줄이었다.
 
 ```bash
-chromium --headless --print-to-pdf=output.pdf input.html
+chromium --headless --print-to-pdf=output.pdf --no-pdf-header-footer input.html
 ```
 
-결과: 13페이지, 1.2 MB. 세션 10에서 Codex 리포트가 들어왔다. TOC에 섹션 9가 `소스 부록`으로 되어 있는데 실제로는 `이전 보고 대비 변경점`이 9번이고 `소스 부록`이 10번이었다.
-
-두 줄 수정 후 PDF 재생성으로 마무리했다. 세션 10은 1분, 15 tool calls였다. Codex 검수가 잡아낸 것 치고는 빠르게 처리됐다.
-
-## 도구 사용 통계
-
-10세션 전체 기준이다.
-
-| 도구 | 횟수 |
-|------|------|
-| Bash | 244 |
-| Read | 68 |
-| Edit | 16 |
-| WebFetch | 11 |
-| Grep | 11 |
-| TaskUpdate | 10 |
-| Write | 9 |
-| TaskCreate | 9 |
-| **합계** | **389** |
-
-Bash가 244번으로 압도적이다. 검증, 재실행, grep, 파일 크기 확인이 대부분이다. 실제 파일 수정인 Edit는 16번뿐이다. 비율로 보면 `15:1`. 수정 한 번에 확인이 열다섯 번 돌아간다.
-
-WebFetch 11번은 세션 4에서 Product Hunt, Hacker News, 경쟁사 뉴스레터 페이지를 직접 가져온 것이다. 기존 크롤 데이터에 없는 신호를 실시간으로 수집하는 패턴이다.
+13페이지, 1.2MB. 별도 라이브러리 없이. 세션 9에서 만들고, 세션 10에서 Codex가 TOC 번호 불일치를 잡아내서 두 줄 수정 후 PDF를 재생성했다. 세션 10은 1분, 15 tool calls였다.
 
 세션별 소요 시간은 1분(세션 3, 10)에서 13분(세션 2)까지 분포했다. 가장 긴 세션이 디버깅(YAML 오추적)이었다. 잘못된 가설을 쫓는 데 시간이 제일 많이 든다.
 
-> 에러 메시지가 현재 상태를 반영하지 않을 수 있다. 빌드 로그 타임스탬프부터 확인하는 습관이 한 세션을 구한다.
+> 에러 메시지가 현재 상태를 반영하지 않을 수 있다. 빌드 로그 타임스탬프부터 확인하는 습관이 한 세션을 아낀다.
