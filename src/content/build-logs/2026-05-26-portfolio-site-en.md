@@ -1,127 +1,165 @@
 ---
-title: "481 Files Parsed, 0 Errors: When the Diagnosis Is Wrong, So Is the Fix"
+title: "144 Tool Calls, 5 PDFs in One Day: How Claude Code Became a Report Factory"
 project: "portfolio-site"
 date: 2026-05-26
 lang: en
 pair: "2026-05-26-portfolio-site-ko"
-tags: [claude-code, debugging, workflow, automation, pdf-generation]
-description: "Vercel build failed with a YAML error pointing to a specific file. gray-matter parsed 481 files and found zero errors. The real blocker was a missing CountUp.tsx. 13 sessions, 420 tool calls."
+tags: [claude-code, automation, pdf, report-generation, multi-agent]
+description: "71 Bash calls, 5 professional PDFs, 10 Claude Code sessions. A breakdown of the Chrome headless pipeline, Hermes relay pattern, and session isolation strategy that made it work."
 ---
 
-481 markdown files parsed with gray-matter. Zero errors. The YAML frontmatter diagnosis that kicked off this debugging session was completely wrong.
-
-When Vercel fails with an error that names a specific file and a specific column, you follow the breadcrumb. That's not bad judgment — it's normal debugging instinct. But error messages capture state at a point in time. By the time you're reading them, the code may have moved on. That mismatch burned two sessions and ~100 Bash calls this week before the pattern became obvious.
-
-**TL;DR:** Falsify error messages before you trust them — especially when they point to a specific file. Run a quick global check first. And when your orchestrator misclassifies a task as `major`, reclassify it in the first response rather than sitting blocked in a planning loop.
-
-## The YAML Error That Pointed at Nothing
-
-April 28 report: Vercel build failing on YAML frontmatter parsing. The error even named a file:
-
-```
-YAMLException: incomplete explicit mapping pair; a key node is missed;
-or followed by a non-tabulated empty line at line 3, column 277
-```
-
-Reasonable first move: check the YAML. Parsed all `.md` files across `content/posts/`, `content/daily/`, `content/blog/`, `content/weekly/` with gray-matter. 481 files. Zero errors.
-
-Then checked the specific location the error described — line 3, column 277 of the named file. A batch fix committed on April 14 (`3095c96`) had already cleaned that up. The current line 3 in that file was 204 characters. The error the report described had ceased to exist a month earlier.
-
-The actual build blocker was `CountUp.tsx`. `HomeContent.tsx` imported it, but the file didn't exist. Turbopack (Next.js 16's default bundler) fails fast on missing imports. YAML was never involved.
-
-Two fixes: create `CountUp.tsx`, recover frontmatter on 2 daily files that were missing it. Ran a local build, confirmed 480 pages generated cleanly, pushed to main. 76 Bash calls, 13 Reads.
-
-Then the same report came in again in session two. This time: parsed with `js-yaml` as a second opinion, extracted files with unusually long lines, dug into `validate-content.mjs` line 581 where `matter.stringify` rewrites files. Suspected it might be corrupting post-April-27 files. Same conclusion: both parsers pass, two daily files without frontmatter (`content/daily/2026-04-10.md`, `2026-04-10-en.md`) flagged — already a known issue.
-
-Session two spent ~100 Bash calls verifying what session one had already determined.
-
-The pattern to carry forward: when an error message gives you a specific file and line number, verify that location still exists in the current codebase before doing anything else. `git log --follow`, `wc -c`, a quick `cat -n` — any of these takes 5 seconds and can save you an entire session.
-
-## When the Orchestrator Gets the Complexity Wrong
-
-Half the sessions this week hit a recurring friction point: the Hermes orchestrator classifying tasks as `major` and blocking the Edit tool, when the actual work was 1-2 files and no code changes.
-
-One session: add a dated section to two dental ad monitoring files (`competitive-serp-observations.md` and `naver-ranking-hypotheses.md`). Append the 2026-05-25 block. Pure `simple` work by any reasonable definition. Orchestrator gate flagged it as `major`.
-
-The fix is one bash call:
+71 out of 144 tool calls were Bash. Nearly half of all AI operations in a day, just to run one command:
 
 ```bash
-source ~/.claude/workflows/{project-slug}/lib/state.sh && \
-  state_set complexity simple && \
-  state_set stage implementing
-```
-
-That unblocks the Edit tool and the session continues. This pattern showed up in sessions 5, 7, 9, and 10 — HTML report formatting, a 2-line TOC fix, an artifact append, a content section update. All flagged `major`, all reclassified to `simple` and completed without issue.
-
-The heuristic for when the classification is wrong:
-- File count: 1-2
-- No code changes (content or artifact files only)
-- Spec is already fully defined
-
-When all three hold, the plan → verify → codex pipeline adds overhead with no benefit. The better move is to state the reclassification in the first response: "This is a single-file content update, reclassifying as `simple`." One line, then proceed. Sitting blocked in a planning loop reaches the same conclusion with more tool calls.
-
-Session 7 ended with an incomplete repair — the task carried over to session 8. Session 8 picked it up: add hypothesis 35 to `naver-ranking-hypotheses.md`, strengthen context on hypotheses 30/31. Verified with grep (`2026-05-25` marker present, `가설 35` present), closed.
-
-## Building a Chrome Headless PDF Pipeline
-
-Sessions 9, 11, 12, and 13 all produced reports as PDFs. Four reports total, same pipeline each time.
-
-The structure is straightforward: build content and styling entirely in HTML, then render to PDF with Chrome headless.
-
-```bash
-google-chrome --headless --disable-gpu \
-  --print-to-pdf=output.pdf \
+chromium --headless --no-sandbox \
+  --print-to-pdf="report.pdf" \
   --print-to-pdf-no-header \
-  input.html
+  file:///path/to/report.html
 ```
 
-After generation, verify required strings made it into the output:
+That number represents something concrete: five deliverable PDFs across three different domains — government startup support strategy, dental advertising SERP analysis, and AI data contest strategy — produced in a single working day across 10 Claude Code sessions.
+
+**TL;DR** Chrome headless turns an HTML-to-PDF pipeline into something Claude Code can execute reliably at scale. Pair it with keyword validation via `pdftotext`, session isolation for revisions, and an explicit relay architecture, and you get a workflow that compounds — each iteration faster than the last.
+
+## Why Half of All Calls Were Shell Commands
+
+The bottleneck isn't writing. It's validation.
+
+Here's the core pipeline pattern that every session followed:
+
+1. Read existing report style (3–5 `Read` calls)
+2. Write the HTML report (`Write` × 1)
+3. Convert to PDF via Chrome headless
+4. Validate required keywords are present
+5. Update workflow state
+
+Step 4 is what inflated the Bash count. For session 8 — the AI data contest strategy report — four specific Korean government dataset keywords had to appear in the final PDF: 경기도 공공데이터, 보건의료빅데이터, 지식재산 데이터, 공공조달데이터. Not style requirements. These were submission requirements — missing any one meant disqualification.
+
+The validation loop ran multiple times per session:
 
 ```bash
-pdftotext output.pdf - | grep "required phrase"
+pdftotext report.pdf - | grep -c "보건의료빅데이터"
 ```
 
-Session 13 caught a real issue this way: a line item with unconfirmed amounts was missing the "see attached notice" annotation. Codex review flagged it. Two-line Edit, PDF regenerated.
+Write HTML → convert → verify → find missing keyword → edit HTML → convert again → verify again. That's 4–6 Bash calls per report for conversion and validation alone, multiplied across five reports plus revision sessions.
 
-Reports produced this week:
-- `2026-05-25_spoonai_fortunelab_global_100_report.pdf` — 13 pages, 1.2 MB
-- `2026-05-25_gov_startup_support_seoul_gyeonggi_ai_solo.pdf` — 2.7 MB
-- `2026-05-25_gov_startup_support_realistic_strategy.pdf` — A4, 10 pages, 2.5 MB
+## Five Reports Across Ten Sessions
 
-Session 10 hit a TOC numbering bug: TOC listed item 9 as "Source Appendix", but the body had item 9 as "Changes from Previous Report" and item 10 as "Source Appendix". Two-line Edit (add missing TOC entry + anchor id in body), PDF regenerated. 8 Bash calls, 4 Edits for that session.
+**Session 1**: `2026-05-25_gov_startup_support_realistic_strategy`
+10-page public startup support strategy guide, 2.5 MB. First-pass generation from a provided brief.
 
-The main failure mode with this pipeline is skipping verification. It's easy to generate a PDF that looks right visually and miss a missing string. Codex catching the annotation gap in session 13 is a good argument for keeping the grep check every time.
+**Session 2** (13 tool calls): Revision
+Codex had reviewed session 1 and flagged two items. A5 and B5 had an ambiguous phrase about direct cash support — "직접 현금 미확인". Fixed to a precise, audit-ready phrasing: "직접 현금성 지원은 1차 스크리닝에서 미확인 — 공고 첨부 확인 필요" (direct cash support unconfirmed at first screening — check attached announcement). Two lines, one isolated session.
 
-## Session Stats
+**Session 3**: Failed
+`API Error: The socket connection was closed unexpectedly` at Bash call 19. Claude was running a Python curation script for a news intelligence pipeline. Connection dropped mid-run. No output saved. More on this below.
 
-13 sessions, 420 tool calls.
+**Session 4** (17 Read calls): `2026-05-26-medical-dental-ads-daily`
+Daily dental advertising SERP analysis HTML. Read-heavy because the existing daily format required parsing multiple reference files before writing anything. Session 4 alone accounted for 17 of the day's 44 total Read calls.
 
-| Tool | Count | % |
-|------|-------|---|
-| Bash | 263 | 62% |
-| Read | 72 | 17% |
-| Edit | 20 | 5% |
-| Grep | 13 | 3% |
-| Write | 11 | 3% |
-| WebFetch | 11 | 3% |
-| TaskUpdate | 10 | 2% |
-| TaskCreate | 9 | 2% |
+**Sessions 5–6** (20 tool calls): Consistency repair
+Two errors surfaced: a misclassified detection status in the executive summary, and inconsistent confidence level notation inside the HTML. Both fixed in one targeted revision session.
 
-Bash at 62% reflects what this week actually was: build execution, PDF conversion, state.sh calls, grep verification, file size checks. More validation than construction.
+**Session 7** (5 tool calls): Anonymization
+A specific hospital name had leaked into `competitive-serp-observations.md`. Five tool calls: read the file, locate the instance, replace with an anonymized description, verify. Clean and contained.
 
-Read at 17% is higher than typical — several sessions needed large files read in chunks, plus referencing existing patterns before generating new content.
+**Session 8** (18 tool calls, 8 minutes): `2026-05-26_ai_data_contest_strategy_report`
+13-page AI data contest strategy, 2.9 MB. Most demanding keyword validation of the day — four required terms, each verified post-conversion.
 
-Edit at only 20 calls is the revealing number. Most actual changes happened through Bash (PDF regeneration, file recovery) rather than direct edits. The ratio of verification calls to edit calls was roughly 13:1.
+**Session 9** (17 tool calls, 8 minutes): `2026-05-26_contest_prize_difficulty_mvp_playbook`
+Deeper follow-on to session 8. Same domain, more complex content — same session time and one fewer tool call. The pattern was already established.
 
-8 files modified, 9 files created. 1.3 files changed per session on average.
+**Session 10**: State archiving and wrap-up.
 
-## What to Carry Forward
+## "You Are Claude CLI. Hermes Is Only the Relay."
 
-**On error messages:** A specific file path and line number is a claim about the past, not the present. Before debugging, verify the claim: does the error location still exist? A 5-second check can tell you whether you're chasing a live issue or a ghost.
+Every session prompt contained this line.
 
-**On orchestrator classification:** When the classification is clearly wrong (1-2 files, no code changes, fully defined spec), reclassify in the first response. Don't wait for the planning loop to reach the conclusion it would have skipped. "This is single-file content, reclassifying as `simple`" takes one line and keeps the session moving.
+Hermes is a Telegram bot that relays user requests to Claude CLI. It doesn't generate code, write reports, or make architectural decisions. Claude CLI does the work; Hermes delivers the message.
 
-**On PDF verification:** Always grep the output. Visual inspection misses missing strings. `pdftotext | grep` is fast and catches the class of bug that's hardest to spot in a rendered PDF.
+This sounds like a simple role label. The behavioral effect is not simple.
+
+Claude has a tendency to drift into "orchestrator mode" when a task feels complex — it starts planning, proposing sub-agents, and architecting pipelines instead of executing. The identity statement prevents that drift at the start of each session.
+
+Session 8 is the clearest example. Claude initially classified the task as `major` complexity. In this project's workflow, that triggers a full plan-orchestrator pipeline — slower, heavier, more overhead. With the identity statement in context, Claude self-corrected: "The actual work is single-file generation from a fully-provided spec — this is closer to `simple`." Correct classification, direct execution, 8 minutes.
+
+The relay architecture also means session state lives in files, not in context. The workflow state machine at `~/.claude/workflows/{project-slug}/current/state.json` tracks stage, task ID, and artifact paths. Each session reads inputs from files and writes outputs to files. When a session ends — or crashes — the state is preserved.
+
+## Session Isolation: 30% Overhead That Saves More Than It Costs
+
+Three of ten sessions were revision-only. The instinct is to handle fixes in the same session that created the work — it feels more efficient. It isn't.
+
+Each revision session was triggered by a dedicated prompt file:
+
+```
+Read and execute /path/to/claude_consistency_repair.md
+Read and execute /path/to/claude_named_leak_repair.md
+```
+
+The prompt file defines exactly what to change and where. Claude reads the spec and executes it. No ambient context from the original generation session. No risk of touching adjacent code that wasn't mentioned.
+
+Compare that to an open-ended "fix the inconsistencies" prompt given to the original session. Claude might correct the target lines and then "improve" three nearby paragraphs it deemed inconsistent. The repair scope expands uncontrollably.
+
+**Token efficiency**: Session 7 — the anonymization fix — was 5 tool calls. In the original session 4 context, that same task would have cost more: the context was loaded with competitive analysis, multiple report references, and domain data. Starting fresh stripped all that away.
+
+**Auditability**: separate sessions produce separate, reviewable diffs. Session 2's fix is a clean two-line change. Mixing generation and revision produces a larger, harder-to-audit diff.
+
+## Session 3: What a Socket Failure Teaches You
+
+Session 3 hit `API Error: The socket connection was closed unexpectedly` at Bash call 19. Claude was running a Python script for an intelligence curation pipeline — a monolithic batch operation that processed multiple sources in sequence. Connection dropped. No output saved.
+
+Session 8 ran to completion in 8 minutes with 18 tool calls.
+
+The difference is granularity.
+
+**Session 3**: one Python script, handles everything internally, single point of failure at the socket level. If the connection drops at step 15 of 20, nothing from steps 1–14 is recoverable.
+
+**Session 8**: discrete Bash calls — one Chrome headless invocation per conversion step, one `pdftotext` call per keyword batch. Each step produces or verifies a file. If the connection drops after step 4, the output from steps 1–4 is still there.
+
+For repetitive pipeline operations — convert, validate, convert, validate — the safer design:
+
+1. Each iteration as a separate tool call, not a loop inside a script
+2. Intermediate state written to files after each step
+3. Session size under 30 tool calls where possible
+
+This isn't just about crash recovery. When a validation fails in a discrete Bash call, you know exactly which step failed. When it fails inside a monolithic script, you're reading logs.
+
+## The Tool Distribution, Decoded
+
+| Tool | Count | Share | What It Represents |
+|------|-------|-------|-------------------|
+| Bash | 71 | 49% | Conversion + validation loops |
+| Read | 44 | 31% | Style reference before every write |
+| Edit | 16 | 11% | Surgical revisions — targeted line replacement |
+| Grep | 8 | 6% | In-session content verification |
+| Write | 5 | 3% | Initial HTML creation, one per report |
+
+Write at 5 means five new documents were created. Every other operation was verification, conversion, or targeted modification.
+
+**Edit (16) vs. Write (5)** is the key ratio to internalize. Even for 500-line HTML files, Edit is preferable to Write for revisions. Edit replaces only the targeted lines. Write overwrites the entire file, which can introduce subtle whitespace and encoding drift — particularly in reports with complex CSS or embedded data tables.
+
+**Read at 44** breaks down as 3–5 reads per session for style reference, plus additional reads in repair sessions. Session 4's 17 reads reflect a domain where the format is established across multiple source files — Claude had to read all of them before writing anything useful.
+
+**Grep at 8** covers in-session content checks. Distinct from the `pdftotext | grep` validation calls, which ran via Bash.
+
+## Compounding Returns on Pattern Repetition
+
+Session 8: 18 tool calls, 8 minutes.
+Session 9: 17 tool calls, 8 minutes. Deeper report, same domain.
+
+Once a domain pattern is established — template structure, required keywords, existing style reference files — the marginal cost of a new report approaches the cost of the conversion pipeline itself. Claude doesn't spend tool calls discovering format or requirements. Those are encoded in the prompt file and existing report references.
+
+The first report in a new domain costs 25–35 tool calls: understand the format, discover the style, validate against requirements, iterate. By the third report in the same domain, that drops to 15–18. By the fifth, you're near minimum viable session size.
+
+The practical implication: invest in clean prompt files and reference documents early. Session 7's 5-call anonymization was possible because `claude_named_leak_repair.md` was precise. Session 8's 8-minute deep report was possible because session 1 had already paid the format discovery cost.
+
+## What Runs Tomorrow
+
+Daily: dental ads SERP analysis. Weekly: contest report revisions before submission deadline.
+
+The main variable between runs is whether keyword requirements change. If they do, it's a one-line update to the prompt file. The pipeline doesn't change.
+
+The one thing worth improving after session 3's failure: the Python-based curation pipelines. The fix is to break the monolithic script into discrete steps that write intermediate results to files, and call each step as a separate Bash invocation. Same logic that made session 8 reliable applies directly.
 
 ---
 

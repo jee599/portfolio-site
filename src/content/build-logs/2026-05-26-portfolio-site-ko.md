@@ -1,102 +1,71 @@
 ---
-title: "YAML 에러가 진짜 원인이 아니었다: Claude Code 13세션 실전 기록"
+title: "Claude Code 144 tool calls, 하루 PDF 보고서 5개 자동화한 방법"
 project: "portfolio-site"
 date: 2026-05-26
 lang: ko
-tags: [claude-code, debugging, workflow, automation, pdf-generation]
-description: "Vercel 빌드 실패 원인이 YAML frontmatter 에러라고 했는데, 481개 파일 전수 검사 결과 에러 0개. 진짜 블로커는 CountUp.tsx missing. 13세션 420 tool calls, Hermes 재분류 패턴까지 기록한다."
+tags: [claude-code, automation, pdf, report-generation, hermes]
+description: "Claude Code 10개 세션, 144 tool calls로 PDF 보고서 5개를 하루에 자동 생성했다. Chrome headless 변환 파이프라인, Hermes 릴레이 패턴, Codex 리뷰 기반 수정 세션까지 — 실전 리포트 팩토리 기록."
 ---
 
-481개 `.md` 파일을 `gray-matter`로 전수 검사했을 때 에러가 0개였다.
+하루 10개 세션에서 Claude Code가 Bash를 71번 실행했다. 전체 144 tool calls 중 절반이 셸 명령이었는데, 대부분은 `chromium --headless` 한 줄이었다.
 
-Vercel 빌드 실패 원인이 YAML frontmatter 파싱 에러라고 해서 분석을 시작했는데, 실제 블로커는 전혀 다른 곳에 있었다. 진단이 잘못되면 수정도 잘못된다는 걸 이번 주 13세션 동안 반복해서 확인했다.
+**TL;DR** Chrome headless로 HTML을 PDF로 변환하는 파이프라인을 세우면, Claude Code는 전문 컨설팅 보고서를 1시간 안에 생성하고 키워드 검증까지 끝낸다. 수정이 필요하면 별도 세션으로 분리하는 게 깔끔하다.
 
-**TL;DR** 증상 메시지만 믿지 말고 먼저 반증부터 시도한다. 오케스트레이터가 작업 크기를 잘못 분류했을 때는 직접 재분류하고 돌파하는 게 파이프라인을 통째로 돌리는 것보다 빠르다.
+## Bash 71번의 정체
 
-## "YAML 에러"였는데 YAML은 멀쩡했다
-
-4월 28일 제보: Vercel 빌드가 YAML frontmatter 파싱 에러로 실패하고 있다. 에러가 발생한다는 파일까지 특정해서 왔다.
-
-```
-YAMLException: incomplete explicit mapping pair; a key node is missed;
-or followed by a non-tabulated empty line at line 3, column 277
-```
-
-자연스럽게 YAML 쪽부터 팠다. `content/posts/`, `content/daily/`, `content/blog/`, `content/weekly/` 전체를 `gray-matter`로 파싱했다. 481개 파일, 에러 0개.
-
-에러 메시지의 "line 3, column 277"도 확인했다. 4/14 배치 수정(`3095c96`)에서 이미 정리된 내용이었고, 제보된 파일의 현재 line 3은 204자였다. 즉, 사용자가 특정한 에러는 한 달 전에 사라진 상태였다.
-
-진짜 블로커는 `CountUp.tsx`였다. `HomeContent.tsx`가 import하는 컴포넌트인데 파일 자체가 없었다. Turbopack 빌드(Next.js 16 기본값)가 거기서 터진다. YAML은 처음부터 문제가 아니었다.
-
-수정은 두 가지였다: `CountUp.tsx` 신규 생성, frontmatter가 없는 daily 파일 2개 복구. 로컬 빌드 돌려서 480페이지 정상 생성 확인 후 `main` 푸시했다. Bash 76회, Read 13회.
-
-같은 제보가 두 번째 세션에서 다시 들어왔다. `js-yaml`로도 파싱해보고, 라인 길이가 긴 파일을 따로 추출해서 확인하고, `validate-content.mjs`의 `matter.stringify` 로직까지 파봤다. 581번째 줄에 파일을 다시 쓰는 코드가 있어서 4/27 이후 파일들에 뭔가를 했을 수 있다고 의심했다. 최종적으로는 같은 결론이었다—`gray-matter`·`js-yaml` 모두 통과, frontmatter 없는 파일 2개(`content/daily/2026-04-10.md`, `2026-04-10-en.md`)가 별도로 발견됐고 이건 원래 알려진 문제였다.
-
-두 번째 세션에 100 Bash calls를 썼다. 첫 번째 세션에서 나온 결론을 검증하는 데 비용이 들었다.
-
-## Hermes가 `major`로 분류했을 때
-
-이번 주 세션 절반은 비슷한 패턴으로 진행됐다. Hermes 오케스트레이터가 작업 규모를 `major`로 분류해서 Edit 툴을 막는다. 실제 작업은 파일 1~2개 수정인데.
-
-치과 광고 SERP 관찰 파일에 날짜별 섹션 하나 추가하는 세션이 있었다. `competitive-serp-observations.md`와 `naver-ranking-hypotheses.md`에 2026-05-25 섹션을 append하는 거다—완전히 `simple` 수준. 그런데 오케스트레이터 게이트가 `major`로 분류해서 막았다.
-
-그 경우 직접 재분류했다:
+HTML 작성보다 PDF 변환과 검증에 더 많은 셸 실행이 필요했다. 파이프라인은 단순하다:
 
 ```bash
-source ~/.claude/workflows/{project-slug}/lib/state.sh && \
-  state_set complexity simple && \
-  state_set stage implementing
-```
-
-그러면 Edit 블록이 풀리고 진행할 수 있다. 이 패턴이 세션 5, 7, 9, 10에서 각각 등장했다. HTML 보고서 포맷팅(세션 9), TOC 2줄 수정(세션 10), artifact append 작업(세션 7) 모두 `major` 분류가 나왔다가 `simple`로 재분류하고 진행했다.
-
-오케스트레이터 분류 휴리스틱이 틀렸다고 판단되는 기준이 생겼다: 파일 수 1~2개, 코드 변경 없음(산출물 파일만), 스펙이 이미 확정된 경우. 이 세 조건이 맞으면 plan → verify → codex 파이프라인을 기다리는 게 낭비다. 첫 응답에서 "이 작업은 `simple`입니다"를 명시하고 재분류한다.
-
-같은 repair 작업이 세션 7에서 미완성으로 끝나서 세션 8에 다시 들어갔다. `naver-ranking-hypotheses.md`에 가설 35 추가, 가설 30/31 컨텍스트 보강. grep으로 검증(`2026-05-25` 마커, `가설 35` 포함 확인)하고 마무리했다.
-
-## Chrome headless PDF 파이프라인
-
-이번 주 가장 많이 쓴 패턴은 HTML → PDF 변환이다. 세션 9, 11, 12, 13에서 총 4개 보고서를 만들었다.
-
-구조는 단순하다. HTML에 콘텐츠와 스타일을 전부 넣고, Chrome headless로 PDF를 뽑는다.
-
-```bash
-google-chrome --headless --disable-gpu \
-  --print-to-pdf=output.pdf \
+chromium --headless --no-sandbox \
+  --print-to-pdf="report.pdf" \
   --print-to-pdf-no-header \
-  input.html
+  file:///path/to/report.html
 ```
 
-이후 `pdftotext output.pdf - | grep "검증할 키워드"`로 필수 문구가 들어갔는지 확인한다. 세션 13에서는 미확인 금액 항목에 `공고 첨부 확인 필요` 문구가 빠진 걸 Codex 리뷰가 잡아냈고, Edit 2줄 수정 후 PDF 재생성으로 끝났다.
+변환 후에는 `pdftotext`로 필수 키워드가 실제로 들어갔는지 검증한다. 세션 8에서는 경기도 공공데이터, 보건의료빅데이터, 지식재산 데이터, 공공조달데이터 — 이 네 키워드를 모두 확인했다. 하나라도 빠지면 보고서로 제출할 수 없다. 이 검증 루프가 Bash 횟수를 높인 주요 원인이다.
 
-생성된 보고서:
-- `2026-05-25_spoonai_fortunelab_global_100_report.pdf` — 13페이지, 1.2 MB
-- `2026-05-25_gov_startup_support_seoul_gyeonggi_ai_solo.pdf` — 2.7 MB
-- `2026-05-25_gov_startup_support_realistic_strategy.pdf` — A4 10페이지, 2.5 MB
+## 하루 5개 보고서 파이프라인
 
-세션 10에서는 TOC 번호가 맞지 않는 버그가 있었다. TOC에는 9번 항목이 `소스 부록`인데 본문에는 9번이 `이전 보고 대비 변경점`, 10번이 `소스 부록`이었다. Edit 2줄(TOC에 누락된 항목 추가 + 본문 앵커 id 추가), PDF 재생성으로 마무리. Bash 8회, Edit 4회.
+오늘 생성된 보고서 목록:
 
-## 이번 주 통계
+- `2026-05-25_gov_startup_support_realistic_strategy` — 공공 스타트업 지원 실전 공략 10페이지, 2.5 MB
+- 위 수정본 — Codex 리뷰로 발견된 두 줄 오류 반영
+- `2026-05-26-medical-dental-ads-daily` — 치과광고 SERP 일일 분석 HTML
+- `2026-05-26_ai_data_contest_strategy_report` — AI 데이터 공모전 전략 13페이지, 2.9 MB
+- `2026-05-26_contest_prize_difficulty_mvp_playbook` — 공모전별 MVP 플레이북
 
-13세션, 총 420 tool calls.
+세션마다 주제는 달랐지만 흐름은 같았다. 기존 보고서 스타일 확인 → HTML 작성 → `chromium --headless` 변환 → `pdftotext` 키워드 검증 → 워크플로 state 업데이트. 이 패턴이 반복될수록 각 세션 소요 시간이 줄었다. 세션 8이 8분 18 tool calls였는데, 바로 이어진 세션 9는 같은 도메인의 심화 보고서를 8분 17 tool calls로 끝냈다.
+
+## "You are Claude CLI, Hermes is only the relay"
+
+세션 프롬프트마다 이 문장이 있었다. Telegram 봇(Hermes)이 요청을 중계하고, Claude CLI가 실제 파일을 만든다는 역할 분리다.
+
+이 문장이 단순한 컨텍스트 주입 이상의 효과를 낸다. Claude가 "나는 오케스트레이터"라는 모드로 빠지는 걸 명시적으로 차단한다. 실제로 세션 8에서 Claude는 복잡도를 `major`로 분류하려다가 스스로 재분류했다: "실제 작업은 fully provided spec으로 단일 파일 생성 — `simple`에 가깝다." 역할 정의가 명확하면 Claude가 불필요한 파이프라인을 만들지 않는다.
+
+## 수정 전용 세션 3개
+
+전체 10세션 중 3개가 수정 전용이었다.
+
+세션 2(13 tool calls)는 Codex가 리뷰한 두 줄을 고쳤다. A5, B5 항목의 "직접 현금 미확인" 문구를 "직접 현금성 지원은 1차 스크리닝에서 미확인 — 공고 첨부 확인 필요"로 통일하는 작업이었다. 세션 6(20 tool calls)은 일관성 오류 2건 — executive summary의 잘못된 미검출 표기와 HTML 보고서 내 가설 신뢰도 혼용이었다. 세션 7(5 tool calls)은 특정 병원명이 `competitive-serp-observations.md`에 노출된 걸 익명화 표현으로 대체했다. `임플란트, 아이디병원` → `일부 종합병원/성형외과성 브랜드 광고`.
+
+각 수정 세션은 `claude_consistency_repair.md`, `claude_named_leak_repair.md` 같은 별도 프롬프트 파일로 트리거됐다. 패턴은 `Read and execute /path/to/claude_*.md`. 수정 범위를 파일에 미리 정의하고 실행하면 Claude가 범위를 벗어나지 않는다. 구체적 diff 지시 없이 "고쳐줘"라고 하면 인접 코드까지 손대는 경우가 있어서 이 방식이 안전하다.
+
+## 소켓 끊김과 대형 Bash 세션의 위험
+
+세션 3에서 `API Error: The socket connection was closed unexpectedly`가 발생했다. Bash 19번 연속 실행 중 연결이 끊겼다. SpoonAI 인텔 큐레이션용 Python 스크립트를 실행하던 중이었고, 결과적으로 산출물 없이 세션이 종료됐다.
+
+장시간 Bash 루프가 위험한 이유다. 검증→변환→검증 같은 반복 작업은 중간에 상태를 파일로 저장하거나, 단계를 작은 세션으로 나누는 게 낫다. 특히 외부 바이너리 의존 작업은 실패 지점이 많다. 세션 3이 실패한 것과 달리 세션 8이 성공한 차이는 Python 스크립트 일괄 실행 vs. 단계별 Chrome headless 호출의 차이였다.
+
+## tool call 분포로 보는 하루
 
 | 도구 | 횟수 | 비율 |
 |------|------|------|
-| Bash | 263 | 62% |
-| Read | 72 | 17% |
-| Edit | 20 | 5% |
-| Grep | 13 | 3% |
-| Write | 11 | 3% |
-| WebFetch | 11 | 3% |
-| TaskUpdate | 10 | 2% |
-| TaskCreate | 9 | 2% |
+| Bash | 71 | 49% |
+| Read | 44 | 31% |
+| Edit | 16 | 11% |
+| Grep | 8 | 6% |
+| Write | 5 | 3% |
 
-Bash가 62%를 차지한다. 빌드 실행, PDF 변환, state.sh 호출, grep 검증, 파일 크기 확인이 대부분이다. Read가 17%인데, 기존 파일 패턴 참고나 대형 파일을 청크로 읽는 경우가 많았다. Edit이 20회인데, 실제 코드·문서 수정보다 Bash를 통한 검증·변환이 훨씬 많다는 게 보인다.
+Write가 5번에 불과하다. HTML 보고서 전체를 Write로 작성하고, 수정은 Edit(16번)으로 처리했다. 500줄짜리 HTML도 Edit가 타깃 라인만 교체하기 때문에 전체를 다시 Write하는 것보다 안정적이다. Read(44번)가 많은 건 "기존 스타일 참고 → 작성 → 검증"이 세 번씩 Read를 유발하기 때문이다. 세션 4에서만 Read를 17번 실행했다 — 치과광고 daily update 포맷을 파악하는 데 읽어야 할 파일이 많았다.
 
-수정 파일 8개, 생성 파일 9개. 세션당 평균 1.3개 파일 변경.
-
-## 다음에 기억할 것
-
-에러 메시지가 구체적으로 파일과 위치를 특정하더라도 그게 현재 상태인지 먼저 확인한다. `gray-matter` 전수 파싱처럼 빠르게 반증할 수 있는 방법이 있으면 먼저 써본다. 에러 메시지가 한 달 전 상태를 가리키고 있을 수 있다.
-
-오케스트레이터 분류가 잘못됐다고 판단되면 첫 응답에서 재분류한다. 이미 스펙이 확정된 산출물 파일 생성, 1~2개 파일 수정, 코드 변경 없는 포맷팅 작업은 `simple`이다. "이 작업은 single-file 수정이라 `simple`로 재분류합니다"한 줄이면 된다. 블록된 채로 플래닝 루프에 들어가는 건 같은 결론에 더 많은 tool calls를 쓰는 것과 같다.
+내일도 같은 파이프라인이 돌아간다. 치과광고 SERP 분석은 매일 반복이고, 공모전 보고서는 마감 전 심화 버전이 필요하다. 패턴이 굳어지면 세션당 소요 시간이 더 줄어들 것이다.
