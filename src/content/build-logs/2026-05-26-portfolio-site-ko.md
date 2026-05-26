@@ -1,71 +1,97 @@
 ---
-title: "Claude Code 144 tool calls, 하루 PDF 보고서 5개 자동화한 방법"
+title: "Claude Code 에이전트 4개 병렬 리서치: 골프앱 시장 조사를 41분에 끝낸 방법"
 project: "portfolio-site"
 date: 2026-05-26
 lang: ko
-tags: [claude-code, automation, pdf, report-generation, hermes]
-description: "Claude Code 10개 세션, 144 tool calls로 PDF 보고서 5개를 하루에 자동 생성했다. Chrome headless 변환 파이프라인, Hermes 릴레이 패턴, Codex 리뷰 기반 수정 세션까지 — 실전 리포트 팩토리 기록."
+tags: [claude-code, multi-agent, parallel, research, automation, workflow]
+description: "하루 18개 세션 302번의 도구 호출. 병렬 에이전트 4개로 골프앱 한국·글로벌 시장 조사를 41분에 완료하고, Codex 교차검증이 리포트 논리 오류를 두 번 잡아냈다."
 ---
 
-하루 10개 세션에서 Claude Code가 Bash를 71번 실행했다. 전체 144 tool calls 중 절반이 셸 명령이었는데, 대부분은 `chromium --headless` 한 줄이었다.
+오늘 Claude Code가 41분 동안 에이전트 4개를 병렬로 돌려 골프앱 한국·글로벌 시장 조사 완성본을 뽑아냈다. 각 에이전트는 3,000~5,000단어 분량의 리서치 도시에를 독립적으로 작성했고, 나는 합산 요약만 읽으면 됐다.
 
-**TL;DR** Chrome headless로 HTML을 PDF로 변환하는 파이프라인을 세우면, Claude Code는 전문 컨설팅 보고서를 1시간 안에 생성하고 키워드 검증까지 끝낸다. 수정이 필요하면 별도 세션으로 분리하는 게 깔끔하다.
+**TL;DR** 병렬 에이전트 패턴을 쓰면 순차 리서치 대비 시간이 4분의 1로 줄지만, Codex 교차검증을 빠뜨리면 사실 오류가 그대로 남는다는 것도 오늘 두 번 확인했다.
 
-## Bash 71번의 정체
+## 에이전트 4개를 동시에 띄우면 어떻게 되나
 
-HTML 작성보다 PDF 변환과 검증에 더 많은 셸 실행이 필요했다. 파이프라인은 단순하다:
+`golf-app-research` 작업은 두 앱(매칭 / 스윙 분석) × 두 시장(한국 / 글로벌)의 2×2 매트릭스 리서치가 필요했다. 순차로 돌리면 에이전트 하나당 평균 10분씩이니 40분이 넘는다. 병렬로 던지면?
 
-```bash
-chromium --headless --no-sandbox \
-  --print-to-pdf="report.pdf" \
-  --print-to-pdf-no-header \
-  file:///path/to/report.html
+```python
+Agent("Korea golf matching apps research", run_in_background=True)
+Agent("Global golf matching apps research", run_in_background=True)
+Agent("Swing analysis apps market research", run_in_background=True)
+Agent("Solo-founder monetization GTM legal research", run_in_background=True)
 ```
 
-변환 후에는 `pdftotext`로 필수 키워드가 실제로 들어갔는지 검증한다. 세션 8에서는 경기도 공공데이터, 보건의료빅데이터, 지식재산 데이터, 공공조달데이터 — 이 네 키워드를 모두 확인했다. 하나라도 빠지면 보고서로 제출할 수 없다. 이 검증 루프가 Bash 횟수를 높인 주요 원인이다.
+4개를 메시지 하나에 묶어서 동시에 날렸다. 첫 완료 알림은 14분 후, 마지막은 41분 후에 도착했다. 각 에이전트 결과물은 `outputs/research_kr_matching.md`, `outputs/research_global_matching.md`, `outputs/research_swing.md`, `outputs/monetization_legal.md` 에 저장됐다. 4개를 읽은 뒤 합산 리포트를 한 번에 작성했다.
 
-## 하루 5개 보고서 파이프라인
+절약된 시간: 순차 예상 ~40분 → 병렬 실제 41분(벽시계 기준). 에이전트가 돌아가는 동안 다른 세션에서 리포트 작업을 병행했다.
 
-오늘 생성된 보고서 목록:
+주의할 점 하나. 에이전트는 fresh context에서 시작한다. 프로젝트 범위, 제외 목록, 이전 결정 사항을 프롬프트에 명시하지 않으면 각자 다른 기준으로 판단한다. 골프앱 세션에서는 각 에이전트에게 brief.md 경로와 "Solo-founder, Seoul/Gyeonggi, AI 제품 단독 개발 가능"이라는 사용자 프로필을 모두 넣어줬다.
 
-- `2026-05-25_gov_startup_support_realistic_strategy` — 공공 스타트업 지원 실전 공략 10페이지, 2.5 MB
-- 위 수정본 — Codex 리뷰로 발견된 두 줄 오류 반영
-- `2026-05-26-medical-dental-ads-daily` — 치과광고 SERP 일일 분석 HTML
-- `2026-05-26_ai_data_contest_strategy_report` — AI 데이터 공모전 전략 13페이지, 2.9 MB
-- `2026-05-26_contest_prize_difficulty_mvp_playbook` — 공모전별 MVP 플레이북
+## complexity 분류 오판이 워크플로를 막는 방법
 
-세션마다 주제는 달랐지만 흐름은 같았다. 기존 보고서 스타일 확인 → HTML 작성 → `chromium --headless` 변환 → `pdftotext` 키워드 검증 → 워크플로 state 업데이트. 이 패턴이 반복될수록 각 세션 소요 시간이 줄었다. 세션 8이 8분 18 tool calls였는데, 바로 이어진 세션 9는 같은 도메인의 심화 보고서를 8분 17 tool calls로 끝냈다.
+오늘 가장 많이 발생한 마찰은 오케스트레이터의 complexity 분류 오판이었다. 골프앱 리서치 세션은 처음에 `trivial`로 잘못 분류됐고, P1 일일 보고서 세션은 `major`로 과분류됐다. 둘 다 Write 훅이 막혔다.
 
-## "You are Claude CLI, Hermes is only the relay"
+해결 패턴은 매번 같았다: 첫 응답에서 명시적으로 재분류.
 
-세션 프롬프트마다 이 문장이 있었다. Telegram 봇(Hermes)이 요청을 중계하고, Claude CLI가 실제 파일을 만든다는 역할 분리다.
+```bash
+source ~/.claude/workflow/lib/state.sh
+state_set complexity standard
+state_set stage implementing
+```
 
-이 문장이 단순한 컨텍스트 주입 이상의 효과를 낸다. Claude가 "나는 오케스트레이터"라는 모드로 빠지는 걸 명시적으로 차단한다. 실제로 세션 8에서 Claude는 복잡도를 `major`로 분류하려다가 스스로 재분류했다: "실제 작업은 fully provided spec으로 단일 파일 생성 — `simple`에 가깝다." 역할 정의가 명확하면 Claude가 불필요한 파이프라인을 만들지 않는다.
+이 두 줄을 치면 이후 파일 수정이 풀린다. 기준은 단순하다: 결과물 파일이 1개이고 입력 스펙이 완전하면 `simple`, 에이전트를 병렬로 써야 하거나 파일 6개 이상이면 `major`. 중간은 `standard`. 분류를 틀리면 불필요한 plan/codex 루프가 강제되거나 반대로 검증이 빠진다.
 
-## 수정 전용 세션 3개
+## Codex가 두 번 버그를 잡았다
 
-전체 10세션 중 3개가 수정 전용이었다.
+첫 번째. 치과광고 SERP 리포트에서 executive summary가 "외부 의료 플랫폼 미검출"이라고 썼는데, 바로 아래 상세 섹션에는 굿닥 7회가 검출됐다고 나와 있었다. 같은 파일 안에서 모순이 생겼는데 내가 직접 읽을 때는 못 잡았다. Codex read-only 리뷰에서 걸렸다.
 
-세션 2(13 tool calls)는 Codex가 리뷰한 두 줄을 고쳤다. A5, B5 항목의 "직접 현금 미확인" 문구를 "직접 현금성 지원은 1차 스크리닝에서 미확인 — 공고 첨부 확인 필요"로 통일하는 작업이었다. 세션 6(20 tool calls)은 일관성 오류 2건 — executive summary의 잘못된 미검출 표기와 HTML 보고서 내 가설 신뢰도 혼용이었다. 세션 7(5 tool calls)은 특정 병원명이 `competitive-serp-observations.md`에 노출된 걸 익명화 표현으로 대체했다. `임플란트, 아이디병원` → `일부 종합병원/성형외과성 브랜드 광고`.
+수정 프롬프트는 `claude_consistency_repair.md`에 정확한 교체 내용을 써서 전달했다:
 
-각 수정 세션은 `claude_consistency_repair.md`, `claude_named_leak_repair.md` 같은 별도 프롬프트 파일로 트리거됐다. 패턴은 `Read and execute /path/to/claude_*.md`. 수정 범위를 파일에 미리 정의하고 실행하면 Claude가 범위를 벗어나지 않는다. 구체적 diff 지시 없이 "고쳐줘"라고 하면 인접 코드까지 손대는 경우가 있어서 이 방식이 안전하다.
+```
+Fix: executive summary line 7
+from: "외부 의료 플랫폼이 모두 미검출"
+to:   "광고·플레이스·심의필 미검출 + AI 브리핑 검출 + 굿닥 7회 검출"
+```
 
-## 소켓 끊김과 대형 Bash 세션의 위험
+두 번째. P1 일일 보고서의 "오늘 버릴 것" 섹션에 범위 밖으로 제외한 제품명(Daymoon, 골프앱, 담배 카운터 등)이 그대로 나열돼 있었다. 보고서 수신자가 보면 안 되는 내부 컨텍스트 노출이다. 이것도 Codex가 잡았다. 수정은 `Edit` 도구로 2분 안에 끝났다.
 
-세션 3에서 `API Error: The socket connection was closed unexpectedly`가 발생했다. Bash 19번 연속 실행 중 연결이 끊겼다. SpoonAI 인텔 큐레이션용 Python 스크립트를 실행하던 중이었고, 결과적으로 산출물 없이 세션이 종료됐다.
+패턴: 리포트 생성 후 Codex에 diff + 원본을 던지면 논리 모순과 범위 위반을 잡아준다. 생성하는 세션과 검증하는 세션을 분리하는 게 효과적이다.
 
-장시간 Bash 루프가 위험한 이유다. 검증→변환→검증 같은 반복 작업은 중간에 상태를 파일로 저장하거나, 단계를 작은 세션으로 나누는 게 낫다. 특히 외부 바이너리 의존 작업은 실패 지점이 많다. 세션 3이 실패한 것과 달리 세션 8이 성공한 차이는 Python 스크립트 일괄 실행 vs. 단계별 Chrome headless 호출의 차이였다.
+## HTML → Chrome headless → PDF 파이프라인
 
-## tool call 분포로 보는 하루
+오늘 생성한 리포트는 7개. 전부 같은 흐름이었다.
 
-| 도구 | 횟수 | 비율 |
-|------|------|------|
-| Bash | 71 | 49% |
-| Read | 44 | 31% |
-| Edit | 16 | 11% |
-| Grep | 8 | 6% |
-| Write | 5 | 3% |
+1. `Write` 도구로 HTML 생성 (인라인 CSS 포함)
+2. Chrome headless로 PDF 변환
 
-Write가 5번에 불과하다. HTML 보고서 전체를 Write로 작성하고, 수정은 Edit(16번)으로 처리했다. 500줄짜리 HTML도 Edit가 타깃 라인만 교체하기 때문에 전체를 다시 Write하는 것보다 안정적이다. Read(44번)가 많은 건 "기존 스타일 참고 → 작성 → 검증"이 세 번씩 Read를 유발하기 때문이다. 세션 4에서만 Read를 17번 실행했다 — 치과광고 daily update 포맷을 파악하는 데 읽어야 할 파일이 많았다.
+```bash
+/Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome \
+  --headless --disable-gpu \
+  --print-to-pdf=output.pdf \
+  input.html
+```
 
-내일도 같은 파이프라인이 돌아간다. 치과광고 SERP 분석은 매일 반복이고, 공모전 보고서는 마감 전 심화 버전이 필요하다. 패턴이 굳어지면 세션당 소요 시간이 더 줄어들 것이다.
+3. `pdftotext output.pdf -` 로 필수 키워드 포함 검증
+
+골프앱 세션에서는 pandoc, wkhtmltopdf, weasyprint, md-to-pdf 모두 미설치 확인됐다. 현재 환경에서 Chrome headless가 사실상 유일한 PDF 변환 도구다. 한 번 파이프라인을 세워두면 다음 리포트는 내용만 교체하면 된다. 생성된 PDF 크기는 521KB~2.9MB, 페이지는 4~13페이지로 다양했다.
+
+## 18개 세션, 302번의 도구 호출
+
+도구별 분포:
+
+- `Bash` 118회 — PDF 변환, 키워드 검증, 워크플로 state 업데이트
+- `Read` 59회 — 기존 스타일 참조, 이전 리포트 확인
+- `TaskUpdate` / `TaskCreate` 54회 — 병렬 에이전트 상태 추적
+- `Edit` 20회 — Codex 지적 사항 수정
+- `Write` 18회 — 리포트 본문 신규 생성
+- `Agent` 14회 — 병렬 리서치 에이전트 dispatch
+- `Grep` 10회 — 특정 텍스트 위치 확인
+
+Read가 59회로 많다. 직접 코드를 새로 쓰기 전에 기존 패턴을 참조하는 비중이 높다는 의미다. Write가 18회인데 실제 생성 파일이 15개인 이유는 verifier-report, smoke test 파일 같은 파이프라인 내부 아티팩트가 섞여 있어서다.
+
+세션 11에서 `Reply exactly CLAUDE_SMOKE_OK`라는 프롬프트에 `CLAUDE_SMOKE_OK`라고만 답한 세션이 있었다. 0 tool calls. Hermes 경유 통신이 정상인지 확인하는 ping이었다.
+
+## 오늘 정리
+
+병렬 에이전트는 독립적인 도메인을 동시에 다룰 때 효과적이다. 하지만 에이전트가 공유하는 컨텍스트가 없으므로, 작업 범위·제외 조건·출력 경로를 프롬프트에 명시해야 한다. 그리고 생성 이후 검증 단계는 선택이 아니다. 오늘 Codex가 5분 만에 잡은 논리 모순 두 개가 그 이유다.
