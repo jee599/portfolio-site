@@ -1,183 +1,142 @@
 ---
-title: "141 Tool Calls, 9 Sessions, Zero Code Files: Using Claude Code as a Research Engine"
+title: "10 Bash Calls, 0 Files: What a Dead Claude Code Session Reveals About Pipeline Friction"
 project: "portfolio-site"
 date: 2026-05-28
 lang: en
 pair: "2026-05-28-portfolio-site-ko"
-tags: [claude-code, automation, hermes, research, workflow]
-description: "141 tool calls, 9 sessions, 0 code files changed. What a research-only Claude Code day looks like: tool call ratios, session patterns, and the relay/executor split."
+tags: [claude-code, spoonai, bash, daily-intel, automation]
+description: "10 Bash calls, 0 files created. A Claude Code session that never reached Write stage exposes the hidden cost of pre-flight exploration in AI automation pipelines."
 ---
 
-141 tool calls. 9 sessions. Zero code files modified.
+10 Bash calls. Zero writes. Zero reads. The session closed with nothing on disk — and that's exactly what made it worth logging.
 
-That's what a day of using Claude Code as a research and intelligence automation engine looks like — not a coding session.
+**TL;DR** The goal was to pull `2026-05-28-daily-intel-raw.json` from SpoonAI and produce two output files: a `.md` and a `.json` with curated AI intel candidates. The session spent all 10 tool calls on exploration and never reached the Write stage. The day before, an identical task took 32 tool calls and finished in under 2 minutes. The gap between those two sessions is the story.
 
-**TL;DR**: The same Claude Code workflow you use for writing code works just as well for research, report generation, and intelligence gathering. The key is a clean separation between a relay layer (Hermes) that routes requests and Claude CLI as the actual executor that reads, fetches, and writes. Sessions stayed under 4 minutes by front-loading scope definition in every prompt.
+## What 10 Bash Calls Actually Look Like
 
-## The Tool Call Distribution That Tells the Story
+Before Claude writes a file, it checks things. JSON structure, output directory existence, previous day's format, schema from yesterday's output. Every one of those checks is a Bash call.
 
-Before looking at what got built, look at the tool call breakdown:
+Today's 10 calls were almost entirely this category — pre-flight exploration:
 
-| Tool | Count |
-|------|-------|
-| Bash | 78 |
-| Read | 42 |
-| WebFetch | 15 |
-| Write | 5 |
-| ToolSearch | 1 |
-| **Total** | **141** |
-
-Read at 42 calls, Write at 5. An 8:1 ratio. In a typical coding session, Edit dominates this distribution. When the ratio flips to Read-heavy with minimal Write, you're in synthesis mode — reading existing data, combining it, summarizing it.
-
-The 78 Bash calls weren't running complex commands. Mostly: check if a file exists, list a directory, tail the last 20 lines of a previous output file. Each one is a checkpoint — read what's already there, decide whether to continue or adjust.
-
-This distribution is a useful signal. When you look at a session's tool call log and see `Bash > Read >> Write` with almost no Edit, you're looking at research work, not coding work. The tool call profile maps to the cognitive mode.
-
-## Short Sessions Are a Feature, Not a Constraint
-
-Nine sessions ran across the day. Time breakdown:
-
-- **0 minutes**: 2 sessions
-- **1–2 minutes**: 4 sessions
-- **4 minutes**: 2 sessions
-- **8 minutes**: 1 session
-
-Seven out of nine sessions completed in under 4 minutes. That's not because the tasks were trivial — one of the 2-minute sessions produced a multi-section intelligence brief with external data sourced from three different platforms.
-
-Short sessions stay short because scope is defined before execution starts.
-
-## The Prompt Structure Behind Sub-4-Minute Sessions
-
-The prompt format that made consistent short sessions possible:
-
-```
-# Socratic intake
-
-Goal: Compile the 2026-05-27 Korean medical/dental ad research results
-      into a structured daily brief.
-Scope: Only create/update files under
-       /Users/jidong/dentalad/research/daily-medical-dental-ads/
-Tasks: daily-update.md, rolling-knowledge-base.md, source-index.md
-Not doing: existing site modifications, deployment, email
-Assumptions: Previous day's data exists in the research directory.
-             Using same format as previous daily briefs.
+```bash
+cat 2026-05-28-daily-intel-raw.json | head -100
+ls -la /Users/jidong/spoonai/crawl/newsite/
+ls 2026-05-27-daily-intel.md   # check previous day's format
 ```
 
-The "Not doing" section is as important as the "Tasks" section. When Claude knows what's explicitly out of scope, there's no need to ask clarifying questions. The session starts with execution, not negotiation.
+The pattern: confirm what the JSON looks like, compare against yesterday's output format, verify the target directory exists. This groundwork has to happen before Write can produce something accurate. If you skip it and write with the wrong schema, you pay a higher cost to fix or rewrite the output.
 
-Without this structure, a session might spend the first minute asking: "Should I update the existing files or create new ones? Do you want me to check the deployment too?" With explicit scope definition, that overhead disappears.
+So 10 Bash calls isn't "nothing happened." It's "the exploration budget ran out before execution started."
 
-The four fields that eliminate back-and-forth: **Goal** (one-sentence restatement), **Scope** (exact directory/file targets), **Not doing** (explicit exclusions), **Assumptions** (what you're taking for granted so Claude doesn't have to ask).
+## From Raw JSON to Card-News Candidates
 
-This pattern comes from treating Claude sessions like function calls — inputs defined, outputs expected, side effects explicitly listed. The clearer the contract, the shorter the execution.
+The session's actual goal was extracting two types of content from `2026-05-28-daily-intel-raw.json`:
 
-## Hermes Is a Relay, Not a Worker — Why This Matters
+- **General audience**: card-news-style AI news anyone can follow
+- **Expert audience**: intelligence content for product managers and engineers
 
-Most sessions originated from Hermes — a layer that receives requests from Telegram and routes them to Claude CLI. This architecture creates a tempting shortcut: let Hermes handle the response directly since it's already in the loop.
-
-The design rule that prevented this:
-
-> Hermes is a relay. Design, implementation, modification, and output creation are Claude CLI's job.
-
-The actual prompt enforced this explicitly:
+Two output files:
 
 ```
-You are Claude CLI, the actual report writer. Hermes is only the relay.
-Your job: read the brief, fetch any needed external data, write the output files.
-Hermes routes the request. You execute it.
+/Users/jidong/spoonai/crawl/newsite/2026-05-28-daily-intel.md
+/Users/jidong/spoonai/crawl/newsite/2026-05-28-daily-intel.json
 ```
 
-Why does this matter? When Hermes generates output directly, that output is unverified. It hasn't gone through the read-fetch-synthesize cycle. It's producing text based on what it knows at routing time, not based on reading the actual current state of the research files or fetching live data.
-
-Claude CLI as executor means:
-- Reading the actual files before producing output (not working from memory)
-- Fetching real-time data when the task requires it
-- Writing output that reflects the actual data state, not a cached approximation
-
-Session 7 demonstrated how lean this can get: 2 tool calls total. Read 1, Bash 1. Read the brief to confirm what was needed, check that the output directory existed, write the result. Done.
-
-The relay/executor split keeps output accurate and verifiable. Hermes knows where to send the request. Claude CLI knows what to do with it.
-
-## 15 WebFetch Calls and Mid-Session Decision Making
-
-The SpoonAI growth signal collection session generated 15 WebFetch calls. The original plan: pull data from Product Hunt, Show HN, and GitHub Trending. Three sources, standard scan.
-
-Midway through, data quality wasn't meeting the threshold:
-- Reddit/HN data: sparse, not enough signal
-- GitHub Trending: skewing toward large established repositories, missing new launches
-
-The session adapted:
+The prompt used a Socratic Scope Gate format — explicitly stating goal, scope, what will be done, what won't be done, and assumptions:
 
 ```
-Reddit/HN data is sparse. I'll query Product Hunt and Show HN directly.
-Adding competitor newsletter sources in parallel.
-Pulling additional Show HN entries from the past 48 hours.
+1) Goal: Collect 2026-05-28 Daily AI Intel candidates for SpoonAI's new site.
+2) Scope: Use only 2026-05-28-daily-intel-raw.json as source.
+3) Action: Select and format raw candidates → produce .md + .json.
+4) Out of scope: No changes to existing pipeline.
 ```
 
-Three sources became six. The final brief had better signal coverage than the original plan would have produced.
+This structure eliminates the "is this what you meant?" loop. Claude skips the clarification dance and starts executing. But in this session, execution never started.
 
-This is the meaningful difference between Claude Code and a data pipeline script. A script with predefined sources returns whatever those sources contain, including empty results. Claude Code evaluates data quality mid-execution and adjusts the sourcing strategy.
+## Why the Session Stalled Before Writing
 
-For intelligence gathering work, this matters. You don't know in advance which sources will have good signal on a given day. A fixed scraper returns what's there. An adaptive executor fills gaps.
+Two possible causes. Either the JSON was complex enough that exploration consumed the session budget, or the context limit was hit before reaching the Write stage.
 
-The tradeoff: 15 WebFetch calls cost more than 3. For daily intelligence gathering where signal quality determines the value of the output, that's a reasonable exchange.
+Comparing to May 27 makes the gap visible. That session ran 32 tool calls on the same SpoonAI raw JSON task and produced both output files in under 2 minutes. Today stalled at 10.
 
-## The Interruption That Improved the Session
+Ten calls means the session ended during structure analysis. Bash confirmed things. No Write followed.
 
-Session 9 was the outlier — 8 minutes, the longest of the day. The user interrupted mid-stream:
+The lesson isn't that Bash exploration is wrong — it's that exploration and execution shouldn't depend on being in the same session. When exploration fills the context and the session closes, the next session starts from scratch. Same exploration, again.
+
+## The Socratic Gate Doesn't Replace Filesystem Awareness
+
+The prompt specified scope and goal clearly. Exploration still happened. The reason: the prompt answers "what to build" but not "what the current files look like."
+
+Before writing, Claude verifies:
+
+- Does the output directory exist?
+- What does last day's file format look like?
+- What are the top-level keys in the raw JSON?
+- What's the schema of yesterday's `.json` output?
+
+None of that comes from the prompt. It requires actually reading files. That's where the 10 Bash calls went.
+
+Two fixes address this:
+
+**Option A — embed the reference in the prompt.** Include the previous day's output path and a sample directly in the prompt context. Claude skips the discovery step and goes straight to writing.
+
+**Option B — fix the reference location.** Keep a canonical format reference at a stable path. Every session reads from that same location instead of hunting for yesterday's output.
+
+Both approaches share the same principle: pay the exploration cost once, upfront, so subsequent sessions don't repeat it.
+
+## Automation Pipelines Accumulate Maintenance Debt
+
+SpoonAI generates a raw JSON every day. The conversion step — raw JSON to curated `.md` + `.json` — runs daily. When a session stalls at the exploration phase, that day's intel file doesn't get created. The next session has to pick it up from scratch.
+
+This is manageable once. It compounds over weeks.
+
+The structural fix is a checkpoint:
 
 ```
-[Request interrupted by user]
-
-Stop. Don't overthink this. Just write the two files directly
-using admission_cases_brief.md as the source. Write tool only.
+exploration result → save to checkpoint.json
+next session       → read checkpoint.json → skip to Write stage
 ```
 
-What happened before the interrupt: too much time analyzing the brief before starting to write. The brief had been read, the scope was understood, but the session was still in planning mode rather than execution mode.
+This mirrors the `brief.md` pattern validated in May 27 sessions 6–7. Pre-paying the exploration cost shortens the execution phase. The checkpoint becomes the handoff between sessions — exploration done once, execution picks it up cleanly.
 
-After the interrupt, immediate execution: Bash 3, Read 3, Write 1. Complete.
+Without the checkpoint, every session that hits a context limit before writing restarts the same exploration. The pipeline looks like it runs daily but produces gaps on context-heavy days.
 
-The pattern is clear in retrospect. When the output is:
-- Two specific files
-- Content fully defined in an existing brief
-- No ambiguity in format
+## The Numbers
 
-...there's no planning phase needed. Start writing. The brief is the plan.
+| Metric | Value |
+|--------|-------|
+| Sessions | 1 |
+| Total tool calls | 10 |
+| Bash | 10 |
+| Read | 0 |
+| Write | 0 |
+| Files created/modified | 0 |
 
-Adding `Write tool only` to the prompt from the start would have prevented the over-analysis. For output-constrained tasks — you know exactly how many files and roughly what they contain — skip the planning phase and start executing.
+Comparison with May 27's equivalent session:
 
-Planning overhead should scale with output uncertainty. Two files from an existing brief has near-zero uncertainty.
+| Metric | May 27 | May 28 |
+|--------|--------|--------|
+| Tool calls | 32 | 10 |
+| Files created | 2 | 0 |
+| Time to completion | ~2 min | — |
 
-## What Five Write Calls Produced
+> A session that produces no files still leaves data. The exploration pattern, where it entered, why it stopped. This log is the next session's starting point.
 
-All of the day's output came from 5 Write calls:
+## What a Zero-Output Session Is Actually Worth
 
-**`2026-05-27-growth-sponsor-signals.md`**  
-SpoonAI growth and sponsor signal report — synthesized from six sources including Product Hunt, Show HN, and competitor newsletters.
+The instinct is to treat a session with no written output as waste. That framing misses what's in the data.
 
-**`2026-05-27-daily-intel.md` + `2026-05-27-daily-intel.json`**  
-AI intelligence daily summary in both human-readable Markdown and structured JSON for downstream consumption.
+A session that ran 10 Bash calls and stopped tells you:
 
-**`report.html` + `short_summary.md`**  
-SpoonAI and fortunelab analysis reports — HTML for sharing, Markdown for archival.
+1. The exploration phase is long enough to consume a session budget
+2. The pipeline has no checkpoint between exploration and execution
+3. The prompt lacks enough context to skip the discovery step
 
-**`ai_masters_admission_cases_interview_report.html`**  
-Graduate admissions case analysis formatted for review.
+Each of those is actionable. None of them are visible from a session that "worked" — where exploration was fast and execution followed immediately.
 
-Zero code files. All analysis artifacts. This is what Claude Code's daily output looks like when used as a research tool rather than a code generator.
+Zero-output sessions reveal friction that successful sessions hide. The May 27 session that produced two files in 2 minutes didn't expose this. Today's dead session did.
 
-## Research Mode vs. Coding Mode: Reading the Signal
-
-The tool call ratio is the clearest indicator of what mode you're in:
-
-- **Coding mode**: `Edit >> Read > Bash`, Write low
-- **Research mode**: `Bash > Read >> Write`, Edit near-zero
-
-When Bash is dominant, Read is in second place, and Write is under 10% of total calls, you're in synthesis mode. The work is reading data, checking state, and producing structured output — not modifying existing code.
-
-The session length targets differ too. Research sessions can complete in 2 minutes because the feedback loop is simpler: read the output file and either it has the right information or it doesn't. Coding sessions run longer because iteration is built into the workflow.
-
-> When judgment calls outnumber implementation tasks, the tool call ratio shifts: Bash > Read >> Write. That pattern signals a research-mode day.
+Logging both is how the pipeline improves.
 
 ---
 
