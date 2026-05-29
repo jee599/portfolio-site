@@ -1,95 +1,142 @@
 ---
-title: "Hermes 대시보드 V1→V4: 11세션 478 tool call로 만든 에이전트 작업 현황판"
+title: "Hermes 대시보드 미션 컨트롤 업그레이드 — 17세션, 440 tool calls, 삽질의 기록"
 project: "portfolio-site"
 date: 2026-05-30
 lang: ko
-tags: [claude-code, hermes, dashboard, next-js, orchestration]
-description: "로컬 에이전트 작업을 시각화하는 Hermes 대시보드를 Claude Code로 하루 만에 V1에서 V4까지 반복했다. 11세션, 478 tool call, 보안 발견까지."
+tags: [claude-code, hermes, dashboard, next-js, mission-control, ui]
+description: "같은 프롬프트를 7번 날렸다. 세션 12개를 쏟아부은 뒤에야 Hermes 대시보드가 진짜 미션 컨트롤이 됐다. 440 tool calls, 46개 파일 변경의 현장."
 ---
 
-11개 세션, 478번의 tool call, 총 5시간 가까운 작업 끝에 로컬 에이전트 현황판이 완성됐다.
+17개 세션을 열었는데 실제로 파일을 건드린 세션은 5개다. 나머지는 탐색하다 끊기거나, 같은 프롬프트를 재시도하거나, `CLEAN_OK` 한 마디만 반환했다. Hermes 오케스트레이터로 Claude를 굴릴 때 자주 일어나는 패턴이다.
 
-**TL;DR** Claude Code의 오케스트레이터 게이트 패턴을 활용해, Hermes 대시보드를 MVP → V2 → V3(미션 컨트롤 디자인) → V4(한국어 레이블)로 하루 만에 반복했다. 중간에 보안 이슈도 발견했다.
+**TL;DR** Hermes 로컬 대시보드를 작업 가시성 중심의 미션 컨트롤 UI로 재설계했다. 한국어 레이블, 크론 출력 패널, V2→V3 순차 업그레이드까지 총 46개 파일, 440 tool calls.
 
-## 왜 대시보드가 필요했나
+## 같은 프롬프트를 7번 날린 이유
 
-Hermes, Claude Code, Codex, cron 자동화가 동시에 돌아가다 보니 "지금 뭐가 실행 중인지"가 안 보였다. tmux 세션을 열고, `ps aux`를 치고, 로그 파일을 뒤지는 방식은 시간이 너무 많이 든다. 로컬에서 `localhost:7878`로 바로 볼 수 있는 read-only 대시보드가 필요했다.
-
-## V1 MVP: 49분, 66 tool call
-
-세션 4에서 brief 파일을 먼저 플래닝에 썼다. `~/.hermes/tmp/hermes-dashboard-brief.md`를 작성하고, plan-orchestrator 에이전트에게 넘겼다. 세션 5에서 general-purpose 에이전트가 실제 구현을 담당했다.
-
-오케스트레이터 게이트가 처음에 막혔다. 메인 Claude가 직접 `Edit`/`Write`를 하려 했는데, `stage: implementing`이 아니라서 차단됐다. 상태를 `implementing`으로 바꾸고 나서야 서브에이전트 write가 풀렸다.
-
-```bash
-source ~/.claude/workflows/.../lib/state.sh
-state_set stage implementing
-```
-
-V1 완성 후 Codex가 4가지 must-fix를 찾아냈다. RSS 링크 프로토콜 allowlist 누락, 로그 라우트 EOF 빈 줄 등이었다. 바로 픽스 에이전트를 디스패치해서 처리했다.
-
-## V2: 보안 발견
-
-V2 작업(세션 8, 36분, 93 tool call) 중 cron 출력 디렉토리를 탐색하다가 중요한 것을 발견했다.
-
-`~/.hermes/cron/output/<jobId>/<timestamp>.md` 파일에 **전체 프롬프트가 `## Prompt` 섹션으로 그대로 포함**돼 있었다. API 키나 내부 전략이 담긴 프롬프트가 대시보드 UI에 그대로 노출될 수 있는 구조였다. `allowlists.ts`에 프롬프트 섹션 redaction 로직을 추가하고 나서야 안전하게 cron 출력을 보여줄 수 있었다.
-
-실제 데이터를 먼저 탐색하지 않았으면 놓쳤을 이슈다. 이번 작업에서 Bash로 실제 파일을 들여다보는 단계(33 Bash calls)가 구현보다 먼저였던 이유다.
-
-## V3: 미션 컨트롤 리디자인
-
-세션 9가 가장 길었다. 2시간 20분, 122 tool call. `interface-design` 스킬을 로드했는데 유저가 중간에 요청을 인터럽트했고, 이후 Codex cross-verify 결과를 받아 이어서 진행했다.
-
-V3의 핵심 변화는 UI 언어였다. "AI News" 섹션을 없애고, 에이전트 진행 패널, 크론 이슈 카드, 워크보드를 새 컴포넌트로 분리했다. `globals.css`에 `cool-slate` 테마와 램프 효과가 들어갔다. 생성된 파일만 20개가 넘는다.
+세션 1, 3, 4, 5, 7, 9가 거의 동일한 프롬프트를 가지고 있다.
 
 ```
-~/hermes-dashboard/src/
+Goal: Upgrade the existing Hermes local GUI dashboard into a more visual
+mission-control style dashboard for tracking ongoing Hermes/Claude/Codex/Cron work.
+```
+
+Hermes가 세션을 열고 → 탐색만 하다가 컨텍스트 한도에 걸리거나 → 오케스트레이터가 "이 세션은 기획만 했으니 다시"라며 재시도하는 루프다. 세션 6은 `<synthetic>` 모델이 "Not logged in · Please run /login"만 반환했다. 세션 8, 10, 11은 상태 확인용 원라이너(`CLEAN_OK`, `CLAUDE_LEAN_OK`, `CLAUDE_FINAL_LEAN_OK`)였다.
+
+실제 구현은 세션 12부터 시작됐다.
+
+## 세션 12: 한국어 레이블 전면 적용 (49분, 59 tool calls)
+
+```
+Goal: Improve the local Hermes dashboard at http://127.0.0.1:7878 so cron jobs,
+skills, sessions, and internal identifiers are explained in clear Korean.
+The user specifically complained that entries like `medical-dental-ads-daily-goal`,
+`telegram-tech-report-html`, `daily-codex-cli-update` appear as raw text.
+```
+
+raw ID가 대시보드에 그대로 노출되는 게 문제였다. 사용자가 직접 불만을 제기한 케이스다.
+
+Codex 교차검증이 블로커 2개를 잡아냈다.
+
+> `CronOutputPanel.tsx` line 161: `{j.name || j.id}`에서 raw 텍스트가 primary label로 출력됨. `describeCronJob`을 import해서 한국어 레이블을 우선 표시해야 함.
+
+`describeCronJob` 헬퍼를 만들어 7개 크론 잡 ID를 한국어로 매핑하는 방식으로 해결했다. Read 22회를 썼지만 Edit은 0회 — 구현은 `frontend-implementer` 서브에이전트에 위임했다. 이 세션에서 메인이 직접 변경한 파일은 `plan.md` 하나다.
+
+## 세션 13: V2 업그레이드 — 보안 이슈 발견 (36분, 93 tool calls)
+
+```
+Read /Users/jidong/.hermes/tmp/hermes-dashboard-v2-brief.md and execute it fully.
+Use Opus 4.8 xhigh. Do not modify Hermes Agent source.
+Work until verified and committed, or report any blocker.
+```
+
+brief 파일 방식이 처음 등장한 세션이다. 스펙을 파일로 써두면 탐색 루프 없이 바로 구현에 들어간다.
+
+크론 출력 디렉토리를 탐색하다가 보안 이슈를 발견했다. `~/.hermes/cron/output/<jobId>/<timestamp>.md` 파일에 `## Prompt` 섹션으로 전체 프롬프트가 그대로 포함돼 있었다. API 키나 내부 전략 내용이 대시보드 UI에 그대로 노출될 수 있는 구조였다. `allowlists.ts`에 프롬프트 섹션 redaction 레이어를 추가했다.
+
+이 세션에서 만든 것들: `CronOutputPanel.tsx`, `NowStrip.tsx`, `ActiveWork.tsx`, 새 `/api/cron-output` 라우트. Bash 33회, Read 31회, Edit 17회, Write 10회.
+
+## 세션 14: V3 풀 리디자인 — 2시간 20분 (122 tool calls)
+
+가장 긴 세션이다. `claude-opus-4-8` xhigh로 2시간 20분.
+
+```
+Read /Users/jidong/.hermes/tmp/hermes-dashboard-v3-brief.md and execute it fully.
+Use Opus 4.8 xhigh. Prioritize design quality and human-readable work-progress IA.
+Work until verified, committed, and 7878 is restarted if safe.
+```
+
+중간에 `[Request interrupted by user]`가 들어왔다. Codex 교차검증이 완료된 뒤 이어받는 프롬프트가 별도로 왔다.
+
+```
+Codex cross-verification is done and codex-report.md exists. Continue: inspect
+the Codex report for any blocking issues. If only minor/non-blocking, do not
+over-polish; run final typecheck/build/diff-check, commit with message
+'feat: redesign Hermes dashboard work control room', restart the 7878 dashboard safely.
+```
+
+V3에서 새로 만든 파일들:
+
+```
+src/
 ├── components/
-│   ├── AgentProgressPanel.tsx   # 새 컴포넌트
-│   ├── CronIssueCards.tsx       # 새 컴포넌트
-│   ├── MissionControl.tsx       # 새 컴포넌트
-│   └── WorkBoard.tsx            # 새 컴포넌트
+│   ├── MissionControl.tsx     # 전체 레이아웃 재구성
+│   ├── WorkBoard.tsx          # 진행 중인 작업 카드
+│   ├── AgentProgressPanel.tsx # Claude/Codex 에이전트 상태
+│   ├── CronIssueCards.tsx     # 크론 이슈 카드뷰
+│   └── Collapsible.tsx
 └── lib/
-    ├── controlRoomTypes.ts
-    ├── workStages.ts
-    └── workflows.ts
+    ├── workStages.ts          # 상태 → 한국어 변환
+    ├── issueTranslator.ts
+    ├── workflows.ts
+    └── controlRoomTypes.ts
 ```
 
-`Workflow` 도구를 한 번 사용했다. "contract → parallel components → integrate → typecheck" 4단계를 병렬로 처리하는 동적 워크플로였다.
+기존 "mission-operations room" 디자인 언어(phosphor annunciator 램프, cool-slate 서피스, semantic glow)를 유지하면서 IA를 개편했다. 전면 재작성이 아니라 수술적 확장이었다. Bash 39회, Edit 29회, Read 28회, Write 22회.
 
-## V4: 한국어 레이블
+## 세션 15: 네 번째 패스 — Workflow 도구 활용 (44분, 71 tool calls)
 
-세션 11(49분, 59 tool call)은 UX 문제를 해결했다. `medical-dental-ads-daily-goal`, `telegram-tech-report-html` 같은 내부 식별자가 그대로 화면에 노출됐다. 사용자가 직접 불편함을 언급했다.
+V3 이후에도 "현재 진행 중인 작업이 무엇인지 시각적으로 보인다"는 원래 목표를 완전히 채우지 못한 부분이 남았다. AI 뉴스 섹션은 필요 없다고 판단해 제거했다.
 
-해결 방식은 간단했다. `describeCronJob` 헬퍼 함수를 `src/lib/cronLabels.ts`에 만들고, 모든 레이블 렌더링 컴포넌트에서 raw ID 대신 이 함수를 통하도록 수정했다. ~9개 파일에 걸친 변경이라 `standard`로 분류하고 `frontend-implementer` 서브에이전트에 위임했다.
-
-## 오케스트레이터 패턴이 실제로 어떻게 동작했나
-
-이번 작업에서 오케스트레이터 게이트를 여러 번 마주쳤다. 핵심은 두 가지다.
-
-첫째, 메인 Claude가 직접 파일을 쓰려면 `stage: implementing` 상태여야 한다. 상태를 올려주지 않으면 `Edit`/`Write` 도구 사용이 차단된다.
-
-둘째, `major` 작업은 plan → 구현 에이전트 → verifier → codex 순서를 강제한다. 귀찮아 보이지만, V1에서 Codex가 실제로 버그를 잡아냈고, V3에서도 Codex report의 blocking findings를 받아 픽스했다.
+이 세션에서 `Workflow` 도구를 처음으로 활용했다.
 
 ```
-plan.md → 구현 → diff.patch → verifier-report.md → codex-report.md → 최종 보고
+Build diagrammatic mission-control wall:
+contract → parallel components → integrate → typecheck
 ```
 
-세션 6~7처럼 `config`만 보낸 경우에도 메인 에이전트가 workflow state를 읽어 맥락을 복원했다. 상태 파일(`state.json`)이 세션 간 연속성을 유지하는 핵심이다.
+동적 워크플로로 Agent 6개를 병렬 디스패치해 컴포넌트별 구현을 나눴다. 메인 세션은 contract 정의와 최종 통합만 담당했다. Read 36회, Bash 27회.
 
-## 숫자로 정리
+## 도구 사용 분포
 
-| 항목 | 수치 |
-|------|------|
-| 총 세션 수 | 11개 |
-| 총 tool call | 478회 |
-| Bash | 198회 |
-| Read | 147회 |
-| Edit | 46회 |
-| Write | 39회 |
-| Agent | 23회 |
-| 생성 파일 | 32개 |
-| 수정 파일 | 17개 |
-| 최장 단일 세션 | 2시간 20분 (V3) |
+| 도구 | 횟수 | 비율 |
+|------|------|------|
+| Read | 191 | 43% |
+| Bash | 141 | 32% |
+| Edit | 46 | 10% |
+| Write | 34 | 8% |
+| Agent | 17 | 4% |
+| 기타 | 11 | 3% |
 
-Read가 Bash 다음으로 많다는 게 특징적이다. 구현보다 탐색에 더 많은 call이 쓰였다. 실제 데이터를 먼저 보고 설계하는 방식이 이번 작업 전반에 걸쳐 유효했다.
+Read가 43%다. 구현 전에 코드베이스를 철저히 파악하는 게 Opus의 기본 패턴이다. 새 컴포넌트를 작성하기 전에 관련 파일을 10개 이상 읽는다. 시간이 걸리지만 엉뚱한 인터페이스를 만드는 실수가 줄어든다.
+
+## brief 파일 방식 vs 열린 프롬프트
+
+이번 작업의 핵심 삽질은 오케스트레이터가 같은 작업을 여러 번 재시도하는 것이다. 세션 1~11 중 실제 코드를 건드린 건 0개다. Hermes가 탐색 → 기획 → "다음 세션에서 구현"이라는 루프를 반복했다.
+
+brief 파일 방식(세션 13, 14)으로 전환했을 때 속도가 붙었다. `hermes-dashboard-v2-brief.md`처럼 스펙을 미리 써두면, 세션이 열릴 때마다 오케스트레이터가 재탐색하지 않고 파일을 읽고 바로 구현에 들어간다. 컨텍스트 재구성 비용이 파일 읽기 한 번으로 줄어든다.
+
+> "Upgrade into a more visual mission-control style dashboard"처럼 열린 목표는 탐색 루프를 만든다. 오케스트레이션 비용이 배로 든다.
+
+17세션이 필요하지 않았다. 처음부터 brief 파일로 시작했으면 5세션 안에 끝났을 것이다.
+
+## 결과
+
+`http://127.0.0.1:7878` 로컬 대시보드:
+
+- 크론 잡 7개가 한국어로 표시됨
+- 크론 출력 파일이 프롬프트 섹션 redaction 후 안전하게 제공됨
+- 진행 중인 Claude/Codex 세션 상태 카드
+- phosphor annunciator 램프 디자인 시스템 유지
+- typecheck + build 통과 후 커밋, 7878 재시작
+
+생성 파일 29개, 수정 파일 17개.
