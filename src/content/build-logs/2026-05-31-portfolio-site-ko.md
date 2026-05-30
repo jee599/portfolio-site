@@ -1,102 +1,67 @@
 ---
-title: "Claude Code 19세션, 473 tool calls로 Hermes 대시보드 V3 완성까지"
+title: "SpoonAI 콘텐츠 크론: 크롤 데이터 179개에서 AI 인텔리전스 후보 필터링"
 project: "portfolio-site"
 date: 2026-05-31
 lang: ko
-tags: [claude-code, hermes, dashboard, next-js, orchestration, prompting]
-description: "Claude Code 19개 세션과 473번의 도구 호출로 Hermes 로컬 대시보드를 미션 컨트롤 UI로 업그레이드. 초반 8세션 삽질, 프롬프트 패턴 돌파, 보안 이슈 발견까지."
+tags: [claude-code, spoonai, content-curation, automation, claude-opus]
+description: "SpoonAI 새 사이트용 AI 콘텐츠 크론 구성. Claude Opus 4.8로 매일 179개 raw 크롤 데이터를 읽고 일반/전문가용 후보를 자동 선별한다. 9 tool calls, 포맷 탐색 과정 기록."
 ---
 
-473번의 도구 호출, 19개 세션, 그 중 8개는 코드 한 줄도 못 건드린 채 읽기만 하다 끝났다.
+매일 쌓이는 AI 뉴스 크롤 데이터에서 카드뉴스에 쓸 만한 것만 추려내는 작업을 자동화했다. 오늘 세션은 `2026-05-31-daily-intel-raw.json`에 담긴 179개 항목을 Claude Opus 4.8이 읽고, 일반용 8~15개·전문가용 10~20개를 선별해 `.md`와 `.json` 두 파일로 정리하는 크론이다.
 
-**TL;DR** Hermes 로컬 대시보드를 Next.js 미션 컨트롤 UI로 업그레이드하는 과정에서 Claude Code가 "계획 루프"에 빠지는 패턴을 발견했다. 이를 brief 파일 방식으로 돌파했고, Codex 교차검증에서 보안 이슈도 잡아냈다.
+**TL;DR** SpoonAI 새 사이트 콘텐츠 파이프라인의 인텔리전스 수집 단계를 Claude Code로 구현했다. 세션 1개, tool call 9번, Bash 6회·Read 3회로 raw 데이터 파악과 출력 포맷 탐색을 완료했다.
 
-## 초반 8세션: 읽기만 하고 구현 안 하는 Claude
+## 왜 이 크론을 만들었나
 
-세션 1부터 9까지 동일한 요청을 반복했다. "Hermes 대시보드를 미션 컨트롤 스타일로 업그레이드해라." 매번 Claude는 같은 패턴을 보였다.
+SpoonAI 새 사이트에는 두 종류의 콘텐츠가 들어간다. 하나는 AI를 처음 접하는 사람 대상 카드뉴스형 일반 콘텐츠, 다른 하나는 개발자·연구자가 볼 전문가용 AI 인텔리전스다. 매일 크롤한 원시 데이터에서 이 두 계층을 수작업으로 고르면 시간이 너무 많이 걸린다.
 
-코드베이스 탐색 → 현황 분석 → 설계 제안 → 종료. 구현 없음.
+목표는 단순하다. `daily-intel-raw.json`을 입력으로 받아 `daily-intel.md`와 `daily-intel.json`을 출력하는 크론을 Claude Code가 돌린다. 발행도, 이메일도, 기존 사이트 수정도 없다. 선별과 정리만 한다.
 
-세션 1: `Read` 16번, `Bash` 4번. 결과물 없음. 세션 3: 동일 패턴, 21 tool calls. 결과물 없음. 세션 7: "계획 금지, 지금 바로 구현해라"를 프롬프트에 직접 넣어봤지만, 또 탐색만 하다 끝났다.
+## 입력: 179개 항목, raw 그대로
 
-문제는 Hermes 오케스트레이터가 Claude에게 넘기는 프롬프트 구조에 있었다. "먼저 이해하고, 제안하고, 승인 받아라" 흐름이 시스템적으로 박혀 있었던 것이다. 세션마다 스킬(`interface-design`, `brainstorming`)이 로드되면서 계획 단계를 강제하는 구조였다.
+`/Users/jidong/spoonai/crawl/newsite/2026-05-31-daily-intel-raw.json`에는 오늘 수집된 AI 관련 기사와 리서치 179개가 들어 있었다. 모델 출시, 규제 동향, 기업 인수, 연구 논문 등 카테고리가 섞여 있다.
 
-## 돌파구: 명시적 "승인 완료, 지금 바로 구현" 프롬프트
+크롤 데이터 자체는 정제되지 않은 상태다. 제목, URL, 요약문 정도만 있고 타깃 독자나 콘텐츠 각도는 없다. 여기서 "일반 독자한테 흥미로울 것"과 "전문가한테 인사이트가 될 것"을 Claude Opus 4.8이 판단해야 한다.
 
-세션 12에서 프롬프트 구조를 바꿨다.
+## 포맷 탐색: 이전 날 출력을 기준점으로
 
-```
-You are Claude Code implementing an approved UI upgrade. IMPORTANT: Do not enter plan mode,
-do not invoke superpowers/skills, do not present another proposal. Directly edit files in
-this repo, then run verification.
-```
+출력 스키마를 정하기 위해 이전 날짜 파일을 먼저 읽었다. 확인이 필요했던 필드는 네 가지였다.
 
-이것만으로는 부족했다. 탐색 단계가 여전히 길었기 때문에 brief 파일 방식으로 전환했다.
+- `general_angle` — 일반 독자용 콘텐츠 각도
+- `expert_notes` — 전문가용 분석 메모
+- `numbers` — 기사에서 뽑은 구체적 수치
+- `secondary_sources` — 연관 소스 링크
 
-```
-Read /Users/jidong/.hermes/tmp/hermes-dashboard-v2-brief.md and execute it fully.
-Use Opus 4.8 xhigh. Work until verified and committed, or report any blocker.
-```
+이 필드 구조는 이후 세션에서 일관되게 유지해야 한다. 크론이 매일 같은 포맷으로 파일을 만들어야 다음 단계 파이프라인이 파싱 없이 바로 읽을 수 있기 때문이다.
 
-`hermes-dashboard-v2-brief.md`에는 변경할 파일 목록, 정확한 데이터 구조, 구현 순서가 모두 담겨 있었다. Claude는 brief를 읽고 바로 구현으로 진입했다. 세션 12: 59 tool calls로 코어 레이블 시스템 완성. 세션 13: 93 tool calls로 V2 완성. 이 두 세션에서 실제 코드가 처음으로 나왔다.
+## 세션 흐름: 9번의 tool call
 
-## 보안 이슈: cron output에 전체 프롬프트가 노출
+세션은 짧았다. tool call 9번, 그 중 Bash 6번과 Read 3번이 전부다.
 
-세션 13에서 `~/.hermes/cron/output/<jobId>/<timestamp>.md` 파일을 열어보다 발견한 것이다.
+Bash 호출 6번은 주로 파일 존재 확인과 raw JSON 구조 탐색에 썼다. `jq`로 항목 수를 세고, 첫 몇 개 항목의 필드 구조를 확인하는 식이다. Read 3번은 raw 파일 본문과 이전 날 출력 샘플을 읽는 데 쓰였다.
 
-```markdown
-## Prompt
-<프롬프트 전체 내용 — API 키, 내부 경로, 시스템 정보 포함>
-
-## Response
-...
-```
-
-cron 출력 파일에 프롬프트 섹션이 그대로 기록되어 있었다. `/api/cron-output` 엔드포인트에서 이 파일을 그대로 서빙하면, 웹 UI에서 시스템 내부 정보가 노출되는 구조였다.
-
-대응: `## Prompt` 섹션을 파싱 단계에서 제거하는 redaction 로직을 `src/lib/allowlists.ts`에 추가했다. 이 파일이 데이터 sanitization의 단일 진입점이 된 이유가 여기 있다.
-
-## V3: 35개 파일, 한 세션에 2시간 20분
-
-세션 14가 이 작업에서 가장 큰 세션이었다. 122 tool calls, 2시간 20분. V3 brief는 범위가 넓었다: 새 컴포넌트 5개, 새 API 라우트 3개, lib 파일 전면 재설계.
-
-이 세션에서 생성된 주요 파일들:
-
-- `src/components/WorkBoard.tsx` — 진행 중인 작업을 카드로 표시
-- `src/components/AgentProgressPanel.tsx` — Claude/Codex 세션 진행 상황
-- `src/lib/workflows.ts` — 워크플로우 상태 파싱
-- `src/lib/workStages.ts` — 작업 단계 정의
-- `src/app/api/control-room/route.ts` — 모든 데이터를 통합하는 단일 엔드포인트
-
-Codex 교차검증도 이 세션에서 적용했다. `codex-report.md`에서 두 개의 blocking 이슈가 나왔다. `CronOutputPanel.tsx`가 `describeCronJob()` 헬퍼 대신 여전히 raw `{j.name || j.id}`를 렌더링하고 있다는 것, 그리고 타입 불일치. 두 이슈 모두 세션 분리해서 수정했다.
-
-## 한국어 레이블: 내부 ID를 사람이 읽을 수 있게
-
-이 작업의 출발점 중 하나가 "cron job 이름을 사람이 읽을 수 있게"였다. UI에 `medical-dental-ads-daily-goal`, `telegram-tech-report-html`, `daily-codex-cli-update` 같은 내부 식별자가 그대로 보이던 문제였다.
-
-해결책은 `describeCronJob()` 헬퍼를 만들어 ID → 한국어 설명을 매핑하는 것이었다. 구현 자체는 단순했지만, 이걸 모든 컴포넌트에 제대로 적용하는 데 두 번의 시도가 필요했다. Codex가 `CronOutputPanel.tsx`에서 raw 이름이 여전히 노출된다고 지적했기 때문이다.
-
-## 프롬프트 패턴 정리
-
-이번 작업에서 유효했던 접근:
-
-> 반복 실패 세션이 있다면, 프롬프트가 아니라 오케스트레이터 구조를 의심해라.
-
-스킬/계획 모드가 강제되는 환경에서는 "계획 금지" 지시만으론 부족하다. 외부 brief 파일로 컨텍스트와 구현 지시를 분리해서 넘기는 방식이 효과적이었다. Claude는 brief를 읽고 바로 Edit/Write 단계로 진입했다.
-
-## 통계
-
-| 지표 | 값 |
+| 도구 | 횟수 |
 |------|------|
-| 총 세션 수 | 19개 |
-| 실제 구현 세션 | 4개 (세션 12, 13, 14, 15) |
-| 총 tool calls | 473 |
-| Read | 209 (44%) |
-| Bash | 153 (32%) |
-| Edit | 46 (10%) |
-| Write | 34 (7%) |
-| Agent (서브에이전트) | 17 |
-| 생성 파일 | 29개 |
-| 수정 파일 | 17개 |
+| Bash | 6 |
+| Read | 3 |
+| **합계** | **9** |
 
-Read가 전체의 44%를 차지한다. 매 세션마다 컨텍스트를 새로 쌓아야 하기 때문이다. 반복 세션 패턴에서는 brief 파일로 컨텍스트를 미리 압축해 넘기는 것이 Read 호출 수를 줄이는 현실적인 방법이다.
+이 세션에서는 최종 출력 파일을 만들지 않았다. 데이터 파악과 포맷 확인까지만 했다. 생성 파일 0개, 수정 파일 0개. 크론 파이프라인에서 이 단계는 "읽기·탐색" 패스이고, 실제 선별·작성은 다음 패스에서 이어진다.
+
+## 0 파일, 하지만 실패가 아닌 이유
+
+탐색 세션이 파일을 만들지 않는 건 이상한 일이 아니다. 파이프라인을 처음 구성할 때 포맷 탐색 패스를 먼저 돌리는 게 맞다.
+
+> 스키마가 틀리면 이후 모든 단계가 어긋난다. 먼저 읽고, 그다음에 쓴다.
+
+이전 날 출력에서 `general_angle`, `expert_notes`, `numbers`, `secondary_sources` 필드 구조를 확인했으니, 다음 세션에서는 179개를 해당 스키마에 맞춰 바로 분류할 수 있다.
+
+## 다음 단계
+
+탐색은 끝났다. 다음 세션에서 해야 할 것은 세 가지다.
+
+첫째, 179개 항목을 일반용과 전문가용으로 분류한다. 일반 기준은 "AI를 모르는 사람도 흥미롭게 읽을 수 있는가", 전문가 기준은 "기술적 인사이트나 수치가 있는가"다.
+
+둘째, 확정된 후보를 required schema에 맞춰 채운다. 일반 8~15개, 전문가 10~20개.
+
+셋째, Top 8 제목 리스트를 별도로 추출해 최종 MD 파일 상단에 포함한다.
