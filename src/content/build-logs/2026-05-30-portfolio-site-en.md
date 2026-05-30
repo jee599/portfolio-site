@@ -1,119 +1,83 @@
 ---
-title: "19 Claude Code Sessions to Build Hermes Mission Control — Half Did Nothing"
+title: "19 Claude Code Sessions, 473 Tool Calls: Building a Dashboard That Watches Claude Watch Itself"
 project: "portfolio-site"
 date: 2026-05-30
 lang: en
 pair: "2026-05-30-portfolio-site-ko"
-tags: [claude-code, hermes, dashboard, nextjs, mission-control, orchestration]
-description: "19 sessions, 473 tool calls, 29 files — but 10 sessions wrote zero lines of code. Here's why half the Claude Code sessions stalled, and what finally unblocked the build."
+tags: [claude-code, hermes, dashboard, automation, multi-agent]
+description: "The same prompt ran 6 times before a file changed. 5 sessions were pure echo probes. Here's what broke the loop — and the security issue nobody asked for."
 ---
 
-19 sessions. 473 tool calls. 29 files created. By the numbers, this looks like a successful build. But 10 of those 19 sessions produced exactly zero lines of written code — not a single `Edit`, not a single `Write`. Half the compute went nowhere.
+19 sessions. 473 tool calls. The first file change happened in session 12.
 
-**TL;DR** It took one full day to upgrade the Hermes local dashboard from a raw-ID dump screen into Mission Control V3: human-readable Korean labels, live work-progress visualization, and a redesigned information architecture. The real work happened in just 4 sessions. This post documents why the other 10 stalled — and the pattern that finally made things move.
+**TL;DR** Built a dashboard that monitors Claude's own work — using Claude Code. The Hermes dashboard went from V1 to V3 across three implementation sessions. Six sessions ran the same prompt without touching a file. Five more were echo probes with zero tool calls. One line of role-clarification text broke the loop. Along the way, a security issue surfaced that nobody asked the agent to find.
 
-## Why 10 Sessions Produced Nothing
+## The Same Prompt Ran Six Times
 
-Session 6 ended like this:
+Sessions 1, 3, 4, 5, 7, and 9 all started with the same instruction: *"Upgrade the Hermes dashboard into a mission-control style UI."*
 
-```
-Reply exactly BARE_OK
-→ Not logged in · Please run /login
-```
+Every one of those sessions did exactly the same thing: Read files. Run Bash commands. Explore the codebase. Stop. No writes, no edits, nothing shipped.
 
-Sessions 8, 10, and 11 each received a handshake token — `CLEAN_OK`, `CLAUDE_LEAN_OK`, `CLAUDE_FINAL_LEAN_OK` — and terminated. In the Hermes architecture, Claude Code instances run as the orchestrator. Before spawning a real work session, Hermes probes connectivity with lightweight ping sessions. Those sessions are functioning exactly as designed. They just don't do anything.
+Between those sessions, five more ran as bare echo probes — `HELLO`, `BARE_OK`, `CLEAN_OK`, `CLAUDE_LEAN_OK`, `CLAUDE_FINAL_LEAN_OK` — verifying that context routing worked correctly when Hermes relayed prompts to Claude Code. Five sessions, zero tool calls total.
 
-The more interesting failures were sessions 1 through 5, plus 7 and 9. Opus 4.8 and Sonnet 4.6 alternated through the `hermes-dashboard` repo — `Read(16)`, `Read(17)`, `Read(10)`, `Read(13)` — but never touched `Edit` or `Write`. The blocker was the orchestration gate. Hermes's workflow state machine requires that file writes be delegated to a sub-agent before the workflow advances past `stage: planning`. The primary agent kept hitting that gate and stopping.
+The root problem: Hermes acts as the orchestrator and Claude Code is the executor. Nothing in the prompt made that split explicit. The agent kept treating itself as the planner, not the implementer — exploring, forming a plan, then deferring implementation to "the next session."
 
-Session 4 is the clearest example of good planning that couldn't convert. Sonnet produced a complete implementation plan and wrote this in its reasoning:
-
-> "phosphor annunciator lamps, cool-slate elevation, glow-as-status, reduced-motion fallback, Korean translation layer — this is not slop. My role is surgical improvement, not a full rewrite."
-
-That's a sharp read of the codebase. But the very next step — calling `TaskCreate` to delegate to a sub-agent — stalled. The plan never executed. Classic case of high-quality analysis sitting in front of an execution wall.
-
-## The 4 Sessions That Actually Shipped
-
-Sessions 12 (49 min), 13 (36 min), 14 (2h 20m), and 15 (44 min) are where the code was written. They share one characteristic: each prompt either contained an explicit "do not enter plan mode, do not invoke superpowers/skills, do not present another proposal — directly edit files" instruction, or handed `claude-opus-4-8` a brief file path with "execute it fully."
-
-The directive matters. Without it, the orchestrator's default behavior is to explore, assess, plan, and then schedule implementation for a future session. With it, the agent goes straight to files.
-
-Session 12's core prompt:
+Session 12's prompt fixed it with one sentence:
 
 ```
-Goal: improve cron jobs, skills, sessions, and internal identifiers
-so they display in clear, human-readable Korean.
-Opinion: identifiers like medical-dental-ads-daily-goal and
-telegram-tech-report-html are incomprehensible to anyone
-except the operator.
+"You are Claude Code, the actual implementer.
+Hermes is only the relay/orchestrator."
 ```
 
-This session produced the `describeCronJob` helper — an extension to `src/lib/allowlists.ts` that maps raw job IDs to Korean display labels. Codex cross-verification caught one blocker that the primary agent missed: line 161 in `CronOutputPanel.tsx` was still using `{j.name || j.id}` as the primary label. The fix:
+That sentence broke the loop. In multi-agent systems, role ambiguity between orchestrator and executor is a real failure mode, not a hypothetical one.
 
-```tsx
-// Before
-{j.name || j.id}
+## What Hermes Is
 
-// After
-{describeCronJob(j.id)?.label ?? j.id}
-```
+A local Next.js app running at `http://127.0.0.1:7878`. It shows real-time state across Claude Code sessions, Codex sessions, cron jobs, tmux sessions, and workflow statuses. Claude monitoring Claude's own work.
 
-A small diff. But without it, the entire labeling layer would have been bypassed and raw IDs would still appear in the UI.
+The original problem was the cron job IDs. Raw strings like `medical-dental-ads-daily-goal`, `telegram-tech-report-html`, and `daily-codex-cli-update` were displayed as-is. Looking at the dashboard, you couldn't tell what any of them actually did. That's what triggered the V1→V3 cycle.
 
-## The Brief File Pattern — and a Security Issue It Exposed
+## Session 12: Korean Labels (49 min, 59 tool calls)
 
-Session 13 introduced the technique that finally broke the exploration loop: the brief file.
+Created a `describeCronJob` helper that maps 7 cron job IDs to human-readable Korean labels, then replaced every `{j.name || j.id}` with `describeCronJob(j.id)` across all components.
 
-```
-Read /Users/jidong/.hermes/tmp/hermes-dashboard-v2-brief.md and execute it fully.
-Use Opus 4.8 xhigh. Work until verified and committed, or report any blocker.
-```
+Codex cross-review caught two blockers before commit. First: line 161 of `CronOutputPanel.tsx` still used the raw ID as the primary label — the helper was added but never wired up there. Second: one component had no import from the new helper file at all.
 
-The spec is written to a file before the session opens. When the session starts, the agent reads the file and immediately begins implementation — no re-exploration of the repo, no planning loop, no proposal. Session 13 generated 93 tool calls (Bash 33, Read 31, Edit 17, Write 10) and shipped a new `/api/cron-output` route, `CronOutputPanel.tsx`, `NowStrip.tsx`, and `ActiveWork.tsx`.
+Both fixed. Typecheck and build passed. Commit.
 
-During that implementation work, the agent found a security issue in the cron output directory. Files at `~/.hermes/cron/output/<jobId>/<timestamp>.md` included a `## Prompt` section containing the full prompt text verbatim. If those files were surfaced in the dashboard UI without filtering, API keys or internal strategy context could be exposed to anyone viewing the dashboard. A prompt redaction layer was added to `allowlists.ts` before the session committed.
+Tool distribution: Bash 32×, Read 22×, Agent 4×, Write 1×. The 4 Agent calls were Codex cross-review plus `frontend-implementer` subagent delegation — the change touched 8+ files, too wide for a single context pass.
 
-The pattern worth noting: multi-agent AI automation surfaces unexpected data exposure issues that a single-pass implementation would miss. The agent was exploring file paths to understand the data shape — and stumbled onto the leak in the process.
+## Session 13: V2 — Cron Output Panel (36 min, 93 tool calls)
 
-## V3: The 2-Hour 20-Minute Session
+Ran from a spec file: `~/.hermes/tmp/hermes-dashboard-v2-brief.md`. Three new components (`ActiveWork.tsx`, `CronOutputPanel.tsx`, `NowStrip.tsx`) and a new API route (`/api/cron-output`).
 
-Session 14 was the largest in the build. 122 tool calls over 2 hours and 20 minutes. Bash 39, Edit 29, Read 28, Write 22.
+While reading through the actual cron output files at `~/.hermes/cron/output/<jobId>/<timestamp>.md` to understand the data shape, something unexpected showed up: a `## Prompt` section containing the full prompt text verbatim.
 
-```
-Read /Users/jidong/.hermes/tmp/hermes-dashboard-v3-brief.md and execute it fully.
-Prioritize design quality and human-readable work-progress IA.
-Work until verified, committed, and 7878 is restarted if safe.
-```
+Nobody asked the agent to look for security issues. It was reading files to understand structure, and this fell out of that. If the API route served those files as-is, complete prompt contents — potentially including API keys or internal strategy details — would reach the client.
 
-New files created in V3:
+A redaction filter went into `/api/cron-output` before the route shipped. The `## Prompt` section gets stripped server-side before the response goes out.
 
-```
-src/
-├── components/
-│   ├── MissionControl.tsx      # full layout restructure
-│   ├── WorkBoard.tsx           # in-progress work cards
-│   ├── AgentProgressPanel.tsx  # Claude/Codex agent status
-│   ├── CronIssueCards.tsx      # cron issue card view
-│   └── Collapsible.tsx
-└── lib/
-    ├── workStages.ts           # status → human-readable mapping
-    ├── issueTranslator.ts
-    ├── workflows.ts
-    └── controlRoomTypes.ts
-```
+This session created 14 files. Tool breakdown: Bash 33×, Read 31×, Edit 17×, Write 10×. Write count spikes when net-new files are being created — expected.
 
-The design language from the existing "mission-operations room" — phosphor annunciator lamp indicators, cool-slate surfaces, semantic glow for status — was preserved. The work was structural: a new information architecture layered on top of what session 4's analysis had correctly identified as non-slop. This was surgical expansion, not a full rewrite.
+## Session 14: V3 — Full Redesign (2 hr 20 min, 122 tool calls)
 
-Midway through, a `[Request interrupted by user]` broke the session. After Codex cross-verification finished, a follow-up prompt continued the work:
+The heaviest session. Started from `hermes-dashboard-v3-brief.md`.
+
+Exploration alone took Read 28× and Bash 10+×. The agent pulled live data before designing anything: 7 active cron jobs, 26 workflow states, 3 Claude processes running, server healthy. Those numbers shaped the component design directly.
+
+Midway through, a follow-up prompt came in after Codex cross-verification:
 
 ```
-Codex cross-verification is done and codex-report.md exists. Continue: inspect
-the Codex report for any blocking issues. If only minor/non-blocking, do not
-over-polish; run final typecheck/build/diff-check, commit, restart the 7878 dashboard.
+Codex cross-verification is done. Continue: inspect the Codex report for any
+blocking issues. If only minor/non-blocking, do not over-polish; run final
+typecheck/build/diff-check, commit, restart the 7878 dashboard.
 ```
 
-The "do not over-polish" instruction is doing real work here. If Codex reports only minor issues, commit anyway. This is an explicit instruction to break the perfectionism loop — a failure mode where an AI agent keeps refining when the work is already good enough to ship.
+"Do not over-polish" is the key instruction. If Codex finds no true blockers, ship it. An explicit directive to exit the perfectionism loop — the failure mode where an agent keeps refining past the point of diminishing returns.
 
-## Tool Call Distribution Across All 19 Sessions
+Codex reported no blockers. Typecheck and build passed. Commit: `feat: redesign Hermes dashboard work control room`. 35 files created or modified.
+
+## Tool Usage Across All 19 Sessions
 
 | Tool  | Count | Share |
 |-------|-------|-------|
@@ -122,23 +86,24 @@ The "do not over-polish" instruction is doing real work here. If Codex reports o
 | Edit  | 46    | 10%   |
 | Write | 34    | 7%    |
 | Agent | 17    | 4%    |
-| Other | 14    | 3%    |
 
-Read at 44% is the headline number. Opus's default pattern before touching any file is to read the codebase thoroughly. Session 4's conclusion — "this is not slop, surgical improvement only" — prevented a full rewrite that would have introduced regressions and broken the existing design language. That read-heavy exploration cost time up front, but saved more time downstream.
+Read at 44% is the headline number. Exploration outweighed implementation by more than 2:1, even in sessions that shipped substantial code.
 
-The 17 Agent calls represent Codex cross-verification passes and `frontend-implementer` delegation. The primary agent did not write everything itself. Verification was delegated externally — which is how the `CronOutputPanel.tsx` label bug and the prompt-exposure security issue both surfaced.
+Edit and Write combined: 80 calls across 46 unique files — 1.7 edits per file on average. `allowlists.ts` and `page.tsx` were touched in multiple sessions, meaning neither was finished in a single pass.
 
-## What the Brief File Pattern Actually Changes
+The 17 Agent calls are all either Codex cross-verification or `frontend-implementer` delegation. The main agent didn't write everything itself — verification was outsourced, which is how the `CronOutputPanel.tsx` label bug and the prompt-exposure security issue both surfaced.
 
-The root inefficiency in this build: the orchestrator re-explored the same codebase across multiple sessions and kept scheduling implementation for "the next session." Sessions 1 through 11 produced zero code changes. Hermes was cycling through explore → plan → "implement next time" without ever crossing into write mode.
+## Brief Files Break the Exploration Loop
 
-Switching to brief files in sessions 13 and 14 broke that loop. When a spec is written to `hermes-dashboard-v2-brief.md` before the session opens, context reconstruction costs one file read. The agent skips re-exploration and goes directly to implementation.
+Sessions 1 through 11: 11 sessions, zero file changes.
 
-> An open-ended goal like "upgrade into a more visual mission-control style dashboard" creates an exploration loop. A brief file collapses the context reconstruction cost into a single `Read` call.
+The failure pattern: Hermes managing Claude Code sessions creates a relay layer. The orchestrator spent each session re-exploring context, forming plans, then deferring implementation. The loop ran because nothing anchored the session to "start here, implement this."
 
-19 sessions were not necessary. Starting with a brief file from session one would have landed this in 5 sessions or fewer. The overhead was not the Claude Code model — it was the orchestration structure that kept deferring execution.
+Brief files fixed it. When sessions 13 and 14 opened a spec file first — `hermes-dashboard-v2-brief.md`, `hermes-dashboard-v3-brief.md` — they skipped re-exploration entirely and went straight to implementation. Context reconstruction cost drops to a single file read.
 
-The practical takeaway for anyone building with Claude Code in a multi-agent setup: the gap between a good plan and shipped code is often not capability — it's the mechanism that converts planning state into write permission. Make that mechanism explicit, and make it cheap.
+> Open-ended goals like "upgrade into a more visual mission-control style dashboard" create exploration loops. A brief file converts them into bounded implementation tasks. Context reconstruction cost: one `Read` call.
+
+19 sessions were not necessary. Starting with brief files from the beginning, this was a 5-session project. The overhead wasn't capability — it was the orchestration structure that kept deferring execution.
 
 ---
 
