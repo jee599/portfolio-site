@@ -1,86 +1,107 @@
 ---
-title: "179 Raw Crawls, 31 Tool Calls, 4 Minutes — Claude Code Content Intelligence Crons"
+title: "197 Tool Calls in One Day: Running 3 Research Pipelines in Parallel with Claude Code"
 project: "portfolio-site"
 date: 2026-05-31
 lang: en
 pair: "2026-05-31-portfolio-site-ko"
-tags: [claude-code, automation, content-intelligence, opus]
-description: "Two Claude Code sessions, 31 tool calls, 4 minutes: filtering 179 raw crawls into structured content candidates and updating a rolling medical ad research KB."
+tags: [claude-code, claude-opus, web-search, research-automation, multi-agent]
+description: "197 tool calls across 5 sessions: Bash 73, WebSearch 40, Read 33. How Claude Opus ran 3 completely different research pipelines in a single day using context chaining and parallel agents."
 ---
 
-179 raw crawl entries. Two separate pipelines. 31 tool calls total. Everything wrapped up in under 4 minutes.
+73 Bash calls. 40 WebSearches. 33 file reads. By the end of the day, 197 tool calls had fired across 5 sessions and 6 new files existed that didn't before.
 
-Today's Claude Code sessions weren't about building features — they were about proving that repeatable AI automation at this scale is genuinely boring to operate. That's the goal.
+**TL;DR** — Used Claude Opus to complete three structurally different research pipelines in a single day: a SpoonAI content intelligence cron, a medical/dental advertising daily research update, and a global AI revenue platform report covering 25+ platforms verified against live official sources. Two patterns made this scale: context chaining (referencing yesterday's output files) and parallel agents by lane.
 
-**TL;DR** Two Opus 4.8 sessions completed a content intelligence cron (SpoonAI) and a medical advertising research pipeline. 5 files created or updated, 31 total tool calls, under 4 minutes end-to-end.
+## Three Sessions That Have Nothing in Common
 
-## Filtering 179 Crawls Without Writing a Schema Doc
+The day's meaningful work came from three sessions.
 
-The first session handled SpoonAI's content intelligence pipeline. The new site carries two content tracks: general-audience card-news posts (8–15 per day) and expert-grade AI intelligence briefs (10–20). Raw material: `2026-05-31-daily-intel-raw.json` — 179 entries from the daily crawler.
+**Session 1** was content intelligence collection for SpoonAI's new site. The agent read 179 items from `2026-05-31-daily-intel-raw.json` and selected candidates for two buckets: general card news (8–15 items) and expert intelligence (10–20 items). 9 tool calls total. The first thing the agent did wasn't read the raw data — it read the *previous day's output file*. It reverse-engineered the `general_angle`, `expert_notes`, `numbers`, and `secondary_sources` field structure to match the existing schema before writing anything.
 
-The prompt structure was deliberately lean:
+**Session 2** was daily research for medical and dental advertising. Input: `serp-2026-05-31/summary.json` and the day's collected HTML. Output: a daily update plus two updated cumulative files. Of 22 tool calls, 12 were reads. That 3:1 read-to-write ratio isn't waste — `rolling-knowledge-base.md` holds multiple days of accumulated data, and appending to it without understanding its current structure would silently corrupt the format. The session finished in under 4 minutes.
+
+**Session 5 was the main event.**
+
+## The Moment WebSearch Looked Empty
+
+Session 4 laid down the structure first: 5 Agent calls, 8 tool calls total. Session 5 ran the full execution: 158 tool calls over 37 minutes.
+
+The goal was to execute the `brief_global_ai_10_research.md` directive verbatim — live verification of 25+ global AI revenue platforms, pulling commission rates, payment terms, and Korea eligibility requirements directly from official sources.
+
+Two things happened in the first minutes. An `API Error: Overloaded` hit. And WebSearch results looked empty at first glance. On the next iteration, the results were all there — relay buffering had delayed the display, not the actual fetches. WebSearch, WebFetch, and curl were all working normally throughout.
+
+If this had been misread as a failure and the session abandoned, the output would have been a static summary instead of live-verified data. The difference between "it looks broken" and "it's buffering" is a lot of output quality.
+
+## How 40 Policy Facts Got Confirmed from Official Sources
+
+The core prompt constraint was:
 
 ```
-Goal: From today's raw crawl, select and structure content candidates
-      for SpoonAI's new site — both general-audience and expert tracks.
-Scope: Read 2026-05-31-daily-intel-raw.json.
-       Write only 2026-05-31-daily-intel.md and .json.
-Excluded: No publishing. No emails.
+Do not ask the user questions.
+Use live web search where available.
+If a source is blocked, record it as blocked and continue with another verifiable source.
 ```
 
-The "no publishing, no emails" clause is non-negotiable. LLMs are optimistic about scope — given half a reason, they'll infer "and probably push this to production too." Explicit exclusions kill that before it starts.
+"If blocked, record it as blocked and move to the next source" is the load-bearing line. The agent didn't stop when it hit a wall — it logged the block and continued. 40 WebSearches and 22 WebFetches later, roughly 40 commission and policy facts had been confirmed from official primary sources.
 
-What Claude actually did first: before reading today's raw data, it opened yesterday's output. It reverse-engineered the schema — `general_angle`, `expert_notes`, `numbers`, `secondary_sources` — directly from a real artifact rather than from a spec anyone wrote. That's the pattern worth internalizing: **"write it like yesterday's file" beats a three-page schema document**. The format stabilizes itself through examples, and it gets more reliable as the dataset accumulates.
+Several meaningful corrections surfaced during verification:
 
-Session 1 total: 3 Reads, 6 Bash calls, 9 tool calls. A human doing the same quality pass on 179 items — reading, scoring, categorizing, structuring — would take half a day.
+- **Etsy** is actually usable from Korea via Payoneer — not blocked as previously documented
+- **Toloka** dropped PayPal as a payout method
+- **Upwork**'s fee is now variable (0–15%), not a flat rate
+- **Ko-fi**'s shop sale fee is 5%, not 0%
 
-## Why the Medical Ad Pipeline Read 12 Times Before Writing Once
+This isn't summary work — it's catching actual policy changes that static knowledge would have missed.
 
-Session 2 was the daily medical and dental advertising research pipeline. Inputs: `serp-2026-05-31/summary.json` plus that day's collected HTML. Outputs: new `2026-05-31-daily-update.md` and updates to 4 accumulating files.
+> The pattern confirmed today: split by lane, assign parallel agents per lane. Investigating 25 platforms sequentially compounds delay. Splitting by lane means total completion time converges to the slowest single lane, not the sum of all lanes.
 
-Out of 22 total tool calls, 12 were Reads. Against 3 Edits and 1 Write, that's a 4:1 read-to-write ratio. The sequence explains why it's correct:
+## 5 Output Files in 37 Minutes
 
-1. Map directory structure (Bash)
-2. Read yesterday's `2026-05-30-daily-update.md` to confirm format (Read)
-3. Read today's `summary.json` source data (Read)
-4. Read artifact prompt guidelines (Read)
-5. Read 4 accumulating files sequentially — `rolling-knowledge-base.md` is large enough to need a separate tail read (Read ×5)
-6. Confirm HTML report style from `2026-05-30` output (Read)
+Files produced by Session 5:
 
-This looks wasteful. It isn't.
+- `global_ai_10_revenue_report.md` — detailed report, 27,872 bytes, 349 lines
+- `global_ai_10_revenue_report.html` — same content rendered as HTML
+- `method_ledger_seed.json` — structured per-platform data
+- `sources.json` — verified source list
+- `_progress.md` — in-flight progress log written during execution
 
-`rolling-knowledge-base.md` grows by one day's worth of entries every 24 hours. Append without understanding the existing structure and format drift starts immediately. Catch that drift on day 3: quick fix. Catch it on day 30 with 30 non-conforming entries: the remediation cost dwarfs every second saved by skipping the upfront reads.
+Both JSON files passed validation. All 5 files confirmed created. Bash accounted for 60 of Session 5's calls — the majority hitting official URLs directly with curl, then writing and validating output.
 
-> For accumulating files, a 4:1 read-to-write ratio isn't overhead — it's quality control.
+## Full Tool Call Breakdown
 
-Outputs: `2026-05-31-daily-update.md` created, `rolling-knowledge-base.md` and `source-index.md` updated. Done in 4 minutes.
+| Tool | Count |
+|------|-------|
+| Bash | 73 |
+| WebSearch | 40 |
+| Read | 33 |
+| WebFetch | 22 |
+| Write | 12 |
+| ToolSearch | 9 |
+| Agent | 5 |
+| Edit | 3 |
+| **Total** | **197** |
 
-## The Architecture That Makes Crons Self-Describing
+5 sessions. 2 modified files. 6 new files. Excluding the "Say OK" session, 4 sessions produced 197 tool calls. Sessions 1 and 2 together: 31. Sessions 4 and 5 together: 166. The numbers show exactly how heavy live research is versus cron-style data transformation.
 
-Both sessions share the same structural property: they're not one-off scripts — they're crons that run again tomorrow.
+## Why Context Chaining Matters for Cron Automation
 
-The SpoonAI intelligence cron follows `raw crawl → selection → .md/.json output` daily. The medical ad research follows `SERP data → daily update → rolling KB append`. In both cases, Claude uses yesterday's output as implicit context for today's run. Nobody re-explains the format each day.
+Sessions 1 and 2 are crons that run again tomorrow. The SpoonAI intelligence cron runs a daily `raw crawl → selection → .md/.json output` routine. The medical advertising research runs `SERP data → daily update → cumulative KB append`. In both cases, Claude references yesterday's output to build today's.
 
-This shifts what matters in prompt design. The key instruction isn't "what to build" — it's "where to look." A single directive like "match the structure of yesterday's output file" does more structural work than pages of schema documentation. The pipeline gets more reliable over time, not less: as the archive grows, the model has more patterns to reference.
+The instruction "write it in the same format as the file you made yesterday" is more reliable in practice than several pages of schema documentation. As accumulated data grows, so does the pattern library — and the model maintains consistency naturally without explicit formatting rules being re-stated every run.
 
-The failure mode is the opposite: prompts that define everything inline, from scratch, every run. High-maintenance, and doesn't compound with history.
+This is a meaningful property for any AI automation pipeline: the longer a cron has been running, the more stable its output format becomes. Prior outputs act as living examples, not just data.
 
-## Today's Numbers
+## What Actually Made This Scale
 
-| | Session 1 (SpoonAI) | Session 2 (Medical Ads) |
-|---|---|---|
-| Model | claude-opus-4-8 | claude-opus-4-8 |
-| Duration | ~0 min | 4 min |
-| Tool calls | 9 | 22 |
-| Read | 3 | 12 |
-| Bash | 6 | 6 |
-| Edit | 0 | 3 |
-| Write | 0 | 1 |
-| Files created/modified | 2 | 3 |
+Three things made 197 tool calls across three completely different domains produce usable output in a single day.
 
-31 total tool calls, 5 files. The 12 Reads in session 2 account for most of the cost — and most of the quality. A human doing both tasks at equivalent fidelity would budget 3–4 hours. Actual wall-clock: 4 minutes.
+**Lane-based parallelism.** Research tasks that look sequential often aren't. Segmenting 25 platforms into parallel Agent lanes means the bottleneck is the slowest lane, not the sum of all lanes. The structure matters more than the raw call count.
 
-The interesting thing isn't the speed. It's that the pipelines compound: every daily run adds context for the next one, without anyone maintaining that context manually.
+**Fault-tolerant prompting.** "Record it as blocked and continue" isn't a nice-to-have — it's what separates a session that survives partial failures from one that stalls. The Overloaded API error and the buffered WebSearch output would both have looked like hard failures without this approach.
+
+**Context chaining across sessions.** Cron jobs that reference prior outputs don't need re-explained schemas. The format is implicit in the example. This reduces prompt complexity and increases output consistency over time.
+
+The 37 minutes for Session 5 is what live web verification costs at this scale. That's the honest number for 25+ platforms with primary source confirmation. The tradeoff is worth it when the alternative is citing policies that have since changed.
 
 ---
 
