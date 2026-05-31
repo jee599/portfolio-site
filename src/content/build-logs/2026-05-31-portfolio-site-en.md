@@ -1,79 +1,86 @@
 ---
-title: "Filtering 179 Raw AI Articles with Claude Opus 4.8: Building a Content Intelligence Cron"
+title: "179 Raw Crawls, 31 Tool Calls, 4 Minutes — Claude Code Content Intelligence Crons"
 project: "portfolio-site"
 date: 2026-05-31
 lang: en
 pair: "2026-05-31-portfolio-site-ko"
-tags: [claude-code, spoonai, content-curation, automation, claude-opus]
-description: "How I built a content curation cron using Claude Code + Opus 4.8 to filter 179 raw crawled AI articles into tiered general and expert candidates daily."
+tags: [claude-code, automation, content-intelligence, opus]
+description: "Two Claude Code sessions, 31 tool calls, 4 minutes: filtering 179 raw crawls into structured content candidates and updating a rolling medical ad research KB."
 ---
 
-Every day, 179 raw AI articles land in a JSON file. Most of them are noise. A few are worth turning into content. The challenge is doing that triage automatically — and getting the output schema right before committing to any pipeline.
+179 raw crawl entries. Two separate pipelines. 31 tool calls total. Everything wrapped up in under 4 minutes.
 
-**TL;DR** I scaffolded a content intelligence cron for SpoonAI's new site using Claude Code. One session, 9 tool calls (6 Bash + 3 Read), zero output files — but the format exploration was the whole point. The next session can skip straight to classification.
+Today's Claude Code sessions weren't about building features — they were about proving that repeatable AI automation at this scale is genuinely boring to operate. That's the goal.
 
-## The Problem: Two Audiences, One Raw Feed
+**TL;DR** Two Opus 4.8 sessions completed a content intelligence cron (SpoonAI) and a medical advertising research pipeline. 5 files created or updated, 31 total tool calls, under 4 minutes end-to-end.
 
-SpoonAI's new site serves two distinct reader types. General readers — people curious about AI but not building with it — want digestible card-style news. Developer and researcher readers want technical depth: numbers, signals, secondary sources.
+## Filtering 179 Crawls Without Writing a Schema Doc
 
-The daily crawl doesn't distinguish between them. `2026-05-31-daily-intel-raw.json` contains 179 items — model releases, regulatory news, acquisitions, research papers — all flat, unsorted, with no audience targeting. Manually triaging this every day was a time sink that didn't scale.
+The first session handled SpoonAI's content intelligence pipeline. The new site carries two content tracks: general-audience card-news posts (8–15 per day) and expert-grade AI intelligence briefs (10–20). Raw material: `2026-05-31-daily-intel-raw.json` — 179 entries from the daily crawler.
 
-The goal: a cron that reads `daily-intel-raw.json` and outputs `daily-intel.md` plus `daily-intel.json`, pre-sorted into general picks (8–15 items) and expert picks (10–20 items). No publishing, no email, no touching the existing site. Just filter and format.
+The prompt structure was deliberately lean:
 
-## Why Claude Opus 4.8 for Curation
+```
+Goal: From today's raw crawl, select and structure content candidates
+      for SpoonAI's new site — both general-audience and expert tracks.
+Scope: Read 2026-05-31-daily-intel-raw.json.
+       Write only 2026-05-31-daily-intel.md and .json.
+Excluded: No publishing. No emails.
+```
 
-The filtering decision isn't a keyword search — it's editorial judgment. "Will a non-technical reader find this interesting?" and "Does this have actionable technical insight?" are questions that require reading comprehension, not pattern matching.
+The "no publishing, no emails" clause is non-negotiable. LLMs are optimistic about scope — given half a reason, they'll infer "and probably push this to production too." Explicit exclusions kill that before it starts.
 
-Claude Opus 4.8 runs this classification step. The model reads each item's title, URL, and summary, then makes the general/expert call and fills in structured fields for whichever category it lands in. At 179 items per day, this runs in a single prompt pass.
+What Claude actually did first: before reading today's raw data, it opened yesterday's output. It reverse-engineered the schema — `general_angle`, `expert_notes`, `numbers`, `secondary_sources` — directly from a real artifact rather than from a spec anyone wrote. That's the pattern worth internalizing: **"write it like yesterday's file" beats a three-page schema document**. The format stabilizes itself through examples, and it gets more reliable as the dataset accumulates.
 
-## What the Schema Needs to Carry
+Session 1 total: 3 Reads, 6 Bash calls, 9 tool calls. A human doing the same quality pass on 179 items — reading, scoring, categorizing, structuring — would take half a day.
 
-Before writing any classification logic, I needed to lock down the output schema. This is the part that bites you later if you skip it — downstream pipeline stages that parse your output will break silently if a field name drifts between runs.
+## Why the Medical Ad Pipeline Read 12 Times Before Writing Once
 
-I read previous-day output files to identify the four fields that matter:
+Session 2 was the daily medical and dental advertising research pipeline. Inputs: `serp-2026-05-31/summary.json` plus that day's collected HTML. Outputs: new `2026-05-31-daily-update.md` and updates to 4 accumulating files.
 
-- `general_angle` — the editorial angle for general-audience content
-- `expert_notes` — technical analysis memo for developer readers
-- `numbers` — specific quantitative data extracted from the article
-- `secondary_sources` — related source links for further context
+Out of 22 total tool calls, 12 were Reads. Against 3 Edits and 1 Write, that's a 4:1 read-to-write ratio. The sequence explains why it's correct:
 
-Every item in the output needs to carry exactly these fields, consistently named. The cron runs daily; the parser that reads it should never need to handle format variations.
+1. Map directory structure (Bash)
+2. Read yesterday's `2026-05-30-daily-update.md` to confirm format (Read)
+3. Read today's `summary.json` source data (Read)
+4. Read artifact prompt guidelines (Read)
+5. Read 4 accumulating files sequentially — `rolling-knowledge-base.md` is large enough to need a separate tail read (Read ×5)
+6. Confirm HTML report style from `2026-05-30` output (Read)
 
-## The Session: 9 Tool Calls, All Reads
+This looks wasteful. It isn't.
 
-This session was intentionally lightweight. The work was reconnaissance, not production.
+`rolling-knowledge-base.md` grows by one day's worth of entries every 24 hours. Append without understanding the existing structure and format drift starts immediately. Catch that drift on day 3: quick fix. Catch it on day 30 with 30 non-conforming entries: the remediation cost dwarfs every second saved by skipping the upfront reads.
 
-| Tool | Count |
-|------|-------|
-| Bash | 6 |
-| Read | 3 |
-| **Total** | **9** |
+> For accumulating files, a 4:1 read-to-write ratio isn't overhead — it's quality control.
 
-The 6 Bash calls covered: checking that the raw file existed, using `jq` to count items (179), inspecting the first few entries to confirm field structure, and verifying the previous-day output path. The 3 Read calls pulled the raw file body and two samples of prior output to cross-check schema consistency.
+Outputs: `2026-05-31-daily-update.md` created, `rolling-knowledge-base.md` and `source-index.md` updated. Done in 4 minutes.
 
-No files written. No items classified. Zero generated, zero modified.
+## The Architecture That Makes Crons Self-Describing
 
-## Why Zero Output Files Is a Valid Result
+Both sessions share the same structural property: they're not one-off scripts — they're crons that run again tomorrow.
 
-In a multi-pass pipeline, the exploration pass is its own deliverable. The output isn't a file — it's a validated schema and a clear picture of what the next pass needs to do.
+The SpoonAI intelligence cron follows `raw crawl → selection → .md/.json output` daily. The medical ad research follows `SERP data → daily update → rolling KB append`. In both cases, Claude uses yesterday's output as implicit context for today's run. Nobody re-explains the format each day.
 
-> Get the schema wrong and every downstream stage breaks. Read first, write second.
+This shifts what matters in prompt design. The key instruction isn't "what to build" — it's "where to look." A single directive like "match the structure of yesterday's output file" does more structural work than pages of schema documentation. The pipeline gets more reliable over time, not less: as the archive grows, the model has more patterns to reference.
 
-If I had skipped this step and gone straight to classification, I might have produced output with slightly different field names or a missing `numbers` field for certain item types. That would have silently corrupted downstream parsing until someone noticed the output looked off.
+The failure mode is the opposite: prompts that define everything inline, from scratch, every run. High-maintenance, and doesn't compound with history.
 
-The exploration pass confirmed: the schema from previous runs is consistent, the four required fields are stable, and 179 items is within the single-pass budget for Opus 4.8. The next session can start classifying immediately.
+## Today's Numbers
 
-## What the Next Session Does
+| | Session 1 (SpoonAI) | Session 2 (Medical Ads) |
+|---|---|---|
+| Model | claude-opus-4-8 | claude-opus-4-8 |
+| Duration | ~0 min | 4 min |
+| Tool calls | 9 | 22 |
+| Read | 3 | 12 |
+| Bash | 6 | 6 |
+| Edit | 0 | 3 |
+| Write | 0 | 1 |
+| Files created/modified | 2 | 3 |
 
-Three things, in order:
+31 total tool calls, 5 files. The 12 Reads in session 2 account for most of the cost — and most of the quality. A human doing both tasks at equivalent fidelity would budget 3–4 hours. Actual wall-clock: 4 minutes.
 
-**1. Classify all 179 items.** General criteria: "Would someone who doesn't build AI find this worth reading?" Expert criteria: "Does this contain technical insight or concrete numbers?" Items can qualify for both tiers.
-
-**2. Fill in the required schema.** Target counts: 8–15 general, 10–20 expert. Each item gets `general_angle` or `expert_notes` (or both), `numbers`, and `secondary_sources` populated.
-
-**3. Extract the Top 8 headlines.** A separate scannable list at the top of the final MD file — summary before the full detail sections.
-
-The infrastructure is in place. The schema is confirmed. The next session is purely execution.
+The interesting thing isn't the speed. It's that the pipelines compound: every daily run adds context for the next one, without anyone maintaining that context manually.
 
 ---
 
