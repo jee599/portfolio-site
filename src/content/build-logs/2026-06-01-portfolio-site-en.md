@@ -1,120 +1,204 @@
 ---
-title: "9 Hook Scripts, Zero Registered: Auditing My Claude Code Harness with Opus 4.8"
+title: "9 Hook Scripts That Silently Did Nothing: Auditing a Claude Code Harness in 87 Tool Calls"
 project: "portfolio-site"
 date: 2026-06-01
 lang: en
 pair: "2026-06-01-portfolio-site-ko"
-tags: [claude-code, harness, opus-4-8, hooks, omc]
-description: "A harness-audit revealed 9 hook scripts sitting idle in ~/.claude/hooks/ — none registered in settings.json. Fixed in one session with Opus 4.8."
+tags: [claude-code, opus-4-8, harness, hooks, omc, workflow]
+description: "9 hook scripts with correct permissions and location, all silently ignored. One missing JSON key in settings.json was the culprit. Here's the full audit across 5 sessions, 87 tool calls."
 ---
 
-Nine hook scripts. None of them doing anything.
+Nine hook scripts. All executable. All correctly named. All in the right directory. None of them ran.
 
-That's what `harness-audit` surfaced today. Every script in `~/.claude/hooks/` was correctly written, correctly placed — and completely invisible to Claude Code because `settings.json` had no `hooks` key at all.
+That's what a `harness-audit` run revealed on 2026-06-01. The scripts in `~/.claude/hooks/` were properly written, properly placed — and completely invisible to Claude Code because `settings.json` had no `hooks` key at all. This is a log of that audit, plus four other sessions from the same day.
 
-**TL;DR** Ran the `harness-audit` skill to audit the full `~/.claude/` state. Found 9 unregistered hooks, broken symlinks, and an OMX directory I didn't fully understand. Fixed everything, created `omc-dial.sh`, and restructured the harness for Opus 4.8. Total session: 1h 33min across 3 sessions, 65 tool calls.
+**TL;DR** The `harness-audit` skill scanned `~/.claude/` and found 9 unregistered hooks, broken symlinks, and an OMX directory worth investigating. Fixed in session 2 of 5. Also rebuilt the harness structure for Opus 4.8: fewer hooks, clearer `CLAUDE.md`. Total: 5 sessions, 87 tool calls, 5 changed files.
 
-## The Setup That Was Quietly Broken
+## Five Sessions, 87 Tool Calls
 
-The inventory looked fine on the surface:
+The full day:
 
-| Category | Count |
-|---|---|
-| Skills (owned) | 11 dirs |
-| Agents (YAML) | 12 |
-| Hook scripts | 9 |
+| Session | Duration | Tool Calls | What Happened |
+|---|---|---|---|
+| 1 | 2 min | 16 | Hermes dashboard — looked for a sidebar slot that didn't exist |
+| 2 | 1h 33min | 41 | Full `~/.claude/` harness audit, hook registration, OMC restructure |
+| 3 | 1 min | 13 | Dental ad research output generation |
+| 4 | 1 min | 15 | Daily brief + same-day WebSearch re-validation |
+| 5 | 5 min | 2 | E-commerce product rewrite report kickoff |
 
-Then the health check ran. The audit tried `jq '.enabledPlugins, (.hooks | keys)'` against `settings.json` and got `null | keys` — a hard failure. The `hooks` key didn't exist.
+Tool distribution: `Bash(44)`, `Read(22)`, `WebSearch(7)`, `Edit(5)`, `Agent(3)`, `Write(2)`, `Grep(1)`, `Skill(1)`.
 
-All 9 scripts were present on disk. Claude Code had no idea they existed.
+Bash at 50% of all calls is the signature of an audit session. Most of the work is exploration and state verification, not implementation.
 
-The audit also turned up broken symlinks. A quick `find ~/.claude -type l ! -exec test -e {} \; -print` revealed several dangling references, plus leftover tmp files. All cleaned.
+## The Bug That Looked Like Something Else
 
-The uncomfortable part: this had probably been broken for a while. There's no error, no warning — the hooks just silently don't fire. The only way to know was to look.
-
-## Down the OMX Rabbit Hole
-
-During the audit, `/Users/jidong/dentalad/.omx` appeared in the inventory. First assumption: a separate tool or CLI I'd forgotten about.
-
-It wasn't. After about 25 Bash calls — following directory trees, hitting empty folders, reading READMEs, backtracking up — the picture became clear: `.omx` is a **runtime state directory**. Cache, logs, state. No code. The actual definition lived in `AGENTS.md` (17KB) and the project's `CLAUDE.md`.
-
-OMX stands for **"Oh My Codex"** — a planning and state framework for Codex execution. The state folder was empty because it had never been run. 25 Bash calls for a dormant directory.
-
-This is a recognizable trap when auditing unfamiliar configs: filesystem presence implies activity, but runtime state folders are just waiting. Check for code before assuming something is live.
-
-## Redesigning the Harness for Opus 4.8
-
-Two questions came up during the session:
+Session 2 started with a loose prompt:
 
 ```
-"Is applying a harness effective with Opus 4.8, or does it not matter?"
-"Structure it for maximum effectiveness with 4.8."
+check what tools are currently applied — structure-wise,
+harness, skills, md hooks, all of it
 ```
 
-The answer that emerged was simpler than expected. Opus 4.8 has strong context comprehension — it doesn't need a dense scaffold of hooks and directives to behave well. What it needs is **clean, clear context**.
+The `harness-audit` skill triggered. Inventory collection ran in parallel — skills directories, agent YAML files, hook scripts, `settings.json` state. The first failure came from the hook registration check:
 
-More hooks don't help if the model can't extract signal from the routing logic. A well-structured `CLAUDE.md` with unambiguous routing rules outperforms a complex hook chain that adds noise.
+```bash
+cat ~/.claude/settings.json | jq '.enabledPlugins, (.hooks | keys)'
+# error: null | keys
+```
 
-Changes made:
+`null | keys` — jq failed because `.hooks` returned `null`. The `hooks` key didn't exist in `settings.json`.
 
-- `~/.claude/CLAUDE.md` — clarified global routing policy, removed redundant directives
-- `~/.claude/hooks/omc-dial.sh` — new script, auto-adjusts OMC settings based on task complexity
-- `~/.claude/settings.json` — added the `hooks` key, registered all 9 scripts
-- `~/.claude/workflow/lib/classify.sh` — updated classification logic
+Here's what the filesystem looked like:
 
-The philosophy behind `omc-dial.sh`: instead of manually selecting a mode for each task, the hook reads complexity signals from the incoming task and adjusts settings automatically. The model gets consistent context calibration without manual intervention per session.
+```
+~/.claude/
+├── hooks/
+│   ├── pre-commit.sh      ← chmod +x ✓, correct name ✓
+│   ├── post-tool.sh       ← chmod +x ✓, correct name ✓
+│   ├── on-stop.sh         ← chmod +x ✓, correct name ✓
+│   └── ... (6 more)       ← all chmod +x ✓
+├── settings.json          ← no "hooks" key
+├── skills/                ← 11 directories
+└── agents/                ← 12 YAML files
+```
 
-## Session 1: Hermes Dashboard Extension
+Nine scripts, all correct on disk. `settings.json` — the file Claude Code reads to know what hooks to run — had no `hooks` key. From the runtime's perspective, the hooks directory was irrelevant.
 
-A separate short session the same day — 2 minutes, 16 tool calls — worked on adding a Mission Control panel to the Hermes dashboard.
+### Full Inventory
 
-Workflow: read official SDK docs → explore the actual runtime environment → reference existing plugins (achievements, kanban) as implementation patterns.
+| Category | Count | Status |
+|---|---|---|
+| Skills (owned) | 11 directories | Active |
+| Agent YAML files | 12 | Active |
+| Hook scripts | 9 | All unregistered |
+| Broken symlinks | Several | Found and cleaned |
 
-The dashboard was running on port 9119, active theme `default-large`. Session ended when it turned out the `sidebar` slot doesn't render in this version. Clean stopping point — nothing to patch until the slot is available upstream.
+Broken symlink cleanup and `settings.json` patching ran concurrently. The fix itself was a single JSON edit — adding the `hooks` key with event mappings for each script. The time cost was the inventory work: traversing the full `~/.claude/` tree, cross-referencing disk contents with registered state, identifying which scripts were needed vs. accumulated dead weight.
 
-## Session 3: Medical Ad Research Automation
+> When hooks don't fire, check `settings.json` registration before checking file permissions. Claude Code doesn't scan the hooks directory — it reads what's explicitly registered. An unregistered script is invisible regardless of what's on disk.
 
-Session 3 (8 tool calls) generated 6 files under `/dentalad/research/daily-medical-dental-ads/`:
+## Chasing OMX Down a Rabbit Hole
 
-- Daily update log
-- Rolling knowledge base
-- Source index
-- SERP observation notes
-- Naver ranking hypotheses
-- HTML report
+During the audit, `/Users/jidong/dentalad/.omx` surfaced. The directory name explained nothing.
 
-All written from collected SERP data. Straightforward execution — the structure was already defined, this was just filling it in.
+Investigation path:
 
-## Tool Usage Across All Three Sessions
+1. `ls /Users/jidong/dentalad/.omx` → `cache/`, `logs/`, `state/` — runtime-looking folders
+2. No source code here — traced upward through the parent directory
+3. Found definition in `AGENTS.md` (17KB)
 
-| Tool | Calls |
-|---|---|
-| Bash | 38 |
-| Read | 14 |
-| Edit | 5 |
-| Agent | 3 |
-| Write | 2 |
-| Grep | 1 |
-| **Total** | **65** |
+OMX = **"Oh My Codex"** — a planning and state management framework for Codex execution workflows. The `cache/`, `logs/`, and `state/` subdirectories are runtime artifacts that get created when the system runs. They were empty because OMX had never actually been run in this environment.
 
-Bash at 58% reflects the nature of the work: structure discovery and state verification. Only 5 Edit calls means the actual code changes were minimal. Most of the session was understanding the environment, not changing it.
+This took 10+ Bash calls to resolve. The directory structure gave no indication of what it was. Reading `AGENTS.md` was the only path to understanding it.
 
-This is worth noting for time estimates. Audit work looks cheap in terms of file changes but expensive in terms of tool calls and elapsed time. The value is asymmetric: 1h 33min to find a problem that could have silently broken every hook-dependent workflow indefinitely.
+> If a directory contains only runtime subfolders (cache, logs, state), look for the source or config file that defines the system — not more runtime output. Filesystem presence doesn't imply activity.
 
-## What Actually Matters for Opus 4.8
+OMX was unrelated to the portfolio harness. Filed and moved on.
 
-The core finding from today: the bottleneck in Opus 4.8 workflows isn't hook coverage — it's context quality.
+## Opus 4.8 and the Routing Layer Trap
 
-A model with strong comprehension can work around ambiguous instructions, but it works *better* when the instructions are unambiguous. The same holds for routing: simple, clear routing logic in `CLAUDE.md` outperforms a complex hook chain that tries to handle every edge case programmatically.
+After registering the hooks, the session shifted direction:
 
-The practical checklist from this session:
+```
+"I'd rather have things trigger automatically than call them explicitly"
+"Structure it for maximum effectiveness with 4.8"
+```
 
-1. Run `harness-audit` periodically — filesystem presence and registration status can diverge silently
-2. Verify `settings.json` has a `hooks` key before assuming hooks are active
-3. Prefer context clarity over hook volume
-4. Check runtime state directories before assuming they represent active tools
+The core question: given Opus 4.8's context comprehension, what's the optimal harness architecture?
 
-The 9 unregistered hooks were fixable in minutes once found. The harder part was knowing to look.
+The answer was counterintuitive. Opus 4.8 is strong enough contextually that a dense hook scaffold doesn't help — it adds overhead. Every hook that fires costs initial context: the model needs to parse which hooks triggered, understand what they signal, and factor that into the turn. With 3–4 well-placed hooks, that overhead is negligible. With 9+ hooks on various events, the model burns non-trivial context just on hook-state interpretation before getting to actual work.
+
+The pattern that held up: **fewer hooks, clearer `CLAUDE.md`**. The model's context comprehension can handle ambiguity — but it performs better when the static context is unambiguous. A well-structured `CLAUDE.md` with clear routing rules outperforms a complex hook chain.
+
+### What Changed
+
+`omc-dial.sh` was created as a new hook to auto-classify task complexity:
+
+```bash
+classify_task() {
+  local prompt="$1"
+
+  if [[ "$prompt" =~ (migration|schema|deploy|production|refactor) ]]; then
+    echo "heavy"
+  elif [[ "$prompt" =~ (audit|review|debug) ]]; then
+    echo "standard"
+  else
+    echo "fast"
+  fi
+}
+```
+
+The classification feeds `~/.claude/workflow/lib/classify.sh` to route work to the appropriate execution mode (`claude-fast`, `claude-work`, `claude-heavy`) without manual mode selection per session.
+
+Files changed in session 2:
+
+```
+~/.claude/CLAUDE.md                  (updated global routing policy)
+~/.claude/hooks/omc-dial.sh          (new — auto-classifies task complexity)
+~/.claude/settings.json              (added hooks key, registered all 9 scripts)
+~/.claude/workflow/lib/classify.sh   (updated classification logic)
+~/.claude/plans/audit-2026-06-01.md  (new — audit summary)
+```
+
+## Session 1: The Slot That Didn't Exist
+
+Before session 2, a 2-minute session worked on adding a Mission Control plugin to the Hermes dashboard. Goal: attach a panel to the sidebar.
+
+Traversal: official docs → SDK source → `achievements` plugin (simple installed reference) → `kanban` plugin (more complex installed reference). Dashboard was live on port 9119, active theme `default-large`.
+
+Conclusion: this version of the dashboard shell doesn't render a `sidebar` slot. The layout only exposes `main` and `header`. The mounting point for the plugin didn't exist.
+
+Lesson here: grep for slot names before reading docs.
+
+```bash
+grep -r "sidebar" ~/.local/share/hermes/ --include="*.js" -l
+```
+
+Thirty seconds instead of ten minutes of doc traversal. The answer was in the source, not the documentation.
+
+## Session 4: Treat Every New Day as a Cache Miss
+
+Session 4 ran 15 tool calls on dental practice ad research — 7 of them WebSearch. Even for topics covered in previous sessions.
+
+The pattern: when the date changes, run fresh searches before trusting prior session knowledge. This caught two things that would have been stale otherwise:
+
+1. **New channels confirmed**: Kmong and Soomgo validated as active channels for dental practice advertising
+2. **Ad policy updates**: Two Naver policy changes not in the prior session's knowledge base — budget cap increase coming D-3 (policy 31829), and Talktalk extended materials exclusion for medical institutions (policy 31822)
+
+Ad platform policies and channel landscapes move fast. The overhead of 7 WebSearch calls is minimal compared to shipping a response built on stale data.
+
+## What the Tool Distribution Actually Says
+
+```
+Bash      ████████████████████████████████████████████ 44 (50.6%)
+Read      ██████████████████████ 22 (25.3%)
+WebSearch ███████ 7  (8.0%)
+Edit      █████ 5  (5.7%)
+Agent     ███ 3  (3.4%)
+Write     ██ 2  (2.3%)
+Grep      █ 1  (1.1%)
+Skill     █ 1  (1.1%)
+          ──────────────────────────────
+          87 total
+```
+
+`Bash(44) + Read(22)` = 75.9% of all calls. Structure traversal, state verification, file reading. `Edit(5)` is actual implementation.
+
+For comparison, a typical implementation session flips this ratio: more Edits, fewer Bash calls. This distribution is what audit work looks like — exploration cost massively exceeds implementation cost. The value is asymmetric: 1h 33min to surface problems that had probably been silently broken for weeks.
+
+The uncomfortable implication: there's no error when hooks don't fire. No warning, no log entry. The only signal is behavior that never happens. Periodic audits aren't optional overhead — they're the only way to catch this class of silent misconfiguration.
+
+## The Checklist
+
+From this session:
+
+1. **Check `settings.json` registration first** when hooks don't fire — before permissions, before file naming
+2. **Run `harness-audit` periodically** — disk state and registered state diverge silently over time
+3. **Fewer hooks, better `CLAUDE.md`** — Opus 4.8's context comprehension makes complex routing layers friction, not signal
+4. **Look for source files, not runtime artifacts** — if a directory only has cache/logs/state, the definition is elsewhere
+5. **Treat each day's WebSearch as fresh** — knowledge bases in fast-moving domains (ad platforms, model releases) go stale fast
+
+The 9 unregistered hooks were a 5-minute fix once found. Finding them took 90 minutes. That's not unusual for audit work — and it's why the audit is worth doing.
 
 ---
 
