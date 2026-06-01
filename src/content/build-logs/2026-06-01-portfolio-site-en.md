@@ -1,204 +1,130 @@
 ---
-title: "9 Hook Scripts That Silently Did Nothing: Auditing a Claude Code Harness in 87 Tool Calls"
+title: "16 Sessions, 444 Tool Calls: Rebuilding My Claude Code Harness from the Ground Up"
 project: "portfolio-site"
 date: 2026-06-01
 lang: en
 pair: "2026-06-01-portfolio-site-ko"
-tags: [claude-code, opus-4-8, harness, hooks, omc, workflow]
-description: "9 hook scripts with correct permissions and location, all silently ignored. One missing JSON key in settings.json was the culprit. Here's the full audit across 5 sessions, 87 tool calls."
+tags: [claude-code, open-design, harness, opus-4-8, automation, hooks]
+description: "9 hook scripts existed, all executable, none registered. One day, 16 sessions, 444 tool calls to audit the harness, port Open Design locally, and wire automatic design routing."
 ---
 
-Nine hook scripts. All executable. All correctly named. All in the right directory. None of them ran.
+444 tool calls across 16 sessions. Not shipping features — rebuilding the infrastructure that Claude Code runs on. More than half the day went to the harness itself, not any product.
 
-That's what a `harness-audit` run revealed on 2026-06-01. The scripts in `~/.claude/hooks/` were properly written, properly placed — and completely invisible to Claude Code because `settings.json` had no `hooks` key at all. This is a log of that audit, plus four other sessions from the same day.
+**TL;DR** `~/.claude/settings.json` had no `hooks` key. Nine scripts on disk, all with correct permissions, all silently ignored. A `harness-audit` run surfaced the gap. From there: pruned 8 dormant hooks, ported Open Design locally, and wired `design-router.sh` as a `UserPromptSubmit` hook — all in the same day.
 
-**TL;DR** The `harness-audit` skill scanned `~/.claude/` and found 9 unregistered hooks, broken symlinks, and an OMX directory worth investigating. Fixed in session 2 of 5. Also rebuilt the harness structure for Opus 4.8: fewer hooks, clearer `CLAUDE.md`. Total: 5 sessions, 87 tool calls, 5 changed files.
+## Session 11: One Prompt, 81 Tool Calls
 
-## Five Sessions, 87 Tool Calls
-
-The full day:
-
-| Session | Duration | Tool Calls | What Happened |
-|---|---|---|---|
-| 1 | 2 min | 16 | Hermes dashboard — looked for a sidebar slot that didn't exist |
-| 2 | 1h 33min | 41 | Full `~/.claude/` harness audit, hook registration, OMC restructure |
-| 3 | 1 min | 13 | Dental ad research output generation |
-| 4 | 1 min | 15 | Daily brief + same-day WebSearch re-validation |
-| 5 | 5 min | 2 | E-commerce product rewrite report kickoff |
-
-Tool distribution: `Bash(44)`, `Read(22)`, `WebSearch(7)`, `Edit(5)`, `Agent(3)`, `Write(2)`, `Grep(1)`, `Skill(1)`.
-
-Bash at 50% of all calls is the signature of an audit session. Most of the work is exploration and state verification, not implementation.
-
-## The Bug That Looked Like Something Else
-
-Session 2 started with a loose prompt:
+Session 11 was the pivot. The prompt was deliberately loose:
 
 ```
-check what tools are currently applied — structure-wise,
-harness, skills, md hooks, all of it
+Check everything structure-related — harness, skills, markdown hooks, all of it
 ```
 
-The `harness-audit` skill triggered. Inventory collection ran in parallel — skills directories, agent YAML files, hook scripts, `settings.json` state. The first failure came from the hook registration check:
+The `harness-audit` skill triggered and ran inventory collection in parallel. The failure surfaced immediately during hook registration check:
 
 ```bash
 cat ~/.claude/settings.json | jq '.enabledPlugins, (.hooks | keys)'
-# error: null | keys
+# Error: null | keys
 ```
 
-`null | keys` — jq failed because `.hooks` returned `null`. The `hooks` key didn't exist in `settings.json`.
+No `hooks` key. At all. `~/.claude/hooks/` had nine scripts, all executable, correctly named — and Claude Code was ignoring every one of them because they weren't registered in `settings.json`. The runtime doesn't scan the hooks directory; it reads explicit registrations. A script that lives on disk but isn't registered is invisible.
 
-Here's what the filesystem looked like:
+**Debugging order matters**: when hooks don't fire, check `settings.json` registration before touching permissions or file paths. That's the first thing to verify, not the last.
 
-```
-~/.claude/
-├── hooks/
-│   ├── pre-commit.sh      ← chmod +x ✓, correct name ✓
-│   ├── post-tool.sh       ← chmod +x ✓, correct name ✓
-│   ├── on-stop.sh         ← chmod +x ✓, correct name ✓
-│   └── ... (6 more)       ← all chmod +x ✓
-├── settings.json          ← no "hooks" key
-├── skills/                ← 11 directories
-└── agents/                ← 12 YAML files
-```
-
-Nine scripts, all correct on disk. `settings.json` — the file Claude Code reads to know what hooks to run — had no `hooks` key. From the runtime's perspective, the hooks directory was irrelevant.
-
-### Full Inventory
+Full audit snapshot:
 
 | Category | Count | Status |
 |---|---|---|
-| Skills (owned) | 11 directories | Active |
-| Agent YAML files | 12 | Active |
+| Skills (owned dirs) | 11 | Active |
+| Agent YAMLs | 12 | Active |
 | Hook scripts | 9 | All unregistered |
-| Broken symlinks | Several | Found and cleaned |
+| Broken symlinks | 3 | Cleaned |
+| Dormant hooks | 8 | Pruned |
 
-Broken symlink cleanup and `settings.json` patching ran concurrently. The fix itself was a single JSON edit — adding the `hooks` key with event mappings for each script. The time cost was the inventory work: traversing the full `~/.claude/` tree, cross-referencing disk contents with registered state, identifying which scripts were needed vs. accumulated dead weight.
+Cleanup: 41 Bash calls, 13 Edit calls.
 
-> When hooks don't fire, check `settings.json` registration before checking file permissions. Claude Code doesn't scan the hooks directory — it reads what's explicitly registered. An unregistered script is invisible regardless of what's on disk.
+## What Opus 4.8 Actually Wants From a Harness
 
-## Chasing OMX Down a Rabbit Hole
-
-During the audit, `/Users/jidong/dentalad/.omx` surfaced. The directory name explained nothing.
-
-Investigation path:
-
-1. `ls /Users/jidong/dentalad/.omx` → `cache/`, `logs/`, `state/` — runtime-looking folders
-2. No source code here — traced upward through the parent directory
-3. Found definition in `AGENTS.md` (17KB)
-
-OMX = **"Oh My Codex"** — a planning and state management framework for Codex execution workflows. The `cache/`, `logs/`, and `state/` subdirectories are runtime artifacts that get created when the system runs. They were empty because OMX had never actually been run in this environment.
-
-This took 10+ Bash calls to resolve. The directory structure gave no indication of what it was. Reading `AGENTS.md` was the only path to understanding it.
-
-> If a directory contains only runtime subfolders (cache, logs, state), look for the source or config file that defines the system — not more runtime output. Filesystem presence doesn't imply activity.
-
-OMX was unrelated to the portfolio harness. Filed and moved on.
-
-## Opus 4.8 and the Routing Layer Trap
-
-After registering the hooks, the session shifted direction:
+After the audit fixed registration, the conversation shifted direction:
 
 ```
-"I'd rather have things trigger automatically than call them explicitly"
-"Structure it for maximum effectiveness with 4.8"
+"I'd rather things trigger automatically than me calling them explicitly"
+"Design the most effective structure for 4.8"
 ```
 
-The core question: given Opus 4.8's context comprehension, what's the optimal harness architecture?
+The conclusion was counterintuitive: **more hooks makes things worse**.
 
-The answer was counterintuitive. Opus 4.8 is strong enough contextually that a dense hook scaffold doesn't help — it adds overhead. Every hook that fires costs initial context: the model needs to parse which hooks triggered, understand what they signal, and factor that into the turn. With 3–4 well-placed hooks, that overhead is negligible. With 9+ hooks on various events, the model burns non-trivial context just on hook-state interpretation before getting to actual work.
+Every hook that fires costs context at the start of a turn — the model has to parse which hooks triggered, understand what they injected, and factor that into reasoning before getting to actual work. With 3–4 targeted hooks this overhead is negligible. With 9+ hooks across multiple event types, the model burns meaningful context just interpreting hook state.
 
-The pattern that held up: **fewer hooks, clearer `CLAUDE.md`**. The model's context comprehension can handle ambiguity — but it performs better when the static context is unambiguous. A well-structured `CLAUDE.md` with clear routing rules outperforms a complex hook chain.
+Opus 4.8's situational understanding is already strong enough that complex routing layers become friction instead of signal. The hooks that scale with model capability are the ones that encode things the model genuinely can't do itself: deterministic file guards, system-level nudges on risky tasks.
 
-### What Changed
+Two hooks survived the pruning:
 
-`omc-dial.sh` was created as a new hook to auto-classify task complexity:
+- `protect-files.sh` (PreToolUse) — a hard gate for secrets. No model intelligence involved; just a deterministic block.
+- `omc-dial.sh` (UserPromptSubmit) — injects plan/scope/self-verify nudges on high-risk tasks only. Silent otherwise.
 
-```bash
-classify_task() {
-  local prompt="$1"
+Forced pipelines and mandatory review loops stayed opt-in. The rest of the routing logic moved into `CLAUDE.md` where it belongs.
 
-  if [[ "$prompt" =~ (migration|schema|deploy|production|refactor) ]]; then
-    echo "heavy"
-  elif [[ "$prompt" =~ (audit|review|debug) ]]; then
-    echo "standard"
-  else
-    echo "fast"
-  fi
-}
-```
+## Porting Open Design Locally
 
-The classification feeds `~/.claude/workflow/lib/classify.sh` to route work to the appropriate execution mode (`claude-fast`, `claude-work`, `claude-heavy`) without manual mode selection per session.
+Session 14: 1 hour 21 minutes, 70 tool calls.
 
-Files changed in session 2:
+The starting point was curiosity about `claude.ai/design`. Exploring locally revealed that an `open-design` repo was already present with an `od mcp` command — a built-in MCP server that connects OD directly to Claude Code.
+
+The decision: instead of reverse-engineering OD's behavior and guessing at its prompt structure, read the actual engine files and port them verbatim. Discovery flow (RULE 1/2/3), five visual direction archetypes with oklch palettes, the designer charter, the anti-slop checklist, the five-dimension self-review critique — all of it:
 
 ```
-~/.claude/CLAUDE.md                  (updated global routing policy)
-~/.claude/hooks/omc-dial.sh          (new — auto-classifies task complexity)
-~/.claude/settings.json              (added hooks key, registered all 9 scripts)
-~/.claude/workflow/lib/classify.sh   (updated classification logic)
-~/.claude/plans/audit-2026-06-01.md  (new — audit summary)
+~/.claude/skills/open-design/SKILL.md
+~/.claude/skills/open-design/reference/charter.md
+~/.claude/skills/open-design/reference/directions.md
 ```
 
-## Session 1: The Slot That Didn't Exist
+Verbatim porting over reimplementation means edge-case behavior matches what the original tool actually produces. Reimplemented prompts accumulate subtle divergences that only surface in practice.
 
-Before session 2, a 2-minute session worked on adding a Mission Control plugin to the Hermes dashboard. Goal: attach a panel to the sidebar.
+## design-router: Routing Without Being Asked
 
-Traversal: official docs → SDK source → `achievements` plugin (simple installed reference) → `kanban` plugin (more complex installed reference). Dashboard was live on port 9119, active theme `default-large`.
+A skill alone still requires the user to say "use open-design." The goal was zero explicit invocation for visual work.
 
-Conclusion: this version of the dashboard shell doesn't render a `sidebar` slot. The layout only exposes `main` and `header`. The mounting point for the plugin didn't exist.
+Solution: `design-router.sh` registered as a `UserPromptSubmit` hook. When keywords like landing, mockup, dashboard, prototype, or redesign appear in a prompt, the hook auto-injects a system-reminder pointing toward the Open Design route. This runs at the prompt context level — no code execution, no latency overhead.
 
-Lesson here: grep for slot names before reading docs.
+The same routing logic is mirrored in `CLAUDE.md` to enforce from both directions: the hook catches it at runtime, `CLAUDE.md` carries it in the model's instruction context.
 
-```bash
-grep -r "sidebar" ~/.local/share/hermes/ --include="*.js" -l
-```
+Cost: 21 Edit calls, 9 Write calls, 18 modified files.
 
-Thirty seconds instead of ten minutes of doc traversal. The answer was in the source, not the documentation.
+## The PDF Thread Running in Parallel
 
-## Session 4: Treat Every New Day as a Cache Miss
+Sessions 6–10, 13, 15, and 16 ran a completely separate context: building HTML/PDF diagnostic reports for small business online storefronts.
 
-Session 4 ran 15 tool calls on dental practice ad research — 7 of them WebSearch. Even for topics covered in previous sessions.
+The sequence: free diagnostic report → paid output sample → Open Design–styled v1 redesign. An independent Codex review returned `VERDICT: request-changes` with two specific blockers.
 
-The pattern: when the date changes, run fresh searches before trusting prior session knowledge. This caught two things that would have been stale otherwise:
+**Blocker 1 — Free PDF**: The last two rows of the coverage table were being clipped at page boundaries. A `.cov` block with `break-inside: avoid` was deleting rows rather than just preventing mid-element breaks.
 
-1. **New channels confirmed**: Kmong and Soomgo validated as active channels for dental practice advertising
-2. **Ad policy updates**: Two Naver policy changes not in the prior session's knowledge base — budget cap increase coming D-3 (policy 31829), and Talktalk extended materials exclusion for medical institutions (policy 31822)
+**Blocker 2 — Paid PDF**: FAQ Q/A markers were CSS-generated pseudo-content only. No real text in the DOM, so copy-paste was broken. Separately, price numbers were wrapping mid-digit.
 
-Ad platform policies and channel landscapes move fast. The overhead of 7 WebSearch calls is minimal compared to shipping a response built on stale data.
+Session 16 resolved both: 30 Edit calls, print CSS fixes, converting markers to real `<span>` elements with actual text content, adding `white-space: nowrap` to price strings, then regenerating PDFs via Chrome headless.
 
-## What the Tool Distribution Actually Says
+## Tool Distribution
 
 ```
-Bash      ████████████████████████████████████████████ 44 (50.6%)
-Read      ██████████████████████ 22 (25.3%)
-WebSearch ███████ 7  (8.0%)
-Edit      █████ 5  (5.7%)
-Agent     ███ 3  (3.4%)
-Write     ██ 2  (2.3%)
-Grep      █ 1  (1.1%)
-Skill     █ 1  (1.1%)
-          ──────────────────────────────
-          87 total
+Bash        ██████████████████████████████ 220
+Read        ██████████ 73
+Edit        ██████████ 72
+Write       ██ 19
+WebSearch   ██ 15
+Agent       █ 8
+TaskUpdate  █ 8
+ToolSearch  █ 7
 ```
 
-`Bash(44) + Read(22)` = 75.9% of all calls. Structure traversal, state verification, file reading. `Edit(5)` is actual implementation.
+444 calls total. Bash at 50% is the signature of audit-plus-research work — more time understanding current state than making changes. `Edit(72)` is a solid implementation number, but it's neck-and-neck with `Read(73)`, which tells the story: this was a day of understanding before acting.
 
-For comparison, a typical implementation session flips this ratio: more Edits, fewer Bash calls. This distribution is what audit work looks like — exploration cost massively exceeds implementation cost. The value is asymmetric: 1h 33min to surface problems that had probably been silently broken for weeks.
+There's no warning when Claude Code hooks silently fail. No log entry, no error message. The only signal is behavior that never happens. That's the argument for periodic harness audits — they're the only way to catch this category of silent misconfiguration before it costs more than a day of investigation.
 
-The uncomfortable implication: there's no error when hooks don't fire. No warning, no log entry. The only signal is behavior that never happens. Periodic audits aren't optional overhead — they're the only way to catch this class of silent misconfiguration.
+## What's Next
 
-## The Checklist
+`~/.claude/plans/harness-report-2026-06-01.md` and `opus48-cli-research-2026-06-01.md` are the starting files for the next session. `design-router.sh`'s keyword list needs tuning against actual usage patterns — no substitute for real prompt data.
 
-From this session:
-
-1. **Check `settings.json` registration first** when hooks don't fire — before permissions, before file naming
-2. **Run `harness-audit` periodically** — disk state and registered state diverge silently over time
-3. **Fewer hooks, better `CLAUDE.md`** — Opus 4.8's context comprehension makes complex routing layers friction, not signal
-4. **Look for source files, not runtime artifacts** — if a directory only has cache/logs/state, the definition is elsewhere
-5. **Treat each day's WebSearch as fresh** — knowledge bases in fast-moving domains (ad platforms, model releases) go stale fast
-
-The 9 unregistered hooks were a 5-minute fix once found. Finding them took 90 minutes. That's not unusual for audit work — and it's why the audit is worth doing.
+One thing confirmed today: the Claude Certified Architect (CCA) exam launched in March 2026 but is currently gated to partner employees only.
 
 ---
 

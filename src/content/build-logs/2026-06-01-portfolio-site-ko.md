@@ -1,119 +1,109 @@
 ---
-title: "Opus 4.8 하네스 감사 — 훅 9개 미등록, 5세션 87 tool calls로 정비"
+title: "Claude CLI 하네스 전면 재편: 16세션·444 tool calls로 Open Design 로컬 이식"
 project: "portfolio-site"
 date: 2026-06-01
 lang: ko
-tags: [claude-code, opus-4-8, harness, hooks, omc, workflow]
-description: "하루 5세션 87 tool calls. 훅 스크립트 9개가 실행권한도 위치도 맞는데 아무것도 실행 안 됐다. settings.json에 hooks 키 자체가 없었기 때문이다."
+tags: [claude-code, open-design, harness, opus-4-8, automation, hooks]
+description: "하루 16세션 444 tool calls. 하네스 대청소·dormant 훅 8개 폐기·Open Design 로컬 이식·design-router 자동화까지. Opus 4.8 시대 Claude CLI 구조를 다시 짰다."
 ---
 
-`~/.claude/hooks/`에 스크립트 9개가 있었다. 실행권한도 있고, 파일명도 맞고, 위치도 맞았다. 그런데 아무것도 실행되지 않았다.
+하루에 16개 세션, 444번의 tool call이 소비됐다. 코드 구현이 아니라 Claude CLI 구조 자체를 다시 짜는 데 절반이 넘게 쓰였다.
 
-**TL;DR** `settings.json`에 `hooks` 키가 아예 없었다. `harness-audit` 스킬로 `~/.claude/` 전체를 감사하고, 깨진 링크 정리 + 훅 등록 + `omc-dial.sh` 신규 생성까지 1시간 33분 세션에서 처리했다. Opus 4.8에 맞는 OMC 다이얼 구조도 재편했다.
+**TL;DR** `~/.claude/settings.json`에 `hooks` 키가 아예 없었다. 스크립트 9개가 파일로 존재하지만 전부 미등록 상태. `harness-audit`으로 전체를 감사하고, dormant 훅 8개 폐기 + Open Design 로컬 이식 + `design-router.sh` 자동 라우팅까지 하루에 처리했다.
 
-## 하루 5세션, 뭘 했나
+## 훅 9개가 전부 안 됐던 이유
 
-2026-06-01 하루치 세션을 정리하면 이렇다:
-
-| 세션 | 소요 | tool calls | 내용 |
-|---|---|---|---|
-| 1 | 2분 | 16 | Hermes 대시보드 플러그인 탐색 |
-| 2 | 1h 33min | 41 | `~/.claude/` 하네스 전체 감사 |
-| 3 | 1분 | 13 | 치과 광고 리서치 산출물 생성 |
-| 4 | 1분 | 15 | 데일리 브리프 + WebSearch 재검증 |
-| 5 | 5분 | 2 | 이커머스 상품 리라이트 보고서 착수 |
-
-총 87 tool calls. `Bash(44)`, `Read(22)`, `WebSearch(7)`, `Edit(5)`, `Agent(3)`, `Write(2)`, `Grep(1)`, `Skill(1)`.
-
-## 세션 2: settings.json에 hooks가 없었다
-
-`harness-audit` 스킬을 트리거한 프롬프트:
+세션 11이 이날의 핵심이었다. 프롬프트 하나로 81번의 tool call이 이어졌다.
 
 ```
-지금 적용되어 있는 도구들 확인해봐 구조 관련해서,
-하네스, 스킬, md 훅 이런거 모두
+지금 적용되어 있는 도구들 확인해봐 구조 관련해서, 하네스, 스킬, md 훅 이런거 모두
 ```
 
-인벤토리 수집을 병렬로 시작했다. `settings.json`의 훅 등록 상태를 확인하는 명령에서 첫 번째 오류가 났다.
+`harness-audit` 스킬을 트리거하고 인벤토리를 병렬 수집했다. `settings.json`의 훅 등록 상태를 확인하는 시점에 첫 번째 오류가 떴다.
 
 ```bash
 cat ~/.claude/settings.json | jq '.enabledPlugins, (.hooks | keys)'
-# 오류: null | keys
+# Error: null | keys
 ```
 
-`null | keys`로 실패한 이유 — `hooks` 키가 아예 없었다. `~/.claude/hooks/` 안에 9개 스크립트가 있었지만, Claude Code 입장에서는 존재하지 않는 것과 같았다.
+`hooks` 키가 아예 없었다. `~/.claude/hooks/` 안에 스크립트 9개가 존재하고 실행권한도 맞는데, Claude Code 입장에서는 없는 것과 같았다. 훅이 동작 안 한다면 `settings.json` 등록 여부를 제일 먼저 봐야 한다는 교훈이다. 파일 위치나 실행권한 디버깅보다 앞에 온다.
 
-인벤토리 전체 현황:
+감사 결과 전체 현황:
 
-| 범주 | 갯수 |
-|---|---|
-| 스킬 (소유) | 11 디렉토리 |
-| 에이전트 YAML | 12개 |
-| 훅 스크립트 | 9개 (전부 미등록) |
-| 깨진 심볼릭 링크 | 발견 후 정리 |
+| 범주 | 갯수 | 상태 |
+|---|---|---|
+| 스킬 (소유 디렉토리) | 11개 | 정상 |
+| 에이전트 YAML | 12개 | 정상 |
+| 훅 스크립트 | 9개 | **전부 미등록** |
+| 깨진 심볼릭 링크 | 3개 | 정리 완료 |
+| dormant 훅 | 8개 | **폐기** |
 
-깨진 링크 정리와 `settings.json` 수정을 동시에 진행했다.
+Bash 41번, Edit 13번으로 정리했다.
 
-## OMX 정체 파악
+## Opus 4.8에 적합한 하네스 구조
 
-감사 중 `/Users/jidong/dentalad/.omx`가 나왔다. 탐색 순서는 이랬다.
-
-1. `ls .omx` → `cache/`, `logs/`, `state/` — 런타임 상태 폴더
-2. 실제 코드를 찾아 상위로 올라감
-3. `AGENTS.md`(17KB)에서 정의 발견
-
-OMX = **"Oh My Codex"** — Codex 실행용 계획/상태 프레임워크다. 상태 폴더는 미실행 상태라 비어 있었다. Bash를 10번 이상 실행하고 나서야 "이건 코드가 아니라 런타임 아티팩트다"라는 결론에 도달했다. 디렉토리만 봐서는 알 수 없는 케이스였다.
-
-## Opus 4.8에 가장 효과적인 구조
-
-세션 중에 여러 번 방향이 바뀌었다. 대화 흐름을 그대로 보면:
+감사 도중 사용자 질문이 여러 번 방향을 바꿨다.
 
 ```
 "내가 명시적으로 호출하는것보다 알아서 잘 호출되는게 좋아"
 "4.8에 가장 효과적인 구조로 짜줘"
 ```
 
-결론: Opus 4.8은 문맥 이해도가 높아서 복잡한 라우팅 레이어가 오히려 걸림돌이 된다. 훅이 많을수록 모델이 어떤 훅이 트리거됐는지 파악하는 데 초반 컨텍스트를 쓴다. 최적 구조는 **`CLAUDE.md` 명확화 + 최소 훅** 조합이다.
+결론은 직관에 반했다. 훅이 많을수록 모델이 어떤 훅이 트리거됐는지 파악하는 데 초반 컨텍스트를 쓴다. Opus 4.8은 문맥 이해도가 이미 충분히 높아서 복잡한 라우팅 레이어가 오히려 걸림돌이 된다.
 
-`omc-dial.sh`를 새로 만들어서 작업 복잡도를 자동 분류하는 로직을 붙였다. `~/.claude/workflow/lib/classify.sh`도 함께 수정했다.
+최적 구조: **`CLAUDE.md` 품질 높이기 + 최소 훅**.
 
-변경된 파일:
+실제로 남긴 훅은 두 개뿐이다. `protect-files.sh`(PreToolUse, 비밀 파일 보호용 결정적 가드)와 `omc-dial.sh`(UserPromptSubmit, 고위험 작업에서만 plan/scope/self-verify 넛지 주입, 그 외에는 침묵). 강제 파이프라인, 필수 리뷰 루프는 opt-in으로 남겼다.
 
-- `~/.claude/CLAUDE.md`
-- `~/.claude/hooks/omc-dial.sh` (신규)
-- `~/.claude/settings.json`
-- `~/.claude/workflow/lib/classify.sh`
-- `~/.claude/plans/audit-2026-06-01.md` (신규)
+## Open Design 로컬 이식
 
-## 세션 1: sidebar 슬롯이 없었다
+세션 14가 두 번째 큰 작업이었다. 1시간 21분, 70 tool calls.
 
-Hermes 대시보드에 Mission Control 플러그인을 붙이는 작업. 16 tool calls, 2분.
+사용자가 claude.ai/design에 관심을 보였다. 로컬을 탐색해보니 `open-design` 레포가 이미 있었고, `od mcp` 커맨드로 Claude Code에 직접 연결하는 MCP 서버까지 내장돼 있었다.
 
-탐색 순서: 공식 문서 → SDK 소스 → `achievements` 플러그인(설치된 레퍼런스) → `kanban` 플러그인(더 복잡한 레퍼런스). 대시보드는 포트 9119에서 실행 중이었고, 액티브 테마는 `default-large`.
-
-끝에서 발견한 것: 이 버전의 대시보드 셸에는 `sidebar` 슬롯이 렌더링되지 않는다. 붙이려던 위치가 없었다. `tiled`/`standard` 레이아웃 차이를 확인하고 세션을 닫았다. 슬롯 이름을 `Grep`으로 먼저 검색했다면 문서 탐색 10번 분을 아꼈을 것이다.
-
-## 세션 4: WebSearch로 당일 상태 재검증
-
-치과 광고 리서치 세션(4)에서는 WebSearch를 7번 돌렸다. 이미 알고 있는 정보여도 날짜가 바뀌면 fresh 검색을 먼저 실행하는 패턴이었다. Kmong과 숨고가 새로운 채널로 확인됐다. 네이버 광고 정책 변경(31829 예산 한도 상향 D-3, 31822 톡톡 확장소재 병의원 제외)을 rolling KB에 반영했다.
-
-## 도구 통계 분석
+OD의 엔진 프롬프트 파일들을 추측으로 재구현하지 않고 그대로 읽어서 이식했다. discovery 플로우(RULE 1/2/3), 5가지 시각 방향(oklch 팔레트 포함), 디자이너 헌장, anti-slop 체크리스트, 5차원 자가검토 — 전부 verbatim.
 
 ```
-Bash   ████████████████████████████████████████████ 44
-Read   ██████████████████████ 22
-WebSearch ███████ 7
-Edit   █████ 5
-Agent  ███ 3
-Write  ██ 2
-Grep   █ 1
-Skill  █ 1
+~/.claude/skills/open-design/SKILL.md
+~/.claude/skills/open-design/reference/charter.md
+~/.claude/skills/open-design/reference/directions.md
 ```
 
-Bash가 50%를 넘는다. 구조 파악, 상태 확인, 디렉토리 탐색이 주를 이뤘기 때문이다. 실제 코드 수정은 Edit 5번뿐이었다. 탐색 비용이 작업 비용보다 큰 전형적인 감사 세션이다.
+## design-router 훅: 명시적 호출 없이 자동화
 
-## 정리
+스킬만 만들면 여전히 사용자가 "open-design 써줘"라고 명시해야 한다. 원하는 건 자동이었다. `design-router.sh`를 `UserPromptSubmit` 훅으로 등록해서 해결했다.
 
-훅이 안 되는 문제를 디버깅할 때 파일 위치나 실행권한보다 `settings.json` 등록 여부를 먼저 확인하는 게 빠르다. 존재하는 파일이 등록되지 않으면 Claude Code 입장에서는 없는 것과 같다.
+랜딩, 목업, 대시보드, 프로토타입, 시안, 리뉴얼 같은 키워드가 프롬프트에 나타나면 OD 루트를 타라는 system-reminder를 자동 주입한다. 코드 실행 없이 프롬프트 컨텍스트 레벨에서 처리한다. `CLAUDE.md`에도 동일한 라우팅 규칙을 명시해서 양쪽에서 강제한다.
 
-Opus 4.8 최적화의 핵심은 훅 수를 늘리는 게 아니라 `CLAUDE.md` 품질을 높이는 것이다. 모델이 이미 문맥을 잘 파악하므로, 라우팅 레이어는 단순할수록 좋다.
+Edit 21번, Write 9번이 들었다. 수정된 파일만 18개였다.
+
+## 소상공인 진단 보고서 HTML/PDF
+
+세션 6~10, 13, 15, 16은 별개의 맥락이었다. 소상공인 온라인 상품 페이지 진단 보고서를 HTML/PDF로 만드는 흐름이었다.
+
+무료 진단 리포트 → 유료 결과물 샘플 → OpenDesign 스타일 v1 리디자인 순서로 진행됐다. Codex가 독립 리뷰에서 `VERDICT: request-changes`를 반환했고, 블로커가 두 개였다.
+
+첫째, 무료 PDF에서 커버리지 테이블 마지막 두 행이 잘렸다. `break-inside:avoid`가 걸린 `.cov` 블록이 페이지 경계에서 행을 삭제한 것이었다. 둘째, 유료 PDF의 FAQ Q/A 마커가 CSS로만 생성돼 실제 텍스트가 없어서 복사가 안 됐고, 가격 숫자에 줄바꿈이 발생했다.
+
+세션 16에서 Edit 30번, print CSS 수정, `<span>` 실제 텍스트 전환, `white-space:nowrap` 추가로 두 블로커를 해결하고 Chrome headless로 PDF를 다시 뽑았다.
+
+## 도구 사용 통계
+
+```
+Bash        ██████████████████████████████ 220
+Read        ██████████ 73
+Edit        ██████████ 72
+Write       ██ 19
+WebSearch   ██ 15
+Agent       █ 8
+TaskUpdate  █ 8
+ToolSearch  █ 7
+```
+
+16세션 합계 444 tool calls. Bash가 절반을 차지한다. 구조 파악·상태 확인·디렉토리 탐색이 구현보다 많은 전형적인 감사+리서치 세션 구성이다.
+
+## 남은 것
+
+`~/.claude/plans/harness-report-2026-06-01.md`와 `opus48-cli-research-2026-06-01.md`가 다음 작업의 시작점이다. `design-router.sh`의 키워드 목록은 실제 사용 패턴을 보면서 계속 조정해야 한다.
+
+Claude Certified Architect(CCA) 시험이 2026년 3월에 출시됐는데 파트너사 직원에게만 열려 있어서 응시 자체가 막혀 있다는 것도 이날 확인했다.
