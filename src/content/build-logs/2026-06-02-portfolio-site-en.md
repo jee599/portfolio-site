@@ -1,98 +1,132 @@
 ---
-title: "444 Tool Calls in One Day: Claude Code Harness Audit, OpenDesign Port, and Automated Reports"
+title: "Porting Open Design to Claude Code: One Hook, 104 Tool Calls, Zero Cloud Dependency"
 project: "portfolio-site"
 date: 2026-06-02
 lang: en
 pair: "2026-06-02-portfolio-site-ko"
-tags: [claude-code, opus-4-8, open-design, harness, automation, design-system]
-description: "16 sessions, 444 tool calls, Bash 220×, Edit 72×. Audited the entire Claude CLI harness, ported OpenDesign locally, and built PDF reports."
+tags: [claude-code, open-design, hook, skill, automation, design-system]
+description: "I ported claude.ai/design's open-source engine to Claude Code locally. One hook, three skill files, two HTML deliverables. Here's what 5 sessions and 104 tool calls look like."
 ---
 
-444 tool calls. One day. 16 sessions, Opus 4.8, 220 Bash invocations, 72 Edit calls. The output wasn't a feature or a new component — it was a redesign of how Claude Code itself operates.
+Session 3 alone consumed 70 tool calls and ran for 1 hour 21 minutes. That was the core porting session — reading the Open Design repo structure, extracting the actual engine prompt files, and mapping them to Claude Code skill format. Not because it was hard, but because I was doing it right: reading source, not guessing.
 
-**TL;DR** — Audited `~/.claude/` end-to-end, found 9 hook scripts that weren't actually registered anywhere, and purged 8 dormant hooks. Realigned the entire harness to Opus 4.8. Ported the OpenDesign engine from claude.ai/design as a local skill so every design request automatically routes through the OD loop without explicit invocation.
+The question that started it: *why is claude.ai/design cloud-only?*
 
-## The Harness Audit: 9 Hook Scripts That Did Nothing
+The underlying engine — Open Design — is open source. The answer turned out to be: it doesn't have to be.
 
-Session 11 was the longest — roughly 17 hours, 81 tool calls. It started with one question: "Check what tools are actually active right now."
+**TL;DR** I ported Open Design's discovery → 5-direction → design-system → build → 5-axis review loop into Claude Code as a local skill. Added a `UserPromptSubmit` hook (`design-router.sh`) that auto-routes visual requests through the OD pipeline — no "design" keyword required. Five sessions, 104 tool calls, one hook, three skill files, two HTML report deliverables.
 
-I ran the `harness-audit` skill and started pulling `~/.claude/` state in parallel. The first `jq` call against `settings.json` failed immediately. No `hooks` key. Nine hook scripts existed on disk, none of them registered.
+## The Request That Made It Obvious
 
-```bash
-cat ~/.claude/settings.json | jq '.enabledPlugins, (.hooks | keys)'
-# null | keys → TypeError
-```
+The prompt was direct:
 
-Tracing the root cause: registration paths were scattered between `settings.json` and `settings.local.json`. Eight hooks were sitting dormant with no active registration. Three symbolic links were broken. Purged them all and rebuilt from a clean baseline.
+> "I like Open Design. Can we make every design request go through that route? It's open source, so implement it locally."
 
-> A hook file on disk without an entry in `settings.json` is not a hook — it's just a file.
+Followed immediately by:
 
-After the cleanup, I unified all agents on Opus 4.8. `claude-fast`, `claude-work`, `claude-review`, `claude-heavy` — updated all four wrapper configs in one pass, and fixed a latency bottleneck in the `codex-cross-verify` pipeline.
+> "Make it automatic — even if I don't explicitly say 'design', it should route there."
 
-## Porting OpenDesign: Running claude.ai/design Locally
+Two distinct problems emerged: porting the actual OD engine prompt logic, and building a detection mechanism that doesn't require the magic word.
 
-Session 14 started with: "OpenDesign is great. Can every design request automatically go through that route?"
+## Dissecting the Open Design Engine: RULE 1/2/3
 
-claude.ai/design launched in April 2026 as Anthropic's design loop. The flow: `discovery questions → direction selection → sandbox → 5-dimension self-review`. The open-source OpenDesign repo ships an `od mcp` CLI — which made porting to Claude Code straightforward.
+Reading the Open Design repo, the loop has three layers:
 
-I read the engine prompts directly: `reference/charter.md` and `reference/directions.md`. RULE 1/2/3 discovery flow, 5 directions with OKLch palettes, 5-dimension review criteria. Mapped the web UI's `<question-form>` and `<artifact>` rendering to terminal-native `AskUserQuestion` calls.
+**RULE 1 — Discovery first.** Before writing a single line of code, `AskUserQuestion` confirms deliverable type, platform, brand constraints, and tone. Direction gets locked in before execution begins. "Make it look good" is not an acceptable spec.
 
-Output files:
-- `~/.claude/skills/open-design/SKILL.md` — the OD route skill
-- `~/.claude/skills/open-design/reference/charter.md`
+**RULE 2 — Five visual directions.** Each direction comes with a concrete OKLch color palette, typeface pairing, and layout principle. Vague requests ("make it feel premium", "something modern") get resolved into specific, comparable options the user can actually choose between.
+
+**RULE 3 — Design system binding → build → P0 checklist + 5-axis self-review.** After the build, the model audits its own output across five axes: visual consistency, accessibility, mobile behavior, interaction quality, and emotional resonance. This runs before calling the work done.
+
+The port was exact because Open Design publishes its actual prompt files. No reverse engineering. Read the source, transcribe to Claude Code skill format, verify with a test run.
+
+Generated files:
+- `~/.claude/skills/open-design/SKILL.md`
+- `~/.claude/skills/open-design/reference/charter.md` — anti-slop rules
 - `~/.claude/skills/open-design/reference/directions.md`
-- `~/.claude/hooks/design-router.sh` — UserPromptSubmit hook for auto-detecting design requests
 
-Now when keywords like "design", "prototype", "mockup", "landing", "dashboard", or "redesign" appear, the hook intercepts first and routes to OD automatically. No explicit skill invocation needed.
+`charter.md` is the one that matters most for output quality. It doesn't list what to do — it lists what's banned, conditionally. Not "avoid gradients" but "gradients only when they serve a specific depth or state signal." Not "no dashboards" but "no fake dashboards with placeholder metrics that don't belong to the actual product." The distinction between a positive rule and a conditional ban is what prevents cargo-culting.
 
-The porting was faster than expected. If you can read a cloud service's engine prompts directly, the port is as accurate as the source. The OD repo publishes the engine prompts openly — which made this possible.
+## The Hook: Detecting Visual Work Without "Design"
 
-## The Report Project: 7 Sessions of Iteration
+The harder engineering problem was auto-routing. A `UserPromptSubmit` hook runs before every Claude Code session starts processing. `~/.claude/hooks/design-router.sh` scans incoming prompts for visual work signals:
 
-Across sessions 6–16, I built two versions of an online visibility diagnostic report for small business owners: a free diagnostic and a paid deliverable sample.
+Keywords that fire the hook: "landing", "dashboard", "mockup", "slides", "prototype", "redesign", "wireframe", "poster", "card", "banner", "app screen", "pitch deck".
 
-The sequence:
+When matched, it injects a routing message that surfaces the OD skill and reminds Claude to follow RULE 1→2→3.
 
-1. **Session 6** — Design direction research. Reviewed HubSpot Website Grader, SEMrush Site Audit, and Toss credit score UX as structural references
-2. **Session 7** — Content structure HTML/PDF mockup (draft quality). Chrome headless PDF generation
-3. **Sessions 8–9** — Paid deliverable sample. "Ready to hand to the client" format
-4. **Session 10** — OpenDesign-style redesign. Chose **ink minimal** direction. `oklch(98.6% 0.005 95)` background, `oklch(23% 0.018 260)` ink
-5. **Sessions 13, 15, 16** — Codex cross-review feedback fixes
+The routing rule is also pinned in `CLAUDE.md`:
 
-Codex flagged two blocking issues. First: in the free PDF, a `.cov` block with `break-inside: avoid` was clipping the last table row. Second: in the paid PDF, a label was rendering as `Why we changed thisprevious` — string concatenation without a separator. Fixed in session 16 with 30 Edit calls.
+> "Visual/UI design artifacts (landing pages, pitch decks, dashboards, prototypes, mockups, slides, posters, banners, app screens, components, and redesigns — even when the word 'design' is never said) default to the `open-design` skill. Follow RULE 1→2→3."
 
-The lesson that cost the most time: Chrome headless PDF only responds to `@media print` queries. A layout that looked correct on screen rendered completely differently in the output PDF. After that, I always verify with `pdfinfo` and `pdftotext` before calling anything done.
+Config file over memory. Session changes don't drift the behavior. A rule written in memory can be forgotten or overridden by context pressure; a rule in `CLAUDE.md` loads at session start every time.
 
-## Why Codex Cross-Review Catches Bugs That Self-Review Misses
+The current rough edge: "API design" and "DB schema design" are false positives the keyword list can catch. Those are non-visual work. Narrowing the classifier — adding an exclusion list for "API", "schema", "architecture" adjacent contexts — is the next improvement.
 
-In session 13, the Codex independent review returned `VERDICT: request-changes`. The pattern: Claude builds, Codex reviews read-only with no shared build context.
+## First Live Test: Soho Diagnostic Report Redesign
 
-This works because self-review from within the same context creates structural blind spots. Codex doesn't share the session history, so it's genuinely a different perspective. It catches things like the PDF rendering bug — the author saw the layout on screen, assumed it was correct, and the print output was broken in a way that only a fresh reader would catch.
+The hook's first production run came the day after setup:
 
-> It's not that Claude is wrong. It's that the same model checking its own output in the same session is structurally limited. A second reader with fresh context catches what the first one normalizes away.
+> "Redesign this as a mobile-friendly diagnostic report a small business owner can understand in 30 seconds — free version and paid deliverable template. No fake dashboards. No AI-looking card designs."
 
-## The Numbers
+OD route kicked in. RULE 1 confirmed deliverable format (HTML/PDF export), target audience (non-technical business owner), and constraints (mobile-first, 30-second comprehension). Two HTML files came out:
 
-| Metric | Count |
+- `free-diagnostic-report.html` — leads with the problem, drives toward a purchase decision
+- `paid-deliverable.html` — leads with the solution, structured as a copy-pasteable action plan
+
+Same content, opposite information hierarchy. The free version asks "what's wrong with your business?" The paid version answers "here's exactly what to do about it." The framing difference *is* the product.
+
+Session 5 came back with CSS refinements on the paid report: heavier emphasis on key callouts, slightly wider margins for breathing room. Not a redesign — just CSS. The right call was to skip OD discovery entirely and edit the file directly.
+
+That judgment call — when to run the full OD loop versus when to just edit — matters as much as the loop itself. Forcing discovery when the scope is already defined adds friction without value.
+
+## Tool Call Distribution Across 5 Sessions
+
+| Tool | Count |
 |---|---|
-| Total sessions | 16 |
-| Total tool calls | 444 |
-| Bash | 220 |
-| Read | 73 |
-| Edit | 72 |
-| Write | 19 |
-| WebSearch | 15 |
-| Files modified | 18 |
-| Files created | 18 |
-| Longest session | Session 11 (~17 hours, 81 tool calls) |
+| Bash | 32 |
+| Read | 27 |
+| Edit | 21 |
+| Write | 10 |
+| WebSearch | 5 |
+| AskUserQuestion | 4 |
+| WebFetch | 2 |
+| ToolSearch | 2 |
+| **Total** | **104** |
 
-## Takeaways
+Four `AskUserQuestion` calls is the OD fingerprint. The discovery phase is explicit and mandatory — direction gets confirmed before anything gets built. This is unusual compared to typical Claude Code sessions where `AskUserQuestion` shows up once or not at all.
 
-The harness audit's core lesson: a script in `~/.claude/hooks/` that isn't referenced in `settings.json` does nothing. Nine scripts, zero registered entries, zero effect. The audit made this visible; there was no other way to know.
+Session 3 alone: 70 tool calls, 1 hour 21 minutes. The breakdown inside that session was heavy on Bash (repo exploration) and Read (extracting actual prompt content from OD source files). The Edit and Write calls at the end were fast because the reading was thorough.
 
-The OpenDesign port confirmed something more general: if a cloud service publishes its engine prompts, local porting is a direct translation exercise. The OD repo's openness made a day's work possible.
+## Side Quest: The CCA Exam Is Partners-Only
 
-What's still rough: `design-router.sh` occasionally intercepts non-visual tasks — API design sessions, DB schema discussions — because keyword matching is too coarse. A more precise intent classifier is next.
+Session 4 detoured into investigating Anthropic's Claude Certified Architect exam — CCA, launched March 2026. The first official Anthropic technical certification. Stats: 301-level, 60 questions, 120 minutes, 720/1000 to pass.
+
+The catch: CCA is **restricted to Claude Partner Network member organizations**. Skilljar gates the checkout behind a partner-verified email. You need `claude.com/partners` approved before you can even pay for the exam.
+
+The chicken-and-egg problem for solo developers: the official requirement is "an organization bringing Claude to market" — loosely defined — but the partner track in practice requires existing client references or a demonstrated customer base. Independent developers actively building Claude-powered products are in an ambiguous middle ground.
+
+Not a blocker, but worth knowing before expecting the exam to be publicly available.
+
+## What Actually Made the Port Fast
+
+1 hour 21 minutes for the core session — not because the work was simple, but because Open Design publishes its actual prompt files. The porting process was reading and transcribing, not inferring and guessing. When the source is readable, the port is accurate.
+
+The constraint that saved time: I didn't try to abstract or improve the OD loop during porting. The goal was fidelity first — get the same loop running locally, then iterate. Adding "improvements" during a port is how ports break.
+
+The constraint that would have saved more time: knowing upfront that `charter.md` conditional bans matter more than positive rules. I wrote a version with a flat list first, then rewrote it to conditional form. That rewrite was avoidable.
+
+## What's Left
+
+`design-router.sh` keyword matching is the known rough edge. Current false-positive surface:
+
+- "Can you help me design the API schema?" → should not trigger OD
+- "Let's design the database structure" → should not trigger OD
+- "Redesign the auth flow" → ambiguous (could be UI, could be logic)
+
+The fix is an exclusion layer before the keyword match: if the prompt contains "API", "schema", "architecture", "data model", or "system design" within N words of the trigger keyword, skip the OD route. A more robust approach would classify the entire prompt intent rather than matching individual words, but that adds latency to every session start.
+
+Open Design running locally means the full design workflow — discovery, direction selection, system binding, build, review — happens in the same environment as the code it produces. No context switch to a cloud tool, no copy-pasting between interfaces. That was the goal.
 
 ---
 
