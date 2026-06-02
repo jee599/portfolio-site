@@ -95,14 +95,16 @@ function IndexRow({ p }: { p: HomeProject }) {
 }
 
 export default function Projects() {
-  const featuredSlugs = ['saju_global', 'contextzip', 'news4ai'];
   const featured =
-    PROJECTS.find((p) => p.slug === featuredSlugs[0]) ??
+    PROJECTS.find((p) => p.slug === 'saju_global') ??
     PROJECTS.find((p) => p.status === 'live' && p.slug !== 'portfolio-site');
 
-  const activePool = PROJECTS.filter(
-    (p) => p.slug !== featured?.slug && p.slug !== 'portfolio-site' && p.status === 'live'
-  ).slice(0, 3);
+  // Curated to show range: client delivery (uddental), an operated product
+  // (spoonai), and an OSS dev tool (contextzip). All real, all honest status.
+  const cardSlugs = ['uddental', 'news4ai', 'contextzip'];
+  const activePool = cardSlugs
+    .map((s) => PROJECTS.find((p) => p.slug === s))
+    .filter((p): p is HomeProject => !!p && p.slug !== featured?.slug);
 
   const indexed = PROJECTS.filter(
     (p) =>
@@ -114,9 +116,9 @@ export default function Projects() {
       <div className="sec-head">
         <div className="lead">
           <div className="sec-kicker">
-            <span className="n">01</span>
+            <span className="n">03</span>
             <span className="sep">/</span>
-            <span>projects</span>
+            <span>selected work</span>
           </div>
           <h2 className="sec-h">
             <span data-ko="지금 만들고 운영 중인 것들" data-en="Building and running">
@@ -125,10 +127,10 @@ export default function Projects() {
           </h2>
           <p className="sec-desc">
             <span
-              data-ko="운영 중인 제품과 만들고 있는 것까지 같이 둔다. 대표 1개, 활성 3개는 카드로, 나머지는 아래 인덱스로 본다."
-              data-en="Live products and works in progress, side by side. One featured plus three active as cards, the rest indexed below."
+              data-ko="내 제품부터 클라이언트 일, 오픈소스 도구까지. 전부 지금 라이브거나 직접 운영 중인 것들이다."
+              data-en="My own products, client work, and open-source tools — every one of them live or operated by me right now."
             >
-              운영 중인 제품과 만들고 있는 것까지 같이 둔다. 대표 1개, 활성 3개는 카드로, 나머지는 아래 인덱스로 본다.
+              내 제품부터 클라이언트 일, 오픈소스 도구까지. 전부 지금 라이브거나 직접 운영 중인 것들이다.
             </span>
           </p>
         </div>
@@ -155,6 +157,16 @@ export default function Projects() {
                 </a>
               </h3>
               <p className="f-desc">{featured.summaryKo}</p>
+              {featured.details.length > 0 && (
+                <ul className="f-facts">
+                  {featured.details.map((d) => (
+                    <li key={d.k}>
+                      <span className="k">{d.k}</span>
+                      <span className="v">{d.v}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
               <div className="f-tags">
                 {featured.stack.map((s) => (
                   <span key={s}>{s}</span>

@@ -1,0 +1,80 @@
+---
+const specs = [
+  {
+    k: '받는 일',
+    k_en: 'scope',
+    items: [
+      ['AI 프로덕트 빌드', 'AI product builds'],
+      ['운영 자동화', 'ops automation'],
+      ['작은 웹 제품·사이트', 'small web products & sites'],
+      ['기술 집필·강연', 'technical writing & talks'],
+    ],
+  },
+  {
+    k: '보낼 것',
+    k_en: 'send',
+    items: [
+      ['만들고 싶은 것', 'what you want to build'],
+      ['필요한 마감', 'the deadline you need'],
+      ['대략의 예산대', 'a rough budget range'],
+    ],
+  },
+  {
+    k: '다음 단계',
+    k_en: 'next',
+    items: [
+      ['평일 24h 내 가능 여부·범위 회신', 'reply within 24h: fit, rough scope'],
+      ['맞으면 짧은 통화 후 착수', 'a short call, then we start'],
+    ],
+  },
+];
+---
+<section id="contact" class="sec last contact">
+  <div class="sec-head">
+    <div class="lead">
+      <div class="sec-kicker">
+        <span class="n">06</span>
+        <span class="sep">/</span>
+        <span>start a project</span>
+      </div>
+      <h2 class="sec-h" data-ko="보낼 만한 일이 있으면, 바로 시작한다" data-en="Got something worth building? Let's start">
+        보낼 만한 일이 있으면, 바로 시작한다
+      </h2>
+      <p class="sec-desc" data-ko="범위와 마감이 분명한 일을 우선 받는다." data-en="Work with a clear scope and deadline comes first.">
+        범위와 마감이 분명한 일을 우선 받는다.
+      </p>
+    </div>
+  </div>
+
+  <div class="contact-wrap">
+    <div class="contact-lead">
+      <h3 class="contact-h" data-ko="메일 한 통이면 충분하다." data-en="One email is enough.">
+        메일 한 통이면 충분하다.
+      </h3>
+      <p class="contact-desc" data-ko="복잡한 브리프는 없어도 된다. 만들고 싶은 것과 마감만 적어 보내면, 가능한지·얼마나 걸릴지부터 답한다." data-en="No polished brief needed. Send what you want to build and by when — I'll start with whether it's doable and how long it takes.">
+        복잡한 브리프는 없어도 된다. 만들고 싶은 것과 마감만 적어 보내면, 가능한지·얼마나 걸릴지부터 답한다.
+      </p>
+      <a class="contact-mail" href="mailto:jidongs45@gmail.com?subject=프로젝트%20문의%20—%20jidonglab&body=만들고%20싶은%20것%3A%0A마감%3A%0A대략%20예산%3A%0A">
+        <span>jidongs45@gmail.com</span>
+        <span>→</span>
+      </a>
+      <div class="contact-sub">
+        <a href="https://github.com/jee599" target="_blank" rel="noreferrer">github / jee599 ↗</a>
+        <a href="https://dev.to/ji_ai" target="_blank" rel="noreferrer">dev.to / @ji_ai ↗</a>
+      </div>
+    </div>
+
+    <div class="contact-specs">
+      {specs.map((s) => (
+        <div class="cspec">
+          <span class="k" data-ko={s.k} data-en={s.k_en}>{s.k}</span>
+          <span class="v">
+            {s.items.map(([ko, en]) => (
+              <span data-ko={ko} data-en={en}>{ko}</span>
+            ))}
+          </span>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
