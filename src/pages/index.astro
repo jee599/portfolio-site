@@ -1,20 +1,19 @@
 ---
 import Hero from '../components/home/Hero';
 import Projects from '../components/home/Projects';
-import TechBlock from '../components/home/TechBlock';
 import Topbar from '../components/home/Topbar.astro';
 import NowStrip from '../components/home/NowStrip.astro';
 import Capabilities from '../components/home/Capabilities.astro';
+import Method from '../components/home/Method.astro';
 import ShipLog from '../components/home/ShipLog.astro';
-import Writing from '../components/home/Writing.astro';
 import About from '../components/home/About.astro';
-import Wordmark from '../components/home/Wordmark.astro';
+import Contact from '../components/home/Contact.astro';
 import Footer from '../components/home/Footer.astro';
 import Analytics from '../components/Analytics.astro';
 import '../styles/home.css';
 
-const title = 'jidonglab — AI 프로덕트를 짓고 운영하는 한 사람';
-const description = 'AI 프로덕트·운영 자동화·작은 웹 제품을 혼자 만들고 매일 운영한다. 프로젝트, 빌드 로그, 의뢰까지 한 페이지.';
+const title = 'jidonglab — AI 프로덕트를 만들고 매일 운영하는 1인 스튜디오';
+const description = 'LLM 서비스·운영 자동화·작은 웹 제품을 기획부터 배포·운영까지 혼자 끝낸다. 창업자와 작은 팀을 위한 1인 AI 프로덕트 스튜디오. 프로젝트, 빌드 로그, 의뢰까지 한 페이지.';
 const siteUrl = 'https://jidonglab.com';
 const ogImage = `${siteUrl}/og/default-og.svg`;
 
@@ -119,15 +118,14 @@ const profileSchema = {
   </head>
   <body>
     <Topbar />
-    <Hero client:load />
+    <Hero />
     <NowStrip />
     <Capabilities />
-    <Projects client:visible />
-    <TechBlock client:visible />
+    <Method />
+    <Projects />
     <ShipLog />
-    <Writing />
     <About />
-    <Wordmark />
+    <Contact />
     <Footer />
 
     <script is:inline>

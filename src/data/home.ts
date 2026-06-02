@@ -333,11 +333,10 @@ export const PROJECT_IMAGE: Record<string, string> = {
 
 // 짧게. 지금 무엇이 돌아가고 있는지만.
 export const NOW_ITEMS = [
-  { tag: '지금', txt: '홈 포지셔닝 재정비 중' },
   { tag: '이번 주', txt: 'fortunelab 결제 Toss → PayPal 이관' },
-  { tag: '집필중', txt: 'claudebook · claude-code deep dive' },
   { tag: '운영중', txt: 'spoonai · 매일 9AM/9PM 발송' },
   { tag: '운영중', txt: 'uddental · 치과 광고 자동화' },
+  { tag: '집필중', txt: 'claudebook · claude-code deep dive' },
 ];
 
 export interface ShipRow {
