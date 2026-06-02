@@ -1,95 +1,98 @@
 ---
-title: "Open Design을 Claude Code에 로컬 이식 — hook 1개로 claude.ai/design 완전 대체"
+title: "홈페이지 리디자인: 탐색 4세션·58 tool calls 후 워크트리에서 구현"
 project: "portfolio-site"
 date: 2026-06-02
 lang: ko
-tags: [claude-code, open-design, hook, skill, automation, design-system]
-description: "claude.ai/design의 오픈소스 대안 Open Design을 Claude Code에 이식했다. 5개 세션, 104 tool calls. 결과물은 hook 1개 + skill 3파일 + HTML 리포트 2개."
+tags: [claude-code, redesign, worktree, astro, portfolio]
+description: "jidonglab 홈페이지를 'personal logbook'에서 'product-studio 피치'로 바꿨다. 탐색 4세션 58 tool calls 후 워크트리로 메인 브랜치를 보호하며 컴포넌트 10개 수정, 2개 신규 생성."
 ---
 
-claude.ai/design을 처음 봤을 때 느낌은 단순했다. "이거 왜 클라우드에서만 써야 하지?"
+실제 파일을 건드리기 전까지 4개 세션, 58번의 tool call을 탐색에만 썼다. 파일 수정이 0줄인 세션이 4개 연속으로 나왔다.
 
-Open Design 프로젝트가 오픈소스로 공개돼 있고, 같은 루프를 Claude Code에서 돌릴 수 있다는 걸 확인하는 데 1시간 21분이 걸렸다. 세션 3 혼자 70 tool calls를 썼다.
+**TL;DR** jidong.lab 홈페이지 방향을 "personal logbook"에서 "product-studio 피치"로 전환했다. 구현은 `claude/jidonglab-redesign-compare` 워크트리에서만 진행해 메인 브랜치를 보호했다. 최종 구현 세션에서 Edit 28회, Read 24회, Bash 21회로 컴포넌트 10개 수정 + 2개 신규 생성.
 
-**TL;DR** Open Design의 discovery → 5방향 → 디자인시스템 → 빌드 → 5차원 검토 루프를 Claude Code 스킬로 이식했다. `UserPromptSubmit` hook을 달아서 "디자인"이라는 단어 없이도 시각 요청이면 OD 루트가 자동으로 뜬다.
+## 탐색 세션이 4개 연속으로 나온 이유
 
-## "이게 claude.ai/design이랑 같은 효과야?"
+세션 6, 7, 8, 9는 전부 구조 읽기로 끝났다. 매번 같은 패턴 — 파일 트리 확인 → 컴포넌트 읽기 → 데이터 레이어 확인 → 세션 종료. 수정 없음.
 
-사용자 프롬프트가 직접적이었다.
+원인은 Hermes 릴레이 구조였다. 작업 지시가 Hermes 크론 잡을 통해 들어오는데, `jidonglab_portfolio_redesign_brief.md`를 `/tmp`에 올리고 프롬프트를 전달하는 방식이다. 문제는 초기 세션들의 프롬프트가 분석 중심이었다는 것이다. "현재 상태를 파악하고 리디자인 계획을 세워라" 수준의 지시에서는 탐색 후 제안으로 끝났다.
 
-> "opendesign 좋아 모든 디자인에 대해서 저 루트를 타게 할 수 있어? 오픈소스니까 로컬에서 구현해서"
+실제 구현이 시작된 건 프롬프트에 "Do not only propose a plan"이 명시적으로 들어간 세션 8부터다. 그리고 실제로 파일을 건드린 건 워크트리가 분리된 세션 13이다.
 
-바로 이어서:
+Claude Code에서 구현을 원하면 지시에 명시해야 한다. "분석해줘"와 "구현해줘"는 결과가 다르다.
 
-> "꼭 디자인이라고 안 외쳐도, 모든 디자인 관련에서 자동으로 저거 쓰게 해줘"
+## 워크트리로 메인 브랜치 보호
 
-두 가지 작업이 생겼다. OD 실제 엔진 프롬프트를 그대로 이식하는 것, 그리고 "디자인이라고 안 외쳐도" 감지하는 hook을 만드는 것.
+구현 전에 한 가지 결정이 있었다. 메인 브랜치에서 직접 작업할지, 워크트리를 분리할지.
 
-## OD 엔진 해부: RULE 1/2/3
+선택은 워크트리였다. `portfolio-site-claude-redesign/` 디렉토리를 `claude/jidonglab-redesign-compare` 브랜치로 생성하고 모든 구현을 거기서 진행했다. `main`은 처음부터 끝까지 건드리지 않았다.
 
-Open Design 레포를 분석하니 세 계층으로 구성돼 있었다.
+리디자인처럼 방향이 크게 바뀌는 작업에서 워크트리 분리는 실용적인 선택이다. 마음에 안 들면 워크트리만 삭제하면 된다. 원본이 남아있어서 비교도 된다. "배포할지"는 구현이 끝난 후 별개로 결정할 수 있다.
 
-**RULE 1** — discovery. `AskUserQuestion`으로 산출물·플랫폼·브랜드·톤을 먼저 확인한다. 코드를 쓰기 전에 방향을 잡는다.
+## Doctor fix가 먼저였다
 
-**RULE 2** — 5개 시각 방향 제시. 각 방향에 OKLch 팔레트 + 폰트 + 레이아웃 원칙이 구체적으로 붙는다. "감각 있게 해줘" 같은 모호한 요청이 여기서 구체화된다.
+워크트리 세션을 시작하자마자 `/doctor` 리포트에서 경고가 떴다.
 
-**RULE 3** — 디자인시스템 바인딩 → 빌드 → P0 체크리스트 + 5차원 자가검토. 시각 일관성, 접근성, 모바일, 인터랙션, 감성 다섯 축으로 결과물을 직접 검수한다.
+```
+hooks.SessionStart.0.hooks: Expected array, but received object
+```
 
-OD 레포의 실제 프롬프트 파일을 읽고 추측 없이 그대로 이식했다. Bash로 레포 구조를 탐색한 다음, discovery 흐름과 5방향 팔레트 정의를 직접 읽어서 스킬로 옮겼다.
+`SessionStart` 훅이 구버전 flat 포맷을 쓰고 있었다. Claude Code가 훅 그룹 구조를 업데이트하면서 생긴 포맷 불일치다.
 
-생성 파일:
-- `~/.claude/skills/open-design/SKILL.md`
-- `~/.claude/skills/open-design/reference/charter.md` — anti-slop 체크리스트 포함
-- `~/.claude/skills/open-design/reference/directions.md`
+```json
+// 이전 (flat)
+{ "command": "bash protect-files.sh" }
 
-`charter.md`는 OD의 금지 패턴을 담는다. 가짜 대시보드, AI스러운 카드 디자인, 복붙 그라디언트. 나열이 아니라 조건부 금지로 명시했다.
+// 이후 (group)
+{ "hooks": [{ "command": "bash protect-files.sh" }] }
+```
 
-## Hook: "디자인" 없이도 감지
+`.claude/settings.json`이 `protect-files.sh`에 의해 보호 파일로 잡혀 있어서 수정 전에 확인 요청이 왔다. 허용하고 패치했다. 구현 작업 전에 환경 문제를 먼저 정리하는 게 맞다.
 
-더 까다로운 쪽은 hook이었다. `UserPromptSubmit` 이벤트에서 실행되는 `design-router.sh`는 키워드 매칭으로 시각 작업을 잡는다.
+## "logbook"에서 "pitch"로
 
-`~/.claude/hooks/design-router.sh`가 "랜딩", "대시보드", "목업", "슬라이드", "시안", "프로토타입" 같은 단어를 감지하면 OD 루트 안내 메시지를 출력한다. 사용자가 명시적으로 "디자인"이라 부르지 않아도 된다.
+기존 홈페이지는 "paper/ink editorial logbook" 스타일이었다. 정갈하고 개인적인 톤인데, 클라이언트나 협업자가 봤을 때 "이 사람이 뭘 할 수 있는지"가 한눈에 안 들어왔다.
 
-`CLAUDE.md`에도 라우팅 규칙을 박았다:
+리디자인 브리프의 핵심:
 
-> "Visual/UI design artifacts (landing, pitch deck, dashboard, prototype...)는 `open-design` 스킬. RULE 1→2→3 순서."
+> "Redesign so it works as Jidong's personal portfolio/business-card site, not a passive project archive."
 
-메모리가 아니라 설정 파일에 고정하면 세션이 바뀌어도 동작이 일관된다.
+방향을 잡은 뒤 컴포넌트별로 수정 작업을 진행했다.
 
-## 실전: 소상공인 진단 리포트
+`Hero.tsx`는 타이틀 카피를 바꿨다. 기술 나열이 아니라 "어떤 문제를 해결하는 사람인가"를 앞에 세우는 방식으로. `Capabilities.astro`는 기술 스택 목록에서 "어떤 결과를 만들 수 있는가"로 재편했다. `About.astro`는 이력서 톤에서 협업 제안 톤으로 전환했다.
 
-hook 설정 직후 첫 케이스가 들어왔다.
+신규로 추가된 컴포넌트 두 개가 변화의 핵심이다.
 
-> "사장님이 모바일 PDF로 30초 안에 이해할 수 있는 무료 진단 리포트 / 유료 결과물 템플릿으로 재디자인해줘."
-> "fake dashboard나 AI스러운 카드 디자인은 피하고."
+`Contact.astro`는 처음부터 없었다. CTA가 없는 포트폴리오 사이트였다. 보는 사람이 "연락하고 싶은데 어떻게 하지"를 찾아야 했다. 이걸 섹션으로 만들어서 명시적으로 배치했다.
 
-OD 루트 첫 적용. RULE 1에서 `AskUserQuestion`으로 방향을 먼저 잡고, HTML/PDF 두 버전을 생성했다.
+`Method.astro`는 작업 방식을 설명하는 섹션이다. "어떻게 일하는 사람인가"를 보여주는 것. 프로젝트 목록보다 이게 협업 판단에 더 직접적인 정보다.
 
-- `~/.hermes/work/redesign/free-diagnostic-report.html` — 문제 인식과 결제 전환 중심
-- `~/.hermes/work/redesign/paid-deliverable.html` — 복붙 가능한 작업물 중심
+`home.ts` 데이터 레이어도 함께 수정했다. 컴포넌트가 받아가는 문자열들을 새 방향에 맞게 전부 업데이트했다.
 
-콘텐츠는 같지만 정보 계층 방향이 반대다. 무료는 "무엇이 문제인가"로 시작하고, 유료는 "어떻게 고치는가"로 시작한다.
+## 구현 세션 도구 사용
 
-다음 날 세션 5에서 유료 리포트 CSS 미세 조정이 들어왔다. 강조 텍스트 시각 처리를 조금 더 강하게, 전체 여백을 살짝 늘리는 작업. 리디자인이 아니라 CSS 편집이라서 OD discovery는 건너뛰고 파일 직접 수정으로 처리했다. 이런 판단 분기를 명시적으로 남겨두는 게 포인트다.
+세션 13, 92 tool calls.
 
-## 세션별 도구 사용 분포
+| 도구 | 횟수 |
+|---|---|
+| Edit | 28 |
+| Read | 24 |
+| Bash | 21 |
+| Write | 5 |
+| TaskCreate | 5 |
 
-5개 세션, 104 total tool calls.
+Read가 24회로 높다. Astro + React 혼용 구조에서 props 흐름과 컴포넌트 간 의존성을 계속 확인해야 한다. 한 컴포넌트를 바꾸면 데이터 레이어부터 타입 정의까지 연쇄가 생긴다. TaskCreate 5개는 `npm ci` 설치, 빌드 확인, 변경 파일 검증 같은 백그라운드 태스크들이다.
 
-Bash 32회, Read 27회, Edit 21회, Write 10회, WebSearch 5회, AskUserQuestion 4회, WebFetch 2회, ToolSearch 2회.
+Bash 21회 중 절반 이상이 빌드 체크였다. `npm run build`를 중간중간 돌려서 타입 에러나 Astro 컴파일 오류를 즉시 잡는 방식으로 진행했다. 마지막에 한꺼번에 고치는 것보다 빌드를 자주 돌리는 게 결국 빠르다.
 
-AskUserQuestion이 4회 나온 게 OD 루트의 특징이다. 만들기 전에 방향을 확인하는 단계가 명시적으로 들어가 있어서다. 세션 3 혼자 70 tool calls, 소요 시간 1시간 21분이었다.
+## 탐색 58번의 실제 가치
 
-## Claude 자격증은 파트너 전용이었다
+탐색 세션 4개는 낭비처럼 보이지만, 구현 세션에서 Read가 24회로 비교적 적게 나온 게 그 흔적이다. 같은 파일을 다시 읽어야 하는 상황이 줄었다.
 
-세션 4에서 Claude Certified Architect(CCA) 자격증을 조사했다. 2026년 3월 출시된 Anthropic 첫 공식 기술 자격증이다. 301레벨, 60문항, 120분, 720점 이상 합격.
+세션 컨텍스트는 공유되지 않는다. 각 세션이 독립적으로 시작된다. 그런데도 구현 세션이 탐색 없이 빠르게 Edit으로 넘어갈 수 있었던 건, 브리프가 이미 탐색 결과를 반영해서 구체화돼 있었기 때문이다. Hermes가 브리프 파일을 계속 업데이트하면서 컨텍스트를 이어붙인 셈이다.
 
-응시가 막히는 이유: CCA는 **Claude Partner Network 회원사 직원** 한정이다. Skilljar에서 파트너사 인증 이메일이 확인돼야 결제 단계로 넘어간다. `claude.com/partners` 신청이 먼저다.
+> 탐색에 쓴 58번의 tool call은 구현 세션의 Read 횟수를 낮추는 데 쓰였다.
 
-1인 개발자 기준으로는 닭-달걀 함정이 하나 있다. "클로드를 시장에 가져가는 조직"이라는 공식 요건은 느슨하지만, 실제로 파트너 트랙이 열리려면 기존 레퍼런스가 필요하다.
+---
 
-## 정리
-
-Open Design 이식은 예상보다 빨랐다. 클라우드 서비스의 프롬프트 엔진을 직접 읽을 수 있으면 이식도 그만큼 정확하다. OD 레포가 엔진 프롬프트를 공개했기 때문에 가능했다.
-
-남은 과제는 `design-router.sh`의 정밀도다. 지금 키워드 매칭은 "API 설계", "DB 스키마 설계" 같은 비시각 작업도 잡을 수 있다. 키워드 분류 로직을 더 좁혀야 한다.
+변경 사항은 `claude/jidonglab-redesign-compare` 브랜치에 있다. 로컬 확인 후 머지 여부를 결정한다. 워크트리 전략의 목적은 여기 있다 — 구현 완료와 배포 결정은 별개다.

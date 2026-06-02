@@ -1,132 +1,118 @@
 ---
-title: "Porting Open Design to Claude Code: One Hook, 104 Tool Calls, Zero Cloud Dependency"
+title: "4 Sessions, 58 Tool Calls, Zero Edits — Then a Full Portfolio Redesign in One Shot"
 project: "portfolio-site"
 date: 2026-06-02
 lang: en
 pair: "2026-06-02-portfolio-site-ko"
-tags: [claude-code, open-design, hook, skill, automation, design-system]
-description: "I ported claude.ai/design's open-source engine to Claude Code locally. One hook, three skill files, two HTML deliverables. Here's what 5 sessions and 104 tool calls look like."
+tags: [claude-code, redesign, worktree, astro, portfolio]
+description: "Redesigned jidonglab.com from personal logbook to product-studio pitch using Claude Code worktrees — 58 tool calls of exploration before a single file was touched."
 ---
 
-Session 3 alone consumed 70 tool calls and ran for 1 hour 21 minutes. That was the core porting session — reading the Open Design repo structure, extracting the actual engine prompt files, and mapping them to Claude Code skill format. Not because it was hard, but because I was doing it right: reading source, not guessing.
+Before Claude Code modified a single file in my portfolio, it had already made 58 tool calls across 4 sessions. Every session ended the same way: read the file tree, read the components, check the data layer, session ends. Zero edits.
 
-The question that started it: *why is claude.ai/design cloud-only?*
+That pattern repeated four times in a row — sessions 6, 7, 8, and 9. And yet the implementation session that followed moved fast, with fewer reads than you'd expect for a first pass across 12 components. The 58 exploration calls weren't wasted. They were front-loaded context that made the implementation lean.
 
-The underlying engine — Open Design — is open source. The answer turned out to be: it doesn't have to be.
+**TL;DR** Redesigned jidonglab.com from "personal logbook" to "product-studio pitch." Entire implementation ran inside a `claude/jidonglab-redesign-compare` worktree — main branch untouched throughout. Implementation session: 92 tool calls total — Edit ×28, Read ×24, Bash ×21, Write ×5, TaskCreate ×5. Before any of that: fixed a Claude Code hooks format mismatch flagged by `/doctor`.
 
-**TL;DR** I ported Open Design's discovery → 5-direction → design-system → build → 5-axis review loop into Claude Code as a local skill. Added a `UserPromptSubmit` hook (`design-router.sh`) that auto-routes visual requests through the OD pipeline — no "design" keyword required. Five sessions, 104 tool calls, one hook, three skill files, two HTML report deliverables.
+## Why Claude Code Spent 4 Sessions Reading Without Editing
 
-## The Request That Made It Obvious
+Sessions 6 through 9 all terminated without a single file change. The pattern was identical each time: traverse the file tree, read the components, inspect the data layer, end session.
 
-The prompt was direct:
+The root cause was how tasks were being delivered. Work instructions came in through a Hermes cron job — a brief file (`jidonglab_portfolio_redesign_brief.md`) dropped into `/tmp`, then piped into the prompt. The early sessions had analysis-oriented prompts: *"Assess the current state and draft a redesign plan."* With that framing, exploration followed by a written proposal was the correct response.
 
-> "I like Open Design. Can we make every design request go through that route? It's open source, so implement it locally."
+The shift happened in session 8, when the prompt explicitly added: **"Do not only propose a plan."** Even then, the first actual file edit didn't land until session 13, when the worktree was properly isolated.
 
-Followed immediately by:
+This is a real Claude Code workflow consideration. The distinction between *"analyze this"* and *"implement this"* isn't implicit — it has to be in the prompt. The default behavior when asked to assess something is to assess it, not change it. If you want code written, say so explicitly.
 
-> "Make it automatic — even if I don't explicitly say 'design', it should route there."
+## One Decision Before Writing Code: Worktree or Not?
 
-Two distinct problems emerged: porting the actual OD engine prompt logic, and building a detection mechanism that doesn't require the magic word.
+The redesign brief called for significant directional change — not a tweak, but a repositioning of what the homepage communicates. Before implementation started, there was a choice: work directly on `main`, or isolate in a worktree.
 
-## Dissecting the Open Design Engine: RULE 1/2/3
+The decision was worktree.
 
-Reading the Open Design repo, the loop has three layers:
+A new directory `portfolio-site-claude-redesign/` was created, checked out on branch `claude/jidonglab-redesign-compare`. All implementation happened there. The `main` branch was never touched from start to finish.
 
-**RULE 1 — Discovery first.** Before writing a single line of code, `AskUserQuestion` confirms deliverable type, platform, brand constraints, and tone. Direction gets locked in before execution begins. "Make it look good" is not an acceptable spec.
+For a redesign where you're genuinely unsure whether the output will be what you want, worktree isolation is the right default. The cost is low. The upside is real: if the implementation goes sideways, you delete the worktree. You can run both versions side-by-side to compare. The decision to deploy is decoupled from the decision to implement.
 
-**RULE 2 — Five visual directions.** Each direction comes with a concrete OKLch color palette, typeface pairing, and layout principle. Vague requests ("make it feel premium", "something modern") get resolved into specific, comparable options the user can actually choose between.
+The changes live in `claude/jidonglab-redesign-compare`. Whether they get merged to main is a separate question, decided after reviewing the result — not before.
 
-**RULE 3 — Design system binding → build → P0 checklist + 5-axis self-review.** After the build, the model audits its own output across five axes: visual consistency, accessibility, mobile behavior, interaction quality, and emotional resonance. This runs before calling the work done.
+## The Doctor Ran First
 
-The port was exact because Open Design publishes its actual prompt files. No reverse engineering. Read the source, transcribe to Claude Code skill format, verify with a test run.
+As soon as the worktree session opened, `/doctor` flagged a warning:
 
-Generated files:
-- `~/.claude/skills/open-design/SKILL.md`
-- `~/.claude/skills/open-design/reference/charter.md` — anti-slop rules
-- `~/.claude/skills/open-design/reference/directions.md`
+```
+hooks.SessionStart.0.hooks: Expected array, but received object
+```
 
-`charter.md` is the one that matters most for output quality. It doesn't list what to do — it lists what's banned, conditionally. Not "avoid gradients" but "gradients only when they serve a specific depth or state signal." Not "no dashboards" but "no fake dashboards with placeholder metrics that don't belong to the actual product." The distinction between a positive rule and a conditional ban is what prevents cargo-culting.
+The `SessionStart` hook was using the old flat format. Claude Code had updated its hook group schema, and the config hadn't caught up.
 
-## The Hook: Detecting Visual Work Without "Design"
+```json
+// old (flat)
+{ "command": "bash protect-files.sh" }
 
-The harder engineering problem was auto-routing. A `UserPromptSubmit` hook runs before every Claude Code session starts processing. `~/.claude/hooks/design-router.sh` scans incoming prompts for visual work signals:
+// new (group)
+{ "hooks": [{ "command": "bash protect-files.sh" }] }
+```
 
-Keywords that fire the hook: "landing", "dashboard", "mockup", "slides", "prototype", "redesign", "wireframe", "poster", "card", "banner", "app screen", "pitch deck".
+`.claude/settings.json` was itself protected by `protect-files.sh`, so patching it required an explicit approval prompt. That was granted, the format was fixed, and then the actual implementation work started.
 
-When matched, it injects a routing message that surfaces the OD skill and reminds Claude to follow RULE 1→2→3.
+Fix your environment before starting substantive work. A misconfigured hook silently misfires; catching it with `/doctor` at session start is faster than debugging unexpected behavior mid-implementation.
 
-The routing rule is also pinned in `CLAUDE.md`:
+## Turning a Logbook Into a Pitch
 
-> "Visual/UI design artifacts (landing pages, pitch decks, dashboards, prototypes, mockups, slides, posters, banners, app screens, components, and redesigns — even when the word 'design' is never said) default to the `open-design` skill. Follow RULE 1→2→3."
+The existing homepage was built around a "paper/ink editorial logbook" aesthetic — clean, personal, considered. The problem wasn't the execution; it was the signal. A visitor trying to answer *"what does this person actually do and can I work with them?"* had to dig.
 
-Config file over memory. Session changes don't drift the behavior. A rule written in memory can be forgotten or overridden by context pressure; a rule in `CLAUDE.md` loads at session start every time.
+The redesign brief was direct:
 
-The current rough edge: "API design" and "DB schema design" are false positives the keyword list can catch. Those are non-visual work. Narrowing the classifier — adding an exclusion list for "API", "schema", "architecture" adjacent contexts — is the next improvement.
+> "Redesign so it works as Jidong's personal portfolio/business-card site, not a passive project archive."
 
-## First Live Test: Soho Diagnostic Report Redesign
+The implementation worked component by component.
 
-The hook's first production run came the day after setup:
+**`Hero.tsx`** — copy rewritten. Instead of enumerating a tech stack, it leads with the problem being solved. What category of work, what kind of outcome.
 
-> "Redesign this as a mobile-friendly diagnostic report a small business owner can understand in 30 seconds — free version and paid deliverable template. No fake dashboards. No AI-looking card designs."
+**`Capabilities.astro`** — reorganized from a tools list into a capability framing. What results can this person produce, not which tools do they know.
 
-OD route kicked in. RULE 1 confirmed deliverable format (HTML/PDF export), target audience (non-technical business owner), and constraints (mobile-first, 30-second comprehension). Two HTML files came out:
+**`About.astro`** — tone shifted from resume-style biography to collaboration-oriented framing. Who this is for, not just who this is.
 
-- `free-diagnostic-report.html` — leads with the problem, drives toward a purchase decision
-- `paid-deliverable.html` — leads with the solution, structured as a copy-pasteable action plan
+**`Contact.astro`** — new component, didn't exist before. The original site had no explicit CTA. A visitor who wanted to reach out had to go looking for contact info. This section makes the action explicit and removes the friction.
 
-Same content, opposite information hierarchy. The free version asks "what's wrong with your business?" The paid version answers "here's exactly what to do about it." The framing difference *is* the product.
+**`Method.astro`** — new component. Describes how the work happens, not just what work has been done. A project list tells you what someone has shipped. A working method section tells you what it's like to work with them — which is what a hiring manager or potential collaborator actually needs.
 
-Session 5 came back with CSS refinements on the paid report: heavier emphasis on key callouts, slightly wider margins for breathing room. Not a redesign — just CSS. The right call was to skip OD discovery entirely and edit the file directly.
+`home.ts`, the data layer, was updated in full. Every string the components pull from was rewritten to match the repositioned messaging.
 
-That judgment call — when to run the full OD loop versus when to just edit — matters as much as the loop itself. Forcing discovery when the scope is already defined adds friction without value.
+10 components modified, 2 new components created.
 
-## Tool Call Distribution Across 5 Sessions
+## The Implementation Session by the Numbers
+
+Session 13. 92 tool calls total.
 
 | Tool | Count |
 |---|---|
-| Bash | 32 |
-| Read | 27 |
-| Edit | 21 |
-| Write | 10 |
-| WebSearch | 5 |
-| AskUserQuestion | 4 |
-| WebFetch | 2 |
-| ToolSearch | 2 |
-| **Total** | **104** |
+| Edit | 28 |
+| Read | 24 |
+| Bash | 21 |
+| Write | 5 |
+| TaskCreate | 5 |
 
-Four `AskUserQuestion` calls is the OD fingerprint. The discovery phase is explicit and mandatory — direction gets confirmed before anything gets built. This is unusual compared to typical Claude Code sessions where `AskUserQuestion` shows up once or not at all.
+The Read count at 24 is relatively high for an implementation session — but makes sense given the Astro + React hybrid architecture. When you change one component in this stack, you trace prop flow through the data layer, check TypeScript types, and verify nothing breaks downstream. A single component edit can ripple into `home.ts`, type definitions, and sibling components. Each ripple requires a Read before an Edit.
 
-Session 3 alone: 70 tool calls, 1 hour 21 minutes. The breakdown inside that session was heavy on Bash (repo exploration) and Read (extracting actual prompt content from OD source files). The Edit and Write calls at the end were fast because the reading was thorough.
+The 5 TaskCreate calls were background tasks: `npm ci` install, build verification, changed-file validation.
 
-## Side Quest: The CCA Exam Is Partners-Only
+Bash at 21 calls — more than half were build checks. `npm run build` ran repeatedly throughout the session, not just at the end. Catching a type error or Astro compilation failure immediately after the relevant Edit is faster than debugging a pile of errors at the end. The build is cheap; running it often pays for itself.
 
-Session 4 detoured into investigating Anthropic's Claude Certified Architect exam — CCA, launched March 2026. The first official Anthropic technical certification. Stats: 301-level, 60 questions, 120 minutes, 720/1000 to pass.
+## What 58 Exploration Calls Actually Bought
 
-The catch: CCA is **restricted to Claude Partner Network member organizations**. Skilljar gates the checkout behind a partner-verified email. You need `claude.com/partners` approved before you can even pay for the exam.
+Four sessions with no file edits looks like wasted effort. The counter-evidence is in the implementation stats: Read appeared 24 times, not 50+. That's lower than expected for a first-time implementation across 12 components.
 
-The chicken-and-egg problem for solo developers: the official requirement is "an organization bringing Claude to market" — loosely defined — but the partner track in practice requires existing client references or a demonstrated customer base. Independent developers actively building Claude-powered products are in an ambiguous middle ground.
+Sessions don't share context — each one starts cold. The implementation session had no memory of what sessions 6 through 9 had read. What it did have was a redesign brief that had been iteratively refined by those exploration sessions. The Hermes relay continuously updated the brief file with findings from each session. By session 13, the brief encoded the codebase structure, component dependencies, and data flow — concretely enough that the implementation could move directly into Edits.
 
-Not a blocker, but worth knowing before expecting the exam to be publicly available.
+> The 58 tool calls in exploration were spent buying down the Read count in implementation.
 
-## What Actually Made the Port Fast
+Front-loading context through a shared brief file is a viable substitute for shared session memory. It's not as efficient as true persistence, but it works. The key is the brief being updated between sessions rather than starting from scratch each time.
 
-1 hour 21 minutes for the core session — not because the work was simple, but because Open Design publishes its actual prompt files. The porting process was reading and transcribing, not inferring and guessing. When the source is readable, the port is accurate.
+---
 
-The constraint that saved time: I didn't try to abstract or improve the OD loop during porting. The goal was fidelity first — get the same loop running locally, then iterate. Adding "improvements" during a port is how ports break.
-
-The constraint that would have saved more time: knowing upfront that `charter.md` conditional bans matter more than positive rules. I wrote a version with a flat list first, then rewrote it to conditional form. That rewrite was avoidable.
-
-## What's Left
-
-`design-router.sh` keyword matching is the known rough edge. Current false-positive surface:
-
-- "Can you help me design the API schema?" → should not trigger OD
-- "Let's design the database structure" → should not trigger OD
-- "Redesign the auth flow" → ambiguous (could be UI, could be logic)
-
-The fix is an exclusion layer before the keyword match: if the prompt contains "API", "schema", "architecture", "data model", or "system design" within N words of the trigger keyword, skip the OD route. A more robust approach would classify the entire prompt intent rather than matching individual words, but that adds latency to every session start.
-
-Open Design running locally means the full design workflow — discovery, direction selection, system binding, build, review — happens in the same environment as the code it produces. No context switch to a cloud tool, no copy-pasting between interfaces. That was the goal.
+The changes are on `claude/jidonglab-redesign-compare`. Local review, then merge decision. That's the point of the worktree strategy — implementation complete and deployment decision are two separate steps.
 
 ---
 
