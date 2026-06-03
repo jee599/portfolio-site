@@ -1,91 +1,102 @@
 ---
-title: "GitHub Actions 26/26 실패 방치 → 한 번에 정리, Claude Code 하네스 Design Gate 구축"
+title: "Claude Code 하루 10 세션 596 tool calls, 치과 마케팅 시스템과 글로벌 아웃리치 파이프라인을 동시에 구축한 방법"
 project: "portfolio-site"
 date: 2026-06-04
 lang: ko
-tags: [claude-code, github-actions, automation, open-design, harness]
-description: "portfolio-site의 Generate AI News 워크플로우가 26번 연속 실패 중이었다. 35개 세션, 60+ tool calls로 GitHub Actions를 정리하고 HTML 결과물 강제 Design Gate를 구축했다."
+tags: [claude-code, automation, dental-marketing, outreach, claude-in-chrome]
+description: "하루 만에 치과 마케팅 자동화 시스템과 글로벌 아웃리치 파이프라인을 병렬 구축했다. 10 세션, 596 tool calls, 79개 파일. 가장 긴 세션 하나가 389 tool calls였다."
 ---
 
-26번. `Generate AI News` 워크플로우가 연속으로 실패한 횟수다. 그리고 아무도 몰랐다.
+하루에 596번 도구를 호출했다. 10개 세션, 79개 파일(수정 26 + 생성 53). 그중 한 세션이 11시간 동안 389 tool calls를 썼다.
 
-**TL;DR** GitHub Actions 4개를 비활성화하고, HTML 산출물을 막는 `design-gate.sh` 훅을 Claude Code 하네스에 심었다. portfolio-site 관련 작업은 그 과정의 부산물로 정리됐다.
+**TL;DR** 치과 마케팅 진단·추적 시스템과 글로벌 아웃리치 자동화 파이프라인을 같은 날 병렬로 만들었다. 핵심은 세션 간 컨텍스트 격리를 활용하면서 상태를 외부 파일로 유지하는 패턴이다.
 
-## GitHub Actions가 조용히 죽어 있었다
+## 세션 5: 11시간, 389 tool calls, 원세션 시스템 빌드
 
-세션 10에서 `jee599` 계정의 56개 저장소를 한 번에 스캔했다. 워크플로우 실패 현황을 뽑아보니 패턴이 바로 보였다.
+"치과 보고서 띄워봐"로 시작한 세션이었다. 끝날 때는 아래 시스템이 생겨 있었다.
+
+`dental-promo-audit` 스킬 — 네이버 플레이스, 블로그 순위, 인스타그램, 광고 현황을 브라우저로 직접 크롤링해 실측값으로 점수를 매긴다. 추정값은 점수에 반영하지 않는다는 게 설계 원칙이다.
+
+`dental-clinic` 에이전트 — 치과별로 `clinic.json`·`history.json`에 컨텍스트를 캐시해두고, 다음 세션 시작 때 즉시 복원한다. 블로그 작성, 광고 분석, 보고서 생성을 한 에이전트가 연속해서 처리한다.
+
+`dental-ads` 에이전트 — 네이버 파워링크·플레이스 광고 성과를 pull하고, 키워드 효율을 학습해서 최적화 루프를 도는 광고 전담 에이전트.
+
+`dental-promo/_tracker/index.html` — 치과별 채널 현황 스코어를 막대그래프로 시각화하는 대시보드. Vercel에 배포해 비공개로 접근한다.
+
+세션 5의 도구별 분포: Bash 139회, Edit 119회, Read 44회, Write 36회, `browser_batch` 26회. `browser_batch`는 Claude-in-Chrome 연결을 통해 실제 브라우저로 페이지를 조작한 횟수다.
+
+## 네이버를 어떻게 크롤링했나
+
+`WebFetch`로 네이버에 직접 요청하면 403이 떨어진다. Cloudflare WAF, CAPTCHA, 로그인월이 겹쳐서 curl로는 뚫기 어렵다.
+
+해결 방향은 두 갈래였다.
+
+첫째, 공개 API. 네이버 검색 API(`search.naver.com`)는 인증 없이 쓸 수 있다. 블로그 순위 같은 거친 데이터는 여기서 뽑는다.
+
+둘째, Claude-in-Chrome. 크롬 확장을 통해 로그인된 사용자 세션으로 브라우저를 제어한다. 네이버 플레이스 관리자 화면, 광고 성과 페이지처럼 로그인 이후에야 보이는 데이터를 여기서 긁는다. `/tmp/naver_place.py`, `/tmp/naver_probe.py` 같은 스크립트를 그때그때 생성해서 탭에 주입하는 방식이다.
+
+연결 확인은 `tabs_context_mcp`를 호출해서 에러가 아닌 정상 응답이 오면 된다.
+
+세션 중에 재로그인이 필요한 상황이 생겼다. "다시 로그인 했어"로 시작한 메시지 이후 확장이 다시 살아났다. 로그인 상태와 MCP 연결이 붙어 있다는 걸 확인한 케이스다.
+
+## GPT Image 2 권한 문제와 이미지 파이프라인
+
+블로그 이미지 퀄리티가 상위 치과 블로그 수준에 못 미쳤다. 상위 업체들은 카드뉴스 형식, 정보 전달 중심 이미지, 로고 삽입이 일관되게 들어간다. GPT Image 2로 전환하려고 API 키를 바꿨는데 이 오류가 떴다.
 
 ```
-portfolio-site / Generate AI News → 26/26 실패
-dev_blog / Publish to Hashnode → 16/16 실패 (HASHNODE_TOKEN 만료)
-saju / CI → 최신 실패 (의존성 충돌)
-contextzip / CI → 8/8 실패 (Rust 빌드 오류)
+Not Available
+You do not have permission to access this page in this project or organization
+(required permission: api.model.images.request)
 ```
 
-`Generate AI News`의 실패 원인은 API 키 문제였다. 고칠 수도 있었지만 먼저 "이 워크플로우가 지금 필요한가"를 따졌다. 결론: 로컬에서 GitHub Actions 대신 직접 실행하는 구조로 바꿔두었기 때문에 이 워크플로우는 더 이상 쓰지 않는 것이었다.
+OpenAI 조직 수준에서 이미지 생성 권한이 없는 프로젝트 키였다. 키를 교체하고 나서 Image 2로 전환했다.
 
-삭제 대신 `disable`을 택했다. `gh workflow disable` 명령 하나로 되돌리기 쉬운 상태로 보존한다.
+이미지 파이프라인은 `dental-blog-image-pipeline/scripts/pipeline.py`에 정리했다. 5장 이미지 생성 + 4개 카드뉴스, 로고는 하단에 비침해 방식으로 삽입한다. 의료법 준수를 위해 전·후 비교, 수술 결과, 가격 고지는 자동 제외한다.
 
-```bash
-gh workflow disable "Generate AI News" --repo jee599/portfolio-site
-```
+## 글로벌 아웃리치: 100개 리드, 89개 공개 이메일
 
-Bash 35번, Read 11번, AskUserQuestion 2번 — 총 60 tool calls. 작업 시간 34분. 56개 저장소 스캔부터 검증까지 한 세션에서 끝냈다.
+세션 7~10은 완전히 다른 트랙이었다. 미국 아마존 셀러와 소상공인을 대상으로 상품 카피 개선 서비스를 제안하는 아웃리치 파이프라인이다.
 
-## Design Gate: HTML 파일을 막는 훅
+흐름은 이렇다. 에이전트가 Shopify, Yelp, Amazon, B2B 등 8개 레인에서 실제 영업 중인 소규모 셀러를 찾아온다. 리서치 에이전트 4개를 병렬로 실행해서 레인별로 나눠 탐색했다.
 
-같은 날 더 긴 작업이 있었다. 세션 15, 124 tool calls, 14시간 20분.
+결과: 125개 리드, 89개 실제 공개 이메일, 125개 validator 오류 0개.
 
-발단은 질문 하나였다.
+validator가 핵심이다. `validate-jdlab-queue.mjs`가 스키마 오류를 잡는다. `discovery_status` 필드 누락, 무료 예시 2개 미만, 허용되지 않은 키 사용 — 이런 것들을 아티팩트 생성 전에 걸러낸다.
 
-> "html로 나오거나 웹으로 나오는 모든 결과물 open design 통하게 강제돼 있어?"
+그리고 에이전트가 찾아온 이메일을 그냥 쓰지 않았다. 직접 소스 페이지를 `WebFetch`로 재확인했다. 5개 샘플을 독립적으로 재검증했고, 전부 소스 페이지에서 실제로 노출되는 이메일이었다.
 
-확인해보니 강제가 아니었다. `design-router.sh`는 키워드를 감지해서 권고 메시지를 주입하는 soft 라우팅이었다. 프롬프트에 "강제로 해"라는 말이 나왔고, 실제 하드 게이트를 만들기로 했다.
+Gmail 드래프트는 `create-gmail-drafts-from-jdlab-queue.py`가 처리한다. 1개 스모크 테스트 → 검증 통과 → 전체 드래프트 생성 순서다. 발송은 사람이 확인 후 한다.
 
-설계는 단순했다. `Write|Edit|MultiEdit` 도구로 `.html/.htm` 파일을 만들려고 할 때, 세션이 디자인 패스를 받지 않았으면 `exit 2`로 차단한다.
+## Upwork 출처 없음: Codex가 잡은 것
 
-```bash
-# hooks/design-gate.sh 핵심 로직
-if [[ "$tool_name" =~ ^(Write|Edit|MultiEdit)$ ]]; then
-  if [[ "$file_path" =~ \.(html|htm)$ ]]; then
-    if ! session_acknowledged; then
-      echo "Design pass required. Run: design-pass.sh \"사유\""
-      exit 2
-    fi
-  fi
-fi
-```
+세션 3에서 Codex가 요청 변경(REQUEST_CHANGES) 리뷰를 돌려줬다. 내용은 이랬다: 리포트에서 "Upwork/Fiverr"를 묶어서 마켓플레이스 에스크로·분쟁·결제 처리가 확인됐다고 썼는데, Upwork 공식 페이지는 403으로 막혀서 실제 소스가 없다는 것이다.
 
-승인 방법은 `design-pass.sh "사유"` 한 번. 그 세션 동안은 계속 통과. 새 세션이면 다시 요청해야 한다.
+`logs/upwork_sources.json`을 보니 Upwork 공식 페이지는 전부 403이었다. 패치 방향은 단순했다. "Upwork/Fiverr" 표현을 "Fiverr (확인됨)"으로 좁히고, Upwork는 "공식 페이지 403 — 미확인" 상태로 `sources.json`에 따로 기록했다. HTML 리포트, 요약 마크다운, sources.json 세 파일을 함께 수정했다.
 
-빌드 경로(`/tmp/`, `dist/`, `vendor/`)는 자동 면제한다. 자동화 워크플로우가 매번 막히면 의미 없으니까.
+검증 안 된 정보를 확인된 것처럼 쓰지 않는 게 이 파이프라인의 기본 규칙이다.
 
-smoke test 7케이스를 돌려서 검증했다: 미승인 차단, 승인 후 통과, 세션 내 지속, 새 세션 재차단, HTML 외 파일 통과, 빌드 경로 면제.
+## 하루에 두 트랙을 굴리는 방법
 
-## report-builder, owner-briefing 등 스킬은 사전 면제
+세션 1~3은 글로벌 아웃리치 리서치(보고서 생성), 세션 5는 치과 마케팅 시스템 빌드, 세션 7~10은 글로벌 아웃리치 파이프라인 구현이었다. 두 프로젝트가 같은 날 교차하며 진행됐다.
 
-`design-gate.sh`를 붙이고 나서 문제가 하나 생겼다. `report-builder`, `owner-briefing`, `medical-report` 같은 스킬들은 자체 디자인 시스템이 있는데 매번 ack를 받아야 했다.
+가능한 이유는 세션 간 컨텍스트 격리다. 각 세션은 독립된 컨텍스트로 시작하기 때문에 치과 작업의 긴 맥락이 아웃리치 세션을 오염시키지 않는다.
 
-해결은 각 스킬 `SKILL.md`에 세션 시작 시 자동으로 `design-pass.sh`를 호출하도록 추가하는 것이었다. 스킬이 실행될 때 "이건 OD-equivalent 디자인 패스를 내장하고 있다"고 선언하는 방식이다.
+대신 연속성은 외부 파일로 명시적으로 유지했다. `clinic.json`, `history.json`에 치과별 상태를 저장하고, 다음 세션에서 이 파일을 먼저 읽어 컨텍스트를 복원한다. 세션이 끊겨도 작업이 이어지는 구조다.
 
-`~/.claude/CLAUDE.md`의 하네스 설명도 업데이트했다. 이전에는 `protect-files.sh`와 `omc-dial.sh` 두 개만 적혀 있었는데, `design-gate.sh`와 `design-router.sh`를 추가했다.
+> 컨텍스트 격리는 병렬 트랙의 장점이자 주의 사항이다. 깨끗한 컨텍스트는 얻지만, 이전 작업을 이어가려면 상태를 외부에 명시적으로 저장해야 한다.
 
-## 치과 진단 보고서: Design Gate 첫 실전
+## 오늘 하루 도구 사용 통계
 
-Design Gate를 붙인 직후 동백유디치과 진단 보고서를 만들었다. `dental-promo-audit` 스킬로 네이버 플레이스, 블로그 SEO, 홈페이지 구조를 실측 크롤링해서 HTML 보고서로 뽑는 작업이다.
+| 도구 | 횟수 |
+|------|------|
+| Bash | 193 |
+| Edit | 144 |
+| Read | 91 |
+| Write | 62 |
+| browser_batch (Claude-in-Chrome) | 26 |
+| Agent | 18 |
+| WebFetch | 13 |
+| ToolSearch | 10 |
+| 기타 | 39 |
 
-첫 HTML Write 시도에서 게이트가 막았다. `design-pass.sh "dental-promo-audit OD-equivalent pass"` 실행 후 통과. 보고서는 `~/dental-promo/dongbaek-uddental/2026-06-03/01-원장님-진단보고서.html`에 생성됐다.
-
-게이트가 실제로 작동하는 걸 처음 목격한 순간이었다.
-
-## 결과 요약
-
-이번 주기에서 portfolio-site에 직접 닿은 변경은 `Generate AI News` 워크플로우 비활성화 하나다. 나머지는 하네스 레벨 변경 — 모든 프로젝트에 적용되는 `design-gate.sh` 구축.
-
-지금 Claude Code 설정에 걸려 있는 훅:
-- `protect-files.sh` — `.env`, `.ssh`, `credentials` 파일 쓰기 차단
-- `design-gate.sh` — `.html/.htm` 산출물을 Design Pass 없이 차단
-- `omc-dial.sh` — 고난도 작업 계획·검증 유도
-- `design-router.sh` — 시각 디자인 의도 감지 → open-design 스킬 라우팅
-
-다음은 AI News 워크플로우를 새 구조에 맞게 다시 붙이는 작업이다.
+Bash 193회는 스크립트 실행, git 확인, 검증 명령어가 다 들어간 수치다. Edit 144회 중 119회는 세션 5 단독이다. 하나의 긴 세션에서 여러 파일을 반복 수정하면서 시스템을 조립하면 이렇게 나온다.
