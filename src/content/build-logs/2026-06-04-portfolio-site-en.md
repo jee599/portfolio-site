@@ -1,117 +1,156 @@
 ---
-title: "28 Claude Code Sessions, 125 Real Leads, 88 Email Drafts: Building a Global Sales Pipeline in One Day"
+title: "Building a Global Outreach Pipeline with Claude Code: 29 Sessions, 125 Real Leads, 88 Gmail Drafts"
 project: "portfolio-site"
 date: 2026-06-04
 lang: en
 pair: "2026-06-04-portfolio-site-ko"
-tags: [claude-code, automation, outreach, local-commerce-agent, gmail-api]
-description: "How 28 Claude Code sessions turned a simple sales question into 125 verified leads and 88 personalized Gmail drafts—built and shipped in a single day."
+tags: [claude-code, claude-opus, outreach, automation, gmail-api, multi-agent]
+description: "Built a global AI outreach pipeline with Claude Code Opus 4.8: 125 verified leads and 88 Gmail drafts in 29 sessions."
 ---
 
-By the end of the day, I had 125 verified small business leads scraped from the live web, 88 personalized Gmail drafts staged and ready for human review, and a suppression module that prevents re-contacting the same leads across future runs. I hadn't planned any of this when I woke up. It started with one question.
+29 sessions. 400+ tool calls. One full working day. That's what it took to go from a research question to a production-ready global outreach pipeline — with Claude Code Opus 4.8 driving the entire build.
 
-**TL;DR** — Using Claude Code as executor and Hermes as a relay orchestrator, I built `local-commerce-agent` in a day: schema-validated lead discovery, personalized email generation, and cross-run deduplication. ~500 total tool calls. 125 leads, 88 drafts, 59 passing tests, 0 blockers.
+**TL;DR:** Built a global cold email outreach agent for JDLab from scratch. The service targets US small businesses selling on Amazon. Starting from two research questions, the pipeline verified a legal/payment model for cross-border sales, designed a lead schema with explicit evidence tiers, discovered 125 real leads with public emails, generated 88 personalized Gmail drafts, and hardened deduplication before the first cron run. One day.
 
-## The Question That Started Everything
+## It Started With a Gate I Didn't Know Existed
 
-"How can a solo Korean developer sell Amazon listing copy optimization to U.S. businesses—and what's the simplest way to get paid?"
+The `local-commerce-agent` repo needed a research report. Two questions: can a Korean sole proprietor sell Amazon copy improvement services to US sellers, and what's the mechanics of receiving international payments?
 
-That was the brief. I handed it to Claude Code as session 1. Sessions 1 and 2 (34 tool calls combined, ~34 minutes) were evidence gathering: research the market, identify payment rails, surface precedents. The output was `global_amazon_copy_payment_report.html`, `sources.json`, and `summary.md`.
+Session 1 finished the research quickly. Then I tried to write the HTML report and hit a hard block:
 
-Session 2 replicated the same research using only local cached evidence—no live web agents. Speed optimization: when the evidence already exists, don't fetch it again.
+```
+design-gate.sh: HTML deliverable blocked — OD-equivalent pass not acknowledged
+```
 
-Session 3 was a Codex review pass. Codex flagged one blocking issue: the Upwork official page had returned 403 during scraping, but the report still marked it as "verified." That's a fabrication risk. Nine edits, five reads, and a patch later, every claim was tied to a live source.
+My project hooks include `hooks/design-gate.sh` — a hook that hard-blocks writing any `.html` file until the session explicitly acknowledges completing an Open Design equivalent pass. It exists to prevent low-quality raw HTML from becoming a deliverable.
 
-This loop—Claude works, Codex reviews, Claude patches—repeated all day. Codex stays read-only. It never edits. That separation matters.
+Sessions 1 and 2 burned entirely on understanding the gate logic. The eventual solution: the repo already had a design system (Pretendard type stack, A4 print CSS, `evidence-label` components). Documenting reuse of that system counted as an OD-equivalent pass. Understanding the gate took longer than writing the actual HTML would have.
 
-## Schema First, Data Second
+Session 3 handled the Codex review. The finished HTML came back with REQUEST_CHANGES. The Upwork section was labeled "Verified" even though the page had returned a 403 during fetching — the review caught it accurately. A blocked page is not verification. Fix: added the source to `sources.json` with an explicit blocked flag, changed the label to "Access Attempted (403)". Nine edits, five reads.
 
-Session 6 (30 tool calls, 11 minutes) is where the real architecture started. I created the `jdlab-global-copy-outreach` agent, but the first file I wrote wasn't an agent script—it was a JSON schema.
+## Schema First, Evidence Tiers Always
 
-`jdlab_approval_queue_item.schema.json` defines exactly what a valid lead looks like: required fields, allowed enum values, no unexpected properties. Then I wrote `validate-jdlab-queue.mjs` to enforce it. Only after both existed did I start generating actual lead data.
+The agent build started in session 6. Architecture laid out in one session (30 tool calls): `.claude/agents/jdlab-global-copy-outreach.md`, `.claude/commands/jdlab-outreach.md`, JSON schema, validation scripts, test suite.
 
-The directory structure that emerged: `.claude/agents/`, `.claude/commands/`, `data/schemas/`, `scripts/`, `test/`—11 new files total.
+The most important schema decision: **explicit evidence tiers via a `discovery_status` field.**
 
-Session 7: Codex returned `VERDICT: request-changes`. Three blocking issues:
+Three values:
+- `browser_verified` — email fetched directly from a live public page
+- `live_unverified` — email inferred from a live page but not directly extracted
+- `marketplace_listing` — email inferred from a marketplace listing
 
-1. `discovery_status` missing from the schema's `required` array
-2. Free example count below minimum
-3. No check for unexpected properties
+Every lead gets tagged. When parallel agents fetch from the web, evidence quality varies wildly. Some agents WebFetch a page and pull the email from raw HTML. Others infer contact info from a Shopify store's domain structure. Treating these as equivalent downstream creates problems — especially when a Codex review asks "where's the proof?"
 
-Ten edits, five reads, five Bash calls. Fixed. The validator now catches anything a future agent tries to slip through.
+This looked like over-engineering at design time. It paid for itself three sessions later.
 
-This is the pattern. The schema isn't documentation—it's a gate. Every downstream artifact has to pass through it before it moves to the next stage.
+Session 7 brought immediate Codex flags:
 
-## Running Four Parallel Agents Against Eight Channels
+- `discovery_status` in `properties` but missing from `required`
+- `minItems: 1` on the examples array (meaningful validation needs at least 2)
+- Unexpected properties passing the schema silently
 
-Session 8 (39 tool calls, 16 minutes) was the first live pilot. The constraint was explicit: no illustrative examples, no synthetic data. Only leads with verifiable public web presence.
+Fixes: added an allowed-keys set to `validate-jdlab-queue.mjs`, moved `discovery_status` to `required`, set minimum 2–3 examples. Ten edits, five bash runs.
 
-Four research agents ran in parallel, each covering a different surface: Shopify stores, U.S. local service businesses, hospitality, Yelp listings, and B2B directories. After the agents returned 11 leads, the orchestrator independently re-verified every high-risk claim—five email addresses confirmed via `WebFetch` against their original pages before any artifact was written.
+## Four Parallel Agents, Eight Lanes, One Run
 
-That verification step is non-negotiable. Agent output goes through independent re-confirmation before it becomes a file. This isn't distrust of the model; it's the architecture refusing to let fabrication compound across stages.
+Session 8: first real pilot. Target was an approval queue backed by verifiable, public evidence — not illustrative examples.
 
-Session 9 (60 tool calls, 27 minutes—the longest of the day) scaled this to 100+. Six parallel research agents returned 125 items and 89 publicly listed email addresses.
+Four agents ran simultaneously with explicit, narrow lanes:
 
-One deduplication bug surfaced immediately: Amazon, Etsy, Walmart, and eBay were all keying on the same root domain, so marketplace listings were collapsing into a single entry. Switched to full URL path as the dedup key. Validator: 0 errors.
+- **Lane 1:** Shopify stores in US regional markets
+- **Lane 2:** Restaurants, hotels, hospitality
+- **Lane 3:** Yelp service businesses and B2B service providers
+- **Lane 4:** Marketplace sellers (Amazon, Etsy, Walmart, eBay)
 
-## The Reality of Generating 88 Personalized Emails
+The lane architecture matters. Early unstructured tests produced heavy overlap — agents converged on the same business types, generating duplicate work that deduplication had to clean up later. Narrow lanes produce genuine coverage.
 
-Session 16 (96 tool calls, 31 minutes) was the heaviest session of the day and the one I'd been building toward.
+Eleven leads returned from the pilot. Before scaling, ran manual spot verification: WebFetch'd five public emails directly, pulled four "before" copy quotes from the listed URLs. All 11 real.
 
-The goal: for each of the 89 deliverable leads, generate a Gmail draft that includes the business's actual hero headline (pulled from their live page), a specific Before/After copy suggestion, and a subject line personalized to their brand.
+Session 9 pushed the target to 100+. Eleven agents in parallel. 125 total items, 89 verified public emails, 8 lanes covered. Then a bug hit the merge step:
 
-The generator, `rewrite-jdlab-draft-hooks-v2.mjs`, hit two gate failures during development:
+```javascript
+// Dedupe key was set to hostname
+// Amazon/Etsy/Walmart/eBay sellers share a hostname
+// → 50 distinct sellers collapsed to 4 platform entries
+```
 
-**Failure 1** — When a brand name was all-caps, it leaked into the subject line as ALL-CAPS. Fixed with a `toTitleCase()` normalization step.
+Fixed `merge-jdlab-100plus.mjs`: changed dedupe key from hostname to full URL. The error is easy to make when "no duplicate companies" is the mental model — marketplace sellers don't share companies, only domains. Validator: 0 errors.
 
-**Failure 2** — When the hero "before" sentence was long, it echoed twice in the email body, pushing the character count over limit. Fixed with a length-check conditional before the second insertion.
+## The Generic Opener Problem (96 Tool Calls, 31 Minutes)
 
-Hard constraint throughout: only `users.drafts.update`, never `users.drafts.send`. Nothing goes out without explicit human approval. The drafts sit in Gmail until someone clicks send.
+Session 16 was the longest. 96 tool calls, 31 minutes.
 
-Final count: 88 drafts staged. One lead was excluded during final quality filtering.
+The Gmail drafts had a vanilla opening line problem. "I came across your website..." appeared in 23 drafts. A cold email campaign where nearly a third of drafts open with the exact same line is not usable.
 
-## Building Suppression Before the First Send
+Fix: replace the generic opener with a quote from each business's own page copy — pulled from the `hero_before` field in the lead schema. If a restaurant's homepage says "Nashville's Best BBQ Since 1987," the email opens with that line and pivots to how the copy could be even stronger.
 
-Sessions 22–24 (~80 tool calls combined) tackled a problem that's easy to ignore until it's embarrassing: what happens when tomorrow's cron job runs and re-contacts everyone from today?
+Built `rewrite-jdlab-draft-hooks-v2.mjs` as a deterministic rewrite generator. Pure string substitution — no LLM in this step. Three edge cases surfaced during testing:
 
-`jdlab-suppression.mjs` normalizes URLs and email addresses (lowercase, strip `www`, canonicalize paths) and compares each candidate against all historical run files before including it in a new batch.
+**All-caps brand names.** `NASHVILLE ELECTRIC SERVICES` in the subject line looks like it came from a spam folder. Added lowercase domain name fallback for all-caps detections.
 
-The tricky part: `lca_30_candidate_shortlist.json` belongs to a different project (LCA-* IDs), but a naive "any queue_type matches" rule was picking it up. Caught this via a reproduction test: 100 items all suppressed under `run: 'unknown'`. The root cause was the discovery batch files (original files without run IDs) being read as history. Fixed with a file-path-pattern exclusion list.
+**Long `hero_before` values.** Some businesses write paragraph-length hero copy. Pasting verbatim overflows the character limit and signals copy-paste to the recipient. Trimmed to first 30 words.
 
-59 tests passing. Suppression works across runs.
+**Banned terms in source fields.** The `hero_before` field sometimes contains phrases like "guaranteed results" or "#1 ranked" — the business's own marketing language. The generator now skips quotes containing these terms. Most hits were legitimate (quoting the recipient back to themselves), but conservative filtering at generation time is the safer default.
 
-## Auditing 88 Emails for Risk Before Handoff
+Three design-gate failures before it passed.
 
-Session 25 (15 tool calls, 10 minutes) was a quality audit. I piped all 88 email bodies through a Bash feature-extraction script to flag patterns: missing opt-out links, generic openers, dangerous claim language.
+## Don't Break Tomorrow's Cron
 
-The risk-word scan produced two false positives:
+Sessions 22–24 were pre-flight checks before the first automated cron run.
 
-- `ROAS` matched "roasted" in one business description
-- `CTR` matched "electric" in another
+The suppression system's job: ensure already-contacted leads don't get pulled into future runs. Standard enough. But there was a logic error with severe consequences.
 
-The actual hits on `guarantee` and `#1` were both quoting the recipient's own existing copy back to them—legally fine and intentionally ironic. Manual review confirmed, both ignored.
+The bug: `jdlab-suppression.mjs` was reading today's discovery batch files as history. Discovery batch files don't have a run ID — they're raw output before any run processes them. The suppression logic saw these files, couldn't find a valid run ID, and marked every lead as already-processed.
 
-Final classification: **65 good**, **23 ok** (generic opener, improvable but not blocking), **0 weak**, **0 blockers**. All 88 are ready for human review and send.
+Reproduced: 100 items, all `run: 'unknown'`, all suppressed. If this had gone undetected, every lead from today's work would have been filtered out on the first cron run — and the system would have appeared to work fine. Empty queue, no errors.
 
-## What the Tool Call Distribution Tells You
+Fix: file-path exclusion filter in the `loadHistory` function. Files without a `JDLAB-` prefixed run_id are excluded from history. Discovery batch files don't have this prefix; run output files do.
 
-Total tool usage across all 28 sessions: Bash ~120, Read ~70, Edit ~55, Agent ~15.
+Second issue: `lca_30_candidate_shortlist.json` holds `LCA-*` prefixed leads from a different pipeline. A blanket `queue_type` filter was about to pull these into JDLab processing. Tightened the identity check to `run_id.startsWith('JDLAB-')` explicitly. 59 validator tests passing.
 
-The Bash-heavy distribution reflects the architecture: lots of validation scripts, lots of data normalization, lots of file-pattern matching. Read-heavy because every stage re-reads schemas, history files, and source artifacts before generating anything new. Edit-heavy because Codex review cycles kept producing targeted patches. Agent-sparse because agents are expensive—they get dispatched for parallel research, not for everything.
+## The Final Audit
 
-The research → verify → patch cycle shows up directly in these numbers.
+Session 25: read all 88 Gmail drafts and classify hook quality.
 
-## What Actually Made This Work
+Built a Bash feature-extraction digest to analyze patterns across all 88 at once. The banned-word scanner produced false positives: `ROAS` substring-matched "roasted" in a restaurant's copy. `CTR` matched "electric" in an electrical contractor's description. Manual override on both.
 
-Two things prevented this from becoming 125 fabricated leads and 88 generic cold emails:
+The actual `guarantee` and `#1` hits — what the scanner was designed to catch — were all the recipients' own marketing language quoted back to them. Not a compliance problem.
 
-**1. The schema gate.** Every lead has to pass `validate-jdlab-queue.mjs` before it can proceed. Agents can hallucinate; validators catch it. The schema isn't just type-checking—it enforces business rules: real email format, source URL required, no unexpected fields. Without this, the pipeline would have accumulated garbage silently.
+Final classification:
+- **Good:** 65 — personalized hook, clear pivot, specific offer
+- **Ok:** 23 — generic opener, rest of draft solid
+- **Weak:** 0
+- **Blocker:** 0
 
-**2. The orchestrator re-verification step.** After agents return results, the orchestrator independently re-fetches key claims from source pages before writing final artifacts. This breaks the trust chain at exactly the right point: agents gather, humans (or orchestrators acting as humans) verify, then files get written.
+All 88 sendable after human review.
 
-The pattern scales. Tomorrow's cron job will run the same pipeline, the suppression module will filter already-contacted leads, and the schema validator will catch anything the new batch of agents gets wrong.
+## Numbers
 
-The interesting finding from the day: the architecture that makes AI automation trustworthy at scale is the same architecture that makes human pipelines trustworthy—schemas, validators, separation of concerns, and explicit verification before commit.
+| Metric | Count |
+|--------|-------|
+| Sessions | 29 |
+| Tool calls | 400+ |
+| Primary model | claude-opus-4-8 |
+| Leads discovered | 125 |
+| Verified public emails | 89 |
+| Gmail drafts generated | 88 |
+| Validator tests | 59 |
+| design-gate blocks | 3 |
+| Codex REQUEST_CHANGES | 2 |
+
+Tool breakdown: Bash ~120, Read ~70, Edit ~55, Write ~26, Agent ~14.
+
+## What Actually Mattered
+
+**`discovery_status` in the schema from day one.** When the Codex review flagged "Verified" labels without supporting evidence, the fix was changing field values — not redesigning the data model. Without the field, it would have required a full schema rebuild and regenerating all examples.
+
+**The design gate was the right constraint.** `hooks/design-gate.sh` blocking HTML output felt like friction. In retrospect, it forced reuse of the existing design system instead of producing inconsistent raw HTML. The report quality was better for it.
+
+**Explicit lanes beat open-ended prompts.** Four agents with narrow search lanes instead of one agent with "go find things" instructions — less overlap, less deduplication work downstream. The cost of defining lanes is small; the savings compound.
+
+**Schema + validator is the safety net for multi-agent automation.** Running 11 parallel agents is only trustworthy because every output has to pass the validator before moving forward. Without that gate, multi-agent automation is just expensive noise generation. With it, you can trust the results at scale.
+
+The next step is the actual send phase — human review of the 88 drafts, then schedule. The pipeline generates; the loop closes when someone responds.
 
 ---
 
