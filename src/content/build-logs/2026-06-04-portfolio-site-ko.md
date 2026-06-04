@@ -1,102 +1,66 @@
 ---
-title: "Claude Code 하루 10 세션 596 tool calls, 치과 마케팅 시스템과 글로벌 아웃리치 파이프라인을 동시에 구축한 방법"
+title: "Claude Code 28세션으로 글로벌 세일즈 파이프라인 완성 — 125개 실제 리드, 88개 이메일 초안 자동 생성"
 project: "portfolio-site"
 date: 2026-06-04
 lang: ko
-tags: [claude-code, automation, dental-marketing, outreach, claude-in-chrome]
-description: "하루 만에 치과 마케팅 자동화 시스템과 글로벌 아웃리치 파이프라인을 병렬 구축했다. 10 세션, 596 tool calls, 79개 파일. 가장 긴 세션 하나가 389 tool calls였다."
+tags: [claude-code, automation, outreach, local-commerce-agent, gmail-api]
+description: "Claude Code 28세션으로 글로벌 소규모 사업체 리드 125개를 실제 웹에서 수집하고 Gmail 초안 88개를 자동 생성했다. 에이전트 설계부터 dedupe 하드닝까지 하루 안에 완성한 AI 세일즈 파이프라인 구축 과정."
 ---
 
-하루에 596번 도구를 호출했다. 10개 세션, 79개 파일(수정 26 + 생성 53). 그중 한 세션이 11시간 동안 389 tool calls를 썼다.
+2026년 6월 4일 하루 동안 Claude Code 28개 세션을 돌렸다. 처음 질문은 단순했다: "미국 Amazon 상품 문구 최적화 서비스를 한국 1인 사업자가 어떻게 팔 수 있을까, 결제는 어떻게 받지?" 그 질문이 하루 만에 125개 실제 글로벌 소규모 사업체 리드 수집 → Gmail 초안 88개 자동 생성 → cross-run dedupe 시스템 구축으로 이어졌다.
 
-**TL;DR** 치과 마케팅 진단·추적 시스템과 글로벌 아웃리치 자동화 파이프라인을 같은 날 병렬로 만들었다. 핵심은 세션 간 컨텍스트 격리를 활용하면서 상태를 외부 파일로 유지하는 패턴이다.
+**TL;DR** Claude Code를 실행자(executor)로, Hermes를 오케스트레이터(relay)로 분리한 이중 구조로 `local-commerce-agent` 파이프라인을 하루 안에 완성했다. 총 도구 호출 약 500회. 핵심 결과물: 스키마 검증 통과 125개 리드, 88개 개인화 이메일 초안, suppression 모듈, 59개 통과 테스트.
 
-## 세션 5: 11시간, 389 tool calls, 원세션 시스템 빌드
+## 리서치 질문 하나에서 에이전트 설계로
 
-"치과 보고서 띄워봐"로 시작한 세션이었다. 끝날 때는 아래 시스템이 생겨 있었다.
+첫 두 세션(각 16분, 총 34 tool calls)은 증거 수집이었다. Hermes가 브리프를 stdin으로 넘기면 Claude Code가 실행자로서 수행한다. Hermes는 relay일 뿐이고 작업 결정은 Claude가 한다. 이 구조가 하루 내내 반복됐다.
 
-`dental-promo-audit` 스킬 — 네이버 플레이스, 블로그 순위, 인스타그램, 광고 현황을 브라우저로 직접 크롤링해 실측값으로 점수를 매긴다. 추정값은 점수에 반영하지 않는다는 게 설계 원칙이다.
+세션 1 결과물: `global_amazon_copy_payment_report.html`, `sources.json`, `summary.md`. 세션 2에서 같은 작업을 local evidence pack 기반으로 재실행했다. 웹 에이전트 대신 로컬 증거만 쓰는 속도 최적화다. 세션 3은 Codex가 요청한 변경사항 적용이었다 — Upwork 공식 페이지가 403으로 막혀 있는데 증거 없이 "확인됨"으로 표기한 게 blocking issue였다. Edit 9번, Read 5번으로 패치.
 
-`dental-clinic` 에이전트 — 치과별로 `clinic.json`·`history.json`에 컨텍스트를 캐시해두고, 다음 세션 시작 때 즉시 복원한다. 블로그 작성, 광고 분석, 보고서 생성을 한 에이전트가 연속해서 처리한다.
+이 루프가 패턴이다: Claude 작업 → Codex 검토 → Claude 패치. Codex는 read-only reviewer로만 쓴다.
 
-`dental-ads` 에이전트 — 네이버 파워링크·플레이스 광고 성과를 pull하고, 키워드 효율을 학습해서 최적화 루프를 도는 광고 전담 에이전트.
+## 에이전트 설계: 스키마가 먼저다
 
-`dental-promo/_tracker/index.html` — 치과별 채널 현황 스코어를 막대그래프로 시각화하는 대시보드. Vercel에 배포해 비공개로 접근한다.
+세션 6(30 tool calls, 11분)에서 `jdlab-global-copy-outreach` 에이전트를 처음 만들었다. 핵심 설계 결정은 스키마 우선이었다. `jdlab_approval_queue_item.schema.json`을 먼저 정의하고, 그걸 검증하는 `validate-jdlab-queue.mjs`를 작성한 다음, 실제 데이터를 채웠다. 결과물: `.claude/agents/`, `.claude/commands/`, `data/schemas/`, `scripts/`, `test/` — 총 11개 파일 신규 생성.
 
-세션 5의 도구별 분포: Bash 139회, Edit 119회, Read 44회, Write 36회, `browser_batch` 26회. `browser_batch`는 Claude-in-Chrome 연결을 통해 실제 브라우저로 페이지를 조작한 횟수다.
+세션 7에서 Codex가 `VERDICT: request-changes`를 반환했다. 세 가지 blocking issue가 있었다: `discovery_status`가 schema `required` 배열에 없음, free examples 최소 개수 미충족, unexpected property 검사 누락. Edit 10번, Read 5번, Bash 5번으로 픽스. 이렇게 하면 다음 번 에이전트가 잘못된 데이터를 생성해도 validator가 잡아낸다.
 
-## 네이버를 어떻게 크롤링했나
+## 실제 리드 발굴: 4개 병렬 에이전트, 8개 채널
 
-`WebFetch`로 네이버에 직접 요청하면 403이 떨어진다. Cloudflare WAF, CAPTCHA, 로그인월이 겹쳐서 curl로는 뚫기 어렵다.
+세션 8(39 tool calls, 16분)이 첫 번째 live pilot이었다. "illustrative examples"가 아닌 실제 웹 증거만 수집하는 제약을 걸었다. 4개 병렬 연구 에이전트를 동시에 디스패치했다. 각 에이전트는 채널을 분담했다: Shopify 스토어, US local 서비스, 숙박업, Yelp, B2B.
 
-해결 방향은 두 갈래였다.
+에이전트 11개 리드를 반환한 후 오케스트레이터가 직접 고위험 클레임을 재확인했다. 5개 공개 이메일 주소를 각 원본 페이지에서 `WebFetch`로 독립 재검증. 에이전트가 fabricate하지 않았음을 확인한 다음에야 artifacts를 작성했다.
 
-첫째, 공개 API. 네이버 검색 API(`search.naver.com`)는 인증 없이 쓸 수 있다. 블로그 순위 같은 거친 데이터는 여기서 뽑는다.
+이 검증 패턴이 중요하다. 에이전트 결과를 그대로 쓰는 게 아니라 오케스트레이터가 핵심 클레임을 독립적으로 재확인하고 나서 최종 파일을 생성한다.
 
-둘째, Claude-in-Chrome. 크롬 확장을 통해 로그인된 사용자 세션으로 브라우저를 제어한다. 네이버 플레이스 관리자 화면, 광고 성과 페이지처럼 로그인 이후에야 보이는 데이터를 여기서 긁는다. `/tmp/naver_place.py`, `/tmp/naver_probe.py` 같은 스크립트를 그때그때 생성해서 탭에 주입하는 방식이다.
+세션 9(60 tool calls, 27분 — 오늘 최장 세션)에서 100+ 규모로 확장했다. 6개 연구 에이전트를 병렬 실행해 125개 항목, 89개 실제 공개 이메일을 수집했다. dedupe 이슈 하나 발생했다: Amazon/Etsy/Walmart/eBay가 전부 같은 도메인으로 키잉되어 marketplace 항목들이 중복 제거됐다. 즉시 URL full-path 기반 키로 교체. validator 0 errors로 통과.
 
-연결 확인은 `tabs_context_mcp`를 호출해서 에러가 아닌 정상 응답이 오면 된다.
+## Gmail 초안 100개 자동 생성의 현실
 
-세션 중에 재로그인이 필요한 상황이 생겼다. "다시 로그인 했어"로 시작한 메시지 이후 확장이 다시 살아났다. 로그인 상태와 MCP 연결이 붙어 있다는 걸 확인한 케이스다.
+세션 16(96 tool calls, 31분)이 오늘 가장 무거운 작업이었다. hooks v2로 기존 Gmail 초안을 전부 업데이트했다. 89개 발송 가능 리드, 각 리드마다 실제 웹 페이지에서 추출한 hero headline 인용 + 구체적 Before/After 수정 제안 + 개인화된 subject line.
 
-## GPT Image 2 권한 문제와 이미지 파이프라인
+`rewrite-jdlab-draft-hooks-v2.mjs` generator를 짜다가 gate failure가 두 번 났다. 첫 번째: 브랜드명이 대문자일 때 subject line에 ALL-CAPS로 새어나오는 것. 두 번째: hero "before" 문장이 길면 2번 echo되어 길이 초과. 두 케이스 모두 조건 분기 추가로 해결했다.
 
-블로그 이미지 퀄리티가 상위 치과 블로그 수준에 못 미쳤다. 상위 업체들은 카드뉴스 형식, 정보 전달 중심 이미지, 로고 삽입이 일관되게 들어간다. GPT Image 2로 전환하려고 API 키를 바꿨는데 이 오류가 떴다.
+핵심 제약은 `users.drafts.update`만 사용, 절대 send 금지이다. 사용자 승인 없이는 발송하지 않는다.
 
-```
-Not Available
-You do not have permission to access this page in this project or organization
-(required permission: api.model.images.request)
-```
+## Suppression으로 중복 아웃리치 방지
 
-OpenAI 조직 수준에서 이미지 생성 권한이 없는 프로젝트 키였다. 키를 교체하고 나서 Image 2로 전환했다.
+세션 22-24(합산 약 80 tool calls)에서 cross-run dedupe를 구현했다. 문제는 단순했다: 내일 cron이 돌 때 오늘 이미 연락한 리드를 다시 포함하지 않으려면 어떻게 할까.
 
-이미지 파이프라인은 `dental-blog-image-pipeline/scripts/pipeline.py`에 정리했다. 5장 이미지 생성 + 4개 카드뉴스, 로고는 하단에 비침해 방식으로 삽입한다. 의료법 준수를 위해 전·후 비교, 수술 결과, 가격 고지는 자동 제외한다.
+`jdlab-suppression.mjs` 모듈이 해답이다. URL과 이메일을 normalize(lowercase, www 제거, path 정규화)해서 history 파일들과 비교한다.
 
-## 글로벌 아웃리치: 100개 리드, 89개 공개 이메일
+까다로웠던 부분이 있었다. `lca_30_candidate_shortlist.json`은 다른 프로젝트(LCA-* ID)인데 blanket "any queue_type" 룰로 잘못 포함될 뻔했다. 재현 테스트: 100개 항목이 전부 `run: 'unknown'`으로 suppression됐다. 원인은 discovery batch 파일들(run ID 없는 원본)을 history로 잘못 읽은 것이었다. 파일 경로 패턴 기반 exclusion list로 수정해 해결했다. 59개 테스트 통과.
 
-세션 7~10은 완전히 다른 트랙이었다. 미국 아마존 셀러와 소상공인을 대상으로 상품 카피 개선 서비스를 제안하는 아웃리치 파이프라인이다.
+## Hook 감사: 88개 이메일 품질 점검
 
-흐름은 이렇다. 에이전트가 Shopify, Yelp, Amazon, B2B 등 8개 레인에서 실제 영업 중인 소규모 셀러를 찾아온다. 리서치 에이전트 4개를 병렬로 실행해서 레인별로 나눠 탐색했다.
+세션 25(15 tool calls, 10분)에서 88개 이메일 본문을 audit했다. Bash로 feature-extraction digest를 생성해 패턴을 분석했다: opt-out 포함 여부, hook 구체성, 위험 클레임 탐지.
 
-결과: 125개 리드, 89개 실제 공개 이메일, 125개 validator 오류 0개.
+위험 단어 스캔에서 false positive가 나왔다. `ROAS`가 "roasted"를, `CTR`이 "electric"을 잡았다. 실제 `guarantee`/`#1` 히트는 수신자 자신의 기존 카피를 인용한 것이라 합법적이었다. 수동 확인 후 무시했다.
 
-validator가 핵심이다. `validate-jdlab-queue.mjs`가 스키마 오류를 잡는다. `discovery_status` 필드 누락, 무료 예시 2개 미만, 허용되지 않은 키 사용 — 이런 것들을 아티팩트 생성 전에 걸러낸다.
+최종 분류: good 65개, ok(generic opener) 23개, weak 0, blocker 0. 전부 사용자 검토 후 발송 가능.
 
-그리고 에이전트가 찾아온 이메일을 그냥 쓰지 않았다. 직접 소스 페이지를 `WebFetch`로 재확인했다. 5개 샘플을 독립적으로 재검증했고, 전부 소스 페이지에서 실제로 노출되는 이메일이었다.
+---
 
-Gmail 드래프트는 `create-gmail-drafts-from-jdlab-queue.py`가 처리한다. 1개 스모크 테스트 → 검증 통과 → 전체 드래프트 생성 순서다. 발송은 사람이 확인 후 한다.
+오늘 총 도구 사용 분포: Bash 약 120회, Read 약 70회, Edit 약 55회, Agent 약 15회. 리서치-검증-수정의 반복 구조가 tool call 패턴에 그대로 나온다.
 
-## Upwork 출처 없음: Codex가 잡은 것
-
-세션 3에서 Codex가 요청 변경(REQUEST_CHANGES) 리뷰를 돌려줬다. 내용은 이랬다: 리포트에서 "Upwork/Fiverr"를 묶어서 마켓플레이스 에스크로·분쟁·결제 처리가 확인됐다고 썼는데, Upwork 공식 페이지는 403으로 막혀서 실제 소스가 없다는 것이다.
-
-`logs/upwork_sources.json`을 보니 Upwork 공식 페이지는 전부 403이었다. 패치 방향은 단순했다. "Upwork/Fiverr" 표현을 "Fiverr (확인됨)"으로 좁히고, Upwork는 "공식 페이지 403 — 미확인" 상태로 `sources.json`에 따로 기록했다. HTML 리포트, 요약 마크다운, sources.json 세 파일을 함께 수정했다.
-
-검증 안 된 정보를 확인된 것처럼 쓰지 않는 게 이 파이프라인의 기본 규칙이다.
-
-## 하루에 두 트랙을 굴리는 방법
-
-세션 1~3은 글로벌 아웃리치 리서치(보고서 생성), 세션 5는 치과 마케팅 시스템 빌드, 세션 7~10은 글로벌 아웃리치 파이프라인 구현이었다. 두 프로젝트가 같은 날 교차하며 진행됐다.
-
-가능한 이유는 세션 간 컨텍스트 격리다. 각 세션은 독립된 컨텍스트로 시작하기 때문에 치과 작업의 긴 맥락이 아웃리치 세션을 오염시키지 않는다.
-
-대신 연속성은 외부 파일로 명시적으로 유지했다. `clinic.json`, `history.json`에 치과별 상태를 저장하고, 다음 세션에서 이 파일을 먼저 읽어 컨텍스트를 복원한다. 세션이 끊겨도 작업이 이어지는 구조다.
-
-> 컨텍스트 격리는 병렬 트랙의 장점이자 주의 사항이다. 깨끗한 컨텍스트는 얻지만, 이전 작업을 이어가려면 상태를 외부에 명시적으로 저장해야 한다.
-
-## 오늘 하루 도구 사용 통계
-
-| 도구 | 횟수 |
-|------|------|
-| Bash | 193 |
-| Edit | 144 |
-| Read | 91 |
-| Write | 62 |
-| browser_batch (Claude-in-Chrome) | 26 |
-| Agent | 18 |
-| WebFetch | 13 |
-| ToolSearch | 10 |
-| 기타 | 39 |
-
-Bash 193회는 스크립트 실행, git 확인, 검증 명령어가 다 들어간 수치다. Edit 144회 중 119회는 세션 5 단독이다. 하나의 긴 세션에서 여러 파일을 반복 수정하면서 시스템을 조립하면 이렇게 나온다.
+스키마와 validator가 안전망이다. 에이전트가 뭘 만들든 validator를 통과해야 다음 단계로 간다. 이 패턴이 있으면 대규모 자동화도 신뢰할 수 있다.
