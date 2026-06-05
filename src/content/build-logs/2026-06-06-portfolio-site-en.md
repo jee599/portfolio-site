@@ -1,109 +1,120 @@
 ---
-title: "48 Claude Code Sessions in One Day: ultraplan's 785K Tokens, a Design Gate Race Condition, and a PayPal Bug Codex Caught"
+title: "The Pipeline Codex Blocked 7 Times: Building 100-Lead/Hour Outreach Automation with Claude Code"
 project: "portfolio-site"
 date: 2026-06-06
 lang: en
 pair: "2026-06-06-portfolio-site-ko"
-tags: [claude-code, paypal, workflow, ultraplan, saju-global, design-gate]
-description: "48 sessions, 695 tool calls, one day. How ultraplan spawned 10 parallel agents, why Codex caught a PayPal 25-char limit, and a design gate race condition explained."
+tags: [claude-code, automation, outreach, pipeline, codex-review, safety]
+description: "15 sessions, 614 tool calls, 7 Codex review rounds to ship a multi-agent outreach pipeline that finds and drafts 100 cold emails per hour — without sending spam."
 ---
 
-48 Claude Code sessions. 695 tool calls. One day.
+One bug in an email automation doesn't just break the feature. It sends spam to real people. That single constraint shaped every architectural decision in this build.
 
-That's what 2026-06-05 looked like: 4 projects, 8 HTML reports, 10 PayPal API modules, 38 modified files in a Next.js monorepo — and one design gate bug that only surfaces when you're running sessions in parallel.
+**TL;DR** Built a fully automated outreach pipeline for JDLab that discovers, validates, and drafts cold emails for 100 small businesses per hour. 15 Claude Code sessions, 614 tool calls, 7 Codex `VERDICT: BLOCK` rounds. Here's what broke, what the safety gates look like, and what the tool call logs reveal about how multi-agent pipelines actually get built.
 
-**TL;DR** The Codex-as-read-only-reviewer workflow works in practice. ultraplan ran 10 parallel agents, consumed 785K tokens, and turned a full audit request into a 4-hour session with 195 tool calls. Codex caught a PayPal invoice number overflow that Claude's dry-run tests missed.
+## The Architecture: Eight Lanes, One Queue
 
-## The PayPal Bug Codex Found Before It Reached Production
+The goal is specific: every hour, find 100 small businesses worldwide, identify a real copy problem on their website, and draft a personalized first-touch email. Targets are Shopify stores, local restaurants, service companies — places with websites that have genuine problems worth fixing.
 
-PayPal Invoicing v2 enforces a 25-character limit on the `invoice_number` field. Session 4 implemented the PayPal integration and tested against the dry-run path. The dry-run invoice number was `JDLAB-MADEINN-VT-20260605` — exactly 25 characters.
+Eight discovery lanes run in parallel: `shopify_selfhosted`, `us_google_local`, `yelp_local_service`, `tripadvisor_hospitality`, `linkedin_b2b`, `etsy_seller`, `amazon_seller`, `walmart_ebay`. Each lane gets its own subagent with a targeted discovery prompt. `build-jdlab-hourly-queue.mjs` aggregates results from all eight, scores candidates, and selects the final 100.
 
-That passed. The live path didn't.
+Parallelism here isn't premature optimization — it's necessary. Each lane has different discovery mechanics (search syntax, page structure, email extraction patterns), and running them sequentially would make the hourly window impossible to hit.
 
-Live invoices append a `HHMMSS` timestamp suffix: `JDLAB-MADEINN-VT-20260605-114827`. That's 32 characters. Silent failure at the API boundary.
+The hard constraint underneath all of this: a separate system called Hermes actually sends these emails via Gmail. The pipeline's job ends at queue creation. But if a bad lead gets into `outputs/approval_queue/`, it eventually reaches a real inbox. That's why validation is non-negotiable.
 
-Session 5 started with Codex flagging this in a read-only review pass and forwarding a fix brief to Claude. The fix was straightforward — compress the prefix, encode the timestamp as base36 epoch milliseconds to fit in 7 characters:
+## The Dedup Problem Hiding in 529 Keys
 
-```js
-// Before: JDLAB-MADEINN-VT-20260605-114827  (32 chars)
-// After:  JL-VT-20260605-3K7Z2A             (22 chars)
+The pipeline doesn't run once — it runs every hour, accumulating history. The longer it runs, the more likely a fresh discovery run surfaces businesses that were already contacted. Re-contacting someone is a spam complaint.
+
+By session 4, the system had already processed 529 URL keys, 464 unique domains, and 383 email addresses across prior runs. Without dedup, discovery subagents keep re-surfacing the same high-visibility targets — popular Shopify themes, well-ranked Yelp listings, frequently indexed pages.
+
+`build-jdlab-run-dedupe-index.mjs` solves this by scanning every prior queue file under `outputs/approval_queue/` before each run, generating a consolidated exclusion list. All 8 lane subagents read this index at startup, before any discovery work begins. Dedup happens at the input stage, not the output stage.
+
+That distinction matters architecturally. Filtering at assembly means 8 subagents already did redundant work — they found, fetched, and processed leads that were going to be removed anyway. Passing the exclusion index into discovery changes what gets found, not just what survives.
+
+Session 4 final output: pool of 123 candidates, 2 historical duplicates removed, 21 held for capacity reasons, final count 100. The log showed `0 duplicates against history` — the first clean run.
+
+## The `$4,495` That Blocked 100 Emails
+
+This is session 7's core bug, and it illustrates how validation rules interact with content generation in unexpected ways.
+
+The validator (`validate-jdlab-queue.mjs`) hard-fails any draft containing a `$\d` pattern — dollar sign immediately followed by digits. The rationale is solid: pricing language in first-touch cold email is a reliable spam trigger and damages trust. First-touch emails shouldn't reference specific dollar amounts.
+
+The problem: Claude was quoting prices directly from the business's own website as evidence of copy issues. A tourism business listing "$4,495 tour packages." A local experience company charging "$60 Voodoo Experience." These were legitimate copy diagnosis observations — the businesses themselves wrote these prices, and they signal pricing strategy worth discussing. But the validator's pattern matching doesn't have a "quoted from source" exception. A `$` followed by digits fails, full stop.
+
+```
+ValidationError: draft contains $4,495 — hard fail on $ + digit in first-touch copy
+items affected: 6
 ```
 
-Tests were updated alongside — a batch assertion verifying every generated number stays under 25 characters. 6 Edit calls, 5 Read, 5 Bash. Session wall time: 4 minutes.
+Six leads blocked, causing the run to fail validation entirely.
 
-This is the Codex-Claude split working as intended. Claude focuses on implementation; Codex runs read-only and looks for edge cases. The same agent doing both tends to develop tunnel vision toward the happy path it already built.
+The fix has two parts. First, a pre-filter in `build-jdlab-hourly-queue.mjs`: immediately after loading the full candidate pool, any item whose draft or copy diagnosis contains `$\d` gets moved to a `held_out` file before scoring begins. These items never reach the validator. Second — and more important — the `$\d` pattern detection was extracted into a shared utility function. Builder and validator now import identical logic from the same place. Before this change, both files had their own implementation. Divergence was guaranteed after any future update.
 
-## What Happens When Two Sessions Race for the Same Design Gate
+## Seven BLOCK Verdicts: What Each One Actually Fixed
 
-`hooks/design-gate.sh` blocks writes to `.html/.htm` files. The gate releases only after `hooks/design-pass.sh` confirms an Open Design-equivalent pass has occurred. The ack is recorded in `design-gate.ok` with the current session ID.
+Sessions 2, 6, 7, 9, and 12 all ended with Codex returning `VERDICT: BLOCK`. The pattern was consistent: Claude implements, Codex reviews read-only, the next session fixes the blockers. No BLOCK was wasted — every one pointed at a genuine issue.
 
-Session 6 was writing a funnel report HTML. The gate blocked — even though this session had already acknowledged. Checking the log revealed the issue: a concurrent `jidonglab-site` session (`a45e846e`) had written its own session ID into `design-gate.ok`, overwriting this session's ack.
+Session 9's blockers are worth walking through because they illustrate the category of problems that emerge in pipeline automation:
 
-The workaround was a re-ack and retry. But the root cause is structural: the design gate uses a single shared file for state. Two concurrent sessions create a race condition. The more parallel sessions you run, the higher the collision probability.
+**Lock recovery race condition.** The hourly cron uses a PID lock file to prevent overlapping runs. The lock removal logic had a path where an empty PID file — created by a crash at the wrong moment — would still trigger lock removal. The next run could start while a previous run was still active. Fixed by validating PID file contents before treating lock removal as safe.
 
-The eventual fix direction is to store gate state per session in a tempfile keyed by session ID rather than checking a single shared value. Not implemented yet — filed and noted.
+**Same-run URL and email dedup missing.** Cross-run dedup (the 529-key index) was in place, but nothing prevented a single run from including the same URL or email address through different lane subagents. Lane A and Lane B could both surface the same Shopify store — different search paths, identical target. Fixed with a same-run seen-set check during queue assembly.
 
-## ultraplan: 10 Agents, 785K Tokens, 4 Hours
+**Gmail draft script executable without `--allowlist` flag.** The Hermes Gmail integration required an explicit allowlist before drafts would be written. But the gate could be bypassed by calling the script in a specific invocation order. Fixed by making allowlist validation unconditional at script entry, regardless of call path.
 
-Session 14 opened with `/ultraplan`. The brief: full audit of `saju_global` — a Next.js monorepo targeting global sales — covering payments, i18n, legal compliance, and channel economics.
+Both `jdlab_draft_gate.test.js` and `jdlab_wrapper_safety.test.js` were written alongside these fixes. The meta-observation: the faster Claude implements, the more valuable external review becomes. Implementation speed and review rigor need to scale together. Running Codex after every major session isn't overhead — it's load-bearing.
 
-The repo had no local git remote configured, so the remote session path failed. The workflow ran locally instead.
+## Claude Without Bash: The Session 12 Hardening
 
-Workflow structure:
+Session 12 introduced the most significant safety change in the build.
 
-**Phase 1 (parallel)** — 4 agents directly exploring the codebase:
-- Payment logic and webhook handling
-- Fortune engine and saju calculation accuracy
-- i18n coverage and legal requirements by region
-- Funnel UX and conversion gaps
+When Claude runs non-interactively inside a cron job, the threat model changes. There's no human in the loop to catch unexpected behavior. A malformed prompt or injected instruction could potentially cause Bash tool use — which in a cron context means arbitrary shell commands running as part of the pipeline.
 
-**Phase 2 (parallel)** — 5 agents sourced research:
-- Global market entry economics
-- Japan-specific channel breakdown
-- Southeast Asia and India/Greater China
-- Western market positioning
+The question: even with `Bash(*)` in `~/.claude/settings.json`, can you strip Bash access for a specific invocation?
 
-**Phase 3** — synthesis into a 30-day revenue maximization plan
+The answer, demonstrated through two probe sessions, is yes.
 
-Result: 10 agents, ~785K tokens, 161K characters of output. Session wall time: 3 hours 49 minutes, 195 tool calls.
+Session 10: a probe prompt that should return only `PROBE_OK`. It did. Session 11: explicitly requested Bash tool use within the same hardened configuration. Response: `NO_BASH — Bash tool not available here`. Zero `tool_use` calls for Bash in the session transcript. Per-task configuration files combined with specific CLI flags override user-level settings. These two sessions are the before/after verification: session 10 confirms the channel works, session 11 confirms Bash is gone.
 
-Concrete issues surfaced:
+On top of this, `capture_critical_hashes()` was added to the Hermes wrapper. It snapshots SHA hashes of pipeline-critical files before and after every Claude invocation. If any protected file changes, the cron stops immediately. Claude's outputs are validated at the filesystem level, not just at the application level.
 
-- PayPal webhook signature verification missing — any POST to the webhook endpoint would be accepted
-- Korean payment processor (Toss) still present in code after global pivot decision; needs removal
-- No GDPR/DPDPA cookie consent component
-- Japan `特定商取引法` disclosure page incomplete
+## Switching to Evidence: What WebFetch Changed
 
-38 files modified, 19 new files created in this session alone. Bash 79 calls, Read 49, Edit 46, Write 18.
+Sessions 1–12 relied on WebSearch for discovery and inferred email addresses from domain patterns and search snippets. Starting session 13, the approach shifted: WebFetch opens the actual page, and emails are only included if they appear directly in the rendered content.
 
-Without the `ultraplan` opt-in keyword, this fan-out wouldn't have started. The keyword is an explicit authorization to run a workflow at this scale. The cost is real — but faster than reading 38 files sequentially and synthesizing across them manually.
+Session 14 made 36 WebFetch calls. The results were different in kind from inference-based discovery.
 
-## Why the PayPal Product Image Took 4 Sessions
+Emails obfuscated as `info [at] domain [dot] com` go to `not_found` — they're intentionally hidden from scrapers, and contacting them through reconstructed addresses is poor practice regardless of validity. Only emails found as-is on the page go to `public_email`. Real typos like "INMERSE" instead of "IMMERSE," ambiguous CTAs like "email a picture for a quote" — these can only be confirmed by reading the actual page. WebSearch snippets reflect index-time snapshots and often miss the most relevant page sections.
 
-Sessions 10–13 were all building product images for the PayPal payment link. Four iterations, same pipeline, evolving brief.
+Session 14 final sendable leads: `browser_verified` 34, `not_found` 66. 66 leads dropped because no public email could be confirmed. The queue was smaller but the quality was categorically higher — every lead had a confirmed email from the source page.
 
-- **Session 10**: Initial image. Placeholder domain (`yourstore.com`), blue accent.
-- **Session 11**: jidonglab.com brand applied. Green accent, Pretendard font, real site copy.
-- **Session 12**: English deliverable details added. What the buyer receives, listed inside the image.
-- **Session 13**: "Dense report" aesthetic. Sections, table of contents, data tables packed in.
+## Tool Usage Breakdown
 
-Each session used the same Python generator (`build.py`) — SVG generation, Chrome headless rasterization to PNG. What changed was content and layout density.
+15 sessions, 614 total tool calls:
 
-Four iterations because the brief arrived in stages: "use the jidonglab brand" → "add English deliverable description" → "make it look like a thick report." If all three requirements had been in the initial brief, one session would have been enough.
+| Tool | Calls | Purpose |
+|------|-------|---------|
+| `Bash` | 140 | Validation runs, script testing, file checks |
+| `Read` | 103 | Schema verification, queue inspection, reference lookup |
+| `WebFetch` | 94 | Direct lead verification (sessions 13–15) |
+| `Edit` | 80 | Targeted file modifications |
+| `Write` | 57 | Queue JSON generation, new config files |
+| `WebSearch` | 50 | Initial candidate discovery |
+| `TaskUpdate` | 40 | Progress tracking across sessions |
+| `TaskCreate` | 24 | Session-level task planning |
 
-The constraint that was always there but stated late: PayPal product images render as thumbnails. At 96px, price and title need to be legible. That's a layout constraint that should anchor the brief from the first session — not surface in session 13.
+13 existing files modified. 56 new files created. The ratio reflects a pipeline that grew through iteration — new scripts, new test files, new queue outputs — rather than a design that was fully specified upfront.
 
-## Cross-Session Context Relay at 48-Session Scale
+## What This Build Confirmed
 
-Most of the 48 sessions started by referencing output from a previous session. The orchestration pattern: Hermes handles cross-session relay, Claude Code handles implementation inside each session.
+**Validation loop tightness is the variable that determines shippability.** Seven Codex review rounds sounds like a lot until you consider what each BLOCK actually caught — race conditions, bypass paths, missing same-run dedup. Any one of those in production means a spam complaint or a lock file that prevents the next hour's run. The cost of tight review loops is time. The cost of skipping them is reputation damage that's hard to recover.
 
-The upside is that each session has a narrow, well-defined target. The downside is that every inter-session handoff requires a brief that accurately summarizes the prior state. When the brief undersells prior context, Claude makes decisions that contradict earlier work.
+**Shared detection logic, not parallel implementations.** The `$\d` pattern bug happened because two places in the codebase independently checked for the same condition. One was the source of truth; the other drifted after an update. Extracting shared logic into a utility function is not refactoring for its own sake — it's removing the possibility of a class of bugs.
 
-Sessions 7–9 show the cost of this. Session 7 corrected a price to `$149`. Session 9 finalized the structure at `$79/$299`. Pricing wasn't decided in one place — it was refined across sessions, each correcting the previous.
+**Dedup at discovery time, not assembly time.** If the exclusion index is passed to subagents before they start finding leads, they return different results. If you wait until assembly to filter, you've paid for 8 subagents worth of redundant discovery work and gotten the same final output. The distinction matters at scale, and it affects the quality of what subagents actually find within their exploration budget.
 
-After session 9, the full price alignment across `src/paypal/leads.js`, `config/paypal-hot-leads.example.json`, `test/paypal.test.js`, `docs/paypal-integration.md`, and `docs/jdlab-paid-offers.md` was done in a single session: 12 Edit calls, 9 Bash.
-
-The takeaway: multi-session workflows produce drift on decisions that span sessions. The fix is front-loading the decision in a single session, then propagating the canonical answer — not iterating across sessions until it converges.
+**Evidence over inference at every stage.** WebFetch instead of WebSearch snippets. Hash verification instead of trusting nothing changed. Explicit `PROBE_OK` tests instead of assuming the configuration is correct. Each shift from inference to evidence adds latency but removes ambiguity from the system's behavior.
 
 ---
 
