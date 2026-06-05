@@ -1,63 +1,80 @@
 ---
-title: "Claude Code + Opus 4.8, 29세션으로 글로벌 아웃리치 자동화 구축"
+title: "Claude Code ultraplan: jidonglab.com을 마케팅 AI 전문가 포트폴리오로 재정의"
 project: "portfolio-site"
 date: 2026-06-05
 lang: ko
-tags: [claude-code, automation, outreach, gmail, agents, opus]
-description: "Claude Code 29세션, 총 600회 이상 도구 호출로 미국 소기업 125개 공개 이메일 발굴·검증. Gmail 드래프트 자동 생성, 중복 억제 시스템, 훅 최적화까지 구축한 2일간의 기록."
+tags: [claude-code, portfolio, open-design, ultraplan, 리디자인, seo]
+description: "jidonglab.com을 마케팅·홍보 AI 전문가 명함 사이트로 재포지셔닝. ultraplan 로컬 실행으로 사이드 프로젝트 스캔 후 포지셔닝 확정, Linear·Vercel·Stripe·Toss 4가지 디자인 방향 렌더까지 22 tool calls."
 ---
 
-이틀 만에 600회 이상 도구를 호출하고, 실제 웹 페이지에서 이메일 주소 125개를 수작업 없이 검증했다.
+같은 날 치과 광고 자동화, PayPal 청구서 API, 글로벌 아웃리치 파이프라인을 돌리고 있었다. 포트폴리오 사이트를 그냥 "빌더 사이드 프로젝트 전시장"으로 두는 게 맞지 않다는 게 자명해졌다.
 
-**TL;DR** Claude Code + Opus 4.8로 미국·글로벌 소기업 대상 아웃리치 자동화 파이프라인을 처음부터 구축했다. 리서치 → 리드 발굴 → Gmail 드래프트 생성 → 중복 억제까지 하나의 에이전트 레인으로 연결된다.
+**TL;DR** `/ultraplan`이 git repo 없음으로 실패해 로컬로 우회했다. jidonglab.com을 "마케팅·홍보 자동화를 직접 만들어 운영하는 1인 전문가 명함 사이트"로 재포지셔닝했고, Linear·Vercel·Stripe·Toss 4가지 디자인 방향 렌더까지 22 tool calls, 10분.
 
-## 이게 왜 필요했나
+## /ultraplan이 git repo 없다고 죽었다
 
-한국 1인 사업자가 미국 소기업 상품 문구 개선 서비스를 해외에 팔 수 있을까? 라는 질문에서 시작했다. Amazon 리스팅 최적화 시장 조사, 외국 고객 결제 수단 리서치부터 시작해서 결국 "그냥 실제로 영업해보자"는 결론에 도달했다.
-
-첫 세션에서 리서치 에이전트 3개를 병렬로 날렸다. 하나는 Amazon A+ Content 서비스 시세, 하나는 해외 결제 수단(Wise, PayPal, Toss), 하나는 실제 의뢰 가능한 플랫폼(Upwork, Fiverr). 세션 3에서 Codex 리뷰가 "Upwork 증거 없음"으로 REQUEST_CHANGES를 반환했을 때는 소스 JSON에 `403 차단됨` 항목을 명시하고, HTML 리포트에서 Upwork 주장을 softened으로 수정했다.
-
-## 리드 125개, 이메일 검증이 핵심이었다
-
-세션 8이 전환점이었다. 4개 리서치 에이전트가 각자 다른 레인(Shopify, US local, hospitality, Yelp services 등)을 맡아 11개 리드를 리턴했다. 문제는 신뢰도였다. 에이전트가 이메일 주소를 날조하지 않았다는 보장이 없었다.
+프롬프트를 치자마자 에러가 떴다.
 
 ```
-# 직접 재검증한 프롬프트
-"공개 이메일 5개를 직접 페이지에서 재확인하라. 
- 존재하지 않으면 null로 남겨라. 절대 추측하지 말 것."
+ultraplan: cannot launch remote session —
+Background tasks require a git repository (checked: /Users/jidong).
+Initialize git or run from a git repository.
 ```
 
-5개 이메일과 4개 hero quote를 직접 `WebFetch`로 검증했다. 에이전트는 하나도 날조하지 않았다.
+홈 디렉토리(`~/`)에서 명령어를 쳤는데 git repo가 아니었다. ultraplan의 원격 multi-agent 오케스트레이션은 git worktree를 전제로 하기 때문에 즉시 실패했다.
 
-세션 9에서 스케일을 올렸다. 11개 발굴 에이전트를 동시에 실행해서 125개 아이템, 공개 이메일 89개를 확보했다. validator는 0 error. Bash(17), Agent(11), Read(10), WebFetch(7) 순서로 도구를 집중 사용했다.
+해결책은 단순했다. `portfolio-site` 레포 디렉토리에서 로컬 ultraplan을 실행했다. 결과는 동일하게 나왔다. 에러가 나와도 당황하지 말고 실행 경로 먼저 확인하면 된다.
 
-## 설계 게이트 훅이 HTML 쓰기를 막았다
+## Claude가 먼저 내 사이드 프로젝트를 스캔했다
 
-글로벌 CLAUDE.md에 `design-gate.sh` 훅이 걸려 있다. `.html` 파일을 Write하려 하면 Open Design 승인 없이는 차단된다. 리포트 HTML을 만들 때마다 이 게이트와 씨름했다.
+ultraplan이 시작하자마자 한 첫 번째 작업은 내가 뭘 만들어두고 있는지 파악하는 것이었다. 에이전트 2개가 병렬로 떴다. 하나는 기존 사이드 프로젝트 메모리와 아카이브를, 다른 하나는 2026년 SEO/AEO 트렌드를 조사했다.
 
-해결법은 `hooks/design-pass.sh`로 OD-equivalent 패스를 명시 선언하는 것이었다. 기존 레포의 디자인 시스템(Pretendard 스택, 타입 스케일, A4 print CSS)을 그대로 가져다 쓰고, "기존 디자인 시스템을 수동 적용했다"는 승인 로그를 남긴 뒤 HTML을 썼다. 세션 11에서 12페이지짜리 PDF가 7개 논리 페이지에서 오버플로우가 났을 때는 Chrome headless로 PNG 렌더링을 해서 시각 QA까지 돌렸다.
+스캔 결과로 나온 목록:
 
-## 훅 최적화: 88개 이메일 일괄 개선
+- `dental-clinic` 에이전트: 치과별 광고·마케팅 자동화 인프라 (동백유디 진단 보고서, 네이버 플레이스 광고, 블로그 파이프라인)
+- `saju_global`: Next.js + 다국어 사주 SaaS, Toss·Lemon Squeezy·PayPal 세 가지 결제 레일 연동
+- `local-commerce-agent`: 글로벌 소형 비즈니스 100개/일 리드 파이프라인, 이날 이미 89개 후보 디스커버리 완료
 
-세션 16이 가장 무거웠다. 96회 도구 호출, 31분 소요. 기존 Gmail 드래프트 89개를 `users.drafts.update`로 일괄 업데이트했다.
+이게 포지셔닝의 근거가 됐다. "AI로 마케팅한다"는 추상적인 주장이 아니라, 실제로 파는 서비스를 직접 만들어 운영한다는 증거가 이미 코드 레벨로 존재했다.
 
-문제는 결정론적인 리라이터를 짜야 한다는 것이었다. 에이전트한테 "더 좋은 훅으로 바꿔줘"라고 하면 매번 다른 결과가 나온다. Bash 스크립트로 검증 게이트를 먼저 만들었다. 금지어(`guarantee`, `rank`, `#1`) 스캔, 길이 체크, 대문자 브랜드명 처리 등. 게이트가 3번 실패했고, 그때마다 원인을 찾아 수정했다.
+## 포지셔닝 결정: 서비스가 메인, 사이드 프로젝트는 증거
 
-세션 25에서 88개 드래프트를 전수 감사했다. 결과는 good 65개, ok 23개(첫 줄 제네릭), blocker 0개였다. 23개 ok 항목이 수정 우선순위로 올라갔다.
+`AskUserQuestion`으로 세 가지 방향 중 하나를 선택해야 했다.
 
-## 중복 억제가 생각보다 복잡했다
+1. 빌더/개발자 — 사이드 프로젝트 전시 중심, 기술 포트폴리오
+2. 마케팅/홍보 전문가 — 서비스 판매 중심, 기술은 부차적
+3. 전문가/빌더 하이브리드 — *"마케팅·홍보 자동화를 직접 만들어 운영하는 1인 전문가"*
 
-세션 22~24는 내일 크론이 돌 때 같은 리드에 또 이메일 보내는 사태를 막는 작업이었다.
+3번으로 확정했다. services-led지만 사이드 프로젝트가 그 서비스의 신뢰 근거가 되는 구조다. 치과 광고 자동화를 팔면서 동시에 그 자동화를 가능하게 하는 도구를 직접 빌드한다. 포지셔닝이 현실과 일치한다.
 
-처음 구현은 이랬다: `outputs/outbound_runs/` 아래 모든 JSON 파일에서 URL과 이메일을 수집해서 suppress. 그런데 125개 daily queue의 source인 `100plus` 파일을 히스토리로 읽으면 전부 suppress됐다. 빈 큐가 나왔다.
+언어는 KO + EN 동시 론칭으로 잡았다. `/ko`·`/en` 서브패스, `x-default` hreflang, 두 언어 모두 full content. 한국 클라이언트 영업과 글로벌 검색 노출을 처음부터 같이 잡는다.
 
-수정 방향: 파일명에서 run_id를 추출해서 `jdlab_global_copy_outreach_daily_*` 패턴은 suppress 대상, `100plus`나 `livepilot` 같은 소스 파일은 제외. `jdlab-suppression.mjs` 모듈로 분리해서 daily queue builder와 validator 양쪽에서 재사용하게 만들었다. 59개 테스트 모두 통과.
+## Cursor를 뺀 이유
 
-## 도구 사용 통계 (2일, 25세션)
+디자인 방향은 modern-tech로 좁혔다. "AI로 만든 티가 나면 안 된다"는 조건 때문에 제네릭 그라디언트·글로우 효과는 처음부터 제외했다.
 
-- **Bash**: 전체에서 가장 많이 사용. 검증, JSON 파싱, PDF 생성, 테스트 실행.
-- **Read**: 두 번째. 레포 컨벤션 파악과 기존 아티팩트 확인에 집중.
-- **Agent**: 병렬 리서치/발굴에 사용. 세션 9에서 한 번에 11개 에이전트 동시 실행.
-- **Write/Edit**: 스크립트, JSON 스키마, 리포트 HTML 생성.
+후보 5개에서 Cursor를 제외했다. Cursor의 warm cream 캔버스가 modern-tech 방향과 충돌하기 때문이다. 나머지 4개를 최종 방향으로 확정했다.
 
-무거운 세션(16번: 96회, 9번: 60회)에서 병목이 됐던 건 항상 검증 단계였다. 에이전트 결과를 그대로 쓰지 않고 직접 재확인하는 루프가 전체 시간의 절반 이상을 차지했다.
+- **Linear** — 다크 베이스, 정밀한 그리드, `--fg-1: #ECEDEE`, 모노스페이스 어센트
+- **Vercel** — 흑백 미니멀, `--ds-background-100: #000`, Inter 타이포그래피
+- **Stripe** — `#635BFF` 퍼플 어센트, 명확한 CTA 구조
+- **Toss** — `#3182F6` 블루, Pretendard, 한국 제품 감성
+
+Toss를 추가로 넣은 이유가 있다. 한국 클라이언트를 상대하는 서비스에서 즉각적인 신뢰를 주는 팔레트고, "트렌디하고 기술적으로"라는 조건에도 맞는다. 4개 방향 모두 같은 카피(실제 홈페이지 콘텐츠)로 렌더했다. 코드 설명이 아니라 눈으로 보고 고르는 방식.
+
+## 사이트 구조 확정
+
+페이지 구성도 이 단계에서 잡았다.
+
+- **Home**: hero(포지셔닝 한 줄) → 서비스 요약 → 증거(프로젝트·실적)
+- **Services**: 마케팅 자동화, 콘텐츠 제작, 광고 운영 — 실제로 파는 것
+- **Projects**: dental-clinic, saju_global, local-commerce-agent — 서비스의 실증
+- **Contact**: jd@jidonglab.com 직통, 간단한 인테이크
+
+SEO/AEO는 설계 단계에서부터 박아뒀다. `alternates.languages`, FAQ schema, 검색 의도별 랜딩 구조. "나중에 추가"가 아니라 처음부터 구조에 넣어야 의미가 있다.
+
+## 이날 전체 통계
+
+세션 8개, 총 809 tool calls. 도구별로는 Bash 314, Edit 195, Read 161, Write 60. 생성 파일 51개, 수정 파일 34개. 포트폴리오 사이트 작업은 하루 마지막 22 tool calls였다.
+
+가장 무거운 단일 세션은 치과 광고 자동화였다 — 623 tool calls, 45시간 13분 세션. dental-promo 인프라 전체(진단 보고서, 블로그 파이프라인, 광고 API 연동, 트래커 사이트 배포)를 그 세션 하나에서 구축했다. 그 결과물이 포트폴리오에 올라갈 증거다.

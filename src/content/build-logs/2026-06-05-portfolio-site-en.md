@@ -1,129 +1,130 @@
 ---
-title: "29 Claude Code Sessions, 600+ Tool Calls, 125 Verified Leads: Building a Global Outreach Pipeline"
+title: "Claude Code Planned My Portfolio Redesign in 22 Tool Calls (And It Read My Projects First)"
 project: "portfolio-site"
 date: 2026-06-05
 lang: en
 pair: "2026-06-05-portfolio-site-ko"
-tags: [claude-code, automation, outreach, gmail, agents, opus]
-description: "How I built a US small business outreach pipeline from scratch in 2 days: 125 verified emails, Gmail draft automation, and zero hallucinated data."
+tags: [claude-code, portfolio, open-design, redesign, seo]
+description: "How Claude Code's ultraplan scanned my side projects, locked in a positioning, and rendered 4 design directions for jidonglab.com in 10 minutes."
 ---
 
-600+ tool calls across 29 sessions, and Claude didn't fabricate a single email address. That's the short version.
+22 tool calls. 10 minutes. One complete repositioning spec, four rendered design directions, a bilingual SEO architecture, and a page structure I'd been deferring for months.
 
-**TL;DR** — I used Claude Code + Opus 4.8 to build a full outreach automation pipeline targeting US small businesses from scratch. The pipeline chains together: market research → lead discovery → email verification → Gmail draft generation → duplicate suppression. Two days of work. 125 leads with verified public emails.
+**TL;DR** — `/ultraplan` crashed immediately because I ran it from the wrong directory. Fixed by moving into the `portfolio-site` repo. Claude then scanned my active side projects before asking a single question, surfaced three positioning options, and rendered Linear / Vercel / Stripe / Toss design directions against real copy. The session cost 22 tool calls and ended with a concrete spec ready to implement.
 
-## Why Build This at All
+## The Error That Made Me Realize I Was Running From the Wrong Place
 
-The premise was a genuine question: can a solo Korean developer sell copywriting and listing optimization services to US small businesses entirely remotely?
-
-The first three sessions were pure market research — three agents running in parallel. One scoped Amazon A+ Content pricing. One investigated foreign payment options (Wise, PayPal, Toss). One surveyed platforms for freelance work (Upwork, Fiverr). By the end of session 2, I had enough data to sketch out pricing tiers and a rough service definition.
-
-Then Codex review flagged something in session 3: the Upwork section had claims without evidence. The source JSON had `403 Blocked` entries, but the HTML report was still citing Upwork as a viable platform. The fix was mechanical — annotate the JSON explicitly with the 403 status, soften the claim in the report to "access was blocked during verification" — but the lesson was more useful: agent-generated market research needs a verification pass before it becomes the basis for product decisions.
-
-By the end of session 5, the conclusion was simple: just try selling and see what happens.
-
-## 125 Leads — Email Verification Was Everything
-
-Session 8 was the turning point. I ran four research agents in parallel, each covering a different discovery lane: Shopify merchants, US local service businesses, hospitality businesses, and Yelp-listed service providers. Together they returned 11 leads with email addresses.
-
-The problem: how do you know the agent didn't hallucinate those emails?
-
-This is the real danger with multi-agent research pipelines. An agent that's told to "find the contact email for this business" has every incentive to produce *something*, even if that something is a plausible-looking address that doesn't exist. Garbage leads at scale means bounced emails, damaged sender reputation, and wasted time.
-
-The solution I landed on was a hard verification loop:
+The error hit before I finished reading the prompt back:
 
 ```
-Re-verify 5 public emails directly from the source page using WebFetch.
-If the email does not appear on the page, leave the field as null.
-Do not guess. Do not infer.
+ultraplan: cannot launch remote session —
+Background tasks require a git repository (checked: /Users/jidong).
+Initialize git or run from a git repository.
 ```
 
-The result: zero hallucinations. All 5 verified emails were exactly where the agent said they were.
+I'd launched from `~/`. The remote multi-agent orchestration that ultraplan uses depends on git worktrees to isolate parallel agents — no repo, immediate abort.
 
-That gave enough confidence to scale. Session 9 ran 11 simultaneous discovery agents. Final count: 125 items, 89 public emails. The validator returned 0 errors. Tool distribution for that session: Bash (17), Agent (11), Read (10), WebFetch (7).
+The fix was one directory change. `portfolio-site` is a git repo. Running ultraplan from there produced identical output without the error. The lesson is mundane but worth logging: if a tool fails with a cryptic environment error, check the working directory before debugging anything else.
 
-The verification loop is slow. It accounted for a significant chunk of session time. But it's not optional — removing it and trusting agent output directly would undermine the whole pipeline.
+## Claude Read My Codebase Before Asking What I Wanted to Do With It
 
-## The Design Gate That Kept Blocking HTML Writes
+The first move ultraplan made wasn't to ask me what I wanted — it was to scan what I'd already built. Two agents launched in parallel. One combed through project memory and archives. The other pulled 2026 SEO and AEO trend data.
 
-The global `CLAUDE.md` has a `design-gate.sh` hook that blocks writing any `.html` file unless there's an explicit Open Design approval in the session. The reasoning is sound: AI-generated HTML without a design system pass tends to produce generic, inconsistent output that doesn't meet production standards.
+The scan surfaced three active projects:
 
-In practice, this meant fighting the gate every time I tried to generate a report.
+- **`dental-clinic` agent** — per-clinic marketing automation infrastructure: diagnostic reports, Naver Place ad management, blog pipeline. Running on real paying clients.
+- **`saju_global`** — Next.js multilingual SaaS for Korean fortune-telling (saju). Three payment rails: Toss, Lemon Squeezy, PayPal. Live.
+- **`local-commerce-agent`** — global small-business lead pipeline targeting 100 leads/day. As of that morning, 89 candidates already discovered.
 
-The resolution was to explicitly declare an OD-equivalent pass via `hooks/design-pass.sh`, pull the existing repo's design system directly (Pretendard font stack, type scale tokens, A4 print CSS), log the approval, and then write the HTML. The key is that "OD-equivalent" isn't a workaround — it means applying the same constraints that Open Design would enforce: design tokens, consistent spacing, responsive behavior.
+This matters for the positioning step that came next. Claude wasn't working from a blank canvas; it had evidence about what I actually build and operate.
 
-Session 11 exposed a gap in this approach. The 12-page PDF report had overflow across 7 logical pages. The fix required Chrome headless rendering to PNG to actually see what was happening:
+## Three Positioning Options, One That Actually Matched the Code
 
-```bash
-chromium --headless --disable-gpu \
-  --screenshot=report-preview.png \
-  --window-size=794,1123 \
-  report.html
-```
+`AskUserQuestion` surfaced three directions:
 
-Visual QA through PNG screenshots isn't glamorous, but it's the only way to catch layout issues in print CSS without opening a browser manually. After two rounds of padding/margin fixes, the PDF rendered cleanly.
+1. **Builder/Developer** — side project showcase, tech portfolio. The "look at what I made" framing.
+2. **Marketing/PR Specialist** — services-first, technical work as background context. The "hire me" framing.
+3. **Specialist + Builder Hybrid** — *"a solo specialist who builds and operates their own marketing automation tools."* The "I sell the service and I wrote the tool that runs it" framing.
 
-## Rewriting 88 Email Drafts in Bulk
+I picked option 3.
 
-Session 16 was the heaviest session: 96 tool calls, 31 minutes. The task was updating 89 existing Gmail drafts via `users.drafts.update`.
+The reasoning was already visible in the codebase: I'm running dental ad automation that I built myself, a lead pipeline I wrote from scratch, a SaaS with payment processing I wired up. The framing that matches that reality is "services-led, with the code as the proof of credibility" — not "here are my projects" and not "hire me for generic marketing work."
 
-The original drafts were functional but had weak opening hooks — too generic, not specific enough to the recipient's business. The goal was to rewrite them with better first-line hooks while keeping the structure intact.
+The positioning statement that came out of this:
 
-The challenge with agentic rewriting: if you just ask Claude to "rewrite with a better hook," you get different output every time. There's no way to audit 89 drafts for consistency if the rewrite logic isn't deterministic.
+> A solo specialist who builds and operates marketing automation for Korean businesses — and ships the tools publicly as proof of method.
 
-The approach:
+Language call: KO + EN simultaneous launch. `/ko` and `/en` subpaths, `x-default` hreflang, full content in both languages. Korean clients via direct search; global discovery via English SEO. Both audiences served from day one, not "we'll add English later."
 
-1. Write a Bash validation gate first, before touching any drafts
-2. Define explicit rules: banned words (`guarantee`, `rank`, `#1`), max/min length constraints, brand name capitalization checks
-3. Run the gate against the existing drafts to establish a baseline
-4. Apply rewrites in batches, running the gate after each batch
+## Why Cursor Got Cut (And Why Toss Made the Final Four)
 
-The gate failed 3 times during the process. Each failure pointed to a specific pattern — one batch had a draft with "We guarantee results" slipping through, another had a subject line that was 12 characters over limit. Each fix was surgical.
+Five design directions were evaluated. Cursor was removed.
 
-Final audit in session 25: 65 good, 23 ok (generic first line but not a blocker), 0 blockers. The 23 "ok" items went onto the revision queue.
+Cursor's signature aesthetic is warm cream canvas — high readability, slightly analog feel. That's fine for a code editor but wrong for a "marketing automation specialist" brand where you want precision and technical credibility. Warm cream reads as approachable; the brief called for sharp.
 
-## Duplicate Suppression Was Harder Than It Looked
+The four that made the cut:
 
-Sessions 22–24 were about a practical problem: if the cron job runs tomorrow and re-discovers the same 125 leads, we'd be queuing duplicate emails to the same businesses.
+- **Linear** — dark base, tight grid, `--fg-1: #ECEDEE`, monospace accents. The "infrastructure" aesthetic.
+- **Vercel** — black/white minimal, `--ds-background-100: #000`, Inter typography. Maximum contrast, no decoration.
+- **Stripe** — `#635BFF` purple accent, clear CTA hierarchy. Enterprise-legible.
+- **Toss** — `#3182F6` blue, Pretendard, Korean product sensibility.
 
-The first implementation seemed straightforward: scan all JSON files under `outputs/outbound_runs/`, collect every URL and email that's appeared in a previous run, and suppress them from the next queue.
+Toss was added specifically for the Korean client segment. It's the most recognizable "modern Korean tech" palette — immediately legible as credible to domestic clients, while still reading as technical rather than generic. Fits "trendy and technical" without needing explanation.
 
-It broke immediately. The `100plus` file — the source of the 125-item daily queue — was being read as run history. Everything got suppressed. The queue came back empty.
+All four directions were rendered against the same copy: actual homepage content, not placeholder text. The output is four complete HTML files you can open side by side and compare. No "imagine how it would look" — just render and choose.
 
-The fix required being more precise about what counts as "history":
+## The Site Structure That Came Out of 10 Minutes of Planning
 
-- Files matching `jdlab_global_copy_outreach_daily_*` → run history, suppress these leads
-- Source files (`100plus`, `livepilot`, etc.) → not run history, never suppress from these
+Page architecture was decided in the same session:
 
-The logic was extracted into a standalone `jdlab-suppression.mjs` module, imported by both the daily queue builder and the validation script. 59 tests, all passing.
+- **Home**: Hero (positioning in one line) → Services summary → Evidence (projects + results)
+- **Services**: Marketing automation / Content production / Ad operations — things currently for sale
+- **Projects**: dental-clinic / saju_global / local-commerce-agent — each as a proof case for the service above it
+- **Contact**: jd@jidonglab.com direct, minimal intake form
 
-The general principle: suppression logic needs to know the *intent* of each file, not just its location. Treating all JSON in a directory as equivalent history will always cause this kind of false positive.
+The ordering is intentional. Services come before Projects because the site is services-led. Projects exist to substantiate the service claims, not to showcase technical breadth independently. A visitor from a dental clinic looking for ad automation should land on Services, get interested, then scroll to Projects to see that the tool is real and running.
 
-## Tool Usage Breakdown (2 Days, 29 Sessions)
+SEO and AEO were specced at architecture level, not retrofitted:
 
-**Bash** — most used overall. Validation scripts, JSON parsing, PDF generation, test execution. Any time something needed to be deterministic or auditable, it became a Bash script.
+- `alternates.languages` set for all pages from day one
+- FAQ schema targeting search-intent queries ("마케팅 자동화 비용", "dental ad automation Korea")
+- Separate landing paths per service/intent rather than one generic homepage
 
-**Read** — second most used. Checking repo conventions before writing, inspecting existing artifacts, understanding what was already built before adding to it.
+The design hook here is that AEO (answer engine optimization, for AI-powered search) requires structured content that answers specific questions directly. That's easier to build in than retrofit — it changes how you write headings and structure paragraphs.
 
-**Agent** — parallel research and discovery. 11 simultaneous agents in session 9. The key insight: agents are good at discovery, unreliable at verification. Always pair discovery agents with a verification pass.
+## 809 Tool Calls Across 8 Sessions — and This Was the Last 22
 
-**Write/Edit** — scripts, JSON schemas, report HTML. Lower volume than expected because most changes were incremental edits, not full rewrites.
+To put the portfolio session in context: it ran at the end of a day that looked like this.
 
-The heaviest sessions (session 16: 96 tool calls, session 9: 60 tool calls) had the same bottleneck: the verification loop. Re-confirming agent-generated data from primary sources consumed more than half the total session time across the two days. That's not inefficiency — it's the cost of running a pipeline where the output actually needs to be trusted.
+**Day totals**: 8 sessions, 809 tool calls. By tool: Bash (314), Edit (195), Read (161), Write (60). Files created: 51. Files modified: 34.
 
-## What This Looks Like as Infrastructure
+The heaviest single session was dental automation — 623 tool calls, 45 hours and 13 minutes of session time. That session built the full dental-promo infrastructure from scratch: diagnostic report pipeline, Naver blog automation, ad API integration, and a tracker site deployment. The entire thing in one session.
 
-The end state is a pipeline with these components:
+The portfolio redesign was 22 tool calls at the end of that day. The contrast is instructive. Ultraplan-style planning sessions are deliberately lightweight: they're meant to produce a spec, not implement it. The implementation is a separate session with a concrete plan in hand rather than figuring things out mid-build.
 
-- **Lead discovery**: parallel agents across industry verticals, each returning structured JSON
-- **Email verification**: WebFetch-based re-verification against source pages, null-on-failure
-- **Gmail draft generation**: template-based with a Bash validation gate before any API call
-- **Suppression module**: filename-aware duplicate detection, reusable across scripts
-- **Daily queue builder**: pulls from source files, applies suppression, outputs a bounded queue
+The 22-call session produced:
 
-The whole thing runs on a cron schedule. The only manual step is reviewing the "ok" drafts before the daily send.
+- A positioning statement
+- Language and routing architecture
+- Four rendered design directions (open in browser and pick)
+- Page structure and content hierarchy
+- SEO/AEO requirements baked into the spec
 
-Total output: 125 verified leads, 89 Gmail drafts ready to send, 23 queued for first-line revision. Time: two days. The more interesting number is the verification overhead — if I'd trusted agent output without re-checking, I'd have a pipeline that's faster but systematically untrustworthy. The 50%+ time cost of verification is the price of having a pipeline you'd actually use.
+What it didn't produce: any implementation code. That's the next session.
+
+## What Planning With Claude Code Actually Looks Like
+
+The pattern worth documenting here is: **let the agent read what you've built before it asks what you want.**
+
+In a standard planning conversation, you'd explain your situation, describe your projects, state your goals, and then get recommendations. That's fine, but it means you're the primary source of context — and you'll inevitably leave things out or frame them in ways that bias the output.
+
+ultraplan's approach was different: scan the repository and side project archives first, build a picture of what exists, then surface options. The positioning options it generated were grounded in the actual codebase, not in whatever I happened to say about myself.
+
+The dental-clinic agent exists. saju_global is live. The lead pipeline had 89 leads that morning. Those facts shaped the "hybrid specialist" recommendation in a way that a blank-canvas conversation wouldn't have reached.
+
+The design direction process had the same structure. Rather than asking me to describe what I wanted and then generating options from the description, it rendered four concrete directions against real copy. The choice becomes "which of these four," not "which of these descriptions sounds right."
+
+Both reduce the gap between planning and output. Less translation between intent and artifact. More choosing from real options.
 
 ---
 
