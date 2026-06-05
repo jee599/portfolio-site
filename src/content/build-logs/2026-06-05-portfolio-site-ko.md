@@ -1,80 +1,128 @@
 ---
-title: "Claude Code ultraplan: jidonglab.com을 마케팅 AI 전문가 포트폴리오로 재정의"
+title: "Claude Opus 4.8로 하루 611번 도구 호출 — 사주 앱 해외 확장, PayPal 버그, 이미지 4회 반복"
 project: "portfolio-site"
 date: 2026-06-05
 lang: ko
-tags: [claude-code, portfolio, open-design, ultraplan, 리디자인, seo]
-description: "jidonglab.com을 마케팅·홍보 AI 전문가 명함 사이트로 재포지셔닝. ultraplan 로컬 실행으로 사이드 프로젝트 스캔 후 포지셔닝 확정, Linear·Vercel·Stripe·Toss 4가지 디자인 방향 렌더까지 22 tool calls."
+tags: [claude-code, opus-4-8, multi-agent, paypal, saju, workflow]
+description: "Claude Opus 4.8로 하루 17세션, 611 tool call을 돌렸다. 사주 앱 글로벌화 195 tool call, PayPal 25자 버그, design-gate 레이스 컨디션까지 한 날의 기록."
 ---
 
-같은 날 치과 광고 자동화, PayPal 청구서 API, 글로벌 아웃리치 파이프라인을 돌리고 있었다. 포트폴리오 사이트를 그냥 "빌더 사이드 프로젝트 전시장"으로 두는 게 맞지 않다는 게 자명해졌다.
+하루에 611번 도구를 사용했다. 17개 세션, 4개 프로젝트, 전부 `claude-opus-4-8`. 치과 광고 리서치부터 시작해서 사주 앱 해외 결제 완성까지 이 날 다 들어갔다.
 
-**TL;DR** `/ultraplan`이 git repo 없음으로 실패해 로컬로 우회했다. jidonglab.com을 "마케팅·홍보 자동화를 직접 만들어 운영하는 1인 전문가 명함 사이트"로 재포지셔닝했고, Linear·Vercel·Stripe·Toss 4가지 디자인 방향 렌더까지 22 tool calls, 10분.
+**TL;DR** 가장 큰 단일 세션은 사주 앱 글로벌화 — 3시간 49분, 195번의 도구 호출, 9개 병렬 에이전트. 그 사이 PayPal 인보이스 25자 제한 버그를 발견했고, design-gate가 병렬 세션 때문에 레이스 컨디션을 맞았다.
 
-## /ultraplan이 git repo 없다고 죽었다
+## 하루의 규모: 세션 17개, tool call 611번
 
-프롬프트를 치자마자 에러가 떴다.
+다룬 프로젝트:
+
+- `dentalad` — 치과 광고 마케팅 리서치 daily update (HTML 리포트 포함)
+- `ai-10-dollar-june` — AI 활용 첫 $10 일일 보고서
+- `local-commerce-agent` — JDLab 글로벌 아웃리치 + PayPal API 연동 + 이미지 제작
+- `saju_global` — 사주 앱 글로벌화 (ultraplan)
+
+세션별 시간을 합산하면 총 약 6시간 40분. 그중 사주 세션 혼자 3시간 49분을 먹었다.
+
+도구 사용 분포를 전체로 보면 Bash가 압도적으로 많다. Bash 255회, Read 157회, Edit 103회, Write 55회. 읽는 것보다 실행하는 비율이 높은 날이었다.
+
+## 사주 앱 글로벌화: ultraplan, 195번의 도구 호출
+
+세션 14가 이 날의 메인이었다. 시작 프롬프트는 이것이다.
+
+```
+사주 프로젝트 처음부터 끝까지 점검해서 세계화로 팔기에 문제가 없는지,
+결제, 모든 로직 제대로 동작하는지 어느 나라에 어떤 식으로 홍보나 광고...
+```
+
+`/ultraplan`을 쳤는데 먼저 실패했다. git repo가 없는 디렉토리에서 실행했기 때문이다.
 
 ```
 ultraplan: cannot launch remote session —
 Background tasks require a git repository (checked: /Users/jidong).
-Initialize git or run from a git repository.
 ```
 
-홈 디렉토리(`~/`)에서 명령어를 쳤는데 git repo가 아니었다. ultraplan의 원격 multi-agent 오케스트레이션은 git worktree를 전제로 하기 때문에 즉시 실패했다.
+`saju_global` 디렉토리로 옮겨서 로컬 실행으로 우회했다. 그다음 `Workflow`를 호출해 9개 에이전트를 병렬로 띄웠다.
 
-해결책은 단순했다. `portfolio-site` 레포 디렉토리에서 로컬 ultraplan을 실행했다. 결과는 동일하게 나왔다. 에러가 나와도 당황하지 말고 실행 경로 먼저 확인하면 된다.
+에이전트 구성:
+- **코드 감사** 4개: 결제 로직, Saju 엔진/점성 계산, i18n·법적 요건(GDPR·특정상거래법), 전환 퍼널
+- **시장 리서치** 5개: 글로벌·경쟁자, 일본, 동남아, 인도·중화권, 서구·채널 경제성
 
-## Claude가 먼저 내 사이드 프로젝트를 스캔했다
+결과물은 ~785K 토큰의 분석이었다. 161K 자짜리 출력을 파싱해서 실제 코드 변경으로 이어진 파일 수는 30개+.
 
-ultraplan이 시작하자마자 한 첫 번째 작업은 내가 뭘 만들어두고 있는지 파악하는 것이었다. 에이전트 2개가 병렬로 떴다. 하나는 기존 사이드 프로젝트 메모리와 아카이브를, 다른 하나는 2026년 SEO/AEO 트렌드를 조사했다.
+세션 중반에 방향이 바뀌었다. 사용자가 "한국 결제 안할거야. 그냥 해외부터 할거야"라고 했다. Toss 결제 코드를 정리하고, PayPal + Lemon Squeezy 중심으로 재구성했다. Toss 페이지(`checkout/toss/page.tsx`, `checkout/toss/success/page.tsx`)는 로직은 유지하면서 KR 전용 임시 비활성으로 처리했다.
 
-스캔 결과로 나온 목록:
+추가된 컴포넌트들:
+- `CookieConsent.tsx` — GDPR 동의 수집
+- `AnalyticsGate.tsx` — 동의 없으면 트래킹 차단
+- `UsageCounter.tsx` — 무료 사용 횟수 표시
+- `data-request/page.tsx` — GDPR 데이터 요청 페이지
+- `tokushoho/page.tsx` — 일본 특정상거래법 페이지 (법적 필수)
+- `cron/retarget/route.ts` — 리타겟 이메일 cron
 
-- `dental-clinic` 에이전트: 치과별 광고·마케팅 자동화 인프라 (동백유디 진단 보고서, 네이버 플레이스 광고, 블로그 파이프라인)
-- `saju_global`: Next.js + 다국어 사주 SaaS, Toss·Lemon Squeezy·PayPal 세 가지 결제 레일 연동
-- `local-commerce-agent`: 글로벌 소형 비즈니스 100개/일 리드 파이프라인, 이날 이미 89개 후보 디스커버리 완료
+세션 말미에 "응 푸시하고 메인에 합쳐"가 나왔다. 브랜치를 확인하고 main에 merge까지 한 번에 처리했다.
 
-이게 포지셔닝의 근거가 됐다. "AI로 마케팅한다"는 추상적인 주장이 아니라, 실제로 파는 서비스를 직접 만들어 운영한다는 증거가 이미 코드 레벨로 존재했다.
+산출물로는 `FORTUNELAB_GTM_US_SEA_PLAYBOOK.html`과 `FORTUNELAB_REVENUE_PLAN_2026-06.html` 두 개의 전략 문서도 나왔다. 이것들은 코드가 아니라 앞으로 마케팅을 어떻게 할지 담은 실행 플레이북이다.
 
-## 포지셔닝 결정: 서비스가 메인, 사이드 프로젝트는 증거
+## PayPal invoice_number 25자 제한 버그
 
-`AskUserQuestion`으로 세 가지 방향 중 하나를 선택해야 했다.
+세션 4에서 PayPal Invoicing v2 API 연동을 만들었다. 세션 5는 그다음 날 바로 Codex 리뷰에서 올라온 블로킹 이슈를 픽스한 세션이다.
 
-1. 빌더/개발자 — 사이드 프로젝트 전시 중심, 기술 포트폴리오
-2. 마케팅/홍보 전문가 — 서비스 판매 중심, 기술은 부차적
-3. 전문가/빌더 하이브리드 — *"마케팅·홍보 자동화를 직접 만들어 운영하는 1인 전문가"*
+문제는 `invoice_number` 필드의 25자 제한이었다.
 
-3번으로 확정했다. services-led지만 사이드 프로젝트가 그 서비스의 신뢰 근거가 되는 구조다. 치과 광고 자동화를 팔면서 동시에 그 자동화를 가능하게 하는 도구를 직접 빌드한다. 포지셔닝이 현실과 일치한다.
+dry-run 경로에서 생성되는 인보이스 번호 길이는 정확히 25자였다. 안전해 보였다. 그런데 live 경로에서는 타임스탬프 접미사가 붙는다.
 
-언어는 KO + EN 동시 론칭으로 잡았다. `/ko`·`/en` 서브패스, `x-default` hreflang, 두 언어 모두 full content. 한국 클라이언트 영업과 글로벌 검색 노출을 처음부터 같이 잡는다.
+```
+dry-run:  JDLAB-MADEINN-VT-20260605     → 25자 (정확히 제한값)
+live:     JDLAB-MADEINN-VT-20260605-114827 → 32자 (PayPal API 에러)
+```
 
-## Cursor를 뺀 이유
+경계값에 딱 맞게 만들어뒀는데 live 경로에서 초과하는 전형적인 버그였다. dry-run이 한계값과 일치한다는 것 자체가 위험 신호였는데 그걸 놓쳤다.
 
-디자인 방향은 modern-tech로 좁혔다. "AI로 만든 티가 나면 안 된다"는 조건 때문에 제네릭 그라디언트·글로우 효과는 처음부터 제외했다.
+픽스는 compact 포맷으로 번호를 단축하고, 테스트에 배치 레벨 25자 캡 검증을 추가하는 것이었다. Edit 6회, Read 5회, Bash 5회, 총 16 tool calls로 4분 만에 끝났다.
 
-후보 5개에서 Cursor를 제외했다. Cursor의 warm cream 캔버스가 modern-tech 방향과 충돌하기 때문이다. 나머지 4개를 최종 방향으로 확정했다.
+구현보다 리뷰에서 버그를 잡는 패턴이 이 날 여러 번 반복됐다. Claude가 구현하고 Codex가 read-only 리뷰를 해서 블로커를 넘기면, 다음 세션에서 픽스한다. 짧은 픽스 세션들(세션 5, 7, 16)이 다 이 패턴으로 나왔다.
 
-- **Linear** — 다크 베이스, 정밀한 그리드, `--fg-1: #ECEDEE`, 모노스페이스 어센트
-- **Vercel** — 흑백 미니멀, `--ds-background-100: #000`, Inter 타이포그래피
-- **Stripe** — `#635BFF` 퍼플 어센트, 명확한 CTA 구조
-- **Toss** — `#3182F6` 블루, Pretendard, 한국 제품 감성
+## Design Gate가 레이스 컨디션을 맞았다
 
-Toss를 추가로 넣은 이유가 있다. 한국 클라이언트를 상대하는 서비스에서 즉각적인 신뢰를 주는 팔레트고, "트렌디하고 기술적으로"라는 조건에도 맞는다. 4개 방향 모두 같은 카피(실제 홈페이지 콘텐츠)로 렌더했다. 코드 설명이 아니라 눈으로 보고 고르는 방식.
+세션 6에서 이상한 일이 생겼다.
 
-## 사이트 구조 확정
+이 프로젝트에는 `.html` 파일을 생성하기 전에 반드시 "Open Design equivalent" 패스를 인증받아야 하는 hook이 있다. `design-pass.sh`로 세션 ID를 `design-gate.ok` 파일에 기록하는 방식이다.
 
-페이지 구성도 이 단계에서 잡았다.
+세션 6에서 인증을 마쳤는데 바로 다시 gate가 막혔다. 조사해보니 원인이 이것이었다.
 
-- **Home**: hero(포지셔닝 한 줄) → 서비스 요약 → 증거(프로젝트·실적)
-- **Services**: 마케팅 자동화, 콘텐츠 제작, 광고 운영 — 실제로 파는 것
-- **Projects**: dental-clinic, saju_global, local-commerce-agent — 서비스의 실증
-- **Contact**: jd@jidonglab.com 직통, 간단한 인테이크
+```
+shared gate state has a cross-session race —
+a concurrent session (a45e846e, jidonglab-site) consumed my ack
+and set design-gate.ok to its own session id.
+```
 
-SEO/AEO는 설계 단계에서부터 박아뒀다. `alternates.languages`, FAQ schema, 검색 의도별 랜딩 구조. "나중에 추가"가 아니라 처음부터 구조에 넣어야 의미가 있다.
+병렬로 실행 중인 다른 세션이 같은 파일을 읽고 덮어쓴 것이다. 파일 기반 shared state를 여러 세션이 동시에 쓰면 마지막 쓰기가 이긴다. 이전 세션의 인증이 날아가는 것이다.
 
-## 이날 전체 통계
+해결책은 재인증이었다. 근본 원인을 고치려면 파일 기반 lock을 세션 ID 스택이나 파일당 세션 ID를 쓰는 방식으로 바꿔야 하는데, 이건 hook 자체의 설계 문제라 그 세션에서는 건드리지 않았다.
 
-세션 8개, 총 809 tool calls. 도구별로는 Bash 314, Edit 195, Read 161, Write 60. 생성 파일 51개, 수정 파일 34개. 포트폴리오 사이트 작업은 하루 마지막 22 tool calls였다.
+단일 세션에서 순차적으로 작업할 때는 문제없지만, 같은 날 여러 세션을 병렬로 돌리면 이 취약점이 노출된다. 이날은 여러 세션을 동시에 실행했고 그게 정확히 이 버그를 촉발했다.
 
-가장 무거운 단일 세션은 치과 광고 자동화였다 — 623 tool calls, 45시간 13분 세션. dental-promo 인프라 전체(진단 보고서, 블로그 파이프라인, 광고 API 연동, 트래커 사이트 배포)를 그 세션 하나에서 구축했다. 그 결과물이 포트폴리오에 올라갈 증거다.
+## PayPal 이미지 디자인을 4번 반복한 이유
+
+세션 10부터 13까지, 총 4세션에 걸쳐 PayPal 결제 링크 제품 이미지를 반복 제작했다.
+
+**세션 10**: Python으로 SVG 생성기를 만들고, headless Chrome으로 1200×1200 PNG를 rasterize하는 파이프라인을 구축했다. 첫 버전은 파란 accent(`#2348DA`), `yourstore.com` placeholder 사이트.
+
+**세션 11**: jidonglab.com 실제 브랜딩으로 교체. 사이트에서 실제 색상(`#00c471` 초록)과 카피를 WebFetch로 가져와서 적용했다. "yourstore.com/product/soy-candle" → 실제 jidonglab 서비스 카피.
+
+**세션 12**: 영어 deliverable 상세 추가. "구매자가 뭘 받는지"를 명확히 적어야 한다는 요구. 각 이미지에 deliverable 목록, 섹션 구성, 페이지 수까지 넣었다.
+
+**세션 13**: "dense report feel" — 더 많은 콘텐츠를 넣어 묵직한 보고서 느낌. sparse한 카드 레이아웃에서 섹션이 빼곡한 미리보기 레이아웃으로 교체했다.
+
+각 세션마다 headless Chrome 렌더링 후 실제 thumbnail 크기(200px, 96px)에서도 읽히는지 육안으로 확인했다. Playwright가 없어서 Chrome headless shell binary를 직접 구동했다.
+
+흥미로운 점은 파이프라인 구조다. 세션 10에서 `build.py` → SVG 생성 → Chrome rasterize를 한 번 만들고, 이후 세션 3개는 `build.py`만 교체해서 재사용했다. 렌더러는 변경 없이 콘텐츠 생성기만 바꾸는 구조가 반복 작업을 빠르게 만들었다.
+
+## 오늘 확인한 것들
+
+큰 작업을 에이전트로 쪼개면 커버리지가 높아진다. 사주 ultraplan에서 코드 감사 4개 + 리서치 5개를 병렬로 돌렸는데, 단일 에이전트로 순차 실행했으면 하나를 깊이 파면 다른 걸 놓쳤을 것이다.
+
+파이프라인을 한 번 만들면 반복 비용이 줄어든다. PayPal 이미지를 4번 고쳤는데 파이프라인이 있어서 각 세션이 10분 내외로 끝났다. 파이프라인 없이 매번 처음부터 했으면 세션당 30분+였을 것이다.
+
+파일 기반 공유 상태에 병렬 세션은 위험하다. design-gate race condition이 그걸 보여줬다. 공유 파일에 쓰는 hook이 있으면 병렬 세션 상황을 가정하고 설계해야 한다.
+
+Codex 리뷰 루프는 경계값 버그를 잡는다. PayPal 25자 버그는 자동화 테스트로는 안 잡힌 케이스였다. dry-run이 정확히 25자라는 사실 자체를 이상하게 봐야 했는데, 구현 당시에는 통과로 봤다. 외부 리뷰어 시점이 다르다.
