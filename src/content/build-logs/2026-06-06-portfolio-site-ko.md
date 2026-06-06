@@ -1,93 +1,84 @@
 ---
-title: "Codex가 7번 BLOCK한 파이프라인: 시간당 100개 아웃리치 자동화 구축기"
+title: "무인 Claude Code cron 운용: 26 세션, 3중 안전 게이트 구축기"
 project: "portfolio-site"
 date: 2026-06-06
 lang: ko
-tags: [claude-code, automation, outreach, pipeline, codex-review, safety]
-description: "15세션·614회 도구 호출로 JDLab 글로벌 아웃리치 자동화 구축. Codex 리뷰 7라운드, $4,495 차단 버그, Bash 게이트까지 실전 Claude Code 안전 파이프라인 기록."
+tags: [claude-code, automation, cron, safety, outreach-pipeline]
+description: "Claude Code를 매시간 무인 cron으로 돌리면서 겪은 안전 경화 3라운드. Codex 블로커 수정, Bash 툴 격리, 검증된 이메일만 발송하는 파이프라인까지 26 세션의 실전 기록."
 ---
 
-실제 이메일이 나가는 자동화를 만들 때 버그 하나는 스팸 발송이다. 그래서 이 파이프라인을 완성하는 데 하루가 통째로 들었다.
+하루에 26 세션, 총 600+ tool calls. Claude Code를 단순 어시스턴트가 아니라 **매시간 혼자 돌아가는 cron worker**로 운용하면서 생긴 일들이다.
 
-**TL;DR** JDLab 글로벌 아웃리치 파이프라인을 구축했다. 매시간 100개 소규모 사업체를 발굴·검증·초안 작성하는 완전 자동화다. 15세션, 614회 도구 호출, Codex 리뷰 7라운드를 돌아서 완성했다.
+**TL;DR** 아웃리치 파이프라인을 Hermes 크론으로 자동화했고, 무인 모드 Claude에서 Bash 툴을 제거하는 경화 작업까지 총 3라운드를 거쳤다. 핵심은 "Claude가 실제로 이메일을 보낸다"는 전제 하에 모든 안전 장치를 설계한 것이다.
 
-## 파이프라인의 구조
 
-목표는 하나다. 매시간 전 세계 소규모 사업체(Shopify 쇼핑몰, 식당, 지역 서비스업체) 100개를 발굴하고, 각각의 웹사이트에서 실제 카피 문제를 찾아내고, 첫 번째 이메일 초안을 쓰는 것이다.
+## 파이프라인 구조: 8개 레인, 100 리드/시간
 
-8개 레인으로 나눈다. `shopify_selfhosted`, `us_google_local`, `yelp_local_service`, `tripadvisor_hospitality`, `linkedin_b2b`, `etsy_seller`, `amazon_seller`, `walmart_ebay`. 각 레인마다 서브에이전트 하나를 병렬로 띄우고, `build-jdlab-hourly-queue.mjs`가 결과를 합쳐 100개를 뽑는다.
+JDLab 글로벌 아웃리치 파이프라인의 기본 구조는 간단하다. 8개 발굴 레인(`shopify_selfhosted`, `us_google_local`, `yelp_local_service`, `tripadvisor_hospitality`, `linkedin_b2b`, `amazon_seller`, `etsy_seller`, `walmart_ebay`)에서 각각 후보를 찾고, 중앙 빌더(`build-jdlab-hourly-queue.mjs`)가 병합·중복 제거·100개 캡을 처리한다.
 
-이게 어려운 이유는 "실제 발송" 때문이다. Hermes 래퍼가 이 파이프라인이 만든 큐를 Gmail로 실제 발송한다. 검증되지 않은 이메일이 들어가면 실제 사람에게 스팸이 간다.
+Hermes가 이걸 매시간 `jdlab_hourly_100_approval_queue.sh`로 실행하고, Claude Code가 실제 발굴과 드래프트 작성을 담당한다. 문제는 **Claude가 실제로 real 이메일을 발송한다**는 점이다. 가짜 이메일을 넣거나 검증 없이 통과시키면 실제 사업체에 엉뚱한 메일이 간다.
 
-## dedup: 529개 키를 피하는 문제
+이 전제가 안전 설계의 모든 것을 결정했다.
 
-파이프라인이 쌓일수록 재발굴이 쉬워진다. 이미 연락한 업체에 또 연락하면 스팸 신고다. 세션 4에서 dedupe 인덱스를 구축했을 때 이미 529개 URL 키, 464개 도메인, 383개 이메일이 소진된 상태였다.
 
-`build-jdlab-run-dedupe-index.mjs`를 만들어서 `outputs/approval_queue/` 아래 모든 prior 큐를 스캔하고, 레인 서브에이전트가 참조할 제외 목록을 생성하도록 했다. 서브에이전트 8개가 병렬로 뜰 때 이 인덱스를 읽으면 발굴 단계에서부터 중복을 걸러낸다.
+## 중복 제거 인덱스: 429개 URL 키에서 시작
 
-세션 4에서 처음 100개를 뽑았을 때 결과: pool 123개에서 역대 중복 2개 제거, 용량 초과 21개 보류, 최종 100개. `0 duplicates against history`.
-
-## `$4,495`가 이메일 100개를 막은 사건
-
-세션 7의 핵심 버그다.
-
-검증기(`validate-jdlab-queue.mjs`)는 첫 번째 이메일 초안에 `$\d` 패턴이 있으면 하드-실패다. 가격을 초안에 넣으면 스팸 필터와 불신 둘 다 유발한다. 문제는 Claude가 발굴한 사업체 홈페이지에 "$4,495 투어", "$60 Voodoo Experience" 같은 가격이 있었고, 그걸 카피 진단에 그대로 인용한 것이다. 사업체 본인 가격이지만 검증기 입장에서는 이유 불문 블락이다.
+세션 1에서 처음 중복 제거 인덱스를 만들 때, 이미 429개의 선행 URL 키, 390개의 도메인, 316개의 이메일이 쌓여 있었다. 세션 4에서는 529 URL / 464 도메인 / 383 이메일로 늘어났다.
 
 ```
-ValidationError: draft contains $4,495 — hard fail on $ + digit in first-touch copy
-items affected: 6
+dedupe_against_existing=true
 ```
 
-해결 방식: `build-jdlab-hourly-queue.mjs`에 사전 필터를 추가했다. 풀 로드 직후에 `$\d` 패턴이 있는 아이템을 `held_out` 파일로 분리하고, 안전한 아이템만 scoring/selection 단계에 넘긴다. 검증기의 패턴 감지 코드를 공유 함수로 추출해서 빌더와 검증기가 동일한 로직을 쓰도록 통일했다.
+이 플래그 하나가 실제로 하는 일은, 모든 기존 `outputs/approval_queue/` 파일을 스캔해 정규화된 URL 키와 이메일 키를 뽑아내고, 새 발굴 결과와 교차 검증하는 것이다. 세션 4에서 123개 풀에서 2개의 역사적 URL 중복, 21개의 용량 초과를 제거해 정확히 100개를 만들었다.
 
-## Codex 리뷰 루프: 구현 → BLOCK → 수정의 반복
+`build-jdlab-run-dedupe-index.mjs`를 별도로 뽑아낸 이유가 여기 있다. 각 레인 서브에이전트가 독립적으로 발굴하면서 서로 충돌하지 않으려면, 공유 회피 목록이 미리 준비되어 있어야 한다.
 
-세션 2, 6, 7, 9, 12 — 전부 Codex가 `VERDICT: BLOCK`을 냈고, 다음 세션에서 Claude가 수정하는 사이클이다.
 
-세션 9의 블로커 목록이 전형적이다.
+## Codex 리뷰 3라운드: 블로커마다 설계 결정이 숨어 있었다
 
-1. **쉘 스크립트 lock 복구 레이스**: 빈 PID 파일로도 락이 제거되는 경로 존재
-2. **같은 세션 내 URL/이메일 중복 허용**: cross-run dedup은 있는데 same-run이 없었다
-3. **Gmail 초안 스크립트 `--allowlist` 없이 실행 가능한 경로**: 허점 있는 gate
+가장 흥미로운 부분이다. Codex 리뷰가 `VERDICT: BLOCK`을 반환할 때마다 단순한 버그가 아니라 설계 결정이 드러났다.
 
-각각 수정 후 `jdlab_draft_gate.test.js`와 `jdlab_wrapper_safety.test.js`를 함께 작성했다. Codex가 "BLOCK"을 냈을 때 실제로 의미 있는 버그였다. 구현이 빠르기 때문에 외부 리뷰어 시점이 오히려 더 중요해진다.
+**1라운드 (세션 2)**: 락 파일 복구 레이스, cron PATH 문제, 같은 run 내 URL/이메일 중복. `~/.claude/settings.json`에 `Bash(*)`가 허용된 전역 설정이 있어도, cron 환경에서는 PATH가 다르게 잡힌다는 걸 놓쳤다. `jdlab_hourly_100_approval_queue.sh`, `validate-jdlab-queue.mjs`, 테스트 파일 3개를 수정했다. 총 Edit 12회, Bash 11회.
 
-## 핵심 안전장치: Bash 없는 Claude
+**2라운드 (세션 6, 7)**: 검증기가 첫 터치 카피에서 `$\d` 패턴을 하드-실패시키는 규칙이 있는데, 발굴된 사업체들이 자기 사이트에 가격을 적어둔다. "Starting at $4,495"가 있는 투어 회사를 발굴하면, 그 문장이 진단 내용으로 드래프트에 들어가고, 검증기가 큐 전체를 거부한다.
 
-세션 12에서 가장 중요한 변경이 들어갔다.
+해결은 두 단계였다. 먼저 검증기에서 내용 체크 로직을 공유 `detectHardFail()` 함수로 추출하고, 빌더에서 풀 로드 직후 하드-실패 후보를 걸러내는 사전 필터를 추가했다. 100개 큐를 만들기 전에 안전한 풀만 남기고 거기서 고르는 방식이다.
 
-Hermes cron에서 Claude를 비대화형으로 실행할 때, 잘못된 프롬프트나 외부 주입으로 셸 명령이 실행될 수 있다. `~/.claude/settings.json`에 `Bash(*)`가 있어도, 작업별 설정 파일과 플래그 조합으로 Bash 도구를 제거할 수 있다는 것을 실증했다.
+**3라운드 (세션 12)**: Codex가 요구한 것: 무인 Claude가 cron에서 실행될 때 Bash 툴이 실제로 없는지 경험적으로 증명하라는 것이었다.
 
-프로브 테스트 두 단계: 세션 10에서 `PROBE_OK`만 반환하는 프롬프트를 날렸고 응답이 돌아왔다. 세션 11에서 `Bash` 사용을 요청했더니 `NO_BASH — Bash tool not available here`가 반환됐다. Bash `tool_use` 0건 확인. 이 두 세션이 하드닝 전후의 검증이다.
+```bash
+claude --tools "" --no-settings-source user ...
+```
 
-`capture_critical_hashes()` 함수를 래퍼에 추가해서 Claude 실행 전후로 핵심 파일의 해시를 비교한다. Claude가 수정하면 안 되는 파일이 바뀌면 cron이 중단된다.
+이 플래그 조합으로 Claude를 실행하고, 내부에서 "Use the Bash tool to run: echo TAMPER_TEST"라고 프롬프트를 보내봤다. 응답이 `NO_BASH — Bash tool not available here.`였다. `~/.claude/settings.json`에 `Bash(*)`가 있어도 `--tools ""`가 오버라이드한다는 걸 실험적으로 확인했다.
 
-## 발굴 품질: WebFetch로 직접 검증
+이후 cron 래퍼에 `--tools ""` 플래그를 추가하고, Claude 종료 직후 중요 파일들의 해시를 캡처해 무결성을 검증하는 로직을 붙였다. Bash 12회, Edit 5회.
 
-세션 13-15에서 방향이 바뀐다. 이전까지는 WebSearch 결과로 추정했다면, 이후부터는 WebFetch로 실제 페이지를 열어서 이메일과 카피를 직접 확인한다.
 
-세션 14에서 WebFetch를 36회 사용한 게 그 결과다. `[email protected]`처럼 의도적으로 숨긴 이메일은 `not_found` 처리, 페이지에서 직접 발견한 이메일만 `public_email`에 넣는다. "INMERSE" 같은 실제 오타, "email a picture" 같은 모호한 CTA를 직접 확인하고 진단 근거로 삼는다. 추정이 아니라 증거 기반이다.
+## 실제 발굴: WebFetch로 모든 이메일을 온페이지에서 확인한다
 
-세션 14 최종 sendable 리드: `browser_verified` 34개, `not_found` 66개. 34개만 실제 발송 큐에 들어간다.
+세션 13, 14, 15에서 실제 발굴 방식을 볼 수 있다. 서치 결과에서 후보가 나오면, 반드시 `WebFetch`로 해당 페이지를 직접 불러와 온페이지 이메일과 실제 카피 문제를 확인한다.
+
+- 세션 13: WebFetch 30회, WebSearch 19회 → 16개 sendable + 13개 no-email
+- 세션 14: WebFetch 36회, WebSearch 19회
+- 세션 15: WebFetch 20회, WebSearch 12회
+
+중요한 원칙이 하나 있다. 페이지가 401이나 403으로 막히면 해당 리드를 `browser_verified` 대신 `live_unverified`로 표시한다. 페이지를 볼 수 없으면 카피 문제를 그라운드할 수 없기 때문이다. 검색 요약에서 이메일이 추출됐더라도, WebFetch로 온페이지에서 직접 확인하지 못하면 `not_found`로 처리한다.
+
+세션 15에서 버클리 크리크 B&B 홈페이지에서 직접 "INMERSE"라는 타이포를 발견한 게 좋은 예다. 서치 결과에는 보이지 않는다. 실제 페이지를 불러와야 보인다.
+
+
+## 검증기 vs 드래프트 게이트: 두 계층으로 분리한 이유
+
+`validate-jdlab-queue.mjs`와 `create-gmail-drafts-from-jdlab-queue.py`가 각각 별도로 안전 게이트를 갖고 있다. 중복처럼 보이지만 역할이 다르다.
+
+검증기는 큐 파일 자체의 구조와 내용을 검사한다. 드래프트 게이트는 Gmail API를 호출하기 직전에 실행되는 마지막 방어선이다. `--allow-lead-ids-file` 없이 드래프트 스크립트를 실행하면 실패한다. 세션 9에서 `--only-lead-id` 플래그를 추가해 단일 리드 수동 오버라이드도 막았다.
+
+`jdlab_gmail_reply_reconcile.py`가 드래프트 스크립트를 모듈로 임포트한다는 것도 확인했다. `load_credentials`와 HTTP 유틸만 재사용하고 `main()`은 절대 호출하지 않는다. 그래서 allowlist를 필수로 만들어도 Reply 플로우가 깨지지 않는다.
+
 
 ## 도구 사용 통계
 
-15세션, 614회 도구 호출:
+주요 세션 합산: Bash 130회+, Edit 90회+, WebFetch 100회+, WebSearch 60회+, Read 80회+, Agent 18회+. Claude Code가 단순 에디터가 아니라 실제 발굴 워커로 동작하는 패턴이 수치에 그대로 드러난다.
 
-- `Bash` 140회 — 검증 실행, 스크립트 테스트
-- `Read` 103회 — 스키마, 큐 파일, 레퍼런스 확인
-- `WebFetch` 94회 — 리드 직접 검증
-- `Edit` 80회 — 파일 수정
-- `Write` 57회 — 큐 JSON, 설정 파일 생성
-- `WebSearch` 50회 — 후보 발굴
-- `TaskUpdate` 40회, `TaskCreate` 24회
-
-수정 파일 13개, 생성 파일 56개.
-
-## 오늘 확인한 것들
-
-검증 루프를 얼마나 타이트하게 가져가냐가 핵심이다. Codex 리뷰 7라운드는 과한 게 아니다. 실제 이메일이 나가는 자동화에서 블로커 하나를 놓치면 스팸 신고나 도메인 평판 훼손으로 직결된다. Claude가 빠르게 구현하는 만큼, 외부 시점의 리뷰도 빠르게 돌아야 균형이 맞는다.
-
-공유 감지기 함수 하나로 빌더와 검증기를 통일하는 게 맞다. `$\d` 패턴을 두 군데에 따로 구현하면 한쪽만 업데이트됐을 때 구멍이 생긴다. 중복 구현은 유지보수 부채다.
-
-dedup은 발굴 단계에서부터 해야 한다. 조립 단계에서 제거하면 서브에이전트 8개가 중복 작업을 한 것이다. 제외 인덱스를 미리 주면 발굴 결과 자체가 달라진다.
+다음 작업은 8개 레인을 15개 이상으로 확장하고, 검색 전략을 회전/무작위화하는 것이다. 현재 파이프라인이 시간당 발송 가능한 리드를 10~17개밖에 못 찾는 이유가 레인 반복에 있다는 진단이 세션 19에서 나왔다.
