@@ -1,80 +1,146 @@
 ---
-title: "26 Sessions, 3 Safety Rounds: Running Claude Code as an Unattended Cron Worker"
+title: "Why 8 Lanes Could Only Find 17 Leads Per Hour — Redesigning an Outreach Pipeline with Claude Code"
 project: "portfolio-site"
 date: 2026-06-06
 lang: en
 pair: "2026-06-06-portfolio-site-ko"
-tags: [claude-code, automation, cron, safety, outreach-pipeline]
-description: "What it takes to harden Claude Code for unattended cron use: 26 sessions, 600+ tool calls, Bash tool isolation, and on-page email verification before any draft hits Gmail."
+tags: [claude-code, automation, cron, safety, outreach-pipeline, codex-review]
+description: "32 sessions, 5 Codex BLOCK verdicts, and a triple safety gate. How I rebuilt a Claude Code outreach pipeline from 17 to 100+ verified leads per hour."
 ---
 
-26 sessions in a single day. Over 600 tool calls. Not from an interactive session — from an unattended cron job running Claude Code every hour.
+32 sessions. 600+ tool calls. Five times Codex returned `VERDICT: BLOCK`. Each fix exposed a different failure mode. The end result: a headless cron pipeline where Claude Code discovers real business emails and writes outreach drafts — with Bash access locked out entirely.
 
-**TL;DR** Automated an outreach pipeline using Claude Code as the prospecting and drafting engine, scheduled via Hermes cron. Shipping it safely required three rounds of hardening: fixing Codex-flagged blockers, stripping Bash tool access in headless mode, and enforcing on-page email verification before any draft touches Gmail. The design principle that shaped everything: assume Claude will actually send real emails.
+**TL;DR:** I run an automated global small-business outreach pipeline on hourly cron using Claude Code as the worker. After 5 Codex review rounds, I had a triple-layer safety gate. Then session 19 revealed the real bottleneck: 8 discovery lanes were generating only 10–17 verified leads per hour despite a 100-lead queue target. Root causes: 3 of 8 lanes are marketplaces with no direct email access, and per-lane queries weren't rotating. The redesign targets 15+ lanes with randomized query rotation.
 
-## The Pipeline: 8 Lanes, 100 Leads per Hour
+## Why Claude Sending Real Emails Changes Everything
 
-The JDLab outreach pipeline has a simple structure. Eight discovery lanes (`shopify_selfhosted`, `us_google_local`, `yelp_local_service`, `tripadvisor_hospitality`, `linkedin_b2b`, `amazon_seller`, `etsy_seller`, `walmart_ebay`) prospect independently. A central builder (`build-jdlab-hourly-queue.mjs`) merges results, deduplicates, and enforces a 100-lead cap.
+The pipeline architecture is simple on paper. Eight discovery lanes — `shopify_selfhosted`, `us_google_local`, `yelp_local_service`, `tripadvisor_hospitality`, `linkedin_b2b`, `amazon_seller`, `etsy_seller`, `walmart_ebay` — surface candidate businesses. A builder script (`build-jdlab-hourly-queue.mjs`) merges the candidates, deduplicates against historical output, and caps at 100. Hermes executes `jdlab_hourly_100_approval_queue.sh` on the hour. Claude Code handles both discovery and draft generation.
 
-Hermes runs the whole thing hourly via `jdlab_hourly_100_approval_queue.sh`. Claude Code handles actual prospecting and draft writing. The constraint that shaped every other decision: **Claude sends real emails to real businesses.** Fake addresses, unverified contacts, or a copy filter slip means a legitimate hospitality business gets a nonsense cold email.
+What makes the design constraint unusually strict: **Claude sends the outreach emails to real business owners.** Not test data. Not synthetic targets. Real people at real businesses.
 
-That constraint drove the entire safety architecture.
+That single constraint propagated through every architectural decision. A fake email domain means a bounce. An unverified address means a complaint. A copy diagnosis based on fabricated observations means an owner gets an email about problems their site doesn't have. Each failure mode is bad in a different way, and all of them are automatable at scale.
 
-## The Dedupe Index: Starting from 429 URL Keys
+This is why Codex blocked the pipeline five times. Not because the code was obviously broken — because each blocker was a plausible path to the wrong person getting the wrong email.
 
-By session 1, the deduplication index already contained 429 URL keys, 390 domains, and 316 emails from prior runs. By session 4 it had grown to 529 URLs / 464 domains / 383 emails.
+## Building the Dedup Index Before Lanes Run
 
-```
-dedupe_against_existing=true
-```
+By session 1, the existing `outputs/approval_queue/` directory had accumulated 429 URL keys, 390 domains, and 316 emails across prior runs. By session 4: 529 URLs / 464 domains / 383 emails.
 
-That flag does one thing: scan all existing `outputs/approval_queue/` files, extract normalized URL and email keys, and cross-check against every new prospecting result before it enters the pool. In session 4, starting from a pool of 123, the deduper removed 2 historical URL duplicates and 21 over-capacity entries — landing at exactly 100.
+The `dedupe_against_existing=true` flag triggers a full directory scan at startup, extracts normalized keys from every historical file, and pre-loads them into memory before any discovery lane runs. In session 4, from a 123-candidate pool, the dedup step removed 2 historical URL duplicates and 21 over-cap entries — landing exactly at 100.
 
-This is why `build-jdlab-run-dedupe-index.mjs` was extracted as a standalone step. Each lane subagent prospects independently. For them not to conflict, the shared avoidance list has to be materialized before any lane starts.
+The reason `build-jdlab-run-dedupe-index.mjs` exists as a standalone script rather than inline logic: when 8 lane sub-agents fan out in parallel, they all read from the same shared avoidance list. Build the index first, lock it, then fan out. Otherwise two lanes can discover the same URL before either has recorded it.
 
-## Three Codex Review Rounds — Each Blocker Was a Design Decision
+## Five VERDICT: BLOCK Rounds, Five Different Root Causes
 
-Every time Codex returned `VERDICT: BLOCK`, it wasn't a trivial bug — it exposed an architectural gap.
+What makes this sequence instructive isn't the count — it's that each blocker hit a different layer of the system.
 
-**Round 1 (Session 2):** Lock file recovery race condition, PATH resolution in cron environment, within-run URL and email duplicates. The gap: `~/.claude/settings.json` had `Bash(*)` globally, but cron runs with a different PATH. PATH-dependent tools silently failed instead of throwing. Fixed `jdlab_hourly_100_approval_queue.sh`, `validate-jdlab-queue.mjs`, and three test files. 12 Edit calls, 11 Bash calls.
+**Round 1 — Environment and Concurrency (Session 2)**
 
-**Round 2 (Sessions 6–7):** The validator hard-fails any draft containing a `$\d` pattern — dollar sign immediately followed by digits. Solid rationale: pricing language in first-touch cold email is a spam trigger. The problem: Claude was pulling prices from the businesses' own websites as copy diagnosis observations. A tour company with "Starting at $4,495" on their homepage would have that text appear in the draft, and the validator would reject the entire 100-lead queue.
+Three distinct issues: a lock file recovery race condition where two processes could try to unlock simultaneously; PATH not being set correctly in cron (the daemon inherits a minimal environment, not your shell profile); URL/email duplicates appearing within a single run when the same lane sub-agent discovered the same target via two different search queries.
 
-The fix was two-pronged. Extract the detection logic into a shared `detectHardFail()` function. Add a pre-filter in the builder that runs `detectHardFail()` immediately after loading the pool — before building the final 100. Only safe candidates enter the selection pool; 100 leads are assembled from that clean pool.
+Fixed `jdlab_hourly_100_approval_queue.sh`, `validate-jdlab-queue.mjs`, and three test files. Explicit PATH hardcoding in the cron wrapper. Mutex-based lock handling. Within-run dedup tracking separate from the historical index. 12 Edits, 11 Bash calls.
 
-**Round 3 (Session 12):** Codex required empirical proof that Bash tool access was actually absent when Claude ran headless in cron. Not "we set a flag." Actually demonstrate it.
+**Round 2 — Content Pattern False Positives (Session 6)**
+
+The validator had a hard-fail rule on `$\d` patterns in first-touch copy. The intent: prevent Claude from opening outreach with pricing. The problem: businesses put their prices on their own websites.
+
+Discovery flow: Claude fetches a tour company's homepage, finds "Starting at $4,495" in the services section, includes that in the copy diagnosis ("we noticed your site describes tours starting at $4,495…"), validator reads `$4,495`, matches the `$\d` pattern, rejects the entire queue.
+
+Fix: a general payment language exception pattern that distinguishes pricing cited as factual context from pricing pitched in the outreach copy itself. Added test cases for the specific pattern.
+
+**Round 3 — Fix the Source, Not the Symptom (Session 7)**
+
+Codex's Round 3 block was about Round 2's fix. Adding an exception pattern to the validator addresses detection but not generation: Claude is still writing drafts that reference business pricing, which is a signal quality issue regardless of whether the validator catches it.
+
+The architectural change: extract all content check logic into a `detectHardFail()` function. Add pre-filtering in the builder — immediately after loading the full candidate pool, run `detectHardFail()` on every candidate and drop hard-fail entries before the 100-cap selection runs. The validator still exists, but it's now a final check on a pre-filtered pool rather than the first line of defense against avoidable content.
+
+The shift: from "reject bad output" to "don't generate bad output." The 100-cap selection runs on a clean pool.
+
+**Round 4 — Incomplete Gate Enforcement (Session 9)**
+
+The Gmail draft script (`create-gmail-drafts-from-jdlab-queue.py`) had an execution path that could run without `--allow-lead-ids-file`. That flag is the explicit allowlist — it gates which lead IDs the script may draft for. Without it, the script could draft against any lead ID passed to it.
+
+The `--only-lead-id` manual test override was also unblocked in automated runs. Hardened both paths. Added explicit JSON write instructions to the wrapper prompt. 12 Edits, 11 Reads.
+
+**Round 5 — Prove Bash Isolation Empirically (Session 12)**
+
+Codex's final demand: don't assert Claude has no Bash access in cron — demonstrate it experimentally.
 
 ```bash
 claude --tools "" --no-settings-source user ...
 ```
 
-Running Claude with that flag combination and then prompting internally with "Use the Bash tool to run: echo TAMPER_TEST" returned `NO_BASH — Bash tool not available here.` Even with `Bash(*)` in `~/.claude/settings.json`, `--tools ""` overrides it. Confirmed experimentally. After that: `--tools ""` added to the cron wrapper, plus a post-exit integrity check that captures file hashes immediately after Claude terminates. 12 Bash calls, 5 Edit calls.
+With that invocation, the internal prompt was: "Use the Bash tool to run: echo TAMPER_TEST." Response:
 
-## Real Prospecting: Every Email Verified On-Page with WebFetch
+```
+NO_BASH — Bash tool not available here.
+```
 
-Sessions 13, 14, and 15 show the prospecting loop in action. When a search result surfaces a candidate, the pipeline always calls `WebFetch` to load the actual page and verify the email and copy directly on-page.
+Key finding: `--tools ""` overrides `Bash(*)` set in `~/.claude/settings.json`. The settings file grants permission; the CLI flag revokes it at invocation time. Confirmed empirically. Flags added to the cron wrapper.
 
-- Session 13: 30 WebFetch calls, 19 WebSearch calls → 16 sendable + 13 no-email
-- Session 14: 36 WebFetch calls, 19 WebSearch calls
-- Session 15: 20 WebFetch calls, 12 WebSearch calls
+Second addition: immediately after Claude exits, capture SHA-256 hashes of critical output files and compare against pre-run hashes. Any unexpected hash change triggers a cron alert.
 
-One non-negotiable rule: if a page returns 401 or 403, the lead gets flagged `live_unverified` instead of `browser_verified`. Can't ground the copy diagnosis if the page is inaccessible. If an email was extracted from a search snippet but couldn't be confirmed on the actual page via WebFetch, it gets marked `not_found`.
+**The three-layer stack after Round 5:**
 
-Session 15 had a concrete example: a B&B homepage showed "INMERSE" — a real typo. It doesn't appear in search results. It only surfaces if you actually fetch the page. That's the kind of personalized hook that makes cold outreach work.
+1. **Pre-filter** in `build-jdlab-hourly-queue.mjs` — `detectHardFail()` before candidate selection
+2. **Validator** in `validate-jdlab-queue.mjs` — format and content checks on the final queue
+3. **Cron wrapper** — `--tools ""` Bash isolation + post-run hash integrity verification
 
-## The Two-Tier Gate: Why Validator and Draft Gate Are Separate
+## How Discovery Works: WebFetch on Every Candidate Page
 
-`validate-jdlab-queue.mjs` and `create-gmail-drafts-from-jdlab-queue.py` each have independent safety gates. It looks like redundancy. It isn't.
+Sessions 13, 14, and 15 were pure discovery runs. Tool call distribution:
 
-The validator inspects the queue file itself — structure, content patterns, deduplication state. The draft gate is the last line of defense before the Gmail API gets called. Running the draft script without `--allow-lead-ids-file` causes it to fail hard. In session 9, a `--only-lead-id` flag was added to block manual single-lead overrides from bypassing the allowlist check.
+- **Session 13:** WebFetch ×30, WebSearch ×19 → 16 sendable, 13 no-email
+- **Session 14:** WebFetch ×36, WebSearch ×19
+- **Session 15:** WebFetch ×20, WebSearch ×12
 
-`jdlab_gmail_reply_reconcile.py` imports the draft script as a module and reuses `load_credentials` and HTTP utilities — but `main()` is never called. Making the allowlist mandatory doesn't break the reply reconciliation flow because the reply script never invokes the draft pipeline's entry point.
+The pattern: every search result that surfaces a candidate triggers a `WebFetch` to the actual business page. The email is verified on-page — not extracted from a search snippet. If the page returns 401 or 403, the lead is marked `live_unverified` instead of `browser_verified`. If a search snippet contained an email but `WebFetch` couldn't confirm it on-page, the lead is `not_found`.
 
-## Tool Call Statistics
+This matters because search snippets can be stale. A business might have removed their contact email after a spam wave. Their cached listing still shows the old address. WebFetch-based verification catches that.
 
-Aggregated across key sessions: 130+ Bash, 90+ Edit, 100+ WebFetch, 60+ WebSearch, 80+ Read, 18+ Agent calls. The WebFetch-to-WebSearch ratio reflects the pipeline's philosophy: search to discover, fetch to verify. Every unverified lead is a liability.
+Concrete example from session 15: a visible typo — "INMERSE" — on the Berkeley Creek B&B homepage, in the services section. Not present anywhere in search results. Only visible by loading the actual page. That kind of specific, verifiable observation makes outreach credible: "I noticed a typo on your site" is something the owner can check immediately.
 
-Next: expand from 8 lanes to 15+, and rotate search strategies across runs. Session 19 diagnosed the bottleneck — lane repetition. The pipeline surfaces only 10–17 sendable leads per hour because the same search patterns keep hitting the same results. Randomizing the search rotation is the fix.
+Session 15 also logged a note on lane-level WebFetch behavior: self-hosted and local business sites are mostly fetchable; Amazon and Etsy marketplace pages block WebFetch at the CDN level. That note became directly relevant in session 19.
+
+## The Real Problem: Why 8 Lanes Produced 17 Sendable Leads Per Hour
+
+Session 19 was the diagnostic session. The pipeline was functioning correctly — 100-lead queues, hourly execution, safety gates passing. But of those 100 leads, only 10–17 were `sendable`: verified public email addresses Claude could write outreach for.
+
+That's a 10–17% usable rate on a 100-lead queue. The other 83–90% were no-email, marketplace-gated, or unverified.
+
+**Root cause 1: Marketplace lanes with no direct email access**
+
+Three of the eight lanes — `amazon_seller`, `etsy_seller`, `walmart_ebay` — are marketplace lanes. Sellers on these platforms don't expose direct emails. Contact routes through the marketplace messaging system. These three lanes were occupying 30–40% of the candidate pool while contributing near-zero to `sendable` count.
+
+**Root cause 2: Static query rotation**
+
+Each lane ran the same WebSearch queries every hour. With a 529-URL dedup history growing every run, the same queries were increasingly likely to surface already-seen URLs. The pipeline wasn't exploring new space — it was re-scanning the same territory with a growing list of results to discard.
+
+**The redesign target:**
+
+- Expand from 8 lanes to 15+, adding high-email-density categories: local service businesses, B2B SaaS, independent e-commerce, direct-booking hospitality
+- Rotate query terms per lane per run, randomizing on geography, service category, and business size signals
+- Redefine marketplace lanes as **copy-diagnostic sample lanes**: output isn't outreach targets, it's patterns for understanding how marketplace sellers self-describe — which informs copy quality for other lanes
+
+Session 19 ended at planning: reading all five relevant files, mapping the validator and test structure, understanding the lane transition logic. Implementation scoped to the next session.
+
+## Two Side Crons Running the Same Day
+
+Session 16 ran a Korean medical/dental advertising research cron. Two official announcements dropped that day: `32028` — veterinary clinic place ad category restructure (effective 2026-06-11) — and `28168` — ADVoost Screen DOOH elevator media addition. Both verified via WebFetch against official pages before inclusion in the report. 21 Bash, 6 Read, 2 Write.
+
+Sessions 17 and 18 generated a daily "earning $10/day with AI" report. Session 17 built the report; session 18 applied a Codex correction — replacing an unsupported `카카오페이` payment reference with `계좌/Toss 직접송금` (direct bank transfer). 8 Bash, 3 Edit, 14 total tool calls.
+
+Both projects run on automated cron schedules. The consistent pattern across all three: Claude Code as a scheduled worker producing defined deliverables at defined times, not an assistant responding to ad-hoc queries.
+
+## Tool Call Breakdown Across 32 Sessions
+
+Aggregated across key sessions: Bash 130+, Edit 90+, WebFetch 90+, WebSearch 60+, Read 80+, Agent 16+.
+
+Sessions with high Edit counts (2, 5, 6, 7, 9) map exactly to Codex fix rounds. Sessions with heavy WebFetch/WebSearch (13, 14, 15) are discovery runs. The modes don't mix — implementation sessions and exploration sessions are cleanly separated at the session boundary.
+
+The Codex review loop's value: it surfaces boundary conditions invisible during implementation. The highest-impact blocker was Round 3 — the upstream pre-filter shift. During implementation, the logic felt complete: "if the validator rejects it, the draft doesn't get sent." Codex's counterargument: the validator runs after discovery and selection. By the time it rejects a candidate, Claude has already spent tool calls fetching and analyzing that business. Moving the filter upstream — before the 100-cap selection — means Claude never does work on candidates that will be rejected.
+
+The principle generalizes: filter before you select, not after. Validation at the end catches errors. Filtering at the beginning prevents waste.
 
 ---
 
