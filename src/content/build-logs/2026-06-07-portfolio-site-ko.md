@@ -1,76 +1,64 @@
 ---
-title: "포트폴리오 리포지셔닝 — '빌더'에서 '스튜디오'로, 10개 파일 수정"
+title: "Claude Code 글로벌 아웃리치 자동화: WebSearch가 이메일을 할루시네이션한다"
 project: "portfolio-site"
 date: 2026-06-07
 lang: ko
-tags: [claude-code, astro, portfolio, repositioning, react]
-description: "Astro 포트폴리오 10개 파일 수정. 'solo AI builder'에서 '1인 AI 제품 스튜디오'로 포지셔닝 전환. Hero 헤드라인, Capabilities 항목 재배치, Projects caseStatus 타입 추가, About CTA 구조화까지 기록."
+tags: [claude-code, automation, outreach, local-commerce, claude-opus]
+description: "하루 9번 자동 실행, 641번의 tool call. Claude Code로 글로벌 카피 아웃리치를 자동화하면서 발견한 것: WebSearch 요약 모델은 이메일 주소를 할루시네이션한다."
 ---
 
-프레임은 "나는 매일 만든다"였다. 바꿔야 할 이유는 하나였다 — 일을 의뢰하려는 사람이 먼저 보는 건 내가 얼마나 열심히 짜는지가 아니라 그게 자기 문제를 해결하는지다.
+하루에 9번, Claude Opus 4.8이 자동으로 실행됐다. 매 시간마다 220개의 검증된 이메일 리드를 목표로 15개 레인을 탐색하고, 실제 웹페이지를 방문해서 on-page 증거를 수집하고, 개인화된 카피 진단 이메일 초안을 작성한다. 9개 세션, 총 641번의 tool call, 소요 시간 약 3.5시간.
 
-**TL;DR** `Hero.tsx`, `About.astro`, `Capabilities.astro`, `Projects.tsx`, `home.ts`, `index.astro` 등 10개 파일을 수정했다. "solo AI builder"에서 "1인 AI 제품 스튜디오"로 포지셔닝을 전환하고, 기능 나열 대신 산출물(MVP, 자동화, 진단 리포트) 중심으로 메시지를 재구성했다.
+**TL;DR** WebSearch 요약 모델은 이메일 주소와 도메인을 꾸며낸다. 이메일 파이프라인을 신뢰하려면 WebFetch로 실제 페이지를 직접 확인해야 한다.
 
-## "매일 운영한다"가 틀린 이유
+## 파이프라인이 하는 일
 
-기존 Hero 헤드라인:
+`/jdlab-daily-cron`이 트리거되면 Claude는 15개 레인에 걸쳐 공개 이메일을 가진 독립 소규모 사업체를 발굴한다. 레인은 `us_home_services`, `us_food_cafe`, `us_pet_services`, `uk_ie_local_services`, `shopify_dtc` 등으로 나뉜다. 각 레인에서 발굴된 후보를 실제 페이지 방문으로 검증하고, 검증된 리드에 한해 사업체 홈페이지에서 실제 카피를 인용한 진단 이메일 초안을 작성한다.
 
-```
-AI 제품을 만들고, 고치고, 매일 운영한다.
-```
+출력물은 레인별 `{items:[...]}` JSON 파일이다. 각 `item`에는 사업체 이름, 이메일, on-page 인용문, Before/After 카피 진단, `conversion_fit_score`가 들어간다. 이 JSON을 downstream 빌더/밸리데이터가 읽어서 Gmail 초안을 생성한다. 빌더는 안전 게이트와 품질 게이트를 모두 통과한 항목만 선택하기 때문에, 잘못된 이메일 하나가 전체 런을 망친다.
 
-이건 내 루틴이지 고객의 문제가 아니다. eyebrow 텍스트도 `independent AI product builder`로, 개인 개발자 포지셔닝에 가깝다.
+## 220개 목표와 현실 사이
 
-After:
+세션마다 목표 리드 수는 `target=220`이었다. 실제 런마다 검증된 리드는 10개에서 많아야 19개였다.
 
-```
-작은 사업 문제를 AI 제품·자동화·리포트·웹 MVP로 바꾼다.
-```
+이 차이는 에이전트 실패가 아니다. 진짜 공개 이메일을 가진 독립 사업체는 생각보다 적다. 검색 결과의 상당수는 Yelp, Google Maps, 예약 플랫폼 같은 애그리게이터다. 자체 도메인을 가진 사업체도 절반 정도는 컨택폼만 제공한다. 나머지 절반에서 공개 이메일이 나온다. 이 현실을 에이전트가 런마다 `jdlab-lane-reachability.md` 메모리에 업데이트했다.
 
-eyebrow는 `one-person AI product studio`로 바꿨다. "builder" → "studio"는 1글자 바꿈이 아니다. builder는 무언가를 만드는 사람이고, studio는 의뢰를 받아 납품하는 조직이다. 1인이지만 studio 프레임이 고객 관계를 다르게 설정한다.
+세션 3에서 에이전트가 명시적으로 기록한 것: "120개 검증된 공개 이메일에 도달하려면 250개 이상의 성공적인 페이지 페치가 필요하고, 한 세션에서 정직한 품질로는 불가능하다." 파이프라인이 스스로 자신의 한계를 인정한 것이다.
 
-Hero 메타 블록도 `stack: TypeScript · Next.js · Astro`를 `output: 제품 · 자동화 · 리포트`로 교체했다. 스택보다 산출물이 먼저 보여야 한다. 버튼 순서도 [프로젝트 보기, 하는 일] → [하는 일, 작업 사례]로 바꿨다. 첫 버튼이 포트폴리오로 튀어나가는 것보다 "하는 일"을 먼저 설명하는 게 의뢰 흐름에 맞는다.
+## WebSearch가 이메일을 꾸며낸다
 
-## Capabilities 4개 항목 전면 재배치
+세션 7에서 가장 중요한 발견이 나왔다.
 
-기존:
+WebSearch 요약 모델은 검색 결과를 요약하는 과정에서 존재하지 않는 이메일 주소와 도메인을 생성한다. 실제 사례: 검색 요약에서 `austinpettingsservices.com`이라는 도메인과 `info@walkatx.com`이라는 이메일이 나왔다. 실제 사업체 도메인은 `austinpetsittingservices.com`이었고 이메일도 달랐다. 요약 모델이 그럴듯하지만 틀린 문자열을 만들어낸 것이다.
 
-1. AI products end-to-end
-2. 운영 자동화
-3. **작은 웹 제품·사이트**
-4. **빌드 로그·기술 글쓰기**
+이 발견은 파이프라인 전체 설계에 영향을 준다. WebSearch 결과를 신뢰하고 이메일을 직접 쓰면 잘못된 주소로 이메일이 발송된다. 해결책은 하나다: 모든 이메일 주소를 WebFetch로 실제 페이지에서 직접 확인한다. 스니펫 요약을 신뢰하지 않는다.
 
-4번 "빌드 로그·기술 글쓰기"가 의뢰 전환에 기여하는지 의심이었다. 글쓰기는 능력이지만 고객이 살 수 있는 산출물이 아니다.
+## 이메일 검증 규율: 한 글자가 스팸이 된다
 
-After:
+검증이 얼마나 중요한지 보여주는 사례가 세션 1에서 나왔다. Toyne이라는 사업체의 이메일이 검색 스니펫에서 `craig@`으로 나왔다. 실제 페이지를 방문했더니 `admin@`이었다. 다른 사업체(Hair Studio Day Spa)는 스니펫 이메일이 `hairstudiodaypa@gmail.com`이었고 실제와 달랐다. 한 글자 차이. 그냥 썼으면 의도하지 않은 사람에게 이메일이 갔거나 바운스됐다.
 
-1. AI 제품/MVP 제작
-2. 비즈니스 자동화
-3. **진단 리포트/HTML·PDF 산출물**
-4. **웹/랜딩/운영 도구**
+에이전트가 자체 기록한 원칙: "자동 발송 파이프라인에서 검증되지 않은 이메일은 포함하지 않는다." 그래서 검증 실패한 리드는 `not_found`로 정직하게 기록했다. 숫자를 채우기 위해 검증 기준을 낮추지 않았다.
 
-3번이 "작은 웹 제품"에서 "진단 리포트"로 바뀐 게 핵심이다. 치과 광고 진단, Open Design local 리포트 작업을 실제로 하면서 HTML/PDF 납품이 뚜렷한 의뢰 단위가 됐다. 이건 Capabilities에 올라와 있어야 할 항목이었다.
+## WebFetch의 PII 보호도 변수다
 
-각 항목의 `ko_meta`도 내부 slug(`uddental · contextzip · agentcrow`) 대신 읽히는 이름(`Dental AI Ads · AgentCrow · dev.to mirror`)으로 정리했다.
+세션 7에서 또 하나의 제약이 확인됐다. WebFetch가 대부분의 이메일을 `[email protected]`으로 리댁팅한다. PII 보호 때문이다. 그래서 WebFetch만으로 이메일 주소를 얻을 수 없는 경우가 있다. 실제로 수집 가능한 이메일은 검색 스니펫에 이미 노출된 것(하지만 신뢰 불가), 또는 페이지 HTML에서 리댁팅을 피한 것이다.
 
-## Projects: caseStatus 타입과 problem/did/output 필드
+결과적으로 두 가지 신호를 교차 검증해야 한다: 검색 스니펫에서 이메일 후보를 수집하고, 실제 페이지 방문으로 도메인·사업체 실재 여부를 확인하되, 스니펫 이메일이 페이지의 실제 이메일과 일치하는지 검증하는 방식이다. 두 신호가 모두 맞아야 포함한다.
 
-`home.ts`에 `CaseStatus` 타입을 추가했다.
+## 도구 사용 현황
 
-```typescript
-export type CaseStatus = '운영' | '검증' | '실험' | '보류';
-```
+8개 세션 기준 집계:
 
-기존 `status: 'live' | 'dev' | 'beta'`로는 "지금 쓰이는 중"과 "검증 중"을 구분할 수 없었다. `fortunelab`은 검증(결제 이관 중), `claudebook`은 실험, `coffeechat`은 보류. `Projects.tsx`도 `StatusTone` 타입을 추가하고 `cardMeta()`가 `caseStatus`를 우선 사용하도록 바꿨다.
+| 도구 | 사용 횟수 |
+|------|----------|
+| WebFetch | 약 253 |
+| WebSearch | 약 135 |
+| Write | 약 128 |
+| Read | 약 35 |
+| Edit | 약 7 |
 
-`problem`, `did`, `output` 필드도 각 프로젝트에 추가했다. 카드 뷰에 바로 쓰이진 않지만, 프로젝트 상세에서 "문제 → 해결 → 결과" 구조를 미리 데이터 레이어에 만들어뒀다.
+WebFetch가 WebSearch보다 약 두 배 많다. 검색보다 검증에 더 많은 시간을 쓴 셈이다. 이게 이 파이프라인의 정직한 작동 방식이다.
 
-## About: CTA 구조화와 SEO
+## 남은 것
 
-About 섹션에서 기존엔 이메일 링크가 본문 마지막 줄에 텍스트로 박혀 있었다. 이제 `contact-panel`로 분리했다. "문의할 땐 문제, 현재 쓰는 도구, 원하는 산출물, 마감만 보내면 된다." — 의뢰 단계에서 필요한 정보를 미리 정의해두는 방식이다.
-
-spec 행도 `available: 컨설팅 · 외주 · 강연` → `MVP · 자동화 · 진단 리포트`로 바꿨다. `index.astro` SEO 제목도 "AI 프로덕트를 짓고 운영하는 한 사람"에서 "AI 제품, 자동화, 리포트를 만드는 1인 스튜디오"로 교체했다. Google 검색 snippet에 보이는 게 이 줄이다.
-
-## 도구 사용
-
-변경 파일 10개. Astro 컴포넌트 5개, React 컴포넌트 2개, TypeScript 데이터 파일 1개, Astro 페이지 1개, CSS 1개. 새 파일 없음. Read로 기존 구조 파악 → Edit으로 교체하는 흐름이었다.
+아웃리치 파이프라인의 현실적인 throughput이 런당 10~20개 검증 리드라는 게 이제 명확하다. 목표값 220은 파이프라인이 무엇을 노릴 때 의미 있는지 다시 생각하게 만든다. 레인 다양화, 검색 쿼리 최적화, 검증 자동화를 통해 처리량을 늘리거나, 아니면 더 높은 품질의 더 적은 수의 리드로 전략을 바꾸거나. 어느 쪽이든, WebSearch 결과를 그대로 믿으면 안 된다는 것은 확인됐다.
