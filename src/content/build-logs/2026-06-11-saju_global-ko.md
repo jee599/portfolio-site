@@ -1,91 +1,82 @@
 ---
-title: "Claude Haiku로 궁합 콘텐츠 자동 생성: 사주·별자리 조합을 JSON으로"
+title: "claude-haiku로 사주 궁합 콘텐츠 자동 생성 — 5가지 띠·별자리 조합, 0줄 수정"
 project: "saju_global"
 date: 2026-06-11
 lang: ko
-tags: [claude-code, haiku, content-generation, multilingual, json, astrology]
-description: "saju_global 앱에서 Claude Haiku를 활용해 동양 12지지·서양 별자리 궁합 설명을 다국어 JSON으로 자동 생성한 과정. 하루 5개 조합, tool call 0번."
+tags: [claude-code, claude-haiku, content-generation, saju, astrology, multilingual]
+description: "saju_global 프로젝트에서 claude-haiku-4-5로 12간지·서양 별자리 궁합 텍스트를 자동 생성. 5세션, 0줄 코드 수정, 구조화된 JSON 출력."
 ---
 
-하루 5개 궁합 조합, tool call 0번, 파일 수정 0개. saju_global에서 Claude Haiku가 하는 일은 코드 편집이 아니라 순수한 콘텐츠 생성이다.
+5개 세션, tool call 0회, 수정 파일 0개. `saju_global`에서 Claude Haiku가 한 일은 코드 수정이 아니라 순수한 콘텐츠 생산이었다.
 
-**TL;DR** Claude Haiku에게 점수·관계 유형·언어를 넘기면 3단락 설명 + FAQ 3쌍을 구조화된 JSON으로 돌려준다. 사람이 직접 쓰던 궁합 설명을 모델이 대체한다.
+**TL;DR** `claude-haiku-4-5-20251001`을 콘텐츠 생성 API로 써서 12간지·서양 별자리 궁합 텍스트를 다국어로 자동 생산한다. 프롬프트 템플릿만 잘 짜면 JSON 포맷 그대로 나온다.
 
-## saju_global이 뭔가
+## 뭘 만드는 앱인가
 
-글로벌 사주·별자리 궁합 서비스다. 동양 12지지(子·丑·寅...)와 서양 12별자리(양자리~물고기자리)를 아우르는 궁합 콘텐츠를 다국어로 제공한다. 오늘 세션에서 생성한 조합은 다섯 가지다.
+`saju_global`은 글로벌 사주·별자리 궁합 서비스다. 12간지(Chinese Zodiac)와 서양 별자리(Western Astrology) 두 축으로 궁합을 계산하고, 각 조합에 대한 설명 텍스트를 다국어로 제공한다.
 
-- 말 × 닭 (Chinese Zodiac) — 40점, overcoming
-- 쥐 × 용 (Chinese Zodiac) — 65점, overcoming  
-- 토끼 × 원숭이 (Chinese Zodiac) — 40점, overcoming
-- 염소자리 × 처녀자리 (Western) — 100점, same
-- 물병자리 × 염소자리 (Western) — 45점, opposing
+오늘 세션에서 생성한 조합은 다섯 가지다. 말 × 닭(40점), 쥐 × 용(65점), 토끼 × 원숭이(40점)가 Chinese Zodiac 쪽이고, 염소자리 × 처녀자리(100점)와 물병자리 × 염소자리(45점)가 서양 별자리 쪽이다. 관계 유형은 `same`, `overcoming`, `opposing` 세 가지로 분류되고, 오늘은 `overcoming`이 세 쌍으로 가장 많았다.
 
-## 프롬프트 패턴
+## 프롬프트 구조가 핵심이다
 
-모든 세션의 프롬프트 구조가 동일하다.
+모든 세션의 프롬프트는 동일한 템플릿을 따른다.
 
 ```
-Generate a 3-paragraph compatibility description for {animal_a} and {animal_b}
-({category}) in the target language.
+Generate a 3-paragraph compatibility description for {animal1} and {animal2}
+({system}) in the target language.
 Score: {score}/100, Relationship: {relationship}.
 
 Paragraph 1: Overall compatibility summary (2-3 sentences).
   Start with the core answer: reference the specific score and relationship.
 Paragraph 2: Strengths of this pairing (2-3 sentences).
-  Reference specific elements and interactions.
 Paragraph 3: Potential challenges and advice (2-3 sentences).
 
 Also generate 3 FAQ Q&A pairs about this combination...
 ```
 
-`in the target language`가 핵심이다. 언어를 명시하지 않고 컨텍스트에서 타깃 언어를 추론하도록 한다. 오늘 출력은 모두 중국어(简体)였다.
+`{system}` 자리에 `Chinese Zodiac` 또는 `Zodiac Sign (Western Astrology)`가 들어가고, 점수와 관계 유형이 함께 주입된다. `target language`는 클라이언트에서 동적으로 주입되는 언어값이다. 오늘 세션들의 출력은 전부 중국어 간체(简体中文)였다.
 
-## 출력 구조
+## 출력 포맷: 구조화된 JSON 응답
 
-반환값은 두 키를 가진 JSON이다.
+Haiku가 돌려준 결과는 일관된 JSON 구조다.
 
 ```json
 {
   "description": [
-    "단락 1: 점수와 관계 유형을 명시한 전체 요약",
-    "단락 2: 이 조합의 강점",
-    "단락 3: 잠재적 갈등과 조언"
+    "단락 1 텍스트",
+    "단락 2 텍스트",
+    "단락 3 텍스트"
   ],
   "faq": [
-    { "q": "...", "a": "..." },
-    { "q": "...", "a": "..." },
-    { "q": "...", "a": "..." }
+    { "q": "질문 1", "a": "답변 1" },
+    { "q": "질문 2", "a": "답변 2" },
+    { "q": "질문 3", "a": "답변 3" }
   ]
 }
 ```
 
-점수가 100점(염소자리 × 처녀자리)이든 40점(말 × 닭)이든 구조는 똑같다. 차이는 내용 톤뿐이다. 100점 조합은 "天作之合(천생연분)"으로 열고, 40점 조합은 "需要克服重重障碍(수많은 장애를 넘어야)"로 시작한다.
+별도 파싱 로직 없이 프론트에서 바로 쓸 수 있는 형태다. 프롬프트에서 구조를 명시하면 Haiku는 이 포맷을 잘 지킨다.
 
-## Haiku를 쓰는 이유
+## 100점 조합 vs 40점 조합, 톤이 다르다
 
-궁합 조합의 수를 생각하면 자연스러운 선택이다. 동양 12지지만 해도 12 × 12 = 144조합, 서양 12별자리도 144조합, 거기에 언어 수를 곱하면 수천 개다. 이걸 Opus나 Sonnet으로 돌리면 비용이 감당이 안 된다.
+점수별 톤 차이가 흥미롭다. 염소자리 × 처녀자리(100점, same) 첫 단락은 이렇다.
 
-콘텐츠 요구사항도 Haiku에 적합하다. 형식이 고정돼 있고, 창의적 자유도가 낮고, 출력 구조가 명확하다. 모델이 "잘" 써야 하는 게 아니라 "일관되게" 써야 하는 작업이다.
+> 摩羯座和处女座堪称天作之合，这对组合的匹配度达到完美的100分。两个土象星座天生就说同一种语言——务实、稳重、坚定，他们用行动而非甜言蜜语来证明爱意...
 
-## tool call이 0인 이유
+반면 말 × 닭(40점, overcoming)은 이렇게 시작한다.
 
-이 세션들은 Claude Code 인터랙티브 세션이 아니다. saju_global 앱이 Claude API를 프로그래밍 방식으로 호출하는 것이고, 세션 기록에는 그 API 호출이 잡힌 것이다. 파일 편집도, Bash 실행도 없다. 입력 → 추론 → JSON 출력이 전부다.
+> 马和鸡的配对指数只有40分，属于需要克服重重障碍才能相处的关系。两个生肖在性格和价值观上差异很大，但如果彼此足够坚定，这段关系并非没有可能。
 
-Claude Code의 Edit/Write/Bash 같은 도구가 필요 없는 순수 생성 태스크다.
+프롬프트에서 `Score`와 `Relationship`를 명시적으로 주입한 덕분에 Haiku가 이걸 그대로 반영한다. "只有40分"(겨우 40점), "达到完美的100分"(완벽한 100점)처럼 점수를 자연스럽게 문장에 녹여낸다.
 
-## 관계 유형별 톤 차이
+## 왜 Haiku인가
 
-`Relationship` 파라미터가 출력 톤을 결정한다. 오늘 세션에서 확인된 패턴이다.
+12간지 조합만 144가지(12×12), 서양 별자리도 144가지다. 다국어까지 지원하면 텍스트 생성 요청 횟수는 수백~수천 건이 된다. Opus나 Sonnet을 쓰면 API 비용이 현실적으로 감당이 안 된다.
 
-- **same** (100점, 염소 × 처녀): 두 별자리가 같은 원소(土)라는 점을 강조. "말이 통한다"는 서사
-- **overcoming** (40~65점): "차이가 크지만 노력하면 가능하다"는 서사. 65점(쥐 × 용)과 40점(토끼 × 원숭이)의 톤이 미묘하게 다르다
-- **opposing** (45점, 물병 × 염소): 근본적 충돌을 솔직하게 인정. "相对克制的对立关系(상대적으로 억제된 대립 관계)"
+궁합 설명 텍스트는 창의적 글쓰기보다 패턴화된 정보 전달에 가깝다. 프롬프트가 충분히 구체적이라면 Haiku로도 충분한 품질이 나온다. 오늘 세션 결과물을 보면 자연스러운 중국어 문장에 점수·관계 유형 반영도 정확하다.
 
-점수와 관계 유형 두 파라미터가 모델에게 톤의 방향을 잡아준다. 프롬프트가 이 정보를 명시하지 않아도 모델이 적절히 반영한다.
+## 다음 단계
 
-## 다음 작업
+`overcoming` 관계 조합이 오늘 세 쌍이나 나왔는데, 부정적 뉘앙스를 과하지 않게 조율하는 게 UX 상 중요하다. 현재 프롬프트는 "challenges and advice" 단락을 별도로 지정해서 부정적 내용을 마지막에 모으는 구조인데, 이 패턴이 유저 이탈을 줄이는 데 실제로 효과가 있는지 A/B 테스트 여지가 있다.
 
-- 언어별 출력 품질 검증 (중국어 이외 언어 테스트)
-- 조합 생성 우선순위 정리 (자주 검색되는 조합 먼저)
-- FAQ 다양성 확보 (같은 관계 유형 내 조합끼리 FAQ가 겹치는지 확인)
+FAQ 3쌍도 매번 생성하고 있는데, SEO 관점에서 꽤 쓸만한 구조다. 향후 페이지별 FAQ 스키마 마크업을 붙이면 검색 노출에 직접적으로 기여할 수 있다.

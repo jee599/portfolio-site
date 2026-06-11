@@ -1,136 +1,100 @@
 ---
-title: "5 Zodiac Pairs, 0 Tool Calls: Claude Haiku as a JSON Content Engine"
+title: "5 Sessions, Zero File Changes: Auto-Generating Zodiac Compatibility Content with Claude Haiku"
 project: "saju_global"
 date: 2026-06-11
 lang: en
 pair: "2026-06-11-saju_global-ko"
-tags: [claude-code, haiku, content-generation, multilingual, json, astrology]
-description: "How saju_global uses Claude Haiku to auto-generate multilingual zodiac compatibility content as structured JSON—0 tool calls, pure inference."
+tags: [claude-code, claude-haiku, content-generation, saju, astrology, multilingual]
+description: "How claude-haiku-4-5 generates 144+ zodiac compatibility texts as structured JSON — 5 sessions, 0 code changes, multilingual output."
 ---
 
-5 zodiac pairings. 0 tool calls. 0 file edits. That's a typical Claude session for saju_global—and it's working exactly as intended.
+Five sessions. Zero tool calls. Zero files modified. That's what a pure content generation workflow looks like — and it's what built the compatibility database for `saju_global` today.
 
-Most Claude Code build logs cover code generation. This one doesn't. For saju_global, Claude Haiku handles a job that has nothing to do with writing or editing code: generating structured compatibility descriptions for every zodiac pairing, in multiple languages, at a cost that actually makes sense for the scale.
+**TL;DR** Use `claude-haiku-4-5-20251001` as a content generation API to auto-generate Chinese Zodiac and Western Astrology compatibility descriptions in multiple languages. A well-structured prompt template produces consistent JSON output — no parsing tricks needed.
 
-**TL;DR** Pass a zodiac pair, a score, and a relationship type to Claude Haiku. Get back 3 paragraphs of compatibility copy plus 3 FAQ pairs as structured JSON in the target language. 0 tool calls, pure inference. This is what AI content generation looks like when the output format is fixed and the model just needs to fill it in.
+## The Scale Problem That Made Hand-Writing Impossible
 
-## What is saju_global?
+`saju_global` is a global fortune-telling app built around two compatibility systems: Chinese Zodiac (12 animals) and Western Astrology (12 signs). Each system has 144 unique pairings (12 × 12). Add multilingual support and you're looking at thousands of text entries.
 
-saju_global is a multilingual compatibility service that bridges Eastern and Western astrology. It covers the Chinese zodiac (twelve earthly branches: Rat, Ox, Tiger, Rabbit, Dragon, Snake, Horse, Goat, Monkey, Rooster, Dog, Pig) and Western astrology (Aries through Pisces), producing compatibility content for every possible cross-pairing—in every supported language.
+Nobody writes that manually. That's not a team problem — it's an economics problem.
 
-Today's session covered five combinations:
+## What Today's Sessions Produced
 
-| Pair | System | Score | Type |
-|------|--------|-------|------|
-| Horse × Rooster | Chinese Zodiac | 40/100 | overcoming |
-| Rat × Dragon | Chinese Zodiac | 65/100 | overcoming |
-| Rabbit × Monkey | Chinese Zodiac | 40/100 | overcoming |
-| Capricorn × Virgo | Western | 100/100 | same |
-| Aquarius × Capricorn | Western | 45/100 | opposing |
+Five compatibility descriptions, all in Simplified Chinese (简体中文):
 
-All five outputs were in Simplified Chinese (简体中文). The model inferred the target language from context—no explicit `lang` parameter needed.
+| Pair | System | Score | Relationship |
+|------|--------|-------|--------------|
+| Horse × Rooster | Chinese Zodiac | 40 | overcoming |
+| Rat × Dragon | Chinese Zodiac | 65 | overcoming |
+| Rabbit × Monkey | Chinese Zodiac | 40 | overcoming |
+| Capricorn × Virgo | Western Astrology | 100 | same |
+| Aquarius × Capricorn | Western Astrology | 45 | overcoming |
 
-## The Numbers Behind the Model Choice
+Three `overcoming` pairs from the Chinese Zodiac side, one perfect match, one challenged pairing. Each entry gets a 3-paragraph description plus 3 FAQ Q&A pairs.
 
-Before getting into how the prompt works, it's worth understanding why Haiku specifically.
+## The Prompt Template That Does the Heavy Lifting
 
-Eastern zodiac alone: 12 × 12 = 144 combinations. Western zodiac: another 144. Add cross-system pairings and you're already past 300. Multiply by the number of supported languages—Simplified Chinese, Traditional Chinese, English, Japanese, Korean, and more—and the total climbs into the thousands.
-
-Running that through Claude Sonnet or Opus would be financially untenable. The cost would make the project unviable before launch. Haiku changes the math entirely. And crucially, this content doesn't require a highly capable model. The requirements are:
-
-1. Fixed output structure (JSON with two keys)
-2. Accurate score and relationship type in the prose
-3. Consistent tone calibration based on compatibility level
-4. Fluent multilingual output
-
-These are Haiku-tier requirements. The model doesn't need to reason through complex logic or make creative leaps. It needs to produce consistent, well-formed content that follows a pattern. Haiku does this reliably and at a fraction of the cost.
-
-## The Prompt Pattern
-
-Every session uses the same prompt structure:
+Every session runs the same template:
 
 ```
-Generate a 3-paragraph compatibility description for {animal_a} and {animal_b}
-({category}) in the target language.
+Generate a 3-paragraph compatibility description for {animal1} and {animal2}
+({system}) in the target language.
 Score: {score}/100, Relationship: {relationship}.
 
 Paragraph 1: Overall compatibility summary (2-3 sentences).
   Start with the core answer: reference the specific score and relationship.
 Paragraph 2: Strengths of this pairing (2-3 sentences).
-  Reference specific elements and interactions.
 Paragraph 3: Potential challenges and advice (2-3 sentences).
 
 Also generate 3 FAQ Q&A pairs about this combination...
 ```
 
-The phrase `in the target language` is the critical piece. Rather than hardcoding a language parameter, the prompt instructs the model to infer the target language from context. In practice this means the API call includes the language specification in the surrounding context, and the model carries it through to the output without needing an explicit field.
+`{system}` gets `Chinese Zodiac` or `Zodiac Sign (Western Astrology)`. Score and relationship type are injected directly. `target language` is set dynamically by the client — today's sessions all targeted Simplified Chinese.
 
-The score and relationship type are passed as structured inputs, not described in prose. This keeps the prompt format consistent and makes the outputs predictable.
+The key insight: making score and relationship explicit in the prompt means the model reflects them naturally in output. You get "只有40分" (a mere 40 points) for a difficult pairing and "达到完美的100分" (a perfect 100 points) for a great match — not because you told it to phrase things that way, but because it has enough context to calibrate tone.
 
-## Output Structure
-
-The return value is always the same two-key JSON:
+## The Output Format: JSON You Can Use Directly
 
 ```json
 {
   "description": [
-    "Paragraph 1: overall summary referencing score and relationship type",
-    "Paragraph 2: strengths of this pairing",
-    "Paragraph 3: potential friction and practical advice"
+    "Paragraph 1 text",
+    "Paragraph 2 text",
+    "Paragraph 3 text"
   ],
   "faq": [
-    { "q": "...", "a": "..." },
-    { "q": "...", "a": "..." },
-    { "q": "...", "a": "..." }
+    { "q": "Question 1", "a": "Answer 1" },
+    { "q": "Question 2", "a": "Answer 2" },
+    { "q": "Question 3", "a": "Answer 3" }
   ]
 }
 ```
 
-The structure doesn't change whether the score is 100 (Capricorn × Virgo) or 40 (Horse × Rooster). What changes is the tone of the content.
+No post-processing. No regex extraction. The frontend consumes it directly. When you specify structure in the prompt, Haiku respects it consistently.
 
-The 100-point pairing (Capricorn × Virgo, `same` type) opens with 天作之合—a Chinese idiom meaning "a match made in heaven." The framing emphasizes shared earth element energy and natural mutual understanding.
+## Score 100 vs Score 40: Tone Shifts Automatically
 
-The 40-point pairing (Horse × Rooster, `overcoming` type) opens with 需要克服重重障碍—"must overcome numerous obstacles." The prose acknowledges the difficulty honestly before pivoting to what's salvageable.
+Capricorn × Virgo (100 points, `same`) opens like this:
 
-The model reaches these tonal distinctions on its own. The prompt doesn't say "be encouraging for high scores" or "be realistic for low scores." It gives the model the score and relationship type as data, and the model calibrates accordingly.
+> 摩羯座和处女座堪称天作之合，这对组合的匹配度达到完美的100分。两个土象星座天生就说同一种语言——务实、稳重、坚定，他们用行动而非甜言蜜语来证明爱意...
 
-## Why 0 Tool Calls Is the Expected Behavior
+Horse × Rooster (40 points, `overcoming`):
 
-This is worth clarifying because it looks unusual in the context of Claude Code build logs.
+> 马和鸡的配对指数只有40分，属于需要克服重重障碍才能相处的关系。两个生肖在性格和价值观上差异很大，但如果彼此足够坚定，这段关系并非没有可能。
 
-These sessions are not interactive Claude Code sessions. saju_global is calling the Claude API programmatically—the app sends requests, gets responses, and stores the structured output. The session log captures those API calls. There's no file editing, no Bash execution, no shell commands.
+Same template. Completely different register. The model adjusts emotional weight based on the numerical and categorical inputs — it's not filling in blanks, it's calibrating tone.
 
-Input → inference → JSON output. That's the entire pipeline.
+## Why Haiku, Not Sonnet or Opus
 
-Claude Code tools like `Edit`, `Write`, and `Bash` are irrelevant here. This is pure generation work: the model reads a structured prompt and writes structured content. The fact that it appears in a build log is because the Claude API calls are being tracked as part of the saju_global development workflow.
+At 144 Chinese Zodiac pairs × 144 Western Astrology pairs × N languages, request volume hits hundreds to thousands per language. Using Sonnet or Opus makes the API cost prohibitive for a content generation pipeline at this scale.
 
-0 tool calls isn't a failure mode or a minimal session. It's the correct behavior for this type of task.
+Compatibility descriptions are closer to structured information delivery than creative writing. The content follows predictable patterns: overall assessment, strengths, challenges, advice. When the prompt is specific enough, Haiku produces quality that's indistinguishable from more expensive models for this use case.
 
-## Tone Calibration by Relationship Type
+## What Comes Next
 
-The `relationship` parameter does most of the tonal heavy lifting. Three types appeared in today's sessions:
+Three of today's five pairs are `overcoming` type. The current prompt isolates "challenges and advice" into Paragraph 3, keeping negative content at the end and framing it constructively. Whether this reduces user drop-off vs. a more upfront framing is worth an A/B test.
 
-**`same` (100pt, Capricorn × Virgo)**: Both signs share the earth element. The prose emphasizes resonance, shared values, and natural compatibility. The Chinese output leans into classical idioms about natural harmony.
-
-**`overcoming` (40–65pt)**: This is where things get interesting. The Rat × Dragon pairing at 65 points and the Rabbit × Monkey pairing at 40 points are both classified as `overcoming`, but the model produces noticeably different content. The 65-point version acknowledges challenges while emphasizing genuine strengths. The 40-point version leads with the difficulty. The score creates a gradient within the same relationship type.
-
-**`opposing` (45pt, Aquarius × Capricorn)**: The most direct framing. The Chinese output uses 相对克制的对立关系—"a relatively restrained oppositional relationship"—which is honest without being dismissive. The advice focuses on finding common ground across fundamental differences.
-
-Two parameters (score + relationship type) give the model enough signal to produce tonally appropriate content without being over-specified. The prompt doesn't enumerate every tonal rule; it trusts the model to apply them correctly given the inputs.
-
-## What the Prompt Doesn't Do
-
-It doesn't explain Chinese zodiac mythology or Western astrology symbolism. It doesn't define what "overcoming" means in relationship terms. It doesn't specify how much weight to give the score versus the relationship type.
-
-The model brings that knowledge. The prompt provides the specifics—which pair, which score, which relationship category—and the model combines the structured inputs with its existing knowledge of both zodiac systems to produce content that's actually grounded in the subject matter.
-
-This is the right use of a language model for content generation: provide structure and constraints, let the model handle domain knowledge.
-
-## Next Steps
-
-- **Cross-language quality verification**: All of today's output was Simplified Chinese. Need to run test batches for other supported languages and compare output quality across scripts.
-- **Generation priority queue**: Not all 300+ combinations are equally useful at launch. Need to identify the most frequently searched pairings and prioritize those for early generation.
-- **FAQ diversity audit**: Within the same relationship type, combinations might be getting similar FAQ questions. Need to check whether `overcoming` pairings are producing distinct FAQ sets or converging on the same questions.
+The FAQ generation is doing quiet SEO work. Three Q&A pairs per compatibility page is a natural fit for FAQ schema markup. Adding `application/ld+json` FAQ markup to each page is a straightforward next step with measurable search visibility impact.
 
 ---
 
