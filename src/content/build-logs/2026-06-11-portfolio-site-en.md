@@ -1,139 +1,89 @@
 ---
-title: "789 Tool Calls in One Day: AI Interview Platform, Email Pipeline Hardening, and Standing Multi-Agent Auth"
+title: "294 Tool Calls, 21 Hours: Rebuilding a Platform from Scratch with Claude Code"
 project: "portfolio-site"
 date: 2026-06-11
 lang: en
 pair: "2026-06-11-portfolio-site-ko"
-tags: [claude-code, dynamic-workflow, multi-agent, email-automation, fable-5]
-description: "11 sessions, 789 tool calls, 68 files, 9+ hours: rebuilt CoffeeChat as an AI interview platform, hardened an email pipeline, and set Dynamic Workflow to always-on."
+tags: [claude-code, next.js, multi-agent, ai-automation, workflow]
+description: "One day, 10 Claude Code sessions, 559 tool calls. How I rebuilt a mentor-matching site into a 3-feature AI career platform — plus a 22-agent parallel research run."
 ---
 
-789 tool calls. 68 files created or modified. 11 sessions totaling over 9 hours of wall-clock time — all in a single day.
+Ten Claude Code sessions in a single day. 559 tool calls. 21 files created. The longest session ran 21 hours and 56 minutes, burned through 294 tool calls, and rewrote an entire Next.js site from scratch.
 
-**TL;DR** The biggest chunk was rebuilding CoffeeChat — a mentor-mentee matching site — into an AI mock interview platform. That took 3 hours 19 minutes and 279 tool calls. In parallel, I hardened the JDLab outbound email pipeline across four focused sessions, and baked Dynamic Workflow standing authorization directly into `~/.claude/CLAUDE.md`.
+**TL;DR** Rebuilt CoffeeChat from a mentor-mentee matching platform into a 3-feature AI career tool: resume builder, portfolio analyzer, and AI mock interviewer. Same day, ran a 22-agent parallel research sweep across 12 dental advertising channel dimensions.
 
-## 3 Hours, 279 Calls — Turning a Matching Site into an AI Interview Platform
+## Rewrite, Not Refactor
 
-The request was three sentences: "Build a resume creator, a portfolio checker, and a mock interview with three AI interviewers."
+The pivot prompt was direct:
 
-Three features, no spec, all at once. Claude's first move wasn't to start building — it was to surface the decisions that actually needed making: TTS support or text-only, resume template styles, how to split the interviewer roles. I said no to voice; Claude picked sensible defaults for the rest and started immediately.
+> "I want to rebuild the CoffeeChat site — not a mentor/mentee platform anymore. Instead: 1. fill in your info and it generates a resume, 2. portfolio review, 3. three agents where agents write and the person speaks, for a mock interview."
 
-Three features landed:
+This wasn't a refactor. A fresh Next.js project at `~/coffeechat`. Before building, Claude surfaced two decisions worth making upfront: TTS voice support, and how the three interview agents divide responsibilities. Voice was out of scope. Everything else used sensible defaults and build started immediately.
 
-**Resume Builder** — a 5-step wizard (basics → work history → projects → skills & education → preview), per-section "AI polish" buttons, and two templates: a modern single-page layout and a traditional Korean-style format.
+One session covered it all: 5 API routes (resume polish, portfolio analysis, interview setup/turn/report), shared types, Anthropic client, 5-step resume wizard, portfolio checker, and mock interview interaction flow. Tool breakdown for that session: Bash 144, Edit 40, Write 29. Bash was mostly build verification and type checking.
 
-**Portfolio Check** — submit a GitHub URL, get structured AI feedback on presentation, depth, and gaps.
+## Three Design Rounds and One Favicon Fix
 
-**Mock Interview** — input a portfolio and job posting, then three AI interviewers each own a different dimension: portfolio fit, general CS knowledge, and domain expertise. They take turns in a structured round format.
+Design feedback came in four rounds. "Looks AI-generated." "Buttons are misaligned." "The orange-brown color scheme is ugly." "The overall color combination feels unconsidered."
 
-Design went through four feedback rounds:
+Image generation ran three times. Round one: hand-drawn style — feedback: "needs to look more professional." Round two: 3D professional style — feedback: "still ugly, the orange-brown isn't working." Round three: "match the toss.tech tone."
 
-1. "Looks like every AI site" — fair
-2. "The orange-brown combination isn't pretty"
-3. "Too static, add some motion"
-4. "Colors still feel off"
+Each round ran `scripts/gen-assets.mjs` via background TaskCreate, generated 6 assets in parallel, then verified renders with browser MCP (`mcp__claude-in-chrome__browser_batch`) before the next instruction. Browser tool calls hit 34 times across the full session — nearly all render checks, not guessing.
 
-Each round: `mcp__claude-in-chrome__browser_batch` to verify the actual render, edit, repeat. All 33 browser tool calls in this session were render checks — no guessing what the output looked like. The final design settled on a dark hero section, caramel glow accents, bento grid layout, and scroll-triggered entrance animations.
+Favicon was a separate issue: "favicon still looks wrong?" — background transparency handling. Fixed with a targeted regeneration.
 
-Tool distribution for the session: Bash 132 (mostly build verification and `tsc --noEmit`), Edit 40, Write 28, Read 25, browser_batch 33.
+## The Interview Agent: Behavior as a System Prompt
 
-The 4-round design iteration is worth noting. A spec written up front would have saved one or two rounds, but the speed from "request to working prototype" was still faster than the traditional design-then-implement path. The bottleneck was visual direction, not code.
+The mock interview UX requirements were precise:
 
-## The Permission Problem — Why I Wrote Standing Authorization into CLAUDE.md
+> "Follow-up questions that dig into the answer, drilling deeper into specific claims, pivoting when the user says they don't know, asking additional questions when an answer is insufficient."
 
-Every time a task was large enough to warrant multi-agent orchestration, Claude would pause and ask: "This looks like a ③-scale task, can I use Dynamic Workflow?" One interruption per session. Not terrible — but it meant I had to be paying attention at exactly the right moment, and if I missed it or forgot to explicitly authorize, the task would silently fall back to a single-agent approach.
+The entire behavior spec was encoded as the system prompt at `app/api/interview/turn/route.ts`. If a portfolio and job posting are provided, the interview starts from that context. If not, a setup flow first collects field, experience level, and past work. Interview question categories branch by domain: portfolio-based, general knowledge, specialized knowledge, then server/game/backend/frontend tracks.
 
-Session 10 fixed this with a sizing rubric added directly to `~/.claude/CLAUDE.md`:
+A cost question came up mid-session: "How much does a 10–20 minute interview cost with Opus?" Token estimates put it at $0.45–$1.20. The difference from Sonnet comes down to naturalness of follow-up questioning and depth of answer analysis — not just response quality but how the model tracks prior turns.
+
+Full client-side logic — 5 resume wizard components, 3 portfolio components, 4 interview components, 4 lib modules, demos.tsx — went to a code review agent. The stop hook caught leftover TODOs twice. Both were cleaned up immediately.
+
+## 22 Agents, 12 Dimensions: A Comprehensive Ad Channel Sweep
+
+Session 10 ran `ultracode` mode for a complete sweep of online dental advertising channels.
 
 ```
-① Simple lookup / single-file edit → handle directly, no agents
-② Multi-file but fits one context → subagents as needed
-③ Broad fan-out ("comprehensive", "audit all", "go through everything",
-   or roughly 10+ independent work items) → use Workflow at own discretion
+/effort ultracode
+Search and update everything about online medical/dental advertising
+channels with current information...
 ```
 
-The first ③-class request came in immediately after: a report quality improvement for a dental clinic. I didn't say "use a workflow." Claude launched a 5-phase workflow on its own — context restore → parallel data gather (place metrics, competitor probe, three keyword checks in parallel) → report generation → verification → record and push. 11 agents. 85 minutes.
+The Workflow fanned out 22 agents across 12 dimensions in parallel: Naver search ads, Naver Smart Place, blog algorithm, AEO/GEO, Google, Meta, YouTube, Kakao/Daangn, medical law compliance, legal boundaries for patient reviews, booking platforms, and cost benchmarks. After each dimension finished, 6 high-risk dimensions got adversarial verification — 5 key claims each, checked by a separate adversarial agent that was prompted to refute, not confirm.
 
-Before this change: there would have been an approval conversation before any of it started. After: there wasn't. The output was the same. The friction was gone.
+Output: a 48KB channel catalog at `_kb/research-online-channels-2026-06.md`, a 24-row judgment table (9 recommended, 7 conditional, 7 not recommended). Adversarial verification caught 4 wrong claims. The most notable: a claim that a Constitutional Court ruling on non-covered treatment discounts was from 2025 — it was actually 2019-05-30.
 
-The key insight is that authorization belongs in durable config, not in the conversation. Conversation state evaporates between sessions; `CLAUDE.md` doesn't.
+During the run, the dental-clinic agent hit API overload (HTTP 529) and was force-terminated after 65 calls. Checking file state showed most tasks were already complete. The remaining portion was re-run to finish.
 
-## Four Sessions of Email Pipeline Hardening
+## The Telegram Plugin That Was Just Turned Off
 
-Sessions 4 through 8 (session 6 included) were a series of focused, targeted hits on the JDLab outbound email pipeline. Starting condition: response rates were low. Goal: improve quality without a full rewrite.
+Session 1 walked through the Telegram setup and gave three steps: enter bot token → rerun with `--channels` flag. Session 2: "still not connected."
 
-Every session followed the same discipline: write the test first, then change the code.
+Root cause was simple. `~/.claude/settings.json` had `"telegram@claude-plugins-official": false`. A bulk plugin disable during harness cleanup in late May had turned it off silently. Flipping it to `true` fixed it immediately.
 
-**Session 4 — Cleaning up false hot leads**
+Session 9 brought a separate project update via Telegram. "Clean up the Saju project" → context restored from memory, status summary sent back via Telegram reply. "Enable git integration" → two GTM execution packs (Japan and US markets) generated in parallel as background agents. End-to-end test of the AI Saju chat completed before session close.
 
-Two already-resolved inbound replies were still flagged as "hot leads" in the pipeline state. The fix: extract resolved contacts into `state/jdlab_resolved_replies.json`, add tests confirming those addresses no longer appear in the default active view. Small change, but bad state in the lead list was actively polluting prioritization.
+## The Numbers
 
-**Session 5 — Hardcoded path kills cron reliability**
+| Metric | Value |
+|--------|-------|
+| Total sessions | 10 |
+| Total tool calls | 559 |
+| Longest session | 21h 56min (CoffeeChat rebuild) |
+| Files created | 21 |
+| Files modified | 18 |
+| Workflow agents | 22 (dental research) |
 
-The bounce CSV file path was hardcoded as an absolute path. Every audit run generates a new timestamped file, but the cron job was always reading the original filename. Net effect: new bounces were invisible to the automation.
+By tool: Bash 319, Edit 52, Write 31, Read 39. Bash dominates because every build check, server restart, and test run is a Bash call.
 
-Wrote `resolveBounceCsvSelection()` to auto-select the most recent file from the Hermes cache directory using `fs.readdirSync` + sort by mtime. Test count: 28 existing + 3 new = 31 passing.
+294 tool calls in the CoffeeChat session means 294 verification loops: write code, build, check in browser, revise. That cycle ran continuously for 21 hours. The 22-agent research sweep ran in parallel on the same day — a different kind of session entirely, fan-out and verify rather than iterative build-and-check.
 
-**Session 6 — Upstream guards**
-
-Three additions: MX preflight check (rejects free-mail domains before any send attempt), `run_id` cross-check to prevent duplicate sends in the same run, tightened exception handling in the draft loop to prevent silent swallowing of errors.
-
-This was the heaviest session in the sequence: Edit 43, Bash 32. Used `TaskCreate` to track steps because the scope was wide enough to lose thread. Running totals after each step kept the session from drifting.
-
-**Session 8 — Tiering and template hygiene**
-
-Two additions: contact tiering (cold/warm/hot classification with different send windows per tier) and a template repetition prevention module to avoid sending the same framing to the same contact twice.
-
-Five new test files:
-- `jdlab_contact_tier.test.js`
-- `jdlab_send_window_caps.test.js`
-- `jdlab_template_repetition.test.js`
-- `jdlab_codex_wrapper_policy.test.js`
-- `jdlab_copy_calibration.test.js`
-
-The pipeline went from one flat state file and a single send path to a tiered system with guards at multiple stages. No single session was long — the cumulative effect came from not leaving broken state between sessions.
-
-## Writing a Startup Application with Claude Code
-
-Session 7: a job application for Spark Claw, a startup — 10+ form fields, each needing answers grounded in actual projects and specific numbers.
-
-The first draft had the usual AI fingerprints: "First and foremost," "The key differentiators are as follows," "I believe my experience uniquely positions me." One instruction: "Strip the AI filler. Use my real experience, specific numbers."
-
-Three iterations. The final answers were grounded in concrete data — number of pilot dental clinic diagnostics run, number of market research firms surveyed — and written dry. No hedging, no throat-clearing.
-
-Same session: a one-page company introduction document. Went through the open-design route to produce an A4 HTML layout, then converted to PDF. Brand color `#533afd`, a table of four live products, 502KB final size.
-
-The application writing and document generation together took about the same time as one design feedback round on CoffeeChat.
-
-## Day by the Numbers
-
-| Metric | Count |
-|---|---|
-| Sessions | 11 |
-| Total tool calls | 789 |
-| Bash | 298 |
-| Edit | 165 |
-| Files touched | 68 |
-| Wall-clock | 9+ hours |
-| Largest session | CoffeeChat renewal — 279 calls |
-| Smallest session | Session 3 — 6 calls |
-| Model | claude-fable-5 (all sessions) |
-
-Sessions 1 and 2 hit the spend limit before any work could start — that's why the day effectively began at session 3.
-
-The most Edit-heavy session was the JDLab pipeline audit at 43 edits. Most Bash calls across the day were build verification and test runs, not exploratory commands.
-
-The spread between largest and smallest session (279 vs 6 calls) reflects how different the work was. CoffeeChat needed sustained, iterative UI work with constant render verification. Other sessions were surgical — one broken assumption, one fix, tests green, done.
-
-## What Changed
-
-Three durable changes came out of today, not just completed features:
-
-1. **CoffeeChat is a different product.** The mentor-mentee framing is gone; the AI interview platform is live.
-2. **Dynamic Workflow authorization is now in config.** No more per-session friction for ③-scale tasks.
-3. **The email pipeline has tiering, guards, and a test suite.** It went from a single-path send to a defended, tiered system.
-
-The rest — the application, the PDF, the individual bug fixes — were one-off tasks that are done and don't need revisiting.
+The gap between these two modes is worth noting. One session was deep and sequential; the other was wide and parallel. Claude Code supports both from the same interface.
 
 ---
 
