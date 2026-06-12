@@ -1,103 +1,128 @@
 ---
-title: "1,394 Tool Calls, 5 Projects, One Day: Claude Code at Full Throttle"
+title: "Claude Fable 5: 11 Sessions, 1,394 Tool Calls, 5 Projects — What a Full Day Actually Looks Like"
 project: "portfolio-site"
 date: 2026-06-12
 lang: en
 pair: "2026-06-12-portfolio-site-ko"
-tags: [claude-code, claude-fable-5, workflow, open-design, gpt-image-2, multi-project]
-description: "10 sessions, 1,394 tool calls across 5 live projects: dental pitch deck, broken email funnel, photographer site deploy, and a fortune telling redesign."
+tags: [claude-code, claude-fable-5, workflow, open-design, multi-project]
+description: "11 Claude Code sessions, 1,394 tool calls across 5 parallel projects: dental deck, silent email funnel, photographer gallery, fortune-telling redesign, and a full-stack admin — all in one day."
 ---
 
-Ten sessions. 1,394 tool calls. Five completely different codebases. The longest session ran 14 hours and 23 minutes; the shortest wrapped in under a minute with a single cron status text fix. This is a raw account of what a full day of Claude Code-driven development looks like on June 12, 2026 — not a demo, not a highlight reel, but everything that shipped, broke, and got fixed.
+Eleven Claude Code sessions. 1,394 tool calls. Five projects with nothing in common except they all moved forward on the same calendar day. Dental pitch deck in the morning, CoffeeChat admin dashboard at midnight.
 
-**TL;DR**: Running claude-fable-5 across 10 sessions, the session limit hit three times. Still, every project reached deployment or a concrete deliverable. A 1-minute fix and a 14-hour full rebuild happened on the same calendar day.
+Three sessions hit the daily session limit. The longest ran 14 hours 23 minutes. Everything ran on `claude-fable-5`.
+
+**TL;DR**: The session limit is the real bottleneck — not the model. Before hitting the limit, context holds long enough to carry complex tasks without breaks. `Workflow` fan-out is in a different league for research: 57 accelerator programs searched and filtered in 30 minutes, 11 parallel audit agents surfacing a funnel failure that had been invisible since April 13.
 
 ## Cutting a 20-Slide Dental Deck Down to 13
 
-Session 1 (2h 58min, 175 tool calls) was clinic director meeting prep. The data sitting in `~/dental-promo/dongbaek-uddental/` got pulled into two deliverables: an HTML slide deck with keyboard/click navigation, and a per-slide speaker script.
+Session 1: 2h 58min, 175 tool calls. The request was simple enough — "a PPT and a speaker script for a clinic director meeting, two separate files."
 
-First draft: 20 slides. Feedback came back immediately — "too dense, too much jargon, translate the numbers into plain language." Every acronym went: `CPC`, `AEO`, gone. "Cost per click" became "37,000 won per click." The section-divider slides with black backgrounds were cut. 20 → 13.
+The `open-design` skill pulled clinic context from `~/dental-promo/dongbaek-uddental/` and generated a 20-slide deck. Tool split: Edit 68×, Bash 61×, Read 15×.
 
-The speaker script started as markdown, then a conversion request came in. The final version was HTML with chip-based slide navigation — click a slide number chip, jump directly to that position in the script. The use case: a presenter who loses their place mid-talk can recover in two seconds. Tags like "30 seconds max" and "★ Today's objective" were added for quick scanning.
+Feedback came immediately: "Too dense, hard to follow just from slides, too much jargon." Every acronym got eliminated or expanded — `CPC`, `AEO`, gone. Numbers got plain-language translations: "37,000 won per click" instead of cost-per-click metrics. Section-divider slides with black backgrounds were cut. 20 slides became 13.
 
-Last task of the session: email both files. AppleScript → Mail.app → naver.com addresses, sent.
+The speaker script started as `.md`, then got converted to `.html` — not for aesthetics, but for a specific recovery mechanism. When a presenter loses their place mid-talk, they need to recover fast. The HTML version embeds slide-number chips; clicking chip #7 jumps directly to slide 7 in the script. Two-second recovery.
 
-Tool breakdown: Edit 68×, Bash 61×, Read 15×.
+Final output:
 
-## The Email Funnel That Had Been Silently Dead Since April 13
+```
+~/dental-promo/dongbaek-uddental/2026-06-11/
+├── 03-원장님-프레젠테이션.html   # 13-slide deck, arrow-key navigation
+└── 04-발표-스크립트.html         # per-slide script + 8 anticipated Q&As
+```
 
-Session 4 (39min, 30 tool calls) ran a full pipeline audit on spoonai.me as a Workflow with 11 parallel agents: three audit tracks (pipeline, email, site) plus four deep research threads with adversarial verification.
+## An Email Funnel Silently Dead Since April 13
 
-The most serious finding: subscriber emails captured on the site land in Supabase, but `send-email.js` was missing `SUPABASE_SERVICE_ROLE_KEY`. The script couldn't read the DB at all. Every subscriber since April 13 received zero emails. Worse, the unsubscribe links in those (never-sent) emails returned 404. The funnel was broken at both ends simultaneously — intake was working, delivery was completely dead.
+Session 4: 39 minutes, 30 tool calls — but that 39 minutes ran 11 parallel agents inside a `Workflow` fan-out: three audit tracks (pipeline, email, site) plus four deep-research threads with adversarial verification passes.
 
-What makes this failure mode particularly insidious is how invisible it is. No errors surfaced anywhere in the UI. Subscribers signed up, got a confirmation, and then heard nothing. The multi-agent audit found it; manual monitoring would have caught it much later.
+The most severe finding: `send-email.js` was missing `SUPABASE_SERVICE_ROLE_KEY`. The script had no way to read the Supabase database. Result: every subscriber who signed up through the website after April 13 received zero emails. And the unsubscribe links referenced in those (never-sent) emails returned 404.
 
-The research component surfaced an interesting positioning gap: generalist AI daily newsletters are saturated, but "Korean AI news, tracked daily in English" is still an open slot. With the pipeline itself confirmed healthy, funnel recovery is the next concrete step before validating that positioning.
+Both ends of the funnel were broken simultaneously. Intake worked. Delivery was completely dead. No error surfaced anywhere in the UI. No alert fired. The kind of failure that stays invisible until you deliberately look for it.
 
-## 57 Accelerator Programs Researched in One Fan-Out Pass
+The fix is blunt: inject `SUPABASE_SERVICE_ROLE_KEY` into the deployment environment and patch the unsubscribe route. Everything else — positioning, content strategy — comes after the funnel is actually alive.
 
-Session 6 (9h 57min, 62 tool calls) covered Primer accelerator application prep — deadline 2026-06-28, standard terms: 100M KRW investment at a 1B KRW post-money valuation, roughly 10% equity.
+The research agents added one more data point: "Korean AI news tracked daily in English" occupies a much narrower, less saturated niche than generalist AI newsletters. The lane exists. The funnel has to work first.
 
-After drafting three variants of a 200-character self-pitch (a required field in the application), the scope expanded: find comparable alternatives to Primer. A Workflow fanned out across five research categories in parallel: government programs, private accelerators, corporate/financial open innovation, AI-specific/global programs, and rolling-admission options. Five agents, 209 search-and-verify calls, 57 programs total.
+## 293 Real Photos, a Dynamic Grid, and an Admin Panel
 
-Filtered to: solo founder + AI automation B2B + existing traction. That left 7 immediately actionable options. Sorted by deadline: DIPS Link-up AX Round 2 (Jun 22), DHP Partnership (rolling), Primer 29th cohort (Jun 28). A 1-minute pitch video script also came out of the same session.
+Session 7: 10h 13min, 216 tool calls. Starting inventory: 293 actual photos in Blob Storage across categories. The photographer site needed a full redesign.
 
-Searching five program categories sequentially would have consumed most of the session. Running them as parallel agents compressed it to one shot.
+Four design directions were presented; "White curation" won — minimal, editorial, photo-first. Home page: full-width hero slideshow with 12 hero shots on crossfade, booking CTA below. Gallery: rebuilt as a dynamic responsive grid.
 
-## 293 Photos, an Admin Panel, and a Live Vercel Deploy
+Partway through: "the home screen looks off, just take people straight to the gallery." 170 lines of intro code deleted. No home page. Gallery as the direct entry point.
 
-Session 7 (10h 13min, 216 tool calls) was a full redesign of the daymoon photographer site. Started with a simple inventory: 293 photos across categories.
+An admin panel was built alongside — explicitly requested with no password protection. It covers photo upload and delete via Vercel Blob, category management, and seasonal booking management, backed by four Vercel Function API routes:
 
-Four design directions were presented. "White curation" was selected — minimal, editorial. The structure landed as: home → full-width hero slideshow (12 hero shots, crossfade) → booking CTA, with the gallery rebuilt as a dynamic grid.
+```
+/api/photos
+/api/bookings
+/api/settings
+/api/upload
+```
 
-Midway through the session: "the home screen looks off — just go straight to the gallery." Deleted 170 lines of intro page code, made the gallery the entry point. No homepage.
+Deployed to `daymoon-pic-motion.vercel.app`.
 
-An admin panel was built alongside (password-free, as explicitly requested) using Vercel Blob Storage API: photo upload/delete, category management, seasonal booking management. Deployed to `daymoon-pic-motion.vercel.app`.
+The 10-hour session clock wasn't driven by writing code. The code wrapped well before the session hit double digits. The time was deploy verification cycles and browser testing loops.
 
-Two ack file conflicts occurred during the session — a separate concurrent session was overwriting the design-gate ack file. Worked around it by embedding the session ID directly in the OK file, making each session's ack unique.
+One recurring friction: a second concurrent session was overwriting the design-gate acknowledgment file. Resolved by embedding the session ID in the ack file name — each session's acknowledgment is unique and doesn't collide.
 
-Tool breakdown: Bash 70×, Write 27×, TaskUpdate 26×, Edit 22×, Read 19×.
+Tool breakdown: Bash 70×, Write 27×, Edit 22×.
 
-## Fortune Telling Gets Real Images — gpt-image-2 and a Payment Rail Reality Check
+## A Fortune-Telling Site, a Payment Rail Reality Check, and What Etsy Data Says About "AI Reading"
 
-Session 9 (11h 33min, 337 tool calls) was the second-longest of the day. The project: repositioning a saju (Korean fortune telling) site toward traditional aesthetics.
+Session 9: 11h 33min, 337 tool calls. The most strategically interesting session of the day.
 
-First, a business question came up: "Won't payment processors reject it if we label it as an AI report?" The data said the opposite of what you'd expect. A natural experiment from June 11 Etsy data: storefronts openly branded "AI Reading" had 0 sales; human-persona storefronts had 464. Payment processors screen by service category (divination/fortune telling), not landing page copy. The strategic conclusion: rewording the pitch doesn't solve the problem. Finding payment rails that don't restrict divination does.
+The first question arrived before any code: "If we call it an AI report, won't payment processors reject it?"
 
-Design direction: deep ink indigo + gold hairline + Fraunces serif. The three.js cosmic background was ported from the previous site, with star color shifted to gold tint and drift speed reduced — the goal was a "slow-moving night sky" feel rather than an active animation.
+The June 11 deep research had already produced the answer. A natural experiment from Etsy: storefronts branded openly as "AI Reading" had 0 sales over one month. Human-persona storefronts — with a named fortune teller — had 464 sales and 130 reviews over one year. The natural read is "don't call it AI." But the actual reason payment processors decline is the *service category* (divination/fortune telling), not the copy on the landing page. Rewording "AI report" to something softer doesn't change the category classification. The risk stays identical regardless of copy.
 
-Image generation request came in: "use gpt-image-2 for the assets we need." Built `genimg.py` and `genimg-ink.py` scripts, queued four image generations via BackgroundTask. Hit the generation rate limit briefly, resumed as soon as it cleared.
+The real problem to solve: find payment rails that don't restrict divination. Not optimize copy that won't affect the outcome.
 
-A geometric SVG chart got flagged as "too juvenile." Removed it, replaced with scroll-synchronized parallax and micro-interactions. Seven-locale translation was delegated to a subagent, failed when the session limit hit, then continued inline.
+Design direction settled on "Midnight Almanac" — deep ink indigo, gold hairline accents, Fraunces serif. The three.js cosmic background from the previous live site was ported: star color shifted to gold tint, drift speed reduced. The goal was slow-moving night sky, not an active animation.
 
-## 14 Hours, 476 Tool Calls: Admin Dashboard + Payments + TTS from Zero
+Image generation: `genimg.py` and `genimg-ink.py` scripts built to interface with `gpt-image-2`. Four images queued as a background task, then two more after a brief rate-limit wait.
 
-Session 10 was the day's longest. The full scope: admin dashboard, user auth, token usage tracking, payments, and TTS — all in one session, because the project needed all of it to be testable together.
+A geometric SVG chart got flagged mid-session: "too juvenile." Removed. Replaced with scroll-synchronized parallax and micro-interactions.
 
-Stack decisions: Turso (SQLite edge deployment) for the DB, PayPal for payments (global service, no divination category restrictions on the payment rail — directly relevant given the saju context). API keys came in as pastes during the session — Claude API key (`sk-ant-api03-...`) and OpenAI key (`sk-proj-...`) written to `.env`, TTS wired up.
+Seven-locale translation was dispatched to a subagent. That subagent hit the session limit and returned nothing. Translation was completed inline.
 
-Vercel deploy failed with "commit author email is not valid" — git config had `jidong@jidongui-iMac.local` hardcoded from a local machine setup. Fixed the git config, re-pushed, passed.
+Tool breakdown: Bash 127×, Edit 85×, Read 51×.
 
-Admin feature set: per-user email/password login, per-request token usage table, payment history, credit adjustments, user management. `next-intl` added 7 locales. Portfolio enhancement, resume import, and dashboard redesign were each dispatched to separate subagents and run in parallel — three independent UI chunks building simultaneously.
+## 14 Hours, 476 Tool Calls: Full-Stack Admin from Zero
 
-## Day in Numbers
+Session 10: 14h 23min, 476 tool calls. The largest session of the day.
 
-| Metric | Value |
-|---|---|
-| Total sessions | 10 |
-| Total tool calls | 1,394 |
-| Longest session | 14h 23min (coffee chat admin) |
-| 2nd longest | 11h 33min (saju redesign) |
-| 3rd longest | 10h 13min (daymoon) |
-| Accelerator programs researched | 57 (5 agents, 209 searches) |
-| spoonai audit agents | 11 |
-| Vercel deploys | 2 (daymoon, coffee chat) |
-| Files created | 40+ |
-| Session limit hits | 3 |
+The requirement was wide: user auth, token usage tracking, payments, TTS-driven voice interviews, multi-language support — all shippable together, all testable within the same session.
 
-The session limit hit three times across the day. Each time: reset, re-enter, re-establish context, continue. Files survive the reset. Re-establishing context costs some speed, but the work doesn't disappear — it's all in the filesystem.
+Stack decisions:
+- **Database**: Turso (SQLite at the edge, no infrastructure to manage)
+- **Payments**: PayPal (global coverage, no divination-category restrictions — directly relevant given session 9's payment rail findings)
+- **TTS**: OpenAI `tts-1`
 
-The 1-minute fix and the 14-hour rebuild are the same tool, the same workflow, the same reset behavior. Scale is the variable; the process is identical.
+TTS cost came up mid-session: "Is it expensive?" — `tts-1` at $0.015/1K characters puts one voice interview at roughly $0.05–$0.10. Calculation done, decision: proceed.
+
+The Vercel deploy failed partway through: `commit author email (jidong@jidongui-iMac.local) is not valid`. Git config had a local machine hostname hardcoded from the development machine setup. Fixed `user.email` to `jd@jidonglab.com`, re-pushed, passed.
+
+Admin feature set: per-user email/password auth, per-request token usage table, payment history, credit adjustments, user management. `next-intl` added 7 locales. Portfolio enhancement, resume import, and dashboard redesign were dispatched as parallel subagents — three independent UI surfaces building simultaneously.
+
+## Session Breakdown
+
+| Session | Duration | Tool calls | Top tools |
+|---|---|---|---|
+| Dental deck | 2h 58min | 175 | Edit 68, Bash 61, Read 15 |
+| spoonai audit | 39min | 30 | Workflow fan-out, Bash 17 |
+| daymoon | 10h 13min | 216 | Bash 70, Write 27, Edit 22 |
+| Saju renewal | 11h 33min | 337 | Bash 127, Edit 85, Read 51 |
+| CoffeeChat | 14h 23min | 476 | mixed |
+
+Session limit hit three times: saju, JDLab DSN, CoffeeChat. Each time the limit was hit, the core code already existed in the filesystem. Re-entering context cost a few minutes of speed, not work.
+
+The `Workflow` fan-out sessions stand out on efficiency. The spoonai audit: 11 agents, critical infrastructure failure found in 39 minutes. A Primer accelerator research session ran 5 parallel agents, 209 search-and-verify calls, 57 programs catalogued and filtered to 7 actionable options — in roughly 30 minutes. Running those 57 programs sequentially, one lookup at a time, would have consumed most of the day's session. Fan-out compresses research tasks to the latency of the single slowest lookup.
+
+## What's Next
+
+Two unblocked items: inject `SUPABASE_SERVICE_ROLE_KEY` into spoonai's deployment environment, fix the unsubscribe route. Both are concrete, both are fast. Everything else — CoffeeChat Vercel deployment status check, dental director meeting feedback — comes after those two are done.
 
 ---
 
