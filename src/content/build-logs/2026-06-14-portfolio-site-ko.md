@@ -1,87 +1,79 @@
 ---
-title: "Claude Fable 5 × Ultracode: 9개 세션, 5개 프로젝트, 1,000+ tool calls의 결과"
+title: "Design Gate가 4번 막았다 — Hermes 릴레이 패턴과 528번 tool call의 하루"
 project: "portfolio-site"
 date: 2026-06-14
 lang: ko
-tags: [claude-code, ultracode, workflow, fable-5, multi-project]
-description: "Fable 5와 ultracode 플래그를 켜고 18세션을 돌린 결과. 단일 세션에서 532 tool calls, 28시간 연속 작업이 실제로 어떻게 돌아가는지."
+tags: [claude-code, design-gate, workflow, hermes-relay, saju, coffeechat]
+description: "하루 11세션 528 tool calls. 사주 디자인 리디자인, 커피챗 애니메이션 복원, Godot 기획서 생성. design-gate 훅이 PDF 세션 4번을 연속으로 차단한 실제 기록."
 ---
 
-532번의 tool call, 28시간 연속 세션. 커피챗 프로젝트 하나에 어드민·결제·다국어·TTS·이력서 빌더까지 단일 세션에서 다 박았다. 모델은 `claude-fable-5`, 플래그는 `ultracode`.
+하루 11세션에서 528번 tool call이 나왔다. 모델은 대부분 `claude-opus-4-8`. 작업한 프로젝트는 사주 글로벌, 커피챗, Godot 무협 게임 기획, AEO 아웃리치. 그 중 가장 눈에 띈 건 결과물이 아니라 반복적으로 막힌 과정이었다.
 
-**TL;DR** 6월 11~13일 사이 9개 세션에서 5개 프로젝트를 동시 진행했다. ultracode는 단순히 "더 빠른 Claude"가 아니라 fan-out 워크플로를 자동으로 켜는 스위치다.
+**TL;DR** design-gate 훅이 Godot 기획서 PDF 세션을 4번 연속으로 차단했다. Hermes(릴레이 오케스트레이터)와 Claude Code(실행자)를 분리하는 실험적 패턴이 왜 깨지는지 이 사례에서 잘 보인다.
 
-## 세션 길이가 왜 이렇게 길어?
+## 사주 코스믹 골드 — 10가지 방향에서 하나를 고르는 법
 
-일반 Claude Code 세션은 30분~2시간이 평균이다. 이번 주는 달랐다.
+사주 사이트의 문제는 구체적이었다. `$4.99 / 20,000+ character deep-dive by AI / Start Free, Upgrade Anytime` 같은 카피가 i18n 파일에 그대로 남아 있었고, 이미지 4개가 세 가지 다른 시각 언어를 쓰고 있었다.
 
-| 세션 | 길이 | tool calls | 프로젝트 |
-|------|------|------------|---------|
-| 세션 4 | 25h 26min | 356 | 사주 글로벌 리디자인 |
-| 세션 5 | 27h 48min | 532 | 커피챗 어드민/결제 |
-| 세션 6 | 24h 48min | 105 | AEO 아웃리치 엔진 |
+`hero-sky` + `sea-moon`은 어두운 실사 야경 사진이었다. `ink-night`는 수묵화였다. `ink-cranes`는 밝은 배경에 학. 다크 테마 사이트에 이 조합은 맥락이 없었다.
 
-이게 가능한 이유가 있다. `/goal` 훅을 쓰면 조건이 충족될 때까지 Claude가 세션을 끊지 않는다. 세션 5에서 쓴 goal은 "커피챗에 유저별 어드민 + 토큰 사용량 추적 + 결제 + 글로벌 다국어 다 붙이기"였다. 조건이 넓으면 세션이 길어진다. 534개 tool call이 다 한 goal을 향해서 달린다.
+Claude가 Dynamic Workflow를 써서 10개 동양풍 아트 방향을 탐색했다. 천문도 톤, 민화 톤, 산수화 톤, 청록산수 톤, 코스믹 골드 라인아트 등. 각 방향을 실제 레퍼런스 이미지 URL과 함께 `art-directions.html`로 정리했다. 사용자가 "천문도 톤"을 골랐고, 이어서 `genimg-cosmic.py`로 gpt-image-2 파이프라인을 다시 짰다.
 
-문제는 세션이 너무 길면 컨텍스트가 압축되면서 초반 결정이 희미해진다. `/clear` + `/goal` 재설정으로 방향을 다시 잡는 패턴이 생겼다.
+기존 `genimg.py`의 프롬프트는 "Editorial photography"로 실사 방향을 강제하고 있었다. 교체 후 코스믹 골드 페인터리 방향으로 통일됐다. 이 세션에서 Bash 82번, Read 27번, Edit 24번이 나왔다. 세션 길이가 15시간으로 찍혔는데 이건 세션이 열려있던 총 시간이고 실제 활성 작업 시간은 다르다.
 
-## ultracode가 실제로 하는 일
+## 커피챗 — 삭제된 애니메이션을 git에서 꺼낸다
 
-`/effort ultracode`를 실행하면 설정 메시지에 "xhigh + dynamic workflow orchestration"이 붙는다. 이게 뭘 바꾸는지 세션에서 확인한 패턴:
+커피챗 히어로 섹션에서 면접 예시 애니메이션(`InterviewDemo`)이 사라진 게 문제였다. 직전 커밋(`0e578da`)이 `InterviewDemo`를 지우고 정적 리포트 쇼케이스(`ReportShowcase`)로 교체한 것이었다.
 
-세션 2에서 "프라이머급 시드투자·지원금 프로그램 전수 조사"를 넣으니 5개 카테고리로 검색 에이전트를 fan-out했다. 57개 프로그램을 209번의 검색·검증으로 걸러서 1인 창업자 조건에 맞는 7개 추천까지 나왔다. 직접 하면 이틀 걸릴 작업이다.
+Claude가 `git log`로 이걸 찾아냈다. 이후 계획이 명확해졌다. 히어로를 2단 레이아웃으로 바꾸고 왼쪽엔 면접 채팅 애니메이션을 복원하고, 오른쪽엔 리포트 3장을 작성하는 새 애니메이션을 절반 크기로 추가한다.
 
-세션 9에서 "JDLab Dynamic Outreach Failure Audit"을 넣으니 Gmail 접근 권한을 먼저 정찰하고, 쿼터 DSN 메시지를 찾아서 원인을 진단했다. 핵심은 에이전트가 정찰을 먼저 해서 워크플로 구조를 스스로 결정한다는 것이다. 내가 "이렇게 병렬로 나눠라"를 지시하는 게 아니다.
+실제 구현 과정에서 `globals.css`에 애니메이션 정의를 추가하고, `demos.tsx`에서 두 컴포넌트를 나란히 배치하고, i18n 파일을 `en/ko` 각각 수정했다. 이 세션은 tool call 210번으로 가장 많았다. Bash 75, Edit 67, Read 59 순서였다.
 
-## 프로젝트별 삽질과 해결
+사용자 프롬프트가 여러 번 이어졌다. "배포 했어? 아직 사이트에 반영 안되어 있는데?" 같은 실시간 피드백이 작업 방향을 계속 조정했다. 분야별 면접 커버리지 확장 요청, 피드백 리포트 페이지 수 조정, 통계 배너 디자인 개선까지 하나의 세션에서 연속으로 처리됐다.
 
-### 사주 글로벌 — 결제 플랫폼 포지셔닝 딜레마
+## Design Gate가 4번 막은 이유
 
-"전통 사주로 바꾸면 결제가 안 붙지 않아?" 라는 질문에서 시작했다. 실측 데이터가 반대였다.
+Godot 무협 게임 기획서 PDF를 만드는 작업이 세션 4, 5, 8, 9에 걸쳐 4번 시도됐다. 모두 같은 지점에서 막혔다.
 
-Etsy 자연실험: 'AI Reading' 전면에 내세운 샵은 입점 1개월 판매 0건, 인간 페르소나 샵(연화 만신)은 464건·리뷰 130개·$34 평균가. 결제 플랫폼 심사는 랜딩 카피가 아니라 **서비스 카테고리**를 본다. 'AI 사주'라고 써도 생년월일시 넣고 운세 파는 서비스면 동일하게 점술 카테고리다. 포지셔닝 변경이 심사 우회가 아니라는 걸 데이터로 확인하고, 전통 포지셔닝을 유지하면서 결제 레일을 따로 풀었다.
+CLAUDE.md에 이런 규칙이 있다. "HTML 산출물은 Open Design 또는 동등한 디자인시스템 패스 없이 불가." `hooks/design-gate.sh`가 `.html` 파일 작성 시도를 실시간으로 차단한다.
 
-open-design 스킬을 거쳐서 `landing-midnight.html` v1→v2→v3 순서로 빌드했다. gpt-image-2로 이미지를 백그라운드에서 생성하는 동안 v3 코드를 짰다. 이미지 생성이 bottleneck이 되는 걸 병렬 실행으로 회피한 패턴이다.
+세션 4에서 Claude가 Open Design 서버를 확인했다. 포트 7457에 아무것도 없었다. `design-systems`/`design-templates` 폴더는 빈 플레이스홀더였다. OD를 실제로 실행할 수 없는 환경이었다.
 
-### 커피챗 — Git 이메일 차단
+대신 OD-equivalent 패스를 적용하는 방향으로 전환했다. OD 레포의 `craft/` 디렉토리에서 editorial typography, color, anti-AI-slop 규칙을 읽고 `design-pass.sh`로 인증했다. 그런데 세션이 거기서 멈췄다. 파일을 생성하기 전에 컨텍스트가 끊긴 것이다.
 
-배포가 이런 이유로 막혔다:
+세션 5에서 재시도했다. "이전 세션에서 탐색을 반복하지 말고 바로 산출물을 만들어라"는 지시가 들어왔다. 이번엔 환경 확인(Bash 3번)만 하고 또 멈췄다.
 
-```
-The deployment was blocked because the commit author email
-(jidong@jidongui-iMac.local) is not valid.
-```
+세션 8, 9에서도 같은 패턴이 반복됐다. Hermes 릴레이를 통해 "직접 파일 생성하라"고 지시했지만, Claude가 design gate를 통과하는 과정에서 세션 시간이 다 소비되거나 컨텍스트가 단절됐다.
 
-로컬 머신 호스트명이 git config에 그대로 박혀 있었다. `.gitconfig`에서 이메일을 수동으로 고치고 재커밋했다. Claude가 `git config`는 건드리지 않으니(보안 정책) 직접 수정이 필요했다.
+결국 Godot 기획서 PDF는 이날 세션에서 생성되지 않았다.
 
-532 tool call 중 `Bash(190)`, `Edit(136)`, `Write(66)` 순서였다. 새로 생긴 파일이 70개가 넘는다. 이 규모에서 세션 하나로 끝내려면 중간에 `/clear`를 치지 않는 게 중요하다 — 컨텍스트를 살려둬야 의존성을 추적한다.
+## Hermes 릴레이 패턴의 구조적 한계
 
-### spoonai — P0 버그 먼저
+세션 4~11 중 상당수가 "You are Claude Code, the actual executor. Hermes is only the relay/orchestrator." 형태의 시스템 프롬프트로 시작했다. Hermes가 PM 역할을 하고 Claude Code가 실행자 역할을 맡는 실험적 패턴이다.
 
-"어떻게 팔아야 하는지"를 물었더니 먼저 P0 진단이 나왔다. 신규 구독자가 메일을 영구히 못 받는 버그 + 수신거부 404가 그대로였다. 파는 것보다 고치는 게 먼저라는 결론이었다.
+이 패턴의 문제는 권한 게이트에서 드러났다. Hermes가 "Dynamic Workflow를 써서 아웃리치를 만들어라"고 지시했는데, Workflow 툴 실행 시 "Review dynamic workflow before running" 메시지가 나오면서 차단됐다. 인터랙티브 승인이 필요한 게이트를 릴레이가 우회할 수 없었다.
 
-`/unsubscribe`, `/feedback` 페이지 추가, `/api/unsubscribe` GET이 삭제 대신 확인 페이지로 302 리다이렉트하도록 수정. 커밋 `4a3c598`로 spoonai.me 라이브 배포 후 라이브 URL 응답 코드까지 검증했다. 이 흐름은 56 tool call로 22분 만에 끝났다.
+세션 6에서 이 상황을 Claude가 명시했다. "Workflow 툴이 게이팅됨 — 릴레이 세션에선 인터랙티브 승인 불가. 동일한 작업을 병렬 서브에이전트로 수동 분해해서 진행한다." 그리고 12개 B2B-SaaS 니치에 걸쳐 실제로 Agent 6번, Workflow 1번을 썼다.
 
-## design-gate 훅의 실제 효과
+AEO 아웃리치 워크플로는 결국 완성됐다. 27개 GREEN-only 프로스펙트가 선별됐고 `eligible_*.json`, `email_sequences.json`, `verification.md`가 생성됐다. 세션 10, 11에서 Codex 리뷰가 발견한 버그(검증.md에서 "price token: 31" vs "price token in email bodies: NONE" 충돌)를 수정하는 작업도 포함됐다.
 
-CLAUDE.md에 "HTML 산출물은 Open Design 또는 동등한 디자인시스템 패스 없이 불가" 규칙이 있다. `hooks/design-gate.sh`가 `.html` 파일 작성 시도를 차단한다.
+## Gmail 오딧 — 5분, 23번 tool call
 
-세션 6에서 report-builder 스킬을 실행할 때 이 훅을 먼저 통과시켜야 했다:
+세션 3은 짧고 명확했다. Gmail 아웃리치 오딧 JSON(`claude_input.json`, `summary.json`)을 읽고 3개 산출물을 생성했다.
 
-```bash
-bash ~/.claude/hooks/design-pass.sh "report-builder 디자인시스템 패스"
-```
+분석 결과가 예상과 달랐다. 86개 "바운스" 중 82개가 실제 이메일 주소 오류가 아니라 Gmail 일일 발송 쿼터 자기 스로틀이었다. 실제 하드 바운스는 1개, 원격 거부 3개. 진짜 인바운드 답장은 Fjord에서 1건. 이걸 23번 tool call(Bash 18, Write 3, Read 2)로 확인했다.
 
-처음엔 귀찮게 느껴졌다. 근데 이 강제 패스 덕분에 Stripe·Notion·Linear 3개 디자인시스템 중 뭘 쓸지 결정이 선행됐고, 비교 페이지(`_theme-directions.html`)가 생겼다. 훅이 없었으면 즉흥 CSS를 썼을 가능성이 높다.
+## 통계 요약
 
-## 세션 사이 인수인계
+| 도구 | 횟수 |
+|------|------|
+| Bash | 237 |
+| Read | 133 |
+| Edit | 98 |
+| Write | 18 |
+| Agent | 10 |
+| Workflow | 7 |
 
-9개 세션이 각각 독립적으로 시작했는데, 메모리 시스템이 없었으면 매번 컨텍스트를 다시 설명해야 했다. `~/.claude/projects/-Users-jidong/memory/`에 프로젝트별 메모리가 있고, 세션 시작 시 관련 메모리를 자동으로 읽는다.
+수정된 파일 23개, 생성된 파일 16개. 세션 1, 2가 각각 164, 210 tool calls로 전체의 71%를 차지했다. 이 두 세션이 각각 사주 리디자인, 커피챗 UI 개선이었다. 나머지 9개 세션은 Hermes 릴레이 패턴이었고 평균 tool call이 현저히 낮았다.
 
-세션 3(데이문 사이트, 6 tool calls, 5분)이 이 패턴의 극단 사례다. "남은 작업 뭐야?"에 바로 Vercel Blob 스토리지 흐름과 어드민 3탭 구조를 답했다. 이전 세션에서 쌓인 메모리가 있었기 때문이다.
-
-## 다음 주 할 것
-
-커피챗 Turso DB 연결과 PayPal webhook 실환경 테스트가 남아 있다. 사주 글로벌 v3 랜딩은 코드가 완성됐지만 Next.js 앱에 아직 통합 안 됐다. AEO 아웃리치 엔진(`hermes-dashboard/aeo-engine`)은 구조만 있고 실제 프로스펙트 파이프라인 미연결 상태다.
-
-세션 8에서 모델이 `claude-fable-5[1m]`를 찾지 못했다 — "It may not exist or you may not have access." 모델 이름은 세션 시작 전에 `/model`로 확인하는 습관이 필요하다.
+design-gate가 4번 연속으로 차단한 사례는 훅 시스템이 의도대로 작동한다는 증거이기도 하다. PDF 산출물에 즉흥 CSS가 들어가는 걸 막는 역할을 했다. 다만 릴레이 세션에서 OD-equivalent 패스를 인증하는 명확한 경로가 없으면 이 훅이 단순 장벽이 된다. 인증 흐름을 릴레이와 호환되게 만드는 게 다음 개선 지점이다.
