@@ -1,69 +1,85 @@
 ---
-title: "Claude Code 18세션 707 tool calls: Gmail 감사부터 두 사이트 리디자인까지 하루치 로그"
+title: "Dynamic Workflow 5번 차단, 5번 Agent로 우회: 하루 22세션 기록"
 project: "portfolio-site"
 date: 2026-06-14
 lang: ko
-tags: [claude-code, workflow, automation, email, design, hermes]
-description: "하루 동안 Claude Code 18세션 707 tool calls로 Gmail 바운스 감사, B2B 이메일 아웃리치 자동화, 사주·커피챗 사이트 리디자인까지 처리한 패턴을 분석한다."
+tags: [claude-code, dynamic-workflow, multi-agent, coffeechat, pokemon, automation]
+description: "Claude Code Dynamic Workflow가 자율 크론에서 5번 연속 차단됐다. 22개 세션, 302 tool calls 랜딩 리디자인, 포켓몬 카드 시세 사이트 착공까지 하루치 로그."
 ---
 
-707번의 도구 호출, 18개 세션, 51개 파일 — 2026-06-14 하루치 Claude Code 로그다.
+하루에 22개 세션을 돌렸다. Gmail 감사 리포트, Godot 무협 게임 기획서, B2B SaaS 이메일 자동화, 커피챗 랜딩 리디자인, Fable 5 vs Opus 비교 분석, 포켓몬 카드 시세 사이트. 그중에서 Claude Code Dynamic Workflow가 `"Review dynamic workflow before running"` 메시지로 5번 연속 차단됐다. 그때마다 5-lane Agent 병렬 분해로 즉시 우회했다.
 
-**TL;DR** Hermes 릴레이 패턴으로 Gmail 감사, B2B SaaS 이메일 아웃리치, 무협 Godot 게임 기획, 사주·커피챗 사이트 리디자인을 처리했다. Dynamic Workflow는 자율 cron과 인터랙티브 세션 두 컨텍스트 모두에서 권한 게이트에 막혔다.
+**TL;DR** Dynamic Workflow는 실행 전 인터랙티브 승인이 필요한데 자율 크론엔 승인자가 없다. 차단되면 동등한 Agent 병렬 분해가 실용적 대안이다. 이 패턴이 오늘 하루 다섯 번 반복됐다.
 
-## Gmail 바운스 82개, 실제론 0개였다
+## Dynamic Workflow가 다섯 번 막혔다
 
-오늘 가장 명쾌한 발견이 여기서 나왔다. JDLab 아웃리치 Gmail 감사 세션에서 로그상 86건의 바운스를 분석했는데, 82건이 수신 거부가 아니라 Gmail 일일 전송 할당량 자가 스로틀이었다. 이메일이 발송 큐 안에서 죽은 것이고, 수신자에겐 도달조차 못 했다.
+세션 4에서 처음 시도했다. 지시는 명확했다: "claude dynamic workflow 써서 가장 효과적으로 결제를 일으킬 수 있는 타겟에 마케팅적이고 전문적인 이메일로 보내서 결제 일으켜줘". Workflow 툴을 호출하자마자 차단. 세션 5에서 재시도, 결과 동일.
 
-실제 문제는 딱 3건. 하드 바운스 1건, 리모트 거부 2건. 진짜 사람 답장은 Fjord 1건이었다. Claude Code가 `gmail_audit_full.json` 하나를 받아 `claude_audit_report.md`, `claude_cleanup_plan.json`, `claude_reply_shortlist.md` 세 산출물을 23 tool calls, 5분 만에 뽑았다.
+세션 10은 자율 크론 컨텍스트였다. 여기서도 막혔다. `verification.md §6`에 그 기록이 남아 있다: *"실제 Workflow 툴이 권한 게이트에 의해 거부됨 — autonomous cron에서는 interactive approver가 없어 차단. 5-lane Agent 분해로 fallback."* 세션 12, 13까지 포함하면 총 5번.
 
-운영자가 "바운스 82건"이라는 숫자를 보면 보통 주소 품질이나 도메인 평판부터 의심한다. 하지만 원인은 전혀 달랐다. JSON 파싱과 패턴 분류를 Claude Code에게 넘기니 본질 원인을 바로 짚어냈다.
+문제는 구조적이다. Workflow 툴은 실행 전 사용자 승인이 필요한데, 자율 크론 세션엔 그 승인을 눌러줄 사람이 없다. 인터랙티브 세션에서도 이 게이트가 풀리지 않으면 동일하다.
 
-## 안전 가드레일의 설계
+대안은 매번 같았다: 동일한 작업을 **5~6개 lane의 Agent 병렬 호출**로 분해. 세션 10에서는 B2B SaaS 12개 카테고리를 5개 lane으로 나눠 lane당 6개 프로스펙팅을 돌렸다. 결과는 30개 이메일 초안, 전수 컴플라이언스 검증, eligible 패키지 27개. 도구 사용: `Bash(11), Read(5), Agent(5), Write(3), Workflow(1)` — Workflow 1번 시도 후 차단, Agent 5개 병렬로 즉시 전환.
 
-B2B SaaS 아웃리치 자동화 세션에서 핵심 패턴이 드러났다. 엔진은 `assertSendAllowed({})` 함수를 가지고 있고, 호출하면 `GuardrailError: SEND BLOCKED`를 던진다. 모든 드래프트엔 `approvedToSend: false`가 박혀 있다. 이 가드레일은 단위 테스트(8/8 pass), 엔진 CLI mock 실행, 실제 cron 어느 경로에서도 뚫리지 않았다.
+Workflow가 통과된 건 세션 18뿐이었다 — 완전한 인터랙티브 세션이었고 사용자가 직접 승인했다. 차단과 통과를 가르는 변수는 세션 타입(자율 크론 vs 인터랙티브)이었다.
 
-검증은 독립적으로 두 번 돈다. Claude Code가 in-memory로 컴플라이언스 스캔을 돌리고, 그 다음 bash grep으로 파일에 대해 다시 검증한다. `price`, `PayPal`, `$`, `guarantee` 토큰이 실제 email body에서 0건인지 두 번 확인하고 `verification.md`에 기록한다.
+## 302 tool calls짜리 랜딩 리디자인
 
-Codex 리뷰에서 "31건 매치"라는 숫자에 의문이 제기됐다. 파보니 JSON field name(`hasPriceOrPayment`)이 30개 + 정책 문자열 1개가 합산된 숫자였다. body-level 실제 매치는 0건. 이런 거짓 양성을 잡으려면 naive `grep` 한 번이 아니라 JSON 구조를 이해하는 검증이 필요하다.
+이날 최대 세션은 커피챗 랜딩 리디자인이었다. `Edit(119), Bash(98), Read(75), Agent(5), ToolSearch(1)` — 총 302 tool calls, 사용자 프롬프트 6개.
 
-설계의 핵심은 **생성과 승인의 완전한 분리**다. 파이프라인이 아무리 돌아가도 사람이 `approvedToSend: true`를 직접 바꾸기 전엔 아무것도 안 나간다.
+요청의 시작점은 "면접 예시 애니메이션 다시 살려줘"였다. `git log`를 확인하니 직전 커밋 `0e578da`가 히어로의 `InterviewDemo` 컴포넌트를 제거하고 정적 `ReportShowcase`로 교체한 게 원인이었다. 이걸 되돌리면서 오른쪽에 리포트 작성 애니메이션을 절반 크기로 추가해 2단 레이아웃으로 재구성하는 작업이었다.
 
-## Dynamic Workflow가 두 번 차단됐다
+세션 중반에 `/effort ultracode`를 켰다. 그 직후 디자인 감사 Dynamic Workflow가 태스크 노티피케이션으로 색상 토큰, 인터랙션 패턴, 아이콘 리스트를 돌려줬다. 이 결과를 기반으로 `globals.css`, `demos.tsx`, `illustrations.tsx`, `page.tsx` 포함 12개 파일을 일괄 수정했다.
 
-오늘 반복된 흥미로운 실패 패턴이다. Dynamic Workflow 툴을 총 9번 시도했는데, 실제로 실행된 건 없다. 자율 cron 컨텍스트에서 차단됐고, 인터랙티브 세션에서도 `"Review dynamic workflow before running"` 게이트가 떴다.
+배포 후 "아직 사이트에 반영 안 되어 있는데?" — Cloudflare Pages 캐시 지연이었다. 이건 매번 나오는 패턴이다.
 
-폴백 전략은 매번 동일했다. Agent 서브에이전트를 레인별로 수동 분기해서 순차 실행. 세션 5에서는 12개 B2B-SaaS 니치를 5개 레인으로 나눠 Agent 5개를 순차로 호출했고, 30개 프로스펙트를 생성했다. Workflow가 없어도 동일한 결과가 나온다 — 다만 병렬 속도를 못 쓴다.
+## 새 프로젝트: 포켓몬 카드 시세 사이트 착공
 
-권한 게이트가 존재하는 이유는 명확하다. Workflow 툴은 수십 개 에이전트를 병렬로 띄울 수 있기 때문에, 인터랙티브 승인 없이 자율 실행되면 예상 외의 비용이 발생한다. 자율 cron엔 그 승인자가 없다.
+세션 19는 그린필드 착공이었다. "포켓몬 카드 시세 알아보고 모든 카드 리스트를 확인하고, 현재 시세 / 이전 시세 / 희귀도... 사이트를 만들고 싶어."
 
-## 하루에 두 사이트를 리디자인했다
+데이터 소스 검증이 첫 번째 관문이었다. 처음엔 `pokemontcg.io`가 당연한 선택처럼 보였다 — 무료 API, 하루 20,000건, 카드 메타데이터 + 이미지 + 시세까지. 그런데 "일본카드만 해줘"가 나오면서 상황이 바뀌었다. `pokemontcg.io`는 영문/미국 중심 API라 일본판 OCG 카드를 제대로 커버하지 못한다.
 
-가장 무거운 세션 두 개는 사이트 리디자인이었다.
+대안으로 찾은 건 [TCGdex](https://tcgdex.dev/) — 무료, 키 불필요, 10개 언어(일본어 포함). API 응답 구조를 직접 검증했다:
 
-사주 사이트(`fortunelab`)는 169 tool calls였다. 문제는 이미지 4장이 서로 다른 시각 언어로 충돌하고 있었다는 것이다. `hero-sky`는 리얼 야경 사진, `ink-cranes`는 밝은 배경의 수묵화, `ink-night`는 어두운 수묵화 — 같은 페이지 안에서 세 방향이 전혀 다른 분위기를 냈다. 방향을 **dark cosmic navy + gold celestial line-work**로 단일화하고, `page.tsx:509-542`에서 리뉴얼 이후에도 살아남은 `$4.99` 구가격 섹션을 같이 제거했다.
+```json
+"pricing": {
+  "tcgplayer": {
+    "normal": { "marketPrice": 1.23, "lowPrice": 0.89 },
+    "holofoil": { "marketPrice": 4.50 }
+  }
+}
+```
 
-커피챗 사이트는 302 tool calls로 하루 최다였다. `git log`를 보니 직전 커밋(`0e578da`)이 히어로의 `InterviewDemo` 애니메이션 컴포넌트를 정적 리포트 쇼케이스로 교체해버렸다. 이번 세션에서 애니메이션 면접 데모를 복구하고, 오른쪽에 리포트 3장 생성 애니메이션을 추가해 2단 레이아웃으로 재구성했다. Edit 119회, Bash 98회, Read 75회 — 반나절이 넘는 작업이었다.
+이 구조를 확인한 뒤 provider 어댑터를 추상화 레이어로 설계했다 — 나중에 유료 소스(1년 히스토리, JP 전용)로 교체할 때 코드 변경 없이 어댑터만 교체하는 구조. 178 tool calls, 4시간 54분. Next.js 16 + React 19 + Tailwind v4 스캐폴드, Neon Postgres + Drizzle ORM, Vercel 배포 구성까지 P0 완료. `jee599` GitHub 계정으로 레포 생성, 초기 커밋까지.
 
-## Hermes 릴레이 패턴
+## Fable 5 vs Opus 비교: 로컬 세션 전수 분석
 
-오늘 세션들에서 반복된 구조가 있다. 대부분의 작업이 `"You are Claude Code, the actual executor. Hermes is only the relay/orchestrator."` 형태로 들어왔다. Hermes가 PM/오케스트레이터 역할을 하고, Claude Code CLI가 실제 실행자로 분리된 설계다.
+세션 18에서 "fable5로 만들었던 작업물들 내 로컬에서 모두 파악해서 opus랑 다른점 비교해줘 보고서로"를 요청했다.
 
-이 패턴의 이점은 명확한 책임 경계다. Hermes가 scope gate와 intake를 처리하고, Claude Code는 주어진 scope 안에서만 실행한다. `"STRICT MODE: READ/WRITE ONLY. Do not use Bash/shell/terminal at all."` 같은 제약도 Hermes 레벨에서 명시적으로 내려온다.
+방법부터 막혔다. `grep "fable"` 전체 세션 파일에 돌리면 시스템 프롬프트의 모델 목록에도 "fable"이 있어서 거의 모든 세션이 걸린다. 실제 사용 모델은 어시스턴트 메시지의 `message.model` 필드에만 있다. 1,264개 세션 파일을 Python으로 파싱해서 `message.model === 'claude-fable-5'`로 필터링했다.
 
-세션 14에서는 이 패턴이 극단적으로 적용됐다. Bash 없이 Read 13회 + Write 1회만으로 cron 로직 전체를 검증하고 리뷰 리포트를 작성했다. 필요한 증거가 모두 파일로 존재한다면 shell 없이도 검증이 가능하다.
+결과: Fable 5 세션 28개(2026-06-10~06-12 사흘간 집중), Opus 4.8 세션 20,517턴. 클러스터는 7개 — `coffeechat`, `saju_global`, `daymoon`, `game_plans`, `hermes-dashboard`, `dental-promo`, `portfolio-site`. 각 클러스터에서 Fable이 먼저 만든 뒤 Opus가 이어받은 경우(`coffeechat`)와 반대(`daymoon`)가 섞여 있었다. 보고서는 `~/reports/fable5-vs-opus-audit-2026-06-14.md`로 생성.
 
-## 오늘의 도구 사용 패턴
+도구 사용: `Bash(15), Read(2), Workflow(1), Write(1)` — 이번엔 Workflow가 통과됐다. 인터랙티브 세션이었기 때문이다.
 
-| 도구 | 횟수 |
+## Godot 기획서 삽질 4번
+
+세션 2에서 시작해서 파일이 실제로 나온 건 세션 7이었다. 동일한 Godot 무협 게임 기획서 3안 PDF 작업을 4번 반복했다.
+
+세션 2: Open Design 확인까지만 하고 멈춤(`Bash(7), Read(4)`). 세션 3: "탐색 반복하지 말고 바로 산출물 만들어라"는 지시를 받았는데 `Bash(3)` 3번만 쓰고 또 멈춤. 세션 6: `Read(6), Bash(4)` — 좀 더 나아갔지만 파일 생성 없이 종료. 세션 7에서야 환경 확인 후 HTML 파일이 나왔다.
+
+Hermes 릴레이 구조에서 세션 간 컨텍스트가 매번 리셋될 때 생기는 패턴이다. 해결한 방법은 지시를 점점 더 제약적으로 좁히는 것이었다: *"Do NOT use TaskCreate/TaskUpdate/workflow/planning tools. Do NOT spend time searching for tools. Immediately perform file operations."* 금지어를 명시적으로 추가하자 바로 출력이 나왔다.
+
+## 오늘의 숫자
+
+| 항목 | 수치 |
 |---|---|
-| Bash | 292 |
-| Read | 180 |
-| Edit | 151 |
-| Write | 28 |
-| Agent | 22 |
-| Workflow (시도만, 실행 0) | 9 |
+| 총 세션 수 | 22개 |
+| 최대 단일 세션 | 302 tool calls (커피챗 랜딩) |
+| 두 번째 | 178 tool calls (포켓몬 카드) |
+| Dynamic Workflow 차단 | 5번 |
+| Dynamic Workflow 성공 | 1번 (Fable 5 vs Opus, 인터랙티브) |
+| Godot 기획서 시도 횟수 | 4번 (세션 2, 3, 6, 7) |
+| 생성된 주요 파일 | ~30개 |
 
-Bash가 292회로 압도적이다. 검증 grep, node 스크립트 실행, Chrome headless PDF 생성, typecheck, 테스트 실행이 대부분이다. Read 180회는 맥락 파악 비용이다 — 세션 초반에 수십 개 파일을 읽고 전체 그림을 잡은 뒤 편집에 들어간다.
-
-Workflow 9회 시도에 실행 0회라는 숫자가 오늘의 특징이다. Agent 폴백이 대신했고, 결과는 나왔다. 다만 병렬 속도를 못 쓴 만큼 순차 실행보다 느렸다. 자율 모드에서 Workflow를 쓰려면 사전 권한 설정이 필요하다는 것도 오늘 배웠다.
+Dynamic Workflow 차단 5번 → Agent 병렬 분해 5번. 자율 크론에서 Workflow를 쓰려면 사전 권한 설정이 필요하다는 걸 오늘 다섯 번 확인했다. 아니면 처음부터 Agent 병렬 분해로 설계하는 게 더 안정적이다.

@@ -1,104 +1,116 @@
 ---
-title: "707 Tool Calls, One Day: Claude Code From Gmail Audit to Dual Site Redesigns"
+title: "Dynamic Workflow Blocked 5 Times in a Day: Running 22 Claude Code Sessions"
 project: "portfolio-site"
 date: 2026-06-14
 lang: en
 pair: "2026-06-14-portfolio-site-ko"
-tags: [claude-code, workflow, automation, email, design, hermes]
-description: "18 Claude Code sessions, 707 tool calls, 51 files — Gmail bounce audit, B2B email automation, and two full site redesigns in a single day."
+tags: [claude-code, dynamic-workflow, multi-agent, automation]
+description: "Dynamic Workflow hit permission gates 5 consecutive times in autonomous cron. Each time, parallel Agent decomposition was the immediate fallback — across 22 sessions, 302-call redesigns, and a Pokemon card site launch."
 ---
 
-707 tool calls. 18 sessions. 51 files touched. That's the raw output of a single day running Claude Code across a stack of unrelated projects — email auditing, B2B outreach automation, a martial-arts Godot game prototype, and two separate site redesigns.
+Five times in a single day, Dynamic Workflow got blocked by a permission gate. Five times, the fix was the same: decompose into parallel Agent calls and keep moving.
 
-This is a log of what happened, what patterns held up, and where the system hit walls.
+22 sessions total: Gmail audit report, Godot wuxia game design doc, B2B SaaS email automation, coffeechat landing redesign, Fable 5 vs Opus comparison, Pokemon card price tracker. The Dynamic Workflow block-and-fallback pattern threaded through all of it.
 
-**TL;DR** The Hermes relay pattern — where an orchestrator (Hermes) handles PM and intake while Claude Code CLI executes — ran through Gmail auditing, B2B SaaS email outreach, a saju (four pillars) fortune site redesign, and a coffeechat platform overhaul. Dynamic Workflow was attempted 9 times and executed 0 times, blocked by permission gates in both autonomous cron and interactive contexts.
+**TL;DR** Dynamic Workflow requires interactive user approval before execution. In autonomous cron sessions, there's no one to click approve. When blocked, parallel Agent decomposition produces equivalent output — just without the parallelism speedup. This showed up five times today.
 
-## 82 Bounces. Real Deliverability Problem: Zero.
+## Why Dynamic Workflow Kept Failing
 
-The clearest finding of the day came from a Gmail audit session for a JDLab outreach account. The logs showed 86 bounce events. Auditing with Claude Code revealed 82 of them weren't bounces at all — they were Gmail's own daily sending quota throttle kicking in. Messages died in the outbound queue and never reached a recipient.
+Session 4 was the first attempt. The prompt was clear: use Dynamic Workflow to generate targeted B2B sales emails for the highest-conversion segments. The Workflow tool call fired and was immediately blocked. Session 5 — same result.
 
-Actual problems: 3. One hard bounce, two remote rejections. One human reply — from Fjord.
+Session 10 ran in autonomous cron context. Blocked again. The `verification.md §6` log captures it:
 
-Claude Code took a single `gmail_audit_full.json` input and produced three artifacts:
-- `claude_audit_report.md`
-- `claude_cleanup_plan.json`
-- `claude_reply_shortlist.md`
+> *"Actual Workflow tool rejected by permission gate — no interactive approver in autonomous cron context. Falling back to 5-lane Agent decomposition."*
 
-23 tool calls. Under 5 minutes.
+Sessions 12 and 13 followed. Five blocks total.
 
-The default instinct when you see "82 bounces" is to suspect list quality or domain reputation. Neither was the issue here. The problem was quota management, and it only surfaced clearly after structured JSON parsing and pattern classification. Handing that classification to Claude Code let it identify the actual root cause rather than chasing the obvious (and wrong) hypothesis.
+The root cause is structural. Dynamic Workflow shows a `"Review dynamic workflow before running"` dialog that requires a human to confirm before execution. In an autonomous cron session, that human doesn't exist. Even in interactive sessions, the gate doesn't open unless the session has been explicitly pre-authorized.
 
-## How the Safety Guardrails Were Built
+The fallback pattern was consistent every time: take the same work and fan it out across 5–6 parallel `Agent()` calls. Session 10 split 12 B2B SaaS categories across 5 lanes, with each lane generating 6 prospect emails. Output: 30 email drafts, full compliance verification, 27 eligible packages.
 
-The B2B SaaS outreach automation session surfaced the most deliberate design pattern of the day: complete separation between generation and approval.
+Tool breakdown for that session: `Bash(11), Read(5), Agent(5), Write(3), Workflow(1)` — one Workflow attempt, blocked, then immediate pivot to 5 parallel Agents.
 
-The send pipeline has an `assertSendAllowed({})` function. Call it, and it throws `GuardrailError: SEND BLOCKED`. Every generated draft carries `approvedToSend: false`. That flag is never flipped programmatically — it requires a human edit.
+The only successful Workflow run was session 18: a fully interactive session where the user approved it directly. The single variable separating blocked from approved was session type.
 
-Verification runs independently twice. First, Claude Code does an in-memory compliance scan. Then a bash grep hits the actual files. Both checks confirm that `price`, `PayPal`, `$`, and `guarantee` appear zero times in actual email bodies. Results are written to `verification.md`.
+If you're scheduling Claude Code workflows for autonomous cron: pre-authorize the Workflow tool before the job runs, or design the task as Agent parallel decomposition from the start. Runtime approval in a headless context isn't possible.
 
-During Codex review, a "31 matches" count came up as a concern. Digging in: 30 of those were the JSON field name `hasPriceOrPayment` appearing in the schema, plus one policy string. Body-level matches: 0. This is why naive grep isn't sufficient for this kind of verification — you need structure-aware checks, not raw string matching across a JSON document.
+## 302 Tool Calls to Rebuild a Landing Page
 
-All 8 unit tests passed. The guardrail held through mock CLI execution and actual cron paths.
+The heaviest session of the day was a coffeechat landing page redesign. Final tool count: `Edit(119), Bash(98), Read(75), Agent(5), ToolSearch(1)` — 302 calls across 6 user prompts.
 
-The design principle: the pipeline can run indefinitely, generating and staging drafts, and nothing ships until a human manually sets `approvedToSend: true`. Generation and sending are decoupled at the data level, not just the code level.
+The starting request was "restore the interview demo animation." A `git log` check traced the problem to commit `0e578da`, which had swapped the hero's `InterviewDemo` animation component for a static `ReportShowcase`. Task: restore the interview animation on the left, add a report-writing animation at half size on the right, restructure into a two-column layout.
 
-## Dynamic Workflow Tried 9 Times. Ran 0 Times.
+Mid-session, `/effort ultracode` was enabled. A design audit Workflow ran (interactive session, so it actually executed) and returned color tokens, interaction patterns, and icon inventories via task notifications. That output drove batch edits across 12 files: `globals.css`, `demos.tsx`, `illustrations.tsx`, `page.tsx`, and more.
 
-This was the most consistent failure pattern of the day, and also the most instructive.
+Post-deploy: "The site doesn't reflect the changes yet." Cloudflare Pages cache delay. This comes up every single time.
 
-Dynamic Workflow was attempted 9 times across sessions — in autonomous cron context and in interactive sessions. Every attempt was blocked. Interactive sessions hit a `"Review dynamic workflow before running"` gate. The cron context had no approver to satisfy it.
+The 302-call number is worth sitting with. 6 prompts → 302 tool calls means ~50 tool calls per prompt on average. The bulk of that is iterative: edit → verify → bash check → adjust. Claude Code is effectively doing the inner review loop that would otherwise be context-switches between editor, terminal, and browser.
 
-The fallback was the same every time: manually fan out Agent subagents per lane, run them sequentially. In session 5, 12 B2B-SaaS niches were split into 5 lanes, 5 Agent calls were made sequentially, and 30 prospects were generated. Same result as a Workflow run — just without parallelism.
+## Greenfield: Pokemon Card Price Tracker
 
-The gate exists for a good reason. The Workflow tool can spin up dozens of parallel agents, and running that in an autonomous context without interactive approval would generate unpredictable costs. In cron, there's no human to approve it. The right fix isn't to bypass the gate — it's to pre-authorize Workflow for specific autonomous contexts before scheduling the job.
+Session 19 was a new project from scratch. The ask: build a site showing every Pokemon card with current price, previous price, and rarity data.
 
-This is a configuration lesson, not a tool failure.
+Data source selection was the first real decision. `pokemontcg.io` looked like the obvious choice — free API, 20,000 requests/day, cards with metadata, images, and pricing included. Then "Japanese cards only" changed the problem. `pokemontcg.io` is US/English-centric and doesn't properly cover Japanese OCG releases.
 
-## Two Full Site Redesigns in One Day
+Alternative found: [TCGdex](https://tcgdex.dev/) — free, no API key, 10 languages including Japanese. Verified the API response structure directly:
 
-The two heaviest sessions were both visual redesigns, back to back.
+```json
+"pricing": {
+  "tcgplayer": {
+    "normal": { "marketPrice": 1.23, "lowPrice": 0.89 },
+    "holofoil": { "marketPrice": 4.50 }
+  }
+}
+```
 
-**Fortune site (`fortunelab`)** — 169 tool calls.
+After confirming the structure, the provider was abstracted behind an adapter interface. Rationale: swapping to a paid source with annual price history and JP-specific data later shouldn't require touching business logic — only the adapter changes.
 
-The core problem: four hero images using three completely different visual languages. `hero-sky` was a real nightscape photograph. `ink-cranes` was a bright-background ink painting. `ink-night` was a dark ink painting. All three on the same page, none of them agreeing on whether the site felt like a modern product or a traditional aesthetic experience.
+178 tool calls, ~5 hours. P0 complete: Next.js 16 + React 19 + Tailwind v4 scaffold, Neon Postgres + Drizzle ORM, Vercel deployment config. Repo created under `jee599` GitHub account with initial commit pushed.
 
-Resolution: unified the visual direction to **dark cosmic navy + gold celestial line-work**. Single visual language across all hero assets. While in that section of the code, also removed a `$4.99` legacy pricing block that had survived the previous redesign — still alive in `page.tsx:509-542` despite the price having changed.
+## Parsing 1,264 Sessions to Compare Fable 5 vs Opus
 
-**Coffeechat platform** — 302 tool calls. Highest of the day.
+Session 18 request: find every Fable 5 session across local history and compare against Opus.
 
-`git log` showed the previous commit (`0e578da`) had replaced the hero's `InterviewDemo` animation component with a static `ReportShowcase`. This session restored the animated interview demo and added a three-report generation animation on the right side, restructuring the hero into a two-column layout.
+The naive approach — `grep "fable"` across session files — fails immediately. The string "fable" appears in the system prompt's model list in nearly every file. Actual model used lives in `message.model` inside assistant message objects.
 
-Edit: 119 calls. Bash: 98 calls. Read: 75 calls. More than half a workday of effort, compressed.
+Solution: parse all 1,264 session files with Python, filter for `message.model === 'claude-fable-5'`.
 
-## The Hermes Relay Pattern
+Result: 28 Fable 5 sessions concentrated over 3 days (2026-06-10 to 06-12), compared against 20,517 Opus 4.8 turns. Seven project clusters: `coffeechat`, `saju_global`, `daymoon`, `game_plans`, `hermes-dashboard`, `dental-promo`, `portfolio-site`. Some clusters had Fable building first with Opus picking up the work (`coffeechat`); others reversed (`daymoon`).
 
-Most sessions today arrived with some variant of: `"You are Claude Code, the actual executor. Hermes is only the relay/orchestrator."`
+Report written to `~/reports/fable5-vs-opus-audit-2026-06-14.md`.
 
-Hermes acts as the PM and orchestration layer. Claude Code CLI is the executor. Responsibilities are separated by design, not convention.
+Tool breakdown: `Bash(15), Read(2), Workflow(1), Write(1)` — Workflow executed successfully this time. Interactive session.
 
-What this buys: a clear scope boundary. Hermes handles intake and scope gates. Claude Code executes within whatever scope it's given, without needing to reason about why the scope is what it is. Constraints like `"STRICT MODE: READ/WRITE ONLY. Do not use Bash/shell/terminal at all."` come down explicitly from the Hermes level.
+## Four Attempts to Generate One Design Document
 
-Session 14 took this to its logical extreme. Bash was off-limits entirely. The session ran 13 Read calls and 1 Write call, verified the full cron logic, and produced a review report — no shell access. If the necessary evidence exists in files, shell isn't required for verification.
+The Godot wuxia game design doc started in session 2 and produced its first actual file in session 7. Four sessions, same task.
 
-The pattern scales naturally. For sessions that need more autonomy, Hermes passes wider permissions. For audit-only sessions, Hermes constrains to read-only. The executor doesn't need to know which mode it's in — the constraints are explicit in the prompt.
+- **Session 2**: Confirmed Open Design setup and stopped. `Bash(7), Read(4)`.
+- **Session 3**: Explicitly told to skip exploration and just produce output. Three `Bash` calls, then stopped again.
+- **Session 6**: `Read(6), Bash(4)` — more progress, still no file.
+- **Session 7**: Environment check, then the HTML file finally appeared.
 
-## Tool Usage Breakdown
+This is what happens when Hermes relay architecture resets session context each run. Each session starts cold, re-explores the environment, and burns time on setup before getting to execution.
 
-| Tool | Count |
+The fix was progressively tighter prompting:
+
+> *"Do NOT use TaskCreate/TaskUpdate/workflow/planning tools. Do NOT spend time searching for tools. Immediately perform file operations."*
+
+Explicit prohibitions on planning tools produced output on the next attempt. The issue wasn't capability — it was the default behavior of spending turns on setup when context is absent.
+
+## The Day in Numbers
+
+| Metric | Value |
 |---|---|
-| Bash | 292 |
-| Read | 180 |
-| Edit | 151 |
-| Write | 28 |
-| Agent | 22 |
-| Workflow (attempted, never ran) | 9 |
+| Total sessions | 22 |
+| Largest single session | 302 tool calls (coffeechat landing) |
+| Second largest | 178 tool calls (Pokemon card site) |
+| Dynamic Workflow blocked | 5× |
+| Dynamic Workflow succeeded | 1× (Fable 5 vs Opus, interactive) |
+| Godot doc attempts | 4 (sessions 2, 3, 6, 7) |
+| Major files generated | ~30 |
 
-Bash at 292 is the dominant cost. Most of it: validation greps, node script execution, headless Chrome PDF generation, typecheck runs, and test execution. These aren't exploratory — they're verification steps after edits.
-
-Read at 180 reflects context-loading cost. The pattern across sessions was consistent: read 20-40 files at session start to build the full picture, then edit. Skipping that context phase produces misaligned changes.
-
-The Workflow number is the day's most interesting data point: 9 attempts, 0 executions. Agent fallback delivered the same outputs, just without parallelism. The output was correct. The wall-clock time was longer. For autonomous cron jobs that need Workflow-level parallelism, the pre-authorization has to happen before the job is scheduled — not at runtime.
+Five Dynamic Workflow blocks → five Agent parallel fallbacks. The pattern is clear: Workflow in autonomous cron needs pre-authorization or it doesn't run. Agent parallel decomposition covers the same ground without the permission dependency — it's slower (sequential rather than truly parallel) but it ships.
 
 ---
 
