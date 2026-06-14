@@ -1,156 +1,104 @@
 ---
-title: "528 Claude Code Tool Calls in One Day: Design Gates, Relay Orchestration, and What Actually Shipped"
+title: "707 Tool Calls, One Day: Claude Code From Gmail Audit to Dual Site Redesigns"
 project: "portfolio-site"
 date: 2026-06-14
 lang: en
 pair: "2026-06-14-portfolio-site-ko"
-tags: [claude-code, design-gate, multi-agent, hermes-relay, workflow]
-description: "11 sessions, 528 tool calls, 4 blocked by a design-gate hook. Breaking down Claude Code multi-agent patterns: what shipped and what broke at the gate."
+tags: [claude-code, workflow, automation, email, design, hermes]
+description: "18 Claude Code sessions, 707 tool calls, 51 files — Gmail bounce audit, B2B email automation, and two full site redesigns in a single day."
 ---
 
-528 tool calls. 11 sessions. One day. Most of it on `claude-opus-4-8`. Four projects running in parallel — an AI fortune-telling site visual overhaul, a SaaS hero animation restoration, a Godot wuxia game design doc, and a B2B email outreach pipeline. By end of day, three of the four shipped. One didn't.
+707 tool calls. 18 sessions. 51 files touched. That's the raw output of a single day running Claude Code across a stack of unrelated projects — email auditing, B2B outreach automation, a martial-arts Godot game prototype, and two separate site redesigns.
 
-The one that didn't is the most interesting part of this story.
+This is a log of what happened, what patterns held up, and where the system hit walls.
 
-**TL;DR**: A `design-gate` hook in my Claude Code workflow blocked 4 consecutive sessions from generating a Godot game design PDF. The Hermes relay pattern — where Hermes acts as orchestrator and Claude Code acts as executor — has a structural blind spot: it can't pass through interactive permission gates. This post documents what that looked like in practice, and why getting blocked four times in a row is actually a sign the system is working.
+**TL;DR** The Hermes relay pattern — where an orchestrator (Hermes) handles PM and intake while Claude Code CLI executes — ran through Gmail auditing, B2B SaaS email outreach, a saju (four pillars) fortune site redesign, and a coffeechat platform overhaul. Dynamic Workflow was attempted 9 times and executed 0 times, blocked by permission gates in both autonomous cron and interactive contexts.
 
-## Four Images, Three Visual Languages, Zero Coherence
+## 82 Bounces. Real Deliverability Problem: Zero.
 
-The Saju (Korean fortune-telling) site had a problem that sounds simple until you look at it: four hero images from three completely different visual vocabularies, all on a dark-themed site.
+The clearest finding of the day came from a Gmail audit session for a JDLab outreach account. The logs showed 86 bounce events. Auditing with Claude Code revealed 82 of them weren't bounces at all — they were Gmail's own daily sending quota throttle kicking in. Messages died in the outbound queue and never reached a recipient.
 
-`hero-sky` and `sea-moon` were dark, moody real-photo night scenes — the kind of urban landscape photography you'd see on a premium real estate portfolio. `ink-night` was a traditional Korean/Chinese ink wash painting, dark and atmospheric but in a completely different medium. `ink-cranes` was cranes on a bright white background, the style you'd find on a greeting card.
+Actual problems: 3. One hard bounce, two remote rejections. One human reply — from Fjord.
 
-The i18n files compounded the problem. They still had placeholder marketing copy sitting in production: `$4.99 / 20,000+ character deep-dive by AI / Start Free, Upgrade Anytime`. Not localized, not final, just there.
+Claude Code took a single `gmail_audit_full.json` input and produced three artifacts:
+- `claude_audit_report.md`
+- `claude_cleanup_plan.json`
+- `claude_reply_shortlist.md`
 
-Claude used Dynamic Workflow to survey 10 distinct East Asian art directions:
+23 tool calls. Under 5 minutes.
 
-- Astronomical chart (천문도) — celestial maps with gold line art on dark backgrounds
-- Folk painting (민화) — bright, flat, symbolic Korean folk art
-- Landscape ink wash (산수화) — traditional brush-and-ink mountain scenes
-- Blue-green mountain wash (청록산수) — mineral-pigment style from classical Chinese painting
-- Cosmic gold line art — geometric, modern, constellation motifs
-- ...and five more
+The default instinct when you see "82 bounces" is to suspect list quality or domain reputation. Neither was the issue here. The problem was quota management, and it only surfaced clearly after structured JSON parsing and pattern classification. Handing that classification to Claude Code let it identify the actual root cause rather than chasing the obvious (and wrong) hypothesis.
 
-Each direction came with curated reference image URLs and a brief rationale, all compiled into `art-directions.html` for visual comparison. The user picked astronomical chart.
+## How the Safety Guardrails Were Built
 
-Then came the pipeline fix. The existing `genimg.py` had `"Editorial photography"` hardcoded as a style constraint in the generation prompt — literally forcing gpt-image-2 toward realistic photography regardless of what else you specified. That single string was fighting every attempt to generate painterly output.
+The B2B SaaS outreach automation session surfaced the most deliberate design pattern of the day: complete separation between generation and approval.
 
-Replacing it with a cosmic gold painterly direction (specific prompt engineering for the astronomical chart aesthetic) unified all four images into a coherent visual system. Bash 82, Read 27, Edit 24.
+The send pipeline has an `assertSendAllowed({})` function. Call it, and it throws `GuardrailError: SEND BLOCKED`. Every generated draft carries `approvedToSend: false`. That flag is never flipped programmatically — it requires a human edit.
 
-## Resurrecting a Deleted Animation from Git History
+Verification runs independently twice. First, Claude Code does an in-memory compliance scan. Then a bash grep hits the actual files. Both checks confirm that `price`, `PayPal`, `$`, and `guarantee` appear zero times in actual email bodies. Results are written to `verification.md`.
 
-The CoffeeChat hero section was missing its `InterviewDemo` component. Not broken — deleted. Present one commit, gone the next.
+During Codex review, a "31 matches" count came up as a concern. Digging in: 30 of those were the JSON field name `hasPriceOrPayment` appearing in the schema, plus one policy string. Body-level matches: 0. This is why naive grep isn't sufficient for this kind of verification — you need structure-aware checks, not raw string matching across a JSON document.
 
-`git log` surfaced the cause immediately: commit `0e578da` had removed `InterviewDemo` and replaced it with a static `ReportShowcase` component. Once the cause was clear, the recovery plan was straightforward:
+All 8 unit tests passed. The guardrail held through mock CLI execution and actual cron paths.
 
-1. Convert the hero to a 2-column layout
-2. Restore the interview chat animation on the left column
-3. Add a new animation on the right showing 3 reports being written in sequence, at half scale so both are visible simultaneously
+The design principle: the pipeline can run indefinitely, generating and staging drafts, and nothing ships until a human manually sets `approvedToSend: true`. Generation and sending are decoupled at the data level, not just the code level.
 
-The implementation touched four surfaces:
-- `globals.css`: new CSS animation keyframe definitions for the report-writing animation
-- `demos.tsx`: layout changes to place both components side-by-side with correct sizing
-- `i18n/en.json` and `i18n/ko.json`: updated copy for both languages
+## Dynamic Workflow Tried 9 Times. Ran 0 Times.
 
-This was the heaviest session of the day — 210 tool calls. Bash 75, Edit 67, Read 59.
+This was the most consistent failure pattern of the day, and also the most instructive.
 
-What made this session complex wasn't the code. It was the continuous real-time feedback loop. "Did you deploy? It's not showing on the site yet." "Can we cover technical interviews, not just behavioral?" "The report should show 5 pages, not 3." "The stats banner looks too plain." Each message redirected the session mid-stream. All handled inside a single continuous session without context loss.
+Dynamic Workflow was attempted 9 times across sessions — in autonomous cron context and in interactive sessions. Every attempt was blocked. Interactive sessions hit a `"Review dynamic workflow before running"` gate. The cron context had no approver to satisfy it.
 
-## Why the Design Gate Blocked Four Times in a Row
+The fallback was the same every time: manually fan out Agent subagents per lane, run them sequentially. In session 5, 12 B2B-SaaS niches were split into 5 lanes, 5 Agent calls were made sequentially, and 30 prospects were generated. Same result as a Workflow run — just without parallelism.
 
-This is where it gets interesting.
+The gate exists for a good reason. The Workflow tool can spin up dozens of parallel agents, and running that in an autonomous context without interactive approval would generate unpredictable costs. In cron, there's no human to approve it. The right fix isn't to bypass the gate — it's to pre-authorize Workflow for specific autonomous contexts before scheduling the job.
 
-My `CLAUDE.md` has a hard rule: any HTML artifact must pass through Open Design (OD) or an equivalent design-system check before it can be written to disk. This is enforced by `hooks/design-gate.sh`, which intercepts any `.html` write attempt and blocks it until `design-pass.sh` authentication has run in that session.
+This is a configuration lesson, not a tool failure.
 
-The goal is to prevent "raw Claude HTML" — output that works but has no typographic rhythm, arbitrary color choices, and spacing that doesn't follow any system. The gate creates just enough friction to catch these problems before they reach a file.
+## Two Full Site Redesigns in One Day
 
-The Godot wuxia game design PDF was attempted in sessions 4, 5, 8, and 9.
+The two heaviest sessions were both visual redesigns, back to back.
 
-**Session 4**: Claude checked for the Open Design server. Port 7457: nothing. The `design-systems/` and `design-templates/` directories existed but were empty placeholders — OD had been scaffolded but never installed. The server wasn't runnable.
+**Fortune site (`fortunelab`)** — 169 tool calls.
 
-Fallback: apply an OD-equivalent pass manually. Read the `craft/` directory from the OD repo, extract editorial typography rules, color theory guidelines, and anti-AI-slop constraints, then run `design-pass.sh` to authenticate the session. That auth completed. But the session hit a context cutoff before any files were generated. No output.
+The core problem: four hero images using three completely different visual languages. `hero-sky` was a real nightscape photograph. `ink-cranes` was a bright-background ink painting. `ink-night` was a dark ink painting. All three on the same page, none of them agreeing on whether the site felt like a modern product or a traditional aesthetic experience.
 
-**Session 5**: Instruction: "Don't re-explore the environment. Just produce the output." Claude ran 3 Bash commands checking environment state, then stopped. Session ended without generating the file.
+Resolution: unified the visual direction to **dark cosmic navy + gold celestial line-work**. Single visual language across all hero assets. While in that section of the code, also removed a `$4.99` legacy pricing block that had survived the previous redesign — still alive in `page.tsx:509-542` despite the price having changed.
 
-**Sessions 8 and 9**: Same scenario, now routed through the Hermes relay. Hermes issued: "Create the Godot design doc directly." Claude still needed to pass the design gate. Gate auth consumed the available session time and context budget. No PDF.
+**Coffeechat platform** — 302 tool calls. Highest of the day.
 
-The Godot game design document was not generated on this day. Four attempts. Zero output.
+`git log` showed the previous commit (`0e578da`) had replaced the hero's `InterviewDemo` animation component with a static `ReportShowcase`. This session restored the animated interview demo and added a three-report generation animation on the right side, restructuring the hero into a two-column layout.
 
-## The Structural Blind Spot in the Hermes Relay Pattern
+Edit: 119 calls. Bash: 98 calls. Read: 75 calls. More than half a workday of effort, compressed.
 
-Sessions 4 through 11 started with a system prompt structured roughly like this:
+## The Hermes Relay Pattern
 
-```
-You are Claude Code, the actual executor.
-Hermes is only the relay/orchestrator.
-Your job: implement, verify, and ship.
-Hermes's job: planning, prioritization, task sequencing.
-```
+Most sessions today arrived with some variant of: `"You are Claude Code, the actual executor. Hermes is only the relay/orchestrator."`
 
-The Hermes relay pattern treats Claude Code as a stateless executor — Hermes maintains high-level state and issues instructions, Claude Code runs tools and produces artifacts. This is useful when you want to maintain planning context across sessions without carrying full implementation history into every new context window.
+Hermes acts as the PM and orchestration layer. Claude Code CLI is the executor. Responsibilities are separated by design, not convention.
 
-The pattern works well — until it hits an interactive gate.
+What this buys: a clear scope boundary. Hermes handles intake and scope gates. Claude Code executes within whatever scope it's given, without needing to reason about why the scope is what it is. Constraints like `"STRICT MODE: READ/WRITE ONLY. Do not use Bash/shell/terminal at all."` come down explicitly from the Hermes level.
 
-In session 6, Hermes instructed Claude to use the Dynamic Workflow tool to build a B2B-SaaS outreach pipeline. The Workflow tool triggered its standard confirmation: "Review dynamic workflow before running." This gate requires interactive approval from a human. A relay — by definition — can't provide that approval. It's not the human; it's another automated process in the chain.
+Session 14 took this to its logical extreme. Bash was off-limits entirely. The session ran 13 Read calls and 1 Write call, verified the full cron logic, and produced a review report — no shell access. If the necessary evidence exists in files, shell isn't required for verification.
 
-Claude caught this immediately and logged it in the session output:
+The pattern scales naturally. For sessions that need more autonomy, Hermes passes wider permissions. For audit-only sessions, Hermes constrains to read-only. The executor doesn't need to know which mode it's in — the constraints are explicit in the prompt.
 
-> "Workflow tool is gated — relay sessions can't get interactive approval. Manually decomposing into parallel sub-agents instead."
+## Tool Usage Breakdown
 
-What followed was manual decomposition: 6 separate `Agent` tool calls across 12 B2B-SaaS niches, running in parallel. 1 Workflow call for the subset that could proceed unattended. The AEO outreach pipeline was completed:
+| Tool | Count |
+|---|---|
+| Bash | 292 |
+| Read | 180 |
+| Edit | 151 |
+| Write | 28 |
+| Agent | 22 |
+| Workflow (attempted, never ran) | 9 |
 
-- 27 GREEN-only prospects selected against multiple qualification criteria
-- Output files: `eligible_*.json`, `email_sequences.json`, `verification.md`
+Bash at 292 is the dominant cost. Most of it: validation greps, node script execution, headless Chrome PDF generation, typecheck runs, and test execution. These aren't exploratory — they're verification steps after edits.
 
-Sessions 10 and 11 added a Codex review pass. Codex caught a consistency bug: `verification.md` reported "price token count: 31" in the summary, but the actual email body templates contained no price token. The count came from a placeholder in an unused template variant. Fixed.
+Read at 180 reflects context-loading cost. The pattern across sessions was consistent: read 20-40 files at session start to build the full picture, then edit. Skipping that context phase produces misaligned changes.
 
-The relay pattern handles orchestration well but can't reach through interactive checkpoints. Any step requiring a human-in-the-loop decision — Workflow tool review, design gate auth, destructive operation confirmation — breaks the relay chain. The solution isn't to remove the gates. It's to design auth flows that are relay-compatible: ones that Hermes can request, route to the user, and confirm on behalf of the downstream executor.
-
-## The Gmail Audit That Rewrote the Narrative in 5 Minutes
-
-Session 3 was the cleanest session of the day. 23 tool calls. Read `claude_input.json` and `summary.json` from a Gmail outreach audit, produce 3 output documents.
-
-The finding flipped the interpretation of the data.
-
-Raw numbers: 86 "bounced" emails. If taken at face value, that's a list quality crisis. Time to clean the list, re-verify addresses, rethink targeting.
-
-But breaking down the bounce types changed everything:
-- **82 of 86**: Gmail daily send quota self-throttle — Gmail hit its own sending limit and logged those deliveries as "bounced," but the email addresses themselves were valid
-- **1**: actual hard bounce (invalid address)
-- **3**: remote server rejections
-- **1**: genuine inbound reply, from Fjord
-
-A 95% bounce rate is a list problem. The same dataset with breakdown context is a rate-limiting problem. Completely different diagnosis, completely different fix.
-
-Bash 18, Write 3, Read 2. Roughly 5 minutes of active work.
-
-## By the Numbers
-
-| Tool | Calls |
-|------|-------|
-| Bash | 237 |
-| Read | 133 |
-| Edit | 98 |
-| Write | 18 |
-| Agent | 10 |
-| Workflow | 7 |
-| **Total** | **528** |
-
-23 files modified. 16 files created.
-
-Sessions 1 and 2 — the Saju redesign and CoffeeChat animation work — accounted for 374 tool calls, 71% of the day's total. The remaining 9 sessions, all on the Hermes relay pattern, averaged 17 tool calls each.
-
-This distribution makes sense. Relay sessions were either blocked by gates or doing planning coordination that doesn't generate many tool calls. Direct interactive sessions could run tools continuously. The throughput difference is significant.
-
-## What Four Blocked Sessions Actually Prove
-
-Getting blocked four times by the same hook is frustrating in the moment. In context, it's evidence the constraint system is working correctly.
-
-The design gate has one job: prevent HTML from being written to disk without a design system pass. It did that job consistently across all four attempts — even when the attempts came through different channels (direct session, relay session, relay with "just generate it" instructions). The hook doesn't care about the instruction chain above it. It only cares whether `design-pass.sh` authentication has run in that session.
-
-The real gap is that the Hermes relay pattern has no defined path for gate authentication. In a direct interactive session, `design-pass.sh` takes 30 seconds. In a relay session, that same 30 seconds requires coordination between Hermes, the gate, and the human user — and no protocol for that coordination exists yet.
-
-That's the next thing to build: a relay-compatible auth handshake. The pieces are in place. They just need an agreed protocol for passing auth tokens through the relay chain.
+The Workflow number is the day's most interesting data point: 9 attempts, 0 executions. Agent fallback delivered the same outputs, just without parallelism. The output was correct. The wall-clock time was longer. For autonomous cron jobs that need Workflow-level parallelism, the pre-authorization has to happen before the job is scheduled — not at runtime.
 
 ---
 
