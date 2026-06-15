@@ -1,141 +1,84 @@
 ---
-title: "1,085 Tool Calls in One Day: What Claude Code's Multi-Agent Mode Actually Built"
+title: "Claude Designs, Codex Ships — 14 Sessions, 1,100+ Tool Calls"
 project: "portfolio-site"
 date: 2026-06-15
 lang: en
 pair: "2026-06-15-portfolio-site-ko"
-tags: [claude-code, nextjs, godot, security-audit, multi-agent]
-description: "11 sessions, 1,085 tool calls, 5 parallel projects. How Claude Code multi-agent fan-out shipped a Pokemon card price tracker from zero to 90+ files in one day."
+tags: [claude-code, next-js, codex, multi-agent]
+description: "14 sessions, 1,100+ tool calls: a Pokémon card price tracker, Claude-Codex cron architecture iterated 8 times, sprite gen, and a gitleaks audit."
 ---
 
-357 `Bash` calls. 240 `Edit` calls. 191 `Read` calls. 131 `Write` calls. 11 sessions. That's the raw tool call log for a single working day — June 15, 2026 — totaling 1,085 tool calls across five simultaneous projects.
+14 sessions. ~1,100 tool calls. 342 of them went into a single Pokémon card price tracking site.
 
-The number that actually matters isn't the total. It's that a Pokemon card price tracking site went from zero to 90+ files in a single session, while a separate security audit caught a live VAT compliance blocker, a Godot sprite pipeline got its first AI-generated assets, a mobile UI audit ran 8 parallel agents followed by real Chrome verification, and a cron architecture refactor earned unanimous `request-changes` from four Codex reviewers before eventually getting PASS. All on the same day.
+**TL;DR** Built a Japanese Pokémon card price tracker from scratch — data source validation through 95 files — in a single Claude Code session. While that was happening, a quieter but more architecturally interesting project evolved in parallel: a repeatable Claude-designs-Codex-executes pattern for autonomous cron jobs.
 
-This is a breakdown of what Claude Code's multi-agent fan-out looks like in practice — not the pitch, the actual work log.
+## Six /tmp Scripts Before a Single Line of Production Code
 
-**TL;DR:** Claude Code multi-agent fan-out shipped a Pokemon card price site (90+ files) in one day. In parallel: a seven-domain compliance audit for a Korean astrology app, a Godot sprite pipeline experiment with `gpt-image-2`, an 8-agent mobile audit with real Chrome verification for a coffeechat platform, and a Codex cron architecture refactor that split a 70KB heredoc into external JSON policy files.
+Session 2 was the heaviest this period. Edit 96×, Bash 92×, Write 84×, 342 tool calls total. ~20 hours of wall-clock time.
 
----
+Starting prompt: "I want a Japanese Pokémon card price site. Current prices, historical prices, rarity, forecast, box/pack breakdown, dual JPY+KRW currency."
 
-## When Your Scraping Target Blocks You: Pivoting a Data Source Mid-Build
+The first move wasn't writing code. It was validating data sources. `pokemontcg.io` is English-focused — Japanese card coverage is patchy. So before touching the actual codebase, six throwaway scripts probed the APIs: `/tmp/tcgdex-ja.mjs`, `/tmp/probe-yuyutei.mjs`, and four others to map response shapes.
 
-Session 2 was the heaviest single session of the week: 342 tool calls, roughly 20 hours. The project was a Japanese Pokemon card price tracker — the kind of requirements list that looks reasonable until you start building it. Japanese card prices with historical comparison, rarity filtering, price prediction, box and pack-level analysis, dual-currency display in JPY and KRW.
+Results:
+- **TCGdex** — free, no key required. 10 languages including Japanese, full card catalog with images, rarity, and USD/EUR pricing
+- **Yuyutei (遊々亭)** — Japan's largest single card market, real JPY transaction prices
+- **PriceCharting** — historical data to fill the gap
 
-The first data source on the list was yuyutei, a well-known Japanese card pricing site. The scraping attempt hit a wall immediately. Blocked.
+Once sources were confirmed, the abstraction layer came first: `src/lib/providers/` with `tcgdex.ts`, `yuyutei.ts`, and `tcgcsv.ts` as independent adapters. Swapping to a paid API or replacing a source later won't require touching anything else.
 
-At this point in a sequential workflow, you'd stop, research alternatives, pick one, validate it, then continue. That's probably two to four hours of overhead before writing a single schema line. Instead, data source validation agents ran in parallel — fan-out across candidates while initial schema thinking was already happening.
+Stack: Next.js 15 + React 19 + Tailwind v4 / Neon Postgres + Drizzle ORM / Vercel Cron. The "refresh once a day, serve everything else from DB" constraint drove the database selection. DB schema, provider adapters, price signal logic (`signals.ts`), and all UI components shipped in the same session. Final file count: 95.
 
-The pivot landed on TCGdex paired with TCGcsv. TCGdex is free, covers Japanese cards natively, provides card images, rarity metadata, and price data through a clean API. TCGcsv fills in the historical price gap. Combined, they cover the full requirements without scraping. Validation confirmed data quality before any database schema was committed.
+## Escaping the 70KB Heredoc
 
-The final stack: Next.js + TypeScript on Vercel, Neon Postgres with Drizzle ORM, Tailwind v4. Running in `ultracode` mode, a single session generated 90+ files — DB schema, provider adapters, signals logic, and the complete UI component tree. The GitHub repo was created and populated in the same session.
+Sessions 6–14 (8 sessions, ~575 tool calls combined) all went into `local-commerce-agent`.
 
-Sequential data source validation followed by schema design would have consumed half the session time on overhead alone. The fan-out approach made those two tracks run in parallel, which is the only reason a project this scope shipped in a single day from a cold start.
+The original problem was structural. All policy logic was hardcoded inside the heredoc of a 70KB bash worker. Changing a policy meant editing the entire bash file.
 
----
+Session 6 (74 tool calls) redesigned the architecture around one principle: **Claude writes policy and contract files; Codex reads them on each cron tick and executes.** Logic was externalized into `jdlab-codex-cron-policy.json` and `jdlab-codex-lanes.json`. The operating contract lives in `docs/jdlab_codex_cron_operating_contract.md`.
 
-## Your Docs Are Lying: How a Parallel Audit Caught a Real VAT Compliance Blocker
+The split matters because policies change more frequently than execution logic. When policy lives in a JSON contract that both human and agent can read, the system is auditable without diving into bash internals.
 
-Session 5 was a full audit of `saju_global`, a Korean astrology (사주) web app: 142 tool calls over 1 hour 42 minutes. The audit scope was broad — payment rails, waitlist logic, Meta Pixel integration, OG tags, refund handling, currency conversion, and admin functionality. Seven distinct domains.
+Session 7 (122 tool calls) was the hardest. Four independent Codex reviewers all returned `request-changes`. The shared blocker: country-gate was applied downstream. The pipeline assigned `priority_experiment_sendable` upstream, then filtered by country further down — causing a "8 priority, 2 green" leak on every run. Fixed by creating `jdlab-country-gate.mjs` and moving the filter upstream.
 
-Running seven domains sequentially creates a specific problem: you find blockers one at a time, and each one can derail the rest of the audit flow. The alternative is seven agents in parallel, each owning one domain, reporting findings independently.
+Sessions 8–14 were incremental:
+- `min_per_lane` bumped 12→30 for throughput (session 8)
+- Switched to sendable-first discovery logic (session 10)
+- Crawling handed off to local Hermes scripts to bypass Codex sandbox DNS/HTTPS reliability issues (sessions 12–14)
 
-The first finding was cosmetic but instructive. `STATUS.md` had "Toss+Lemon Squeezy" in the header. The actual code had been fully migrated to PayPal. Documentation and implementation had diverged, and nobody had updated the status file. This is a common failure mode — docs written once, never maintained.
+The loop hardened into a pattern: Claude implements → Codex independent review → fix blockers → re-verify. After enough iterations, the system's contracts became clearer than the code itself. That's the signal the abstraction has stabilized.
 
-The second finding was not cosmetic. EU visitors could complete purchases in USD. Under EU VAT regulations, if you accept payment from EU residents, you have VAT collection obligations — and the currency of transaction doesn't exempt you. This was classified as a blocker. The fix: block EU markets at checkout and redirect to a waitlist flow instead.
+## Why gitleaks Scans History, Not Just the Working Tree
 
-Within the same session, the audit also removed AI-generated marketing copy (a legal risk surface in several jurisdictions), wired in Meta Pixel event tracking, and corrected the PayPal refund handler. Seven domains, one session, no context switching between blocking issues.
+Session 11 (34 tool calls) was a security audit across all `jee599` public repos.
 
-If those seven domains had been audited sequentially, finding the VAT blocker in domain three would have required either pausing the remaining four domains or finishing them without having fixed the blocking issue first. Parallel fan-out means each domain's findings are independent — a blocker in one doesn't stall the others.
+Installed `gitleaks 8.30.1` and targeted git history — not just the current working tree. The reason: deleting a file doesn't remove it from commit history. If a secret was ever committed to a public repo, it's still there regardless of whether the file exists today. A grep-based check on the working tree misses this entirely.
 
----
+The Daemun repo had 3 local commits pushed to origin during this session. Working tree was clean; history cleanup strategy was confirmed after the scan.
 
-## Deleted Files Don't Delete Secrets: Git History Is the Attack Surface
+## GPT Image 2 and the Sprite Consistency Problem
 
-Session 6 was a security audit of the daemun project across the `jee599` account's public repositories: 34 tool calls, 25 minutes. Compact session, specific mandate — check for exposed secrets.
+Session 5 (141 tool calls) was game design review plus sprite generation experimentation.
 
-The key tooling decision was to run `gitleaks 8.30.1` against git history rather than just the current working tree. This distinction matters more than it might seem.
+Reviewed 4 game design documents in parallel — Guild Master (fantasy mercenary management sim) and three wuxia variants. While researching OSS sprite generation pipelines, generated walk animation sprites via the `gpt-image-2` API. The `gen_rows_gpt_image.py` script produced a 5-frame pixel art walk cycle sheet with alpha channel handling.
 
-When a developer commits a secret — an API key, a database URL, a webhook token — and then realizes the mistake, the natural response is to delete the file or remove the line and commit again. The secret disappears from the current state of the repository. It does not disappear from git history. Any public repository with a secret anywhere in its commit history has that secret visible to anyone who runs `git log -p` or clones the repo and examines the reflog.
+Feedback: "the walk looks a bit off." Prompt tuning, regenerate.
 
-`gitleaks` with `--source .git` scans commits, not files. That's the correct mode for a security audit of a public repository. Risks were confirmed, and the session concluded with a decision on git history cleanup strategy and a push of three local commits to origin.
+The lesson was concrete: for any text-to-sprite pipeline producing multi-frame animation, two inputs must stay fixed across all API calls — the character description seed and the negative prompt. The model has no memory between calls; the seed is the only thing holding the character's visual identity together across frames.
 
-Twenty-five minutes, 34 tool calls, a confirmed attack surface, and a remediation plan. The efficiency here isn't from AI automation — it's from having the right tool and running it in the right mode.
+## What the Tool Call Distribution Actually Tells You
 
----
+The tool type distribution across 14 sessions makes each session's character legible:
 
-## AI-Generated Sprites in a Godot Pipeline: First Experiment
+| Session | Bash | Edit | Write | Profile |
+|---------|------|------|-------|---------|
+| 2 (pokeprice) | 92 | 96 | 84 | greenfield build |
+| 7 (cron final fix) | 35 | 36 | 12 | patch cycle |
+| 5 (Godot) | 72 | 8 | 16 | exploration |
 
-Session 7 was game development infrastructure: 141 tool calls. The project has two game concepts in active development — Guild Master and a wuxia title — totaling four design documents.
+Heavy Bash → validation and exploration. Heavy Edit → modifying existing code. Heavy Write → net-new file creation. The ratio tells you whether a session was greenfield, a bug-fix cycle, or a research pass — before you read a single diff.
 
-Reading four game design documents in sequence before starting technical work is slow, and the documents aren't interdependent in the ways that matter for the sprite pipeline question. Two agents ran in parallel, each assigned two documents, producing a unified technical brief about asset requirements across both titles.
-
-Simultaneously, OSS sprite tooling research ran as a separate track — evaluating options for walk cycle animation generation, alpha channel handling, and spritesheet composition.
-
-The pipeline experiment used `gpt-image-2` for generating walk animation sprites and verified alpha channel handling end-to-end. The `game-concepts-preview` repository was created, the asset pipeline was documented, and the generation parameters that produced usable walk cycles were recorded.
-
-This is a first-of-kind data point for this project: what does `gpt-image-2` actually produce when asked for game sprite walk cycles, and how much post-processing does the alpha channel require? The answer is documented in the pipeline, not in someone's memory. Future sessions building on this can skip the exploration phase entirely.
-
-The broader question this session was testing is whether AI image generation tools have a practical role in early-stage game prototyping. The answer appears to be yes, with constraints. Getting from concept art to animatable sprites still requires iteration, but the time from "character concept" to "something you can actually test in Godot" is meaningfully shorter.
-
----
-
-## Static Analysis vs. Real Chrome: Why You Need Both
-
-Session 8 was a mobile UI audit for the coffeechat platform: 161 tool calls over 1 hour 46 minutes. Coffeechat is a platform connecting job seekers with professionals for coffee chat sessions — it has multiple distinct functional areas: global navigation, landing pages, resume handling, portfolio display, interview prep, payment flows, and admin.
-
-The audit structure was 8 agents in parallel, each owning one domain, running static code analysis. Global + nav, landing, resume, portfolio, interview, payment, admin, and auth. Static analysis covers the code that exists: CSS breakpoints, viewport meta tags, touch target sizes, flexbox and grid behaviors, font scaling.
-
-Static analysis does not cover what the browser actually renders.
-
-After the parallel agents completed their static audit, `mcp__claude-in-chrome` was called 13 times with the viewport set to 390px — standard mobile width. This is the actual Chrome browser, not a simulation. Real rendering, real layout engine, real paint.
-
-The discrepancies between static analysis findings and real rendering were not minor. There were cases where the code looked correct — proper responsive classes, correct breakpoint logic — but the rendered output at 390px was broken. There were also cases where static analysis flagged potential issues that resolved correctly in the browser.
-
-The concrete outputs: navigation improvements, resume preview fixes, a newly created signup route (the existing flow was broken in a way only visible with actual auth state), and disposable email filtering added to the registration flow.
-
-That signup route problem was not findable through static analysis. Static analysis sees the code. It doesn't execute the auth flow and observe that the route doesn't exist. Real Chrome execution does.
-
-The lesson isn't that static analysis is wrong. It's that static analysis and real execution answer different questions. A complete mobile audit needs both.
-
----
-
-## When 4 Codex Reviewers All Request Changes: Extracting a 70KB Heredoc
-
-Sessions 9 through 11 were the `local-commerce-agent` Codex cron architecture refactor: 59 + 122 + 59 tool calls, 240 total. Three sessions for what sounds like a simple refactor but required careful architecture thinking.
-
-The problem was structural. The cron worker was a bash script containing a 70KB heredoc with logic hard-coded inside it. When policy needed to change — processing thresholds, queue sizes, country gates — you edited the bash file. The bash file owned both the execution logic and the policy configuration, with no separation between the two.
-
-Before touching the code, the first session established the intended division of labor: Claude as policy designer, Codex as the recurring executor. This is the architecture that makes sense for a cron system where policy evolves but execution mechanics stay stable. The executor doesn't need to understand why `min_per_lane` is 30 instead of 12 — it needs to read that value reliably and act on it.
-
-The extraction: policy logic moved to `jdlab-codex-cron-policy.json` and lane configuration moved to `jdlab-codex-lanes.json`. The bash worker became a reader and executor rather than a configuration store. The separation of concerns that should have existed from the start.
-
-Then: four Codex reviewers, all `request-changes`.
-
-This is the part of AI-assisted development that doesn't get talked about enough. Automated code review that actually reviews is useful precisely because it finds real problems. The blockers the Codex reviewers flagged were addressed. On the revised submission, all four returned PASS.
-
-The final state: `min_per_lane` raised from 12 to 30, queue sizes expanded, and a `country-gate` module added to the architecture. The JSON policy files are the interface that the bash worker reads at runtime — change the policy files, the worker picks up the changes without touching the execution logic.
-
-Keeping logic inside a heredoc means every policy change requires modifying the bash file. Separating it into external JSON means Codex only needs to read the policy files to execute correctly.
-
----
-
-## What 1,085 Tool Calls Actually Mean
-
-The tool call breakdown by type tells you something concrete about the day's work:
-
-- **357 `Bash`**: A significant portion was `gitleaks` execution, build verification, and `git status` checks. Bash calls cluster around validation — confirming that what was written actually works.
-- **240 `Edit`**: Modifications to existing files. The coffeechat nav fixes, the PayPal refund handler correction, the cron worker cleanup.
-- **131 `Write`**: Net-new files. Ninety-plus of these came from the Pokemon card site session alone.
-- **191 `Read`**: Code review during audits. The saju project audit, the security scan, the coffeechat static analysis.
-
-The ratio of `Read` to `Write` (191:131) reflects a day that was more audit-heavy than build-heavy — which is accurate. Three of the five projects were primarily audit or refactor work. The single outlier was the Pokemon card site, which drove nearly all of the `Write` count.
-
-The consistent pattern across all five projects was parallel fan-out. Not as an optimization technique applied after the fact, but as the default approach to any task with multiple independent sub-domains. Data source validation, compliance auditing, mobile UI checking, document analysis — every task that had independently answerable sub-questions got split and run in parallel.
-
-Sequential execution of the same work would have capped the day at two or three completed sessions. The 11 sessions that actually ran — and the concrete shipped outputs across five projects — are the direct result of treating parallel fan-out as the standard approach rather than the exception.
-
-The other consistent pattern: verification that went beyond the obvious. Static analysis confirmed by real Chrome. Security scan run against git history, not just current files. Codex review that found real blockers and forced real fixes. AI automation in this workflow isn't a shortcut around verification — it's what makes thorough verification fast enough to be worth doing on every project, not just the high-priority ones.
+When you track these numbers across sessions on the same project, the shift from Write-heavy to Edit-heavy is the signal that the architecture has stabilized and you're in maintenance mode.
 
 ---
 

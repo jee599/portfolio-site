@@ -1,68 +1,69 @@
 ---
-title: "Claude Code + 11개 세션, 1,085 tool call로 하루에 뭘 만들었나"
+title: "Claude가 설계하고 Codex가 실행한다 — 14세션, 1,100+ tool call 기록"
 project: "portfolio-site"
 date: 2026-06-15
 lang: ko
-tags: [claude-code, next-js, godot, security-audit, mobile-ui, multi-agent]
-description: "하루 11개 세션, 1,085 tool call. 포켓몬 카드 시세 사이트 신규 구축부터 사주 프로젝트 보안 감사, Godot 스프라이트 파이프라인까지 병렬 처리한 기록."
+tags: [claude-code, next-js, codex, cron-architecture, pokeprice, godot, security]
+description: "포켓몬 카드 시세 사이트 0→1, Claude-Codex 분업 크론 아키텍처 8세션 반복 개선, gitleaks 보안 감사까지. 14세션 1,100+ tool call의 실제 과정."
 ---
 
-하루에 `Bash` 357번, `Edit` 240번, `Read` 191번, `Write` 131번. 11개 세션, 총 1,085 tool call이 2026-06-15 하루치 작업 로그다.
+14개 세션, 약 1,100번의 도구 호출. 그 중 포켓몬 카드 시세 사이트 하나에만 342번이 집중됐다. 나머지는 `local-commerce-agent` Codex 크론 아키텍처를 8세션에 걸쳐 반복 개선하는 데 쓰였다.
 
-**TL;DR** Claude Code 멀티에이전트 팬아웃으로 포켓몬 카드 시세 사이트(파일 90개+)를 하루 만에 신규 구축했다. 그 사이 사주 프로젝트 감사, Godot 스프라이트 파이프라인, coffeechat 모바일 감사, Codex cron 아키텍처까지 5개 프로젝트를 동시 진행했다.
+**TL;DR** 일본 포켓몬 카드 시세 추적 사이트를 데이터 소스 검증부터 95개 파일까지 단일 세션으로 완성했다. 그 주변에서는 Claude가 정책을 설계하고 Codex가 실행하는 분업 구조를 반복 개선하는 작업이 조용히 진행됐다.
 
-## yuyutei가 막혔다, 그래도 20시간 만에 90개 파일을 뽑았다
+## /tmp 스크립트 6개로 먼저 검증하고 코드를 짰다
 
-세션 2는 342 tool call, 약 20시간. 이번 주 가장 무거운 작업이었다. 요구사항이 처음부터 복잡했다. 일본 카드 시세, 이전 시세 비교, 희귀도 필터, 예측, 상자·팩별 분석, JPY+KRW 이중 통화 지원.
+세션 2는 이 기간 가장 무거운 작업이었다. Edit 96회, Bash 92회, Write 84회, 총 342 tool call. 소요 시간 약 20시간.
 
-유유테이(yuyutei) 스크래핑을 시도했지만 막혔다. TCGdex가 무료에 일본어 지원, 이미지+희귀도+시세를 전부 제공한다는 걸 확인하고 TCGdex+TCGcsv 조합으로 전환했다. 스택은 Next.js+TypeScript / Vercel / Neon Postgres+Drizzle / Tailwind v4.
+시작 프롬프트: "일본 포켓몬 카드 시세 사이트 만들고 싶어. 현재 시세, 이전 시세, 희귀도, 전망, 상자·팩별 분석, JPY+KRW 이중 통화."
 
-ultracode 모드로 데이터 소스 검증 에이전트를 병렬 팬아웃한 뒤, DB 스키마부터 provider 어댑터, signals 로직, 전체 UI 컴포넌트까지 한 세션에서 90개 이상의 파일을 생성했다. GitHub 레포도 이 세션에서 신규 생성했다.
+첫 번째로 한 일은 코드를 짜는 게 아니었다. 일본판 포켓몬 카드 데이터 소스부터 검증했다. `pokemontcg.io`는 영문 중심이라 일본판 커버가 안 된다. 실제로 `/tmp/tcgdex-ja.mjs`, `/tmp/probe-yuyutei.mjs` 같은 임시 스크립트 6개를 만들어 API 응답 구조를 먼저 확인했다.
 
-단일 컨텍스트로 데이터 소스 검증과 스키마 설계를 순차 진행했으면 세션 시간의 절반을 소모했을 것이다.
+결과:
+- **TCGdex** — 무료, 키 불필요. 일본어 포함 10개 언어, 카드 카탈로그·이미지·희귀도·USD/EUR 시세 전부 제공
+- **유유테이(遊々亭)** — 일본 최대 싱글 카드 마켓, 엔화 실거래가 제공
+- **PriceCharting** — 과거 시세 히스토리 보완
 
-## `STATUS.md`가 거짓말하고 있었다 — 사주 프로젝트 전수 감사
+소스가 확정되자 `src/lib/providers/` 추상화 레이어를 먼저 설계했다. `tcgdex.ts`, `yuyutei.ts`, `tcgcsv.ts`를 각각 독립된 provider로 만들어, 나중에 유료 API 키로 전환하거나 소스를 바꿔도 나머지 코드를 건드릴 필요가 없는 구조다.
 
-세션 5(142 tool call, 1시간 42분)는 `saju_global` 프로젝트 전수 감사였다. 결제 레일(Toss+PayPal), 웨이트리스트, Meta Pixel, OG/카드, 환불, 환율, 어드민 — 7개 에이전트를 병렬로 띄웠다.
+스택: Next.js 15 + React 19 + Tailwind v4 / Neon Postgres + Drizzle / Vercel Cron. "하루 1번 갱신, 나머지는 DB에" 요구사항이 DB 선택을 결정했다. 설계 후 DB 스키마, provider 어댑터, 시세 예측 신호(`signals.ts`), UI 컴포넌트 전부를 한 세션에서 완성했다. 최종 파일 수 95개.
 
-`STATUS.md` 헤더가 "Toss+Lemon Squeezy"로 적혀 있었지만 실제 코드는 PayPal로 이미 전환된 상태였다. 문서와 코드가 따로 놀고 있었던 것.
+## 70KB heredoc 밖으로 — Claude 설계, Codex 실행
 
-더 심각한 건 EU 방문자 USD 결제 허용 문제였다. EU 방문자가 USD로 결제할 수 있으면 VAT 의무가 발생한다. 블로커로 분류하고 차단 시장은 웨이트리스트로 전환했다. AI 카피 제거, Meta Pixel 연동, PayPal 환불 핸들러 수정까지 한 세션에서 처리했다.
+세션 6부터 14까지 8개 세션이 `local-commerce-agent` 프로젝트에 집중됐다. Tool call 합산 약 575회.
 
-7개 영역을 순차 감사했으면 블로커 하나를 찾는 데 전체 흐름이 막혔을 것이다.
+원래 구조의 문제는 하나였다. 70KB bash 워커의 heredoc 안에 모든 로직이 하드코딩돼 있었다. 정책을 바꾸려면 bash 파일 전체를 수정해야 했다.
 
-## `gitleaks 8.30.1` — 히스토리까지 스캔해야 하는 이유
+세션 6(74 tool call)에서 아키텍처를 재설계했다. **Claude가 정책과 계약 파일을 설계하고, Codex가 매 크론 틱마다 그 파일을 읽어 실행하는 분업 구조.** 로직을 `jdlab-codex-cron-policy.json`과 `jdlab-codex-lanes.json`으로 외부화했다. 운영 계약은 `docs/jdlab_codex_cron_operating_contract.md`에 별도로 문서화.
 
-세션 6(34 tool call, 25분)은 데이문 프로젝트 보안 감사였다. `jee599` 계정 public 레포 전수 스캔. `gitleaks 8.30.1`을 설치하고 현재 파일이 아닌 git 히스토리까지 스캔했다.
+세션 7(122 tool call)은 Codex 4명의 독립 리뷰 결과를 받아 블로커를 수정하는 작업이었다. 리뷰어 4명이 모두 `request-changes`를 냈다. 공통 블로커: country-gate가 후처리였다(상류에서 `priority_experiment_sendable`을 할당한 뒤 하류에서 국가 필터를 적용해 "8 priority, 2 green" 누수 발생). `jdlab-country-gate.mjs` 모듈을 신규 생성해 상류에서 차단하는 구조로 교체했다.
 
-파일을 삭제해도 커밋 히스토리에 시크릿이 남아있으면 public 레포에서는 그대로 노출된다. 위험 확인 후 git 히스토리 정리 방향을 결정했다. 로컬 3 커밋은 이 세션에서 origin에 푸시했다.
+이후 세션들은 누적이었다. `min_per_lane` 12→30으로 처리량 상향(세션 8), sendable-first 발견 로직으로 전환(세션 10), 로컬 크롤러 핸드오프 — Codex 샌드박스의 DNS/HTTPS 신뢰성 문제를 우회해 크롤링을 Hermes 로컬 스크립트로 이관(세션 12~14).
 
-## Godot + `gpt-image-2` — 스프라이트 파이프라인을 141 tool call로
+반복 구조가 패턴이 됐다: Claude 구현 → Codex 독립 리뷰 → 블로커 수정 → 재검증. 세션이 쌓일수록 시스템의 계약이 코드보다 명확해졌다.
 
-세션 7(141 tool call)은 게임 프로젝트였다. Guild Master와 무협 3안, 총 4개 기획서를 에이전트 2개를 동시에 돌려 병렬 정독하고 OSS 스프라이트 도구를 리서치했다.
+## gitleaks가 히스토리까지 스캔하는 이유
 
-`gpt-image-2`로 walk 애니메이션 스프라이트를 생성하고 alpha channel 처리까지 확인했다. `game-concepts-preview` 레포를 신규 생성하고 에셋 파이프라인을 문서화했다. AI 이미지 생성 도구를 게임 개발 초기 프로토타이핑에 연결하는 파이프라인을 실험한 첫 케이스다.
+세션 11(34 tool call)은 보안 감사였다. `jee599` 계정 public 레포 전수 점검.
 
-## 8개 에이전트 + Chrome 실측 — coffeechat 모바일 감사
+`gitleaks 8.30.1`을 설치하고 현재 파일이 아닌 git 히스토리 전체를 대상으로 스캔했다. 이유: 파일을 삭제해도 커밋 히스토리에 시크릿이 남아있으면 public 레포에서 그대로 노출된다. 전용 스캐너 없이 grep으로만 확인하면 히스토리를 놓친다.
 
-세션 8(161 tool call, 1시간 46분)은 coffeechat 프로젝트 모바일 UI 감사였다. 글로벌·내비, 랜딩, 이력서, 포트폴리오, 면접, 결제·어드민 — 8개 에이전트로 정적 감사를 먼저 돌렸다.
+데이문 레포는 이 세션에서 로컬 3 커밋을 origin에 푸시했다. 워킹 트리는 깨끗했고, 히스토리 정리 방향은 확인 후 결정했다.
 
-정적 감사로 끝내지 않고 Chrome을 모바일 390px로 실제로 띄워 실측 검증했다. `mcp__claude-in-chrome`을 13번 호출했다. 정적 코드 분석과 실제 렌더링 결과가 다른 케이스가 있었다.
+## Godot + GPT Image 2 스프라이트
 
-수정 결과: nav 개선, resume preview 수정, signup route 신규 생성, disposable-email 필터링 추가. 정적 감사만 했으면 signup route 문제는 못 잡았을 것이다.
+세션 5(141 tool call)는 게임 기획서 리뷰 + 스프라이트 생성 실험이었다.
 
-## 70KB heredoc을 외부 JSON으로 — Codex 4명이 전부 request-changes를 냈다
+Guild Master(판타지 용병단 경영 시뮬)와 무협 3안, 총 4개 기획서를 병렬 에이전트로 정독했다. OSS 스프라이트 생성 도구를 리서치하면서 `gpt-image-2` API로 walk 애니메이션 스프라이트를 직접 생성했다. `gen_rows_gpt_image.py` 스크립트로 5단계 동작 픽셀아트 시트를 뽑아내고 alpha channel 처리까지 확인했다.
 
-세션 9~11(59+122+59 tool call)은 `local-commerce-agent` Codex cron 아키텍처 작업이었다.
+"walk가 조금 어색한데?"라는 피드백이 왔다. 프롬프트 튜닝 후 재생성. 매번 양질의 결과를 뽑으려면 일관성 기법이 필요하다는 걸 확인했다 — 같은 character description seed + negative prompt 고정이 핵심이었다.
 
-문제는 구조였다. 70KB bash 워커 heredoc에 로직이 하드코딩돼 있었다. Claude가 정책 설계자, Codex가 반복 실행자 역할을 맡는 분업 구조를 먼저 정립했다. 그런 다음 로직을 `jdlab-codex-cron-policy.json`과 `jdlab-codex-lanes.json` 외부 파일로 분리했다.
+## 숫자의 분포
 
-4명 Codex 리뷰어가 모두 request-changes를 냈다. 블로커를 수정한 뒤 PASS를 받았다. 처리량은 `min_per_lane` 12→30으로 올리고, 큐 사이즈를 확장하고, country-gate 모듈을 추가했다.
+14세션의 tool call 분포를 보면 작업 성격이 보인다:
 
-heredoc에 로직을 박아두면 정책을 바꿀 때마다 bash 파일 전체를 수정해야 한다. 외부 JSON으로 분리하면 Codex가 정책 파일만 읽고 실행하는 구조가 된다.
+- 세션 2(pokeprice): Bash 92, Edit 96, Write 84 — 탐색·구현·생성이 균형 있게 분포
+- 세션 7(Codex 크론 final fix): Edit 36, Bash 35, Read 32 — 기존 코드 수정 중심
+- 세션 5(Godot): Bash 72, Read 21, Write 16 — 파일 탐색과 실행이 주도
 
-## 1,085 tool call이 말하는 것
-
-숫자보다 패턴이 중요하다. 오늘 작업의 공통점은 전부 병렬 팬아웃이었다. 포켓몬 카드 시세 사이트 데이터 소스 검증, 사주 프로젝트 7개 영역 감사, coffeechat 8개 영역 정적 감사, Godot 도구 리서치.
-
-순차 처리였으면 하루에 2~3개 세션이 한계였을 것이다. `Bash` 357번 중 상당수는 `gitleaks` 실행, 빌드 확인, git 상태 점검이다. `Edit` 240번은 기존 파일 수정, `Write` 131번은 신규 파일 생성, `Read` 191번은 감사와 검증 과정에서의 코드 확인. 숫자가 작업의 성격을 그대로 보여준다.
+`Bash`가 많은 세션은 검증과 탐색, `Edit`가 많은 세션은 기존 코드 수정, `Write`가 많은 세션은 새 파일 생성이 주였다. 이 분포 자체가 세션의 성격을 숫자로 드러낸다.
