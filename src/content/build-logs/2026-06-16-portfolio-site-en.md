@@ -1,119 +1,115 @@
 ---
-title: "457 Tool Calls Across 3 Projects: Credit Pricing, Fortune App Exit, and a Viral X Bot"
+title: "365 Tool Calls in One Session: Claude Code Opus 4.8 Across 4 Projects in a Day"
 project: "portfolio-site"
 date: 2026-06-16
 lang: en
 pair: "2026-06-16-portfolio-site-ko"
-tags: [claude-code, saas, credits, multi-agent, xbot, coffeechat, fortunelab]
-description: "How I designed SaaS credit pricing, built an admin audit system, drafted an exit strategy for a fortune-telling app, and shipped an X bot — 457 tool calls across 3 sessions."
+tags: [claude-code, opus-4-8, multi-agent, workflow, saas, automation]
+description: "643 tool calls across 4 sessions in one day — credit pricing, X bot, clinic redesign. The longest session ran 25 hours 48 minutes with 365 tool calls."
 ---
 
-457 tool calls. 3 sessions. 15 hours. Bash 151×, Read 92×, Edit 75×, Write 36×.
+643 tool calls in a single day. One session alone ran for 25 hours 48 minutes.
 
-The longest session ran 12 hours 24 minutes and consumed 307 tool calls — designing a credit system for CoffeeChat (an AI mock interview SaaS), building an admin dashboard, and producing a global GTM report. Then a 52-minute research sprint on Claude Code Opus 4.8 best practices. Then an exit strategy for a Korean fortune-telling app plus a viral X bot, built from scratch in the same day.
+Four projects, four Claude Code Opus 4.8 sessions. The heaviest — CoffeeChat, an AI job prep SaaS — clocked 365 tool calls: mobile UI audits, a credit pricing system, admin pages, payment integration, email auth, and a global GTM analysis. All in one continuous session.
 
-**TL;DR** — Pricing a single credit tier took 10+ calculation rounds. Parallel multi-agent workflows cut a 5-part market analysis from sequential to near-simultaneous. Sequential calculation chains (cost → margin → price) are still faster as direct conversation. Different session types produce radically different tool distributions.
+**TL;DR** — Working out credit pricing from first principles took a full hour. Parallel multi-agent workflows are genuinely faster when units are independent (market analysis, UI surface audits, reference research). For sequential reasoning chains — cost → margin → credit price → bonus — direct conversation beats orchestration. The dental clinic redesign started with reference research and direction selection before a single line of code was touched.
 
-## It Took an Hour to Price One Credit Tier
+## The Session That Wouldn't End: 8 Parallel Agents at Kickoff
 
-CoffeeChat is an AI mock interview SaaS — three AI panelists running parallel interviews, plus resume review and portfolio analysis. The core question: how much should 30 interview turns cost?
+The CoffeeChat session started with: "Check the current state of the project, remaining tasks, and think through mobile UI."
 
-First, raw API costs for Claude Opus 4.8. Three panelists responding simultaneously — not simple multiplication. The prompt:
+A full-codebase audit situation calls for a workflow. 2 status-check agents (build health + feature completeness) + 6 mobile UI audit agents covering distinct surfaces (global/nav, landing, resume, portfolio, interview, account/payment/dashboard/admin) = 8 agents in parallel.
 
-> "What does it actually cost — in API dollars and internal credits — to run a resume analysis, portfolio review, and 20/30 interview turns with Sonnet vs Opus?"
+While the audit ran, a dev server spun up in the background for live cross-validation at 390px mobile width. Static code analysis and real render results simultaneously — let agents do the breadth work while you verify against the actual thing in a browser.
 
-The chain: API cost → credit conversion → user-facing price. At 5× margin, 30 turns came out to 900 credits. Then:
+The audit surfaced a real backlog. What followed was the actually heavy work: credit system, admin, global GTM — in that order.
 
-> "I want 30 turns to cost around ₩7,000."
+## Working Out Credit Pricing From Scratch Takes an Hour
 
-At 100 credits = $1, that's 900 credits = $9 ≈ ₩12,000 at current exchange rates. 71% over target. Options: shrink the margin, downgrade the model, or cut costs via caching.
+The core question: how much should 30 interview turns cost?
 
-The answer was Anthropic prompt caching. System prompts are static across sessions — caching cuts repeated-call costs by up to 90%. Implemented in `lib/credits.ts`. Hit the ₩7,000 target at 900 credits for 30 turns.
+> "If I run resume / portfolio / 20-turn or 30-turn interviews and reports using Sonnet and Opus respectively, what's the API cost — and how many internal credits does that consume?"
 
-## The Admin Page Needed Full Audit Trails from the Start
+The chain: API cost → credit conversion → user-facing price. With a 5× margin, 30 interview turns landed at 900 credits.
 
-> "Where's the admin page? I need per-user API cost tracking, feature usage rates, visitor counts — the whole picture."
+> "I want 30 turns to come out to around ₩7,000."
 
-The admin scaffolding existed but had no API cost tracking. Built `lib/audit.ts` from scratch and added `app/api/track/route.ts` to log usage on every feature call.
+At 100 credits = $1, 900 credits = $9. With exchange rate, that's roughly ₩12,000 — ₩5,000 over target.
 
-Visitor tracking required separate infrastructure. Connected Resend API for email auth (`app/api/auth/signup/route.ts`) and added `page-tracker.tsx` for pageview tracking. End result: a single admin screen showing per-user credit consumption, raw API costs, and per-feature usage rates.
+The fix: Anthropic prompt caching. The system prompt is static across all interview turns, so repeated calls cut the per-turn API cost by up to 90%. Caching logic went into `lib/credits.ts`, and the 30-turn × 900-credit calculation now hits the ₩7,000 target.
 
-## One Report to Decide the Global Strategy
+The bonus credit amount bounced: 200 → 300 → back to 200. Without `lib/constants.ts` centralizing that value, the number would have been hardcoded in a dozen places across the codebase.
 
-> "Give me a single report on how to take this service global."
+## Admin Dashboard, Email Auth, and the Payment Provider Decision
 
-CoffeeChat was built for Korean job markets. Interview culture, industry verticals, and price sensitivity all shift across regions. Ran a `report-builder` multi-agent workflow against these questions.
+> "Where did you put the admin page? I want per-user API cost, visitor counts, and feature usage rates all in one view."
 
-The report at `~/reports/posts/2026-06-15-coffeechat-global-gtm.html` landed on one clear conclusion: diversify domestic job categories before going global. Expand from dev/design into business, marketing, and finance in Korea first. Global is step two.
+`lib/audit.ts` was built fresh, paired with `app/api/track/route.ts` — every feature call logs usage. The admin view now shows per-user credit consumption, raw API cost, and feature utilization rates in one screen.
 
-Payment: PortOne. Toss Pay blocks international transactions; PortOne handles both domestic PG and overseas cards through a single SDK, no integration fee.
+Visitor tracking needed separate infrastructure. Resend API handled email verification (`app/api/auth/signup/route.ts`); `page-tracker.tsx` covers page views.
 
-## Session Two: Researching How to Use Claude Code Well
+For payments: PortOne over Toss Payments. Toss blocks international cards; PortOne handles Korean PG and international cards through a single SDK.
 
-52 minutes. 41 tool calls. Three parallel research streams: official docs, GitHub ecosystem, and community trends.
+The global GTM analysis came out of the same session: `~/reports/posts/2026-06-15-coffeechat-global-gtm.html`. Main finding: expand domestically across job verticals before going English-first.
 
-Five agents ran simultaneously — Anthropic official docs, the Claude Code GitHub repo, recent Reddit/Hacker News threads, and real-world usage patterns. Consolidated output into a single HTML report via `report-builder`.
+## FortuneLab: 5 Parallel Market Analysts, Then an X Bot
 
-The most practically significant recent change: Dynamic Workflow. Triggered a second deeper research pass — parallel searches across the official docs track and hands-on examples — and merged the findings as a new section into the existing report.
+The second-heaviest session — FortuneLab, a Korean fortune-telling SaaS — ran 142 tool calls over 14 hours 49 minutes.
 
-Report path: `~/reports/posts/2026-06-15-claude-code-opus-48-best-practices.html`
+First, pull the actual state from `~/saju_global/STATUS.md`:
 
-## Session Three: Exit Strategy for a Fortune App + Shipping the X Bot
-
-1 hour 57 minutes. 109 tool calls. The session with the most Write calls (19).
-
-Started with a status check. Pulled real metrics from `~/saju_global/STATUS.md`:
-
-- 30 total paid orders (all Korean via Toss Pay; international PayPal: 0)
+- 30 total paid orders (all Korean via Toss; international PayPal: 0)
 - 87 sessions in April
-- Production deployment broken for 44 consecutive days
-- First international payment: still zero
+- Production deployment had been broken for 44 consecutive days
 
-Request: "I need to sell this. Build the strategy."
+The ask: "I need to sell this. Build me a strategy."
 
-Spun up 5 parallel analysis agents: Korean market sizing, unit economics, product diagnosis, channel analysis, and asset sale strategy.
+Five agents ran in parallel: KR market analysis, unit economics, product diagnosis, channel analysis, asset sale strategy. All five converged on the same conclusion: current traction is too thin to monetize aggressively.
 
-The Korean fortune-telling market is estimated at ~₩1.4 trillion (InnoForest/Magazine Hankyung). The global spiritual apps market is projected at 10% CAGR through 2027. Big numbers. The problem: actual user base was too thin to command a meaningful valuation.
+So instead of a sales push, an X bot.
 
-All five analyses converged on the same conclusion: **traction first**.
+> "What about posting fortune readings in English on X every 6 hours, targeting a specific audience?"
 
-So I built the X bot.
+`lib/xbot/` got seven modules: `cohorts.ts`, `formats.ts`, `viral.ts`, `voices.ts`, `rotate.ts`, `xClient.ts`, `generate.ts`. A Vercel Cron job at `/api/cron/x-post/route.ts` fires every 6 hours.
 
-> "What if we post saju (四柱) readings in English on X every 6 hours, targeting a specific demographic?"
+Branding images went through `gpt-image-2` in three rounds — avatar, banner, persona in multiple styles — compared side-by-side in `x-brand/avatar-preview.html`.
 
-Target by birth year/month cohort, publish fortune analysis automatically to X. Created 7 modules under `lib/xbot/`:
+## Claude Code Research → HTML Report on GitHub Pages
 
-- `cohorts.ts` — target cohort definitions
-- `formats.ts` — post format templates
-- `viral.ts` — viral optimization logic
-- `voices.ts` — persona voices
-- `rotate.ts` — format rotation
-- `xClient.ts` — X API client
-- `generate.ts` — content generation
+58 tool calls, 13 hours 11 minutes (including idle time). Direct file edits: 3.
 
-Added `/api/cron/x-post/route.ts` to Vercel Cron for automatic posting every 6 hours.
+Three parallel agents researched Claude Code Opus 4.8 best practices: one on official docs, one on the GitHub ecosystem, one on community patterns. Synthesis went through `report-builder` and published to GitHub Pages.
 
-Account branding: generated images with `gpt-image-2` across three script iterations (`genimg-x-brand.py`, `genimg-x-brand2.py`, `genimg-x-brand3.py`) — avatar, banner, and persona images in multiple styles, compared via `x-brand/avatar-preview.html`.
+Published at: `~/reports/posts/2026-06-15-claude-code-opus-48-best-practices.html`
 
-## When Parallel AI Automation Actually Saves Time
+A follow-up came in to go deeper on Dynamic Workflows specifically. Two more agents ran additional research and added a dedicated section to the existing report.
 
-Fan-out workflows were fast when analysis units were independent. The saju project's Korean market sizing, unit economics, channel analysis, and exit strategy don't feed into each other — 5 concurrent agents converge to roughly 1/5 the wall-clock time of sequential execution.
+## Uddental Redesign: Research Before a Single Code Edit
 
-Credit pricing was sequential. API cost → margin rate → credit price → bonus adjustment — each result determines the next input. Direct conversation was faster than a workflow here.
+Session four: 1 hour 3 minutes, 78 tool calls. Most distinctive stat: `mcp__claude-in-chrome__computer` called 33 times — more than Edit (9) and Bash (8) combined. Most of this session was browser capture and navigation.
 
-Different session types produce very different tool distributions. Here's the full 3-session breakdown:
+The ask: "Make it look indistinguishable from a top-tier Korean dental clinic — or better."
 
-| Metric | Count |
-|---|---|
-| Total tool calls | 457 |
-| Bash | 151 |
-| Read | 92 |
-| Edit | 75 |
-| Write | 36 |
-| Agent (workflow) | 23 |
-| Files modified | 34 |
-| Files created | 32 |
-| Total session time | ~15 hours |
+Jumping straight to code edits would've been the wrong call. Open Design route: direction first, codebase second. Strategy: home page first → full rollout; premium photo-forward + sans-serif modern aesthetic (no Ming typeface, no AI-generated look).
+
+First, inventory the actual Uddental assets — 13 photos covering exterior, waiting room, treatment rooms, corridors. Then two parallel agents researching top Korean dental clinic sites. The deliverables at this stage: `home-preview.html` and `directions-preview.html` — HTML mockups rendered in a browser for comparison. Codebase edits came after direction was locked.
+
+## When Parallel Workflows Help (and When They Don't)
+
+Looking across all four sessions, the pattern is clear. Parallel agents delivered real speed gains for: full-codebase audits (CoffeeChat's 8 mobile surfaces), independent market analysis (FortuneLab's 5 axes), and reference research (dental site's 2 branches). The common thread: each unit had no dependency on any other.
+
+Credit pricing was sequential and had to be. API cost → margin rate → credit price → bonus adjustment: each step's output was the next step's input. Workflow orchestration adds overhead here. Direct conversation is faster.
+
+Different session characters produce different tool distributions:
+
+| Session | Tool Calls | Dominant Tools |
+|---|---|---|
+| CoffeeChat | 365 | Bash 113, Edit 81, Read 76 |
+| FortuneLab | 142 | Bash 35, Read 24, Write 19, Edit 17 |
+| Uddental | 78 | Chrome 33, Edit 9, Bash 8 |
+| Claude Research | 58 | Bash 38, Agent 5, Read 3 |
+
+Totals across 4 sessions: Bash 194, Edit 110, Read 108, Write 41. Files modified: 41. Files created: 36.
 
 ---
 
