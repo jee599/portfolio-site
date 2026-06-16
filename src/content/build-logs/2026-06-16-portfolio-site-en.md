@@ -1,115 +1,141 @@
 ---
-title: "365 Tool Calls in One Session: Claude Code Opus 4.8 Across 4 Projects in a Day"
+title: "1,237 Tool Calls Across 7 Sessions: Reference Design Limits and 5 Projects in Parallel"
 project: "portfolio-site"
 date: 2026-06-16
 lang: en
 pair: "2026-06-16-portfolio-site-ko"
-tags: [claude-code, opus-4-8, multi-agent, workflow, saas, automation]
-description: "643 tool calls across 4 sessions in one day — credit pricing, X bot, clinic redesign. The longest session ran 25 hours 48 minutes with 365 tool calls."
+tags: [claude-code, opus-4-8, dynamic-workflow, multi-agent, ai-automation]
+description: "7 sessions, 71 hours, 1,237 tool calls. What I learned running a credit system, GTM strategy, dental redesign, and more in parallel with Claude Code Opus 4.8."
 ---
 
-643 tool calls in a single day. One session alone ran for 25 hours 48 minutes.
+7 sessions. 71 hours. 1,237 tool calls. One day of work with Claude Code Opus 4.8 that spanned a SaaS credit pricing system, a fortune-telling app exit strategy, a dental clinic redesign, and Pokemon card arbitrage analysis.
 
-Four projects, four Claude Code Opus 4.8 sessions. The heaviest — CoffeeChat, an AI job prep SaaS — clocked 365 tool calls: mobile UI audits, a credit pricing system, admin pages, payment integration, email auth, and a global GTM analysis. All in one continuous session.
+The last session was the most clarifying — I finally diagnosed *why* reference-based design keeps failing, and what the actual fix looks like.
 
-**TL;DR** — Working out credit pricing from first principles took a full hour. Parallel multi-agent workflows are genuinely faster when units are independent (market analysis, UI surface audits, reference research). For sequential reasoning chains — cost → margin → credit price → bonus — direct conversation beats orchestration. The dental clinic redesign started with reference research and direction selection before a single line of code was touched.
+**TL;DR** Parallel Dynamic Workflow makes a real difference when work units are independent. Feeding browser screenshots as design references only captures color palette. Actual CSS parsing is required for layout and typography fidelity.
 
-## The Session That Wouldn't End: 8 Parallel Agents at Kickoff
+## 25 Hours to Design a Credit Pricing System via Prompt
 
-The CoffeeChat session started with: "Check the current state of the project, remaining tasks, and think through mobile UI."
+The heaviest session this period was CoffeeChat — an AI interview SaaS. 25 hours 48 minutes, 365 tool calls.
 
-A full-codebase audit situation calls for a workflow. 2 status-check agents (build health + feature completeness) + 6 mobile UI audit agents covering distinct surfaces (global/nav, landing, resume, portfolio, interview, account/payment/dashboard/admin) = 8 agents in parallel.
+Starting prompt: *"Check the current state of the CoffeeChat project and outstanding work. Also think through mobile UI."*
 
-While the audit ran, a dev server spun up in the background for live cross-validation at 390px mobile width. Static code analysis and real render results simultaneously — let agents do the breadth work while you verify against the actual thing in a browser.
+The audit scope was broad enough to warrant parallel agents. Eight ran concurrently: build/health check, feature completeness, and mobile UI across six surfaces (navigation, landing, resume, portfolio, interview, and account/payment/admin). While results came in, I rendered the dev server at 390px mobile width and cross-checked against the agent findings.
 
-The audit surfaced a real backlog. What followed was the actually heavy work: credit system, admin, global GTM — in that order.
+Once the audit wrapped, the real work started: credit unit pricing.
 
-## Working Out Credit Pricing From Scratch Takes an Hour
+```
+"What does it cost to run resume / portfolio / interview at 20/30 turns with Sonnet vs Opus?"
+→ "I want 30 turns to land around ₩7,000."
+→ "Adjust the bonus to ~300 and lock 30 turns at 900 credits."
+```
 
-The core question: how much should 30 interview turns cost?
+The chain was: API cost → credit conversion → user-facing price, worked backward. At a 5× margin, 30 turns came out to 900 credits = $9 = ₩12,000. That overshot the ₩7,000 target by ₩5,000.
 
-> "If I run resume / portfolio / 20-turn or 30-turn interviews and reports using Sonnet and Opus respectively, what's the API cost — and how many internal credits does that consume?"
+Claude suggested prompt caching unprompted. The system prompt is static, so repeated calls can cut per-turn compute cost by up to 90%. Caching logic went into `lib/credits.ts` and the 900 credits = ₩7,000 target was hit.
 
-The chain: API cost → credit conversion → user-facing price. With a 5× margin, 30 interview turns landed at 900 credits.
+The same session also shipped `lib/audit.ts`, `app/api/track/route.ts`, an admin dashboard, Resend email verification, and PortOne payment integration. PortOne over Toss Pay for one clear reason: Toss blocks international cards; PortOne handles both domestic PG and foreign cards through a single SDK.
 
-> "I want 30 turns to come out to around ₩7,000."
+## Five Parallel Agents to Evaluate Whether to Sell a Fortune-Telling App
 
-At 100 credits = $1, 900 credits = $9. With exchange rate, that's roughly ₩12,000 — ₩5,000 over target.
+FortuneLab session: 142 tool calls, 14 hours 49 minutes.
 
-The fix: Anthropic prompt caching. The system prompt is static across all interview turns, so repeated calls cut the per-turn API cost by up to 90%. Caching logic went into `lib/credits.ts`, and the 30-turn × 900-credit calculation now hits the ₩7,000 target.
+First move was to pull real numbers from `STATUS.md`:
 
-The bonus credit amount bounced: 200 → 300 → back to 200. Without `lib/constants.ts` centralizing that value, the number would have been hardcoded in a dozen places across the codebase.
-
-## Admin Dashboard, Email Auth, and the Payment Provider Decision
-
-> "Where did you put the admin page? I want per-user API cost, visitor counts, and feature usage rates all in one view."
-
-`lib/audit.ts` was built fresh, paired with `app/api/track/route.ts` — every feature call logs usage. The admin view now shows per-user credit consumption, raw API cost, and feature utilization rates in one screen.
-
-Visitor tracking needed separate infrastructure. Resend API handled email verification (`app/api/auth/signup/route.ts`); `page-tracker.tsx` covers page views.
-
-For payments: PortOne over Toss Payments. Toss blocks international cards; PortOne handles Korean PG and international cards through a single SDK.
-
-The global GTM analysis came out of the same session: `~/reports/posts/2026-06-15-coffeechat-global-gtm.html`. Main finding: expand domestically across job verticals before going English-first.
-
-## FortuneLab: 5 Parallel Market Analysts, Then an X Bot
-
-The second-heaviest session — FortuneLab, a Korean fortune-telling SaaS — ran 142 tool calls over 14 hours 49 minutes.
-
-First, pull the actual state from `~/saju_global/STATUS.md`:
-
-- 30 total paid orders (all Korean via Toss; international PayPal: 0)
+- 30 total paid orders — all KR Toss, 0 PayPal
 - 87 sessions in April
-- Production deployment had been broken for 44 consecutive days
+- Production had been undeployed for 44 consecutive days
 
-The ask: "I need to sell this. Build me a strategy."
+The request: *"I want to sell this. Give me a realistic strategy."* Five agents ran in parallel: KR market analysis, unit economics (CAC/LTV), product diagnostic, channel research, and acquisition valuation. All five converged on the same conclusion: traction is too thin. Selling now means selling cheap. Better to collect Korean user feedback first.
 
-Five agents ran in parallel: KR market analysis, unit economics, product diagnosis, channel analysis, asset sale strategy. All five converged on the same conclusion: current traction is too thin to monetize aggressively.
+So instead, we built a scheduled X (Twitter) bot. Seven modules under `lib/xbot/`: `cohorts.ts`, `formats.ts`, `viral.ts`, `voices.ts`, `rotate.ts`, `xClient.ts`, `generate.ts`. Vercel Cron fires every six hours. Account branding images were generated in three batches using `gpt-image-2`.
 
-So instead of a sales push, an X bot.
+## The Dental Redesign Is Where Reference Fidelity First Broke Down
 
-> "What about posting fortune readings in English on X every 6 hours, targeting a specific audience?"
+Dongbaek UDental redesign: 274 tool calls, 8 hours 2 minutes. `mcp__claude-in-chrome__computer` fired 64 times — this session was browser-heavy by a wide margin.
 
-`lib/xbot/` got seven modules: `cohorts.ts`, `formats.ts`, `viral.ts`, `voices.ts`, `rotate.ts`, `xClient.ts`, `generate.ts`. A Vercel Cron job at `/api/cron/x-post/route.ts` fires every 6 hours.
+Goal: *"Make it look as good as a top-tier dental clinic in Korea. No AI aesthetic."* Went in via the Open Design route. Researched actual top Korean dental sites as references, catalogued 13 local photos (exterior, waiting room, treatment rooms, hallway).
 
-Branding images went through `gpt-image-2` in three rounds — avatar, banner, persona in multiple styles — compared side-by-side in `x-brand/avatar-preview.html`.
+A pattern kept repeating:
 
-## Claude Code Research → HTML Report on GitHub Pages
+1. Screenshot a reference dental site
+2. Review output → *"Looks AI," "fonts inconsistent," "background too static"*
+3. Research another reference
 
-58 tool calls, 13 hours 11 minutes (including idle time). Direct file edits: 3.
+The color palette was close. But structure, font stack, and layout kept diverging from the reference. I didn't understand why yet — that came in session 7.
 
-Three parallel agents researched Claude Code Opus 4.8 best practices: one on official docs, one on the GitHub ecosystem, one on community patterns. Synthesis went through `report-builder` and published to GitHub Pages.
+## Browser Automation Made Pokemon Card Arbitrage Tractable
 
-Published at: `~/reports/posts/2026-06-15-claude-code-opus-48-best-practices.html`
+Session 5 (104 tool calls, 2 hours 22 minutes) was a Buyee search for sealed Pokemon card boxes.
 
-A follow-up came in to go deeper on Dynamic Workflows specifically. Two more agents ran additional research and added a dedicated section to the existing report.
+11,803 listings. Manual filtering is not viable. What Claude did:
 
-## Uddental Redesign: Research Before a Single Code Edit
+1. Searched "ポケモンカード BOX", filtered to sealed + buy-now conditions
+2. Calculated Korea landed price = item price + proxy fee (¥800) + domestic shipping (¥1,000) + EMS (¥3,500)
+3. Ran expected value (EV) analysis across 13 boxes in parallel
 
-Session four: 1 hour 3 minutes, 78 tool calls. Most distinctive stat: `mcp__claude-in-chrome__computer` called 33 times — more than Edit (9) and Bash (8) combined. Most of this session was browser capture and navigation.
+The EV workflow fired twice — first for retail/market validation (10 boxes), then for opened EV vs. sealed price comparison (13 boxes). Output was an HTML comparison table. Abyss Eye had the lowest sealed price relative to EV — best arbitrage efficiency.
 
-The ask: "Make it look indistinguishable from a top-tier Korean dental clinic — or better."
+One customs question came up: *"If I split the order into two shipments, can I dodge duty?"* No. All Buyee shipments share the same declared sender, so customs aggregates them. And intentional splitting is a customs law violation.
 
-Jumping straight to code edits would've been the wrong call. Open Design route: direction first, codebase second. Strategy: home page first → full rollout; premium photo-forward + sans-serif modern aesthetic (no Ming typeface, no AI-generated look).
+## CoffeeChat Icons Got Rebuilt Three Times
 
-First, inventory the actual Uddental assets — 13 photos covering exterior, waiting room, treatment rooms, corridors. Then two parallel agents researching top Korean dental clinic sites. The deliverables at this stage: `home-preview.html` and `directions-preview.html` — HTML mockups rendered in a browser for comparison. Codebase edits came after direction was locked.
+Session 6 (210 tool calls, 3 hours 28 minutes) was a full replacement of CoffeeChat's icons, favicon, and OG images.
 
-## When Parallel Workflows Help (and When They Don't)
+Started by tracking down a reported bug: resume/portfolio input fields were missing from the mock interview setup. Turned out they weren't missing — `InterviewSetupForm.tsx` had moved them to step 3. Commit `c6dd46e` only restructured step 0 (job role). Not a bug.
 
-Looking across all four sessions, the pattern is clear. Parallel agents delivered real speed gains for: full-codebase audits (CoffeeChat's 8 mobile surfaces), independent market analysis (FortuneLab's 5 axes), and reference research (dental site's 2 branches). The common thread: each unit had no dependency on any other.
+The real work was icon design. Prompt: *"Reference a major Korean education platform. Nothing that reads as AI-generated."* Used Inflearn as the benchmark.
 
-Credit pricing was sequential and had to be. API cost → margin rate → credit price → bonus adjustment: each step's output was the next step's input. Workflow orchestration adds overhead here. Direct conversation is faster.
+Same issue as the dental session surfaced immediately:
 
-Different session characters produce different tool distributions:
+> "These all look like the same low-quality AI output with different colors. None of them actually match the reference."
 
-| Session | Tool Calls | Dominant Tools |
-|---|---|---|
-| CoffeeChat | 365 | Bash 113, Edit 81, Read 76 |
-| FortuneLab | 142 | Bash 35, Read 24, Write 19, Edit 17 |
-| Uddental | 78 | Chrome 33, Edit 9, Bash 8 |
-| Claude Research | 58 | Bash 38, Agent 5, Read 3 |
+Switched approaches: generate directly with `gpt-image-2` rather than approximating via HTML/CSS. `scripts/gen-assets.mjs` handled batch generation of favicon, OG, and icons. `scripts/finalize-assets.mjs` ran post-processing. Final assets locked in after three generation batches.
 
-Totals across 4 sessions: Bash 194, Edit 110, Read 108, Write 41. Files modified: 41. Files created: 36.
+Resume and portfolio field structure also got reworked. They're now treated symmetrically — if a field isn't provided, it's omitted cleanly. `InterviewInfoModal.tsx` is the main file for this change.
+
+## Why Reference Design Keeps Failing — Root Cause Analysis
+
+Session 7 (84 tool calls, 4 hours 14 minutes) addressed the pattern that repeated across both the dental and CoffeeChat sessions.
+
+Reproduced the failure: specified Inflearn as the reference, generated output, compared directly.
+
+Two root causes:
+
+**1. Screenshot resolution is too coarse for design tokens**
+When Claude screenshots a page, it receives a 1280px full-page image. Visual feature extraction from that image picks up rough patterns — "mint tones + rounded buttons." Actual CSS custom properties, font-family, font-weight, and spacing values are not readable from a screenshot.
+
+**2. Layout gets reinvented during reproduction**
+When approximating a reference layout, Claude invents new structure. It doesn't transplant the original grid and component hierarchy — it builds a new one that looks vaguely similar at a glance but diverges in all the specifics that make design feel intentional.
+
+The fix is `extract-reference.mjs`: parse the target site's CSS to extract real tokens into `reference-tokens.json`, bind those directly into `:root` CSS variables, then validate with `compare-tokens.mjs` that fidelity is ≥70%.
+
+This pipeline was already wired into `.claude/hooks/design-gate.sh`. When a reference URL is detected, `extract-reference.mjs` runs before any HTML generation is allowed. I knew this existed — session 7 was when I saw firsthand *why* it's necessary.
+
+## Session Breakdown
+
+| Session | Work | Tool Calls | Duration |
+|---|---|---|---|
+| 1 | Claude Code research report | 58 | 13h 11m |
+| 2 | FortuneLab GTM + X bot | 142 | 14h 49m |
+| 3 | CoffeeChat credits/payment/email | 365 | 25h 48m |
+| 4 | UDental redesign | 274 | 8h 02m |
+| 5 | Pokemon card sourcing | 104 | 2h 22m |
+| 6 | CoffeeChat icons/favicon | 210 | 3h 28m |
+| 7 | Reference design analysis | 84 | 4h 14m |
+| **Total** | | **1,237** | **~71h 54m** |
+
+Tool distribution: Bash 260+, Edit 200+, Read 140+, Chrome browser 140+. The high Chrome count comes from the dental and CoffeeChat sessions repeatedly running live browser render checks.
+
+## When Parallelism Works and When It Doesn't
+
+The pattern clarified across these seven sessions.
+
+**Parallel workflow is genuinely faster when**: analysis units are independent. FortuneLab's five-market analysis, CoffeeChat's eight-surface mobile audit, Pokemon card EV across 13 boxes — all fit this pattern. Wall clock time equals the slowest single agent, regardless of how many run simultaneously.
+
+**Sequential conversation is correct when**: each output determines the next input. Credit cost → margin → price → bonus adjustment had to be sequential. Running a workflow here adds overhead without benefit — real-time conversation is faster.
+
+**Reference design extraction** fit neither category. It wasn't a sequencing problem or a parallelism opportunity. It was a technical constraint: screenshots don't carry the data you need. CSS parsing does.
 
 ---
 
