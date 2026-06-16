@@ -1,158 +1,119 @@
 ---
-title: "342 Tool Calls, One Session: Building a Pokémon Card Price Tracker with Claude Code"
+title: "457 Tool Calls Across 3 Projects: Credit Pricing, Fortune App Exit, and a Viral X Bot"
 project: "portfolio-site"
 date: 2026-06-16
 lang: en
 pair: "2026-06-16-portfolio-site-ko"
-tags: [claude-code, ultracode, nextjs, neon-postgres, tcgdex, workflow]
-description: "How I built a full-stack Pokémon card price tracker — real-time JPY/KRW, daily DB ingestion, sealed product EV — in one 20-hour ultracode session with 342 tool calls."
+tags: [claude-code, saas, credits, multi-agent, xbot, coffeechat, fortunelab]
+description: "How I designed SaaS credit pricing, built an admin audit system, drafted an exit strategy for a fortune-telling app, and shipped an X bot — 457 tool calls across 3 sessions."
 ---
 
-342 tool calls in a single session. That number surprised even me when I looked at the logs afterward.
+457 tool calls. 3 sessions. 15 hours. Bash 151×, Read 92×, Edit 75×, Write 36×.
 
-96 Edit calls, 92 Bash, 84 Write. About 20 hours of wall-clock time. The output: a full-stack Japanese Pokémon card price tracker with real-time JPY/KRW conversion, daily database ingestion, and sealed product expected value (EV) calculation. Built from scratch, greenfield, starting with nothing but a vague idea and a blank repo.
+The longest session ran 12 hours 24 minutes and consumed 307 tool calls — designing a credit system for CoffeeChat (an AI mock interview SaaS), building an admin dashboard, and producing a global GTM report. Then a 52-minute research sprint on Claude Code Opus 4.8 best practices. Then an exit strategy for a Korean fortune-telling app plus a viral X bot, built from scratch in the same day.
 
-This is what Claude Code's ultracode mode actually looks like from the inside.
+**TL;DR** — Pricing a single credit tier took 10+ calculation rounds. Parallel multi-agent workflows cut a 5-part market analysis from sequential to near-simultaneous. Sequential calculation chains (cost → margin → price) are still faster as direct conversation. Different session types produce radically different tool distributions.
 
-## TL;DR
+## It Took an Hour to Price One Credit Tier
 
-- Ultracode (multi-agent workflow mode) is the right tool for greenfield projects where the data source is unknown and the stack decision depends on what you find
-- The single most important step was running a data source validation workflow *before writing a single line of application code*
-- 342 tool calls across 20 hours produced 75 new files and touched 19 existing ones — roughly a 70% complete full-stack app
-- The yuyutei scraping rabbit hole (5 probe scripts, `/tmp/probe-yuyutei*.mjs`) was the biggest time sink and is a textbook example of why fallback strategies matter
-- Deployment + real DB ingestion is next session's problem
+CoffeeChat is an AI mock interview SaaS — three AI panelists running parallel interviews, plus resume review and portfolio analysis. The core question: how much should 30 interview turns cost?
 
----
+First, raw API costs for Claude Opus 4.8. Three panelists responding simultaneously — not simple multiplication. The prompt:
 
-## The Prompt That Started It All
+> "What does it actually cost — in API dollars and internal credits — to run a resume analysis, portfolio review, and 20/30 interview turns with Sonnet vs Opus?"
 
-The initial prompt was deliberately vague:
+The chain: API cost → credit conversion → user-facing price. At 5× margin, 30 turns came out to 900 credits. Then:
 
-> "I want to build a site where I can look up Pokémon card prices, see the full card list, check current and historical prices, understand rarity-based valuation, and get some sense of where prices are heading."
+> "I want 30 turns to cost around ₩7,000."
 
-No spec. No wireframe. No database schema. Just an idea. This is exactly the kind of problem where ultracode mode earns its keep — when you don't know enough to write a detailed spec, you need an agent that can explore, validate, and build in parallel rather than waiting for you to resolve every uncertainty upfront.
+At 100 credits = $1, that's 900 credits = $9 ≈ ₩12,000 at current exchange rates. 71% over target. Options: shrink the margin, downgrade the model, or cut costs via caching.
 
-Activating `/effort ultracode` enables Claude Code's dynamic workflow mode. Instead of a single linear execution path, it fans out into parallel subagents: one exploring data sources, one sketching the schema, one prototyping the UI layer — then converges on decisions as the exploration results come in.
+The answer was Anthropic prompt caching. System prompts are static across sessions — caching cuts repeated-call costs by up to 90%. Implemented in `lib/credits.ts`. Hit the ₩7,000 target at 900 credits for 30 turns.
 
-## Why the Data Source Question Had to Come First
+## The Admin Page Needed Full Audit Trails from the Start
 
-Before any application code was written, a data source validation workflow ran first. This turned out to be the most consequential decision of the entire session.
+> "Where's the admin page? I need per-user API cost tracking, feature usage rates, visitor counts — the whole picture."
 
-The obvious starting point for a Pokémon card tracker is `pokemontcg.io`. It's well-documented, has a generous free tier (20,000 requests/day with a free API key), and returns TCGPlayer market prices. For English cards, it's clean and comprehensive.
+The admin scaffolding existed but had no API cost tracking. Built `lib/audit.ts` from scratch and added `app/api/track/route.ts` to log usage on every feature call.
 
-But the requirement was Japanese cards. That single constraint rewrote the entire architecture.
+Visitor tracking required separate infrastructure. Connected Resend API for email auth (`app/api/auth/signup/route.ts`) and added `page-tracker.tsx` for pageview tracking. End result: a single admin screen showing per-user credit consumption, raw API costs, and per-feature usage rates.
 
-Japanese Pokémon cards exist in a separate ecosystem. `pokemontcg.io` is English-market-centric and OCG coverage is thin at best. The validation workflow surfaced two alternatives:
+## One Report to Decide the Global Strategy
 
-**TCGdex (`tcgdex.dev`)** — Free, no API key required, catalog across 10 languages. Fields like `pricing.tcgplayer.holofoil.marketPrice` actually return data. Crucially, it has solid Japanese set coverage.
+> "Give me a single report on how to take this service global."
 
-**Yuyutei (`yuyutei.jp`)** — Japanese domestic pricing. Scrapeable HTML structure, but with rate limiting considerations and inconsistent page formats depending on card type.
+CoffeeChat was built for Korean job markets. Interview culture, industry verticals, and price sensitivity all shift across regions. Ran a `report-builder` multi-agent workflow against these questions.
 
-Without this upfront validation, the default path would have been building on `pokemontcg.io` and discovering 30 minutes in that Japanese set coverage was a dead end. That's the kind of mistake that cascades — schema assumptions baked into migrations, API client code written around the wrong data shape, UI components expecting fields that don't exist.
+The report at `~/reports/posts/2026-06-15-coffeechat-global-gtm.html` landed on one clear conclusion: diversify domestic job categories before going global. Expand from dev/design into business, marketing, and finance in Korea first. Global is step two.
 
-The workflow step that feels like overhead is usually the one that saves you.
+Payment: PortOne. Toss Pay blocks international transactions; PortOne handles both domestic PG and overseas cards through a single SDK, no integration fee.
 
-## Stack Decisions Derived From Data Constraints
+## Session Two: Researching How to Use Claude Code Well
 
-Once the data sources were clear, the stack fell out almost mechanically from the data's characteristics.
+52 minutes. 41 tool calls. Three parallel research streams: official docs, GitHub ecosystem, and community trends.
 
-Tens of thousands of cards. Images. Daily price snapshots accumulating over time. The requirement to show historical price trends ruled out a pure API-proxy approach immediately — you can't reconstruct history from a live endpoint. You need a database.
+Five agents ran simultaneously — Anthropic official docs, the Claude Code GitHub repo, recent Reddit/Hacker News threads, and real-world usage patterns. Consolidated output into a single HTML report via `report-builder`.
 
-The final stack:
+The most practically significant recent change: Dynamic Workflow. Triggered a second deeper research pass — parallel searches across the official docs track and hands-on examples — and merged the findings as a new section into the existing report.
 
-- **Next.js + TypeScript** — App Router, Vercel cron for scheduled ingestion
-- **Neon Postgres + Drizzle ORM** — Serverless Postgres with a free tier that fits the access pattern
-- **TCGdex** — Catalog and image source
-- **Korean exchange rate API** — Daily JPY/KRW FX rate refresh
+Report path: `~/reports/posts/2026-06-15-claude-code-opus-48-best-practices.html`
 
-The schema in `src/db/schema.ts` landed on four tables: `cards`, `price_snapshots`, `sealed_products`, and `fx_rates`. Initial bulk ingestion via `scripts/ingest.ts`, daily incremental updates via `src/app/api/cron/refresh/route.ts`.
+## Session Three: Exit Strategy for a Fortune App + Shipping the X Bot
 
-Nothing clever. The constraint was clear so the structure wrote itself.
+1 hour 57 minutes. 109 tool calls. The session with the most Write calls (19).
 
-## Sealed Product EV: The Interesting Part
+Started with a status check. Pulled real metrics from `~/saju_global/STATUS.md`:
 
-The request to calculate "expected value per box and per pack" turned out to be the most interesting engineering problem in the session.
+- 30 total paid orders (all Korean via Toss Pay; international PayPal: 0)
+- 87 sessions in April
+- Production deployment broken for 44 consecutive days
+- First international payment: still zero
 
-The implementation lives in `src/lib/ev.ts`. The formula is straightforward:
+Request: "I need to sell this. Build the strategy."
 
-```
-EV = Σ (card_market_price × pull_probability)
-```
+Spun up 5 parallel analysis agents: Korean market sizing, unit economics, product diagnosis, channel analysis, and asset sale strategy.
 
-Pull rate data is hardcoded by set in `src/lib/pull-rates-data.ts`. For sets without published official pull rates, the calculation falls back to rarity distribution estimates — not perfect, but good enough to produce directionally useful numbers.
+The Korean fortune-telling market is estimated at ~₩1.4 trillion (InnoForest/Magazine Hankyung). The global spiritual apps market is projected at 10% CAGR through 2027. Big numbers. The problem: actual user base was too thin to command a meaningful valuation.
 
-Each `sealed_products` table row links to a set, which links to the pull rate data, which produces an EV figure for that product. The question "if I crack one of these boxes, what's the expected value of the cards I pull?" gets a concrete answer, updated daily as market prices shift.
+All five analyses converged on the same conclusion: **traction first**.
 
-`src/components/forecast-bar.tsx` renders this visually. Red bar: you're expected to lose money relative to retail. Green bar: expected to come out ahead. Simple, but it's the kind of signal that's actually actionable.
+So I built the X bot.
 
-## Five Probe Scripts: The Yuyutei Rabbit Hole
+> "What if we post saju (四柱) readings in English on X every 6 hours, targeting a specific demographic?"
 
-The most instructive failure of the session was the yuyutei scraping implementation.
+Target by birth year/month cohort, publish fortune analysis automatically to X. Created 7 modules under `lib/xbot/`:
 
-The goal was straightforward: pull Japanese domestic market prices from yuyutei.jp and use them as the primary JPY pricing source. The client implementation started in `src/lib/providers/yuyutei.ts`. What followed was this sequence in `/tmp/`:
+- `cohorts.ts` — target cohort definitions
+- `formats.ts` — post format templates
+- `viral.ts` — viral optimization logic
+- `voices.ts` — persona voices
+- `rotate.ts` — format rotation
+- `xClient.ts` — X API client
+- `generate.ts` — content generation
 
-```
-probe-yuyutei.mjs
-probe-yuyutei2.mjs
-probe-yuyutei3.mjs
-probe-yuyutei4.mjs
-probe-yuyutei5.mjs  (implicit)
-```
+Added `/api/cron/x-post/route.ts` to Vercel Cron for automatic posting every 6 hours.
 
-Each probe revealed a different problem. The HTML structure varied by page type — single card pages, set list pages, and search result pages all had different DOM layouts. Some cards were discontinued and had no price data at all. Rate limiting kicked in before the full pattern could be established.
+Account branding: generated images with `gpt-image-2` across three script iterations (`genimg-x-brand.py`, `genimg-x-brand2.py`, `genimg-x-brand3.py`) — avatar, banner, and persona images in multiple styles, compared via `x-brand/avatar-preview.html`.
 
-The resolution was a fallback chain: if a yuyutei price is available, use it. Otherwise, multiply the TCGdex USD price by the current day's FX rate from `fx_rates`. Imperfect but functional.
+## When Parallel AI Automation Actually Saves Time
 
-There's a practice worth naming here: experimental and probe scripts belong in `/tmp/`, not in the codebase. They get thrown away. The discipline of keeping exploratory code out of `src/` prevents the half-finished experiments from accreting into permanent technical debt. Five probe scripts produced zero production files — that's the right ratio.
+Fan-out workflows were fast when analysis units were independent. The saju project's Korean market sizing, unit economics, channel analysis, and exit strategy don't feed into each other — 5 concurrent agents converge to roughly 1/5 the wall-clock time of sequential execution.
 
-## Signal Generation Without a Model
+Credit pricing was sequential. API cost → margin rate → credit price → bonus adjustment — each result determines the next input. Direct conversation was faster than a workflow here.
 
-The original request included "predictions about where prices are heading." Implementing this without training a time-series model required a different framing: rule-based signals rather than predictions.
-
-`src/lib/signals.ts` combines four signal types:
-
-- **TRENDING_UP** — 7-day price change exceeds +15%
-- **NEW_RELEASE** — Set released within the past 3 months
-- **HIGH_EV** — Sealed product EV exceeds 120% of retail price
-- **SUNSET** — Set discontinuation announced within the past 6 months
-
-These aren't predictions. They're pattern flags that a human can interpret. The distinction matters: calling something a "prediction" implies a confidence interval and a model. These are observations about current state. `src/components/signal-tags.tsx` renders them as tags on each card and set listing. `scripts/signals-test.mjs` validates the logic against a sample of known cards.
-
-## What 342 Tool Calls Produces
+Different session types produce very different tool distributions. Here's the full 3-session breakdown:
 
 | Metric | Count |
 |---|---|
-| Total tool calls | 342 |
-| Edit | 96 |
-| Bash | 92 |
-| Write | 84 |
-| Files created | 75 |
-| Session duration | ~20 hours |
-
-The route structure at session end:
-
-- `/` — Popular sets with signal tags
-- `/sets/[id]` — Set card list with EV chart
-- `/cards/[id]` — Single card price history
-- `/sealed` — Sealed product EV comparison
-- `/search` — Card name and set name search
-
-Completion estimate: 70%. What's missing is the deployment layer — Vercel setup, database migrations against a real Neon instance, actual data ingestion run against production. That work is scoped for the next session. The architecture is done; what remains is wiring it to real infrastructure.
-
-## When Ultracode Mode Actually Helps
-
-This session made the conditions clearer. Ultracode's multi-agent fan-out is worth the overhead when:
-
-1. **Data source uncertainty is high** — You don't know what APIs exist, what they return, or whether they'll support your requirements until you probe them
-2. **Stack decisions depend on exploration results** — You can't commit to a schema until you know what shape the data comes in
-3. **Components can be developed independently** — UI, database layer, ingestion pipeline, and signal logic don't need to block each other
-
-The dynamic workflow parallelizes this naturally. A single linear session would have hit the data source uncertainty wall early and spent time in sequential exploration that the multi-agent setup runs in parallel.
-
-The inverse case is equally clear: a single bug in an existing codebase is pure noise with ultracode. The overhead of spinning up subagents to fix one function is never worth it.
-
-This week also included: prototyping 4 Godot game concepts with GPT Image-2 sprite generation (output in `~/game-concepts-preview/`), and six sessions refining the JDLab Codex cron architecture. The `local-commerce-agent` sendable-first discovery pipeline got particularly complex — that's a separate log.
-
+| Total tool calls | 457 |
+| Bash | 151 |
+| Read | 92 |
+| Edit | 75 |
+| Write | 36 |
+| Agent (workflow) | 23 |
+| Files modified | 34 |
+| Files created | 32 |
+| Total session time | ~15 hours |
 
 ---
 
