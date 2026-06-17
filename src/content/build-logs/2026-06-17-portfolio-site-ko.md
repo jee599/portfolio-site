@@ -1,103 +1,102 @@
 ---
-title: "포트폴리오 홈 포지셔닝 전면 교체 — 'AI 개발자'에서 '원맨 스튜디오'로"
+title: "open-design 레퍼런스 충실도 수리 — grep hex 버리고 Playwright getComputedStyle로"
 project: "portfolio-site"
 date: 2026-06-17
 lang: ko
-tags: [claude-code, portfolio, positioning, case-study, astro, react]
-description: "Hero 카피·역량 섹션·프로젝트 카드 3개를 동시에 갈아엎었다. 'AI 제품을 만든다'가 아니라 '사업 문제를 AI로 푼다'로 포지셔닝을 이동시켰다. 10개 파일, 418 줄 변경."
+tags: [claude-code, open-design, playwright, design-system, hooks]
+description: "open-design 스킬이 레퍼런스 사이트에서 색깔만 뽑던 근본 원인을 찾아 수리했다. grep hex 한 줄을 Playwright 실측으로 교체하니 72px/weight 510/letter-spacing −1.584px까지 잡혔다. 7h 47min, 86 tool calls."
 ---
 
-포트폴리오 홈 전체를 다시 썼다. Hero 카피, 역량 섹션, 프로젝트 카드 포맷 3개가 동시에 바뀌었다. 변경 규모는 10개 파일, 418줄 순증.
+open-design 스킬에 "레퍼런스 사이트 URL을 줬더니 대략적인 색감만 나온다"는 문제가 오래됐다. 막연한 느낌이 아니라 메커니즘이 명확한 실패였고, 어제 하루 7시간 47분을 써서 수리했다.
 
-**TL;DR** "나 이런 거 만든다"에서 "사업 문제를 이렇게 풀었다"로 프레임을 바꿨다. 카피 한 줄이 아니라 데이터 모델(`home.ts`)과 컴포넌트(`Projects.tsx`) 구조를 같이 바꿔야 했다.
+**TL;DR** — 추출 레시피가 `grep -E '#[0-9a-fA-F]{3,8}'` 한 줄이었다. hex 색만 잡고 폰트·구조·간격·shadow는 통째로 빠졌다. Playwright `getComputedStyle` 실측으로 교체하고 게이트 훅 2개를 달았다.
 
-## Hero 카피가 왜 틀렸는지
+## 원인이 명확했다 — grep hex 한 줄
 
-이전 h1은 "AI 제품을 만들고, 고치고, 매일 운영한다"였다. 이건 내가 하는 일(what I do)이다. 방문자 입장에서 중요한 건 내가 무엇을 할 수 있는지(what's in it for you)다.
+`~/.claude/skills/open-design/SKILL.md` RULE 2 분기 B의 추출 명령이 이렇게 돼 있었다:
 
-바꾼 h1: "작은 사업 문제를 AI 제품·자동화·리포트·웹 MVP로 바꾼다."
-
-byline도 교체했다. 이전: "LLM 서비스, 운영 자동화, 작은 웹 제품을 혼자 끝까지 만든다. 어제 짠 코드가 오늘도 돌고, 그 기록을 이 사이트에 쌓는다." — 이건 일지다. 새 카피: "Jidong이 혼자 만든다. LLM 서비스, 광고·콘텐츠 자동화, 진단 HTML/PDF, 랜딩과 운영 도구까지. 큰 플랫폼 말고 지금 쓸 수 있는 작은 시스템."
-
-`role` 메타 행도 `solo AI builder` → `AI product studio`로 바꿨다. `stack` 행은 아예 `output`으로 교체했다: `제품 · 자동화 · 리포트`. 기술 스택은 이력서에 쓰는 거다. 포트폴리오에서 클라이언트가 보고 싶은 건 산출물이다.
-
-## 프로젝트 카드를 케이스 스터디 포맷으로 바꿨다
-
-이전 카드 구조는 제목 + 태그라인 + 스택 뱃지였다. "뭘 만들었는지"를 나열하는 구조다.
-
-새 구조는 `problem` / `output` 두 칸을 추가했다. `home.ts`에 6개 필드가 생겼다:
-
-```ts
-caseStatus?: CaseStatus;   // '운영' | '검증' | '실험' | '보류'
-problemKo?: string;        // 실제 문제 한 줄
-problem?: string;
-didKo?: string;            // 무엇을 했는지
-did?: string;
-outputKo?: string;         // 산출물 한 줄
-output?: string;
+```
+실제 값 추출 — grep -E '#[0-9a-fA-F]{3,8}' 로 hex, 스크린샷에서 타이포
 ```
 
-`Projects.tsx`에 `p-case` 블록이 생겼다. 카드 안에 문제와 산출물이 나란히 보인다. 그리드는 3컬럼에서 2컬럼으로 줄였다 — 읽을 게 많아지면 셀이 좁으면 안 된다.
+grep으로 hex를 긁으면 색은 나온다. 그런데 폰트 패밀리, 폰트 스케일, letter-spacing, line-height, radius, shadow, 컨테이너 폭, 섹션 구조는 hex에 없다. "스크린샷에서 타이포"는 Claude에게 이미지를 보고 폰트를 추측하라는 뜻인데, 이게 제대로 될 리 없다.
 
-각 프로젝트에 직접 채워 넣었다:
+결과적으로 레퍼런스에서 색상 팔레트 몇 개만 받아서 나머지를 전부 모델 자체 판단으로 채웠다. "토스처럼"을 요청하면 토스 색은 깔리고 토스 폰트·간격·구조는 빠지는 게 이 때문이었다.
 
-```ts
-// FortuneLab
-problemKo: '사주 해석을 그냥 프롬프트로 던지면 계산과 해석이 섞인다.'
-didKo:     '만세력 계산은 코드로 고정하고, LLM은 해석 레이어에만 썼다.'
-outputKo:  '웹 서비스 · 결제 전환 검증 중'
+## 수리 방향 탐색 — 6갈래 서치
 
-// ContextZip
-problemKo: '에이전트 작업에서 터미널 출력이 컨텍스트를 너무 빨리 먹었다.'
-didKo:     'Claude Code 훅 앞단에 Rust 필터를 두고 노이즈를 잘라냈다.'
-outputKo:  'Rust CLI · OSS'
+고치기 전에 최신 방법을 먼저 탐색했다. 동적 워크플로로 6개 방향을 병렬 서칭해서 유의미한 것만 추리면:
+
+- **Playwright `getComputedStyle`** — 브라우저가 실제 렌더링한 값을 읽는다. 폰트·색·간격 전부 정확.
+- **Dembrandt** (MIT, 2026-06 최신) — CSS 토큰 추출 라이브러리. 좋지만 Node 의존성 추가 비용.
+- **Figma REST API** — 디자인 파일이 있어야 한다. 직구 불가.
+
+Playwright는 이미 dental 파이프라인에 Node 1.59.1로 설치돼 있었다. 별도 의존성 없이 재사용할 수 있어서 그걸로 결정했다.
+
+## 추출기 구현 — extract-reference.mjs
+
+`~/.claude/skills/open-design/scripts/extract-reference.mjs`를 새로 만들었다. 핵심은 `getComputedStyle`로 실측하는 것이다. 색만 아니라 타이포그래피·간격·구조를 한 번에 긁는다.
+
+```js
+const h1 = document.querySelector('h1')
+const cs = getComputedStyle(h1)
+return {
+  fontSize: cs.fontSize,
+  fontWeight: cs.fontWeight,
+  fontFamily: cs.fontFamily,
+  letterSpacing: cs.letterSpacing,
+}
 ```
 
-"뭘 만들었나" 말고 "어떤 문제를 어떻게 풀었나"가 보이면 포트폴리오가 영업 자료가 된다.
+Linear.app에 실행한 결과가 이랬다:
 
-## 상태 태그를 실제 운영 상태로 교체
+- h1: **72px / weight 510 / Inter Variable / letter-spacing −1.584px** — Linear 특유의 510 웨이트와 음수 자간이 정확히 잡혔다. 이게 "Linear 느낌"의 실체였다.
+- 다크 캔버스 `rgb(8,9,10)`, 시그니처 그린 `rgba(0,255,5,0.1)`
+- 섹션 구조: hero → benefits → PageSection ×5 → changelog → customer quotes → CTA
 
-이전 상태 뱃지는 `live / oss / dev / beta`였다. `beta`는 아무 의미가 없다.
+이전엔 섹션 구조가 통째로 비었는데, DOM에서 직접 읽으니 채워진다.
 
-새 `CaseStatus`는 `운영 / 검증 / 실험 / 보류` 4개다. 실제 상태를 그대로 쓴다:
+추출기 파일 3개가 생겼다:
 
-- `운영`: 지금 돌아가고 있다
-- `검증`: 만들었고 실제 반응을 보는 중
-- `실험`: 아이디어를 코드로 테스트 중
-- `보류`: 일단 멈췄다
+- `extract-reference.mjs` — Playwright 실측 메인
+- `compare-tokens.mjs` — 추출 토큰 vs 렌더된 CSS 충실도 비교 (≥70% 게이트)
+- `shot.mjs` — 전체 페이지 스크린샷 캡처
 
-`Projects.tsx`의 `cardMeta` 함수가 `caseStatus`를 읽어 CSS 클래스(`StatusTone`)로 변환한다. `home.css`에 색상 토큰을 추가했다: verify → `var(--warn)`, lab → `#6f5a1f`, hold → `var(--ink3)`.
+## 훅 게이트 — 강제 적용
 
-## 역량 섹션 재구성
+추출기만 만들면 쓸지 말지는 모델 판단에 달린다. 이걸 하드 게이트로 만들었다.
 
-Capabilities 4개 항목 전부 교체했다.
+`reference-gate.sh` — `.html` 파일 Write를 시도할 때 `reference-tokens.json`이 없으면 차단한다. 추출을 건너뛰면 빌드 자체가 막힌다.
 
-이전 항목: AI products, automation, web product, writing
+`reference-required.sh` — 레퍼런스 URL이 감지될 때 추출 실행을 강제 알림한다.
 
-새 항목:
-- **AI MVP**: 문제 좁히기 → LLM+인증+결제+UI+배포 한번에
-- **자동화**: 광고 리서치·뉴스·콘텐츠·반복 점검을 스크립트+에이전트로
-- **진단 리포트**: HTML/PDF 산출물 — 가짜 대시보드 말고 의사결정용
-- **웹/랜딩/운영 도구**: 디자인·배포·도메인·분석까지 묶어서
+`design-router.sh`도 수정했다. "토스처럼", "Linear 느낌으로" 같은 브랜드 키워드가 나오면 `brand-urls.tsv`에서 해당 브랜드 URL을 찾아 `extract-reference.mjs`를 먼저 실행한다. 브랜드 URL 매핑은 tsv 파일로 분리했다:
 
-"writing"을 제거한 게 맞다. 빌드 로그는 결과물이지 서비스가 아니다. 대신 "진단 리포트"를 넣었다 — 치과 광고 진단처럼 HTML/PDF로 납품 가능한 실체가 있는 산출물.
+```
+toss	https://toss.tech
+linear	https://linear.app
+inflearn	https://inflearn.com
+```
 
-## 이 변경이 나온 맥락
+## 같은 날 세션 1 — 포켓몬 카드 EV 리포트
 
-이전 2일 동안 coffeechat(AI 면접 SaaS), FortuneLab(사주 앱), 동백유디치과 세 프로젝트를 동시에 작업했다. 공통점이 있었다: 셋 다 기술 구현보다 "실제 사업 문제를 좁히는 것"이 먼저였다.
+완전히 다른 맥락에서 open-design이 끼어들었다. 포켓몬 카드 직구 매물을 Buyee에서 탐색하다가 "HTML로 줘"라는 요청이 들어왔다. `mcp__claude-in-chrome`으로 Buyee를 직접 탐색해서 박스별 기대값(EV)을 뽑고, open-design 스킬을 타서 `~/pokemon-box-ev-report.html`로 산출했다. 2시간 22분, 104 tool calls, `mcp__claude-in-chrome__computer` 31회였다. 직구 리서치에 디자인 스킬이 붙은 케이스다.
 
-커피챗 세션에서 크레딧 단가를 설계할 때 API 원가 → 마진 → 유저 가격을 역산했다. 치과 사이트 세션에서는 "AI 티 없이 상위권 수준으로"가 먼저였고 기술은 그 다음이었다. FortuneLab GTM 분석에서는 트래션이 너무 얇다는 결론에서 전략 방향이 바뀌었다.
+## 세션 3 — 500 에러로 전멸
 
-포트폴리오가 "내가 이런 기술을 쓸 줄 안다"를 보여주는 공간이면 충분하지 않다. 실제로 어떤 문제를 어떻게 풀었는지가 보여야 한다.
+커피챗 사이트 개선 요청이 들어왔지만 Claude API 500 Internal Server Error가 떠서 아무것도 안 됐다. 2분, tool calls 0개. 서버 이슈라 별도 대응 없이 종료.
 
-## 변경 요약
+## 통계
 
-| 파일 | 핵심 변경 |
+| | 수치 |
 |---|---|
-| `src/data/home.ts` | `caseStatus` + problem/did/output 6개 필드 추가, 전 프로젝트에 채움 |
-| `src/components/home/Projects.tsx` | `StatusTone` 타입, `p-case` 블록, 2컬럼 그리드, primaryLabel 동적화 |
-| `src/components/home/Hero.tsx` | h1 카피, byline, role/output 메타 행 교체 |
-| `src/components/home/Capabilities.astro` | 4개 역량 항목 전면 교체 |
-| `src/styles/home.css` | verify/lab/hold 상태 색, f-case 3열 그리드, p-case 스타일 |
+| 총 세션 | 3 |
+| 총 소요 시간 | ~10h 11min |
+| 총 tool calls | 190 |
+| 주요 도구 | Bash 44회, mcp__claude-in-chrome__computer 31회, Edit 18회, Read 16회 |
+| 생성 파일 | 10개 |
+| 수정 파일 | 5개 |
 
-도구 분포: Edit 위주. 데이터 스키마 변경 → 컴포넌트 수정 → CSS 추가 순으로 순차 작업이라 병렬이 맞지 않는 케이스였다.
+## 얻은 것
+
+"토스처럼"을 요청하면 이제 토스 사이트를 실측해서 폰트·색·구조를 바인딩한다. 훅 게이트로 강제하기 때문에 건너뛸 수 없다. grep으로 색만 긁던 시절의 open-design은 반쪽짜리였다.

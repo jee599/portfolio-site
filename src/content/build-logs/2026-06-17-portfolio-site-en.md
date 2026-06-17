@@ -1,148 +1,131 @@
 ---
-title: "From 'AI Developer' to One-Man Studio: Repositioning a Portfolio with Claude Code"
+title: "Fixing open-design Reference Fidelity: Ditching grep hex for Playwright getComputedStyle"
 project: "portfolio-site"
 date: 2026-06-17
 lang: en
 pair: "2026-06-17-portfolio-site-ko"
-tags: [claude-code, portfolio, positioning, case-study, astro, react]
-description: "10 files, 418 lines: rebuilt Hero copy, project cards, and capabilities to shift from tech showcase to client-facing case studies with Claude Code."
+tags: [claude-code, open-design, playwright, design-system, hooks]
+description: "Tracked down why open-design only extracted colors from reference sites. One grep line replaced with Playwright getComputedStyle — now captures 72px/weight 510/letter-spacing −1.584px."
 ---
 
-The old H1 said "I build AI products, fix them, and run them every day."
+For months, the open-design skill had a quiet failure mode: point it at a reference site like toss.tech or linear.app, and it'd come back with a rough color palette — nothing else. Fonts wrong. Spacing off. Layout structure completely invented. It looked vaguely similar, not actually similar.
 
-Every word was accurate. None of it mattered to someone deciding whether to work with me.
+This wasn't a vague "the model isn't creative enough" problem. It was a specific, mechanical failure with an obvious root cause. 7 hours 47 minutes and 86 tool calls later, it was fixed.
 
-10 files, 418 net lines later — almost none of it adding features. This was a rewrite of how the portfolio *presents* work, not what work it shows. The data model changed. The component structure changed. The positioning changed. The CSS followed.
+**TL;DR** — The extraction recipe was a single `grep -E '#[0-9a-fA-F]{3,8}'` command. It caught hex colors and nothing else — no fonts, no spacing, no shadow, no section structure. Replaced it with Playwright `getComputedStyle` for real browser-rendered values. Added two gate hooks so skipping extraction is impossible.
 
-**TL;DR**: Shifted the frame from "here's what I know how to do" to "here's a business problem I solved and what I shipped." Doing that right meant touching `home.ts` first, then `Projects.tsx`, then Hero copy, then Capabilities — in that order, because each layer depends on the previous.
+## The Root Cause Was One Line of Shell
 
-## The Original H1 Lied (By Omission)
+`~/.claude/skills/open-design/SKILL.md`, RULE 2, branch B. The extraction instruction:
 
-"I build AI products, fix them, and run them every day" is a statement about my activities. The reader translates it as: *so what?*
-
-The replacement:
-
-> **I turn small business problems into AI products, automation, reports, and web MVPs.**
-
-That's the same thing, described from the other direction. Same work. Different angle of entry.
-
-The byline got replaced too. The old version read like a dev diary: *"I build LLM services, ops automation, and small web products solo, end-to-end. Code I wrote yesterday is running today, and I log it all here."* — technically accurate, functionally a journal entry.
-
-New version: *"Jidong builds solo. LLM services, ad and content automation, diagnostic HTML/PDF reports, landing pages, and ops tools. Not a platform — a small system you can actually use right now."*
-
-The `role` metadata line changed from `solo AI builder` → `AI product studio`. The `stack` line got replaced entirely with `output`: `Products · Automation · Reports`. Tech stack belongs on a resume. A portfolio should show deliverables.
-
-## Why Project Cards Are Usually Just Tech-Stack Resumes
-
-The previous card layout: title + tagline + stack badges. It answers "what did you build?" It doesn't answer "why did you build it?" or "did it work?"
-
-That structure is how most developer portfolios read — a curated list of things you know how to do. That's fine for job hunting. It's not a sales document.
-
-The replacement adds two fields per project: `problem` and `output`. Six new fields landed in `home.ts`:
-
-```ts
-caseStatus?: CaseStatus;   // 'operating' | 'verifying' | 'experimenting' | 'on hold'
-problemKo?: string;
-problem?: string;          // One-line business problem
-didKo?: string;
-did?: string;              // What I actually did
-outputKo?: string;
-output?: string;           // What shipped
+```
+Extract real values — grep -E '#[0-9a-fA-F]{3,8}' for hex, read typography from screenshot
 ```
 
-These are optional — existing projects keep working without them. But every active project got filled in.
+Grep for hex and you get colors. That's it. Font family, font scale, letter-spacing, line-height, border-radius, box-shadow, container widths, section structure — none of that lives in a hex string.
 
-`Projects.tsx` picked up a `p-case` block that renders the problem and output side by side inside each card. Grid dropped from 3 columns to 2 — more content per card means cells can't be narrow.
+The second half was worse: "read typography from screenshot" means asking the model to visually guess a font from a JPEG. That doesn't work reliably on a good day.
 
-The concrete entries:
+The practical result: every open-design run against a reference site received a color palette and filled everything else from the model's internal defaults. Ask for "something like Toss" and you'd get Toss colors on a completely different typographic foundation. The fonts were wrong. The letter-spacing was wrong. The section rhythm was wrong. The color palette was the only thing that matched — and even then, only the hex-visible subset.
 
-```ts
-// FortuneLab (Korean astrology web app)
-problem: 'Feeding raw prompts to an LLM mixes date calculation with interpretation — you get hallucinated birthdates.'
-did:     'Hardcoded the calendar math in code; LLM touches the interpretation layer only.'
-output:  'Web service · Payment conversion in validation'
+## Exploring Fix Approaches — 6 Directions in Parallel
 
-// ContextZip (Rust CLI tool)
-problem: 'Agent tasks were burning context budget on terminal noise — build output, test logs, irrelevant stderr.'
-did:     'Built a Rust filter that sits before the Claude Code hook and strips it.'
-output:  'Rust CLI · OSS'
+Before writing any code, I ran a multi-agent parallel search across six approaches to find the best current method for CSS extraction:
+
+- **Playwright `getComputedStyle`** — reads actual browser-rendered values after CSS cascade resolution. Accurate for fonts, colors, spacing, everything. Already installed.
+- **Dembrandt** (MIT, latest June 2026) — purpose-built CSS token extraction library. Solid, but adds a new Node dependency.
+- **Figma REST API** — requires access to the design file. Not viable for arbitrary reference URLs.
+- CSS AST parsing — works on source files, not rendered output. Misses runtime computed values.
+- Chrome DevTools Protocol directly — more complexity than Playwright wraps, no benefit.
+- Visual regression diffing tools — answers "did it change?" not "what are the values?"
+
+Playwright was already installed at Node 1.59.1 for the dental AI pipeline. No new dependencies. Decision made.
+
+## Building the Extractor
+
+New file: `~/.claude/skills/open-design/scripts/extract-reference.mjs`
+
+The core is straightforward. Launch a headless Chromium instance, navigate to the reference URL, and use `page.evaluate()` to run `getComputedStyle` against the actual DOM:
+
+```js
+const h1 = document.querySelector('h1')
+const cs = getComputedStyle(h1)
+return {
+  fontSize: cs.fontSize,
+  fontWeight: cs.fontWeight,
+  fontFamily: cs.fontFamily,
+  letterSpacing: cs.letterSpacing,
+  lineHeight: cs.lineHeight,
+}
 ```
 
-"What problem? How did you solve it? What shipped?" — three questions, three lines. That's what turns a portfolio into something a client reads differently than a resume.
+The script doesn't stop at headings. It samples hero sections, navigation, body text, buttons, and card containers — anything semantically meaningful. Colors are extracted via `getComputedStyle` too, which handles CSS variables, computed `rgb()` values, and opacity correctly — things grep can never see.
 
-## Status Badges That Actually Mean Something
+Running it against linear.app:
 
-The old status options were `live / oss / dev / beta`. "Beta" means nothing. It's a hedge that signals low confidence without communicating anything actionable.
+- h1: **72px / weight 510 / Inter Variable / letter-spacing −1.584px** — Linear's non-standard 510 weight and negative tracking, measured exactly. This specific combination is what makes things look like Linear. The grep version had none of it.
+- Dark canvas background: `rgb(8, 9, 10)`
+- Signature accent: `rgba(0, 255, 5, 0.1)`
+- Section structure: hero → benefits → PageSection ×5 → changelog → customer quotes → CTA
 
-The new `CaseStatus` type has four values:
+Previously, section structure was completely absent from extraction output. Reading the DOM directly populates it from the actual rendered page.
 
-- `operating` — it's live and running
-- `verifying` — shipped, watching real-world response
-- `experimenting` — testing an idea in code
-- `on hold` — paused intentionally
+The extractor outputs three artifacts:
 
-These map to what's actually true. You can look at a card and immediately understand the project's state.
+- `reference-tokens.json` — all extracted design tokens, structured
+- `reference.png` — full-page screenshot for visual verification
+- A fidelity score computed by `compare-tokens.mjs` (gate threshold: ≥70%)
 
-`Projects.tsx` has a `cardMeta` function that reads `caseStatus` and converts it to a CSS class (`StatusTone`). `home.css` got three color tokens:
+## Two Gate Hooks — Extraction Is Not Optional
 
-```css
-/* verifying → amber warning */
-.status-verify { color: var(--warn); }
+An extractor the model can skip is just documentation. Two hooks enforce extraction as a hard prerequisite.
 
-/* experimenting → muted gold */
-.status-lab { color: #6f5a1f; }
+**`reference-gate.sh`** — fires on every `.html` file Write attempt. If `reference-tokens.json` doesn't exist in the project directory, the write is blocked. There is no path to a visual deliverable that bypasses extraction.
 
-/* on hold → tertiary ink */
-.status-hold { color: var(--ink3); }
+**`reference-required.sh`** — when a reference URL is detected in the prompt, this hook fires a notification requiring the extraction command to run before design work starts.
+
+**`design-router.sh`** was updated to handle brand keywords. When the prompt contains "make it like Toss" or "Linear style" or similar brand references, the router looks up the brand in `brand-urls.tsv` and runs `extract-reference.mjs` automatically:
+
+```
+toss	https://toss.tech
+linear	https://linear.app
+inflearn	https://inflearn.com
 ```
 
-Operating projects get the default accent green. Verifying gets amber — it's real but unproven. Lab gets a desaturated gold — active but experimental. On hold gets ink-tertiary — it exists, it's just not moving.
+Brand URL mappings live in a separate tsv file — easy to extend without touching the router logic.
 
-## Rebuilding Capabilities: What I Ship, Not What I Know
+`compare-tokens.mjs` verifies the extracted tokens against the rendered CSS at ≥70% fidelity. Below that threshold, the build fails with a diff showing exactly which tokens are missing or wrong.
 
-The previous four capability items: *AI products, automation, web product, writing.*
+## Same Day: Pokémon Card EV Report
 
-"Writing" was the most obviously wrong. Build logs are artifacts, not services. Listing "writing" as a capability is like a chef listing "tasting food."
+An unrelated session ran the same day. While browsing Buyee for Pokémon card box listings, a request came in to produce an HTML report showing expected value (EV) per box.
 
-The replacement four:
+`mcp__claude-in-chrome` navigated Buyee directly — browsing listings, extracting box names, prices, and known card pull rates. The open-design skill handled the output format, producing `~/pokemon-box-ev-report.html`. 2 hours 22 minutes, 104 tool calls, 31 `mcp__claude-in-chrome__computer` invocations.
 
-**AI MVP** — Narrow the problem → ship LLM + auth + payments + UI + deploy in one pass.
+Browser automation for Japanese import research, design pipeline for the output. An unusual combination that worked.
 
-**Automation** — Ad research, news digests, content pipelines, recurring checks: script + agent, not headcount.
+## Session 3: Nothing Happened
 
-**Diagnostic Reports** — HTML/PDF deliverables. Not fake dashboards — decision-support output you can actually hand to someone.
+A request came in to improve a coffee chat site. Claude API returned HTTP 500 Internal Server Error. Zero tool calls. Two minutes. Server-side issue, no workaround available, session closed.
 
-**Web / Landing / Ops Tools** — Design, deploy, domain, analytics — bundled, not piecemeal.
+## Numbers
 
-"Diagnostic Reports" replaced "writing" specifically because it has a tangible form: a dental clinic diagnostic (HTML/PDF, real findings, delivered as a file) is a service. A blog post isn't.
-
-## What Three Concurrent Projects Had in Common
-
-This rewrite came out of two days of working on three separate projects simultaneously: a coffeechat AI interview SaaS, FortuneLab (Korean astrology), and a dental clinic ad campaign.
-
-The through-line was visible only in retrospect: in every case, the business problem came before the technical implementation. Not in a process-diagram sense — in the sense that getting the problem definition wrong made the technical choices irrelevant.
-
-For the interview SaaS, the first real work was pricing math: API cost → margin → user price, working backward from sustainable unit economics before writing a single route.
-
-For the dental clinic, the brief was "top-tier quality without looking AI-generated." Tech choices followed that constraint — they didn't define it.
-
-For FortuneLab's GTM analysis, the conclusion was that traction signals were too thin for the current monetization plan. That changed the strategy, which changed the roadmap.
-
-A portfolio that leads with "I know TypeScript + LLM APIs" doesn't communicate any of that. A portfolio that leads with "here's a pricing problem I solved in a SaaS, here's a content quality constraint I designed around" — that one does.
-
-## The Change Log
-
-| File | What changed |
+| | |
 |---|---|
-| `src/data/home.ts` | `caseStatus` type + problem/did/output 6-field schema, filled in for all projects |
-| `src/components/home/Projects.tsx` | `StatusTone` type, `p-case` block, 2-column grid, `primaryLabel` dynamic |
-| `src/components/home/Hero.tsx` | H1 copy, byline, role/output metadata rows |
-| `src/components/home/Capabilities.astro` | All four capability items replaced |
-| `src/styles/home.css` | verify/lab/hold status colors, `f-case` 3-col grid, `p-case` block styles |
+| Total sessions | 3 |
+| Total time | ~10h 11min |
+| Total tool calls | 190 |
+| Main tools | Bash ×44, mcp__claude-in-chrome__computer ×31, Edit ×18, Read ×16 |
+| Files created | 10 |
+| Files modified | 5 |
 
-Tool breakdown: mostly `Edit`. Schema change → component update → CSS addition — sequential dependencies, so no parallel agents. Data model has to stabilize before component can reference the new fields; component has to exist before CSS selectors have anything to target.
+## What Changed
 
-Total: 10 files, 418 net lines. No new routes, no new APIs, no new dependencies. Just positioning work that happened to require a schema change to express correctly.
+Asking for "something like Toss" now means the skill visits toss.tech, measures the rendered CSS, and extracts font family, size scale, weight, letter-spacing, line-height, colors, spacing, and section structure — then binds those values into the design system before writing any output HTML.
+
+The hook gates make this non-negotiable. There is no path through the skill that produces a visual deliverable without first measuring the reference.
+
+The grep-only version of open-design was half an extractor. It's fixed.
 
 ---
 
