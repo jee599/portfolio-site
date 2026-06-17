@@ -1,131 +1,119 @@
 ---
-title: "Fixing open-design Reference Fidelity: Ditching grep hex for Playwright getComputedStyle"
+title: "437 Tool Calls, 6 Parallel Agents — Full SaaS Codebase Audit with Claude Code"
 project: "portfolio-site"
 date: 2026-06-17
 lang: en
 pair: "2026-06-17-portfolio-site-ko"
-tags: [claude-code, open-design, playwright, design-system, hooks]
-description: "Tracked down why open-design only extracted colors from reference sites. One grep line replaced with Playwright getComputedStyle — now captures 72px/weight 510/letter-spacing −1.584px."
+tags: [claude-code, workflow, audit, open-design, playwright, coffeechat]
+description: "Audited an entire SaaS codebase in 14 hours using a 6-dimension parallel workflow: security, token efficiency, AI quality, UX, and design. 437 tool calls, 11 agents, ~1.2M tokens."
 ---
 
-For months, the open-design skill had a quiet failure mode: point it at a reference site like toss.tech or linear.app, and it'd come back with a rough color palette — nothing else. Fonts wrong. Spacing off. Layout structure completely invented. It looked vaguely similar, not actually similar.
+14 hours 11 minutes. 437 tool calls. One prompt that asked for five things at once.
 
-This wasn't a vague "the model isn't creative enough" problem. It was a specific, mechanical failure with an obvious root cause. 7 hours 47 minutes and 86 tool calls later, it was fixed.
+That's what it took to audit the entire coffeechat codebase using Claude Code's dynamic Workflow tool — covering security vulnerabilities, token leaks, AI output quality, UX friction, and "AI aesthetic tells" all in parallel.
 
-**TL;DR** — The extraction recipe was a single `grep -E '#[0-9a-fA-F]{3,8}'` command. It caught hex colors and nothing else — no fonts, no spacing, no shadow, no section structure. Replaced it with Playwright `getComputedStyle` for real browser-rendered values. Added two gate hooks so skipping extraction is impossible.
+**TL;DR** — Ran 6 specialized audit agents simultaneously via the `Workflow` tool. Correctness findings went through adversarial verification. Most fixes committed on the spot. 50 files created or modified by end of day.
 
-## The Root Cause Was One Line of Shell
+## The Request That Made Direct Editing a Dead End
 
-`~/.claude/skills/open-design/SKILL.md`, RULE 2, branch B. The extraction instruction:
+coffeechat was already in decent shape: a custom design system, prompt caching, email verification gates, a credit ledger, PayPal integration. Not a greenfield project. The question wasn't "what should we build?" — it was "what's actually broken and where?"
 
-```
-Extract real values — grep -E '#[0-9a-fA-F]{3,8}' for hex, read typography from screenshot
-```
-
-Grep for hex and you get colors. That's it. Font family, font scale, letter-spacing, line-height, border-radius, box-shadow, container widths, section structure — none of that lives in a hex string.
-
-The second half was worse: "read typography from screenshot" means asking the model to visually guess a font from a JPEG. That doesn't work reliably on a good day.
-
-The practical result: every open-design run against a reference site received a color palette and filled everything else from the model's internal defaults. Ask for "something like Toss" and you'd get Toss colors on a completely different typographic foundation. The fonts were wrong. The letter-spacing was wrong. The section rhythm was wrong. The color palette was the only thing that matched — and even then, only the hex-visible subset.
-
-## Exploring Fix Approaches — 6 Directions in Parallel
-
-Before writing any code, I ran a multi-agent parallel search across six approaches to find the best current method for CSS extraction:
-
-- **Playwright `getComputedStyle`** — reads actual browser-rendered values after CSS cascade resolution. Accurate for fonts, colors, spacing, everything. Already installed.
-- **Dembrandt** (MIT, latest June 2026) — purpose-built CSS token extraction library. Solid, but adds a new Node dependency.
-- **Figma REST API** — requires access to the design file. Not viable for arbitrary reference URLs.
-- CSS AST parsing — works on source files, not rendered output. Misses runtime computed values.
-- Chrome DevTools Protocol directly — more complexity than Playwright wraps, no benefit.
-- Visual regression diffing tools — answers "did it change?" not "what are the values?"
-
-Playwright was already installed at Node 1.59.1 for the dental AI pipeline. No new dependencies. Decision made.
-
-## Building the Extractor
-
-New file: `~/.claude/skills/open-design/scripts/extract-reference.mjs`
-
-The core is straightforward. Launch a headless Chromium instance, navigate to the reference URL, and use `page.evaluate()` to run `getComputedStyle` against the actual DOM:
-
-```js
-const h1 = document.querySelector('h1')
-const cs = getComputedStyle(h1)
-return {
-  fontSize: cs.fontSize,
-  fontWeight: cs.fontWeight,
-  fontFamily: cs.fontFamily,
-  letterSpacing: cs.letterSpacing,
-  lineHeight: cs.lineHeight,
-}
-```
-
-The script doesn't stop at headings. It samples hero sections, navigation, body text, buttons, and card containers — anything semantically meaningful. Colors are extracted via `getComputedStyle` too, which handles CSS variables, computed `rgb()` values, and opacity correctly — things grep can never see.
-
-Running it against linear.app:
-
-- h1: **72px / weight 510 / Inter Variable / letter-spacing −1.584px** — Linear's non-standard 510 weight and negative tracking, measured exactly. This specific combination is what makes things look like Linear. The grep version had none of it.
-- Dark canvas background: `rgb(8, 9, 10)`
-- Signature accent: `rgba(0, 255, 5, 0.1)`
-- Section structure: hero → benefits → PageSection ×5 → changelog → customer quotes → CTA
-
-Previously, section structure was completely absent from extraction output. Reading the DOM directly populates it from the actual rendered page.
-
-The extractor outputs three artifacts:
-
-- `reference-tokens.json` — all extracted design tokens, structured
-- `reference.png` — full-page screenshot for visual verification
-- A fidelity score computed by `compare-tokens.mjs` (gate threshold: ≥70%)
-
-## Two Gate Hooks — Extraction Is Not Optional
-
-An extractor the model can skip is just documentation. Two hooks enforce extraction as a hard prerequisite.
-
-**`reference-gate.sh`** — fires on every `.html` file Write attempt. If `reference-tokens.json` doesn't exist in the project directory, the write is blocked. There is no path to a visual deliverable that bypasses extraction.
-
-**`reference-required.sh`** — when a reference URL is detected in the prompt, this hook fires a notification requiring the extraction command to run before design work starts.
-
-**`design-router.sh`** was updated to handle brand keywords. When the prompt contains "make it like Toss" or "Linear style" or similar brand references, the router looks up the brand in `brand-urls.tsv` and runs `extract-reference.mjs` automatically:
+The prompt:
 
 ```
-toss	https://toss.tech
-linear	https://linear.app
-inflearn	https://inflearn.com
+Review the entire coffeechat site logic:
+- Issues or improvements I haven't found yet
+- How to make resume/portfolio/interview flows easier for users
+- Ways to reduce token usage while keeping quality
+- Upgrades to resume checking, portfolio validation, interview results
+- How to remove the "AI-generated" feel from the design
+(all of the above)
 ```
 
-Brand URL mappings live in a separate tsv file — easy to extend without touching the router logic.
+Five concurrent workstreams. Starting with direct file reads would mean loading the entire codebase into the main context. That's exactly the condition the dynamic Workflow tool is designed for — fan out to independent agents, keep the main context clean.
 
-`compare-tokens.mjs` verifies the extracted tokens against the rendered CSS at ≥70% fidelity. Below that threshold, the build fails with a diff showing exactly which tokens are missing or wrong.
+## A 6-Dimension Parallel Audit
 
-## Same Day: Pokémon Card EV Report
+The `Workflow` tool launched 6 specialist agents simultaneously. Each agent's schema enforced `file:line` citations — no finding without a source pointer.
 
-An unrelated session ran the same day. While browsing Buyee for Pokémon card box listings, a request came in to produce an HTML report showing expected value (EV) per box.
+- **Correctness** — real bugs, race conditions, security vulnerabilities
+- **Token efficiency** — cache misses, redundant API calls, model selection mismatches
+- **Interview AI quality** — follow-up question logic, model role configuration, domain-specific customization
+- **Resume/portfolio AI quality** — achievement sentence generation, feedback specificity
+- **UX** — input flows, error messages, state feedback
+- **Design AI tells** — grayscale card grids, excessive border-radius, generic section structure
 
-`mcp__claude-in-chrome` navigated Buyee directly — browsing listings, extracting box names, prices, and known card pull rates. The open-design skill handled the output format, producing `~/pokemon-box-ev-report.html`. 2 hours 22 minutes, 104 tool calls, 31 `mcp__claude-in-chrome__computer` invocations.
+When the correctness agent surfaced a finding, a separate adversarial verification agent re-examined it independently — "is this a real bug or a false positive?" before anything went into the fix queue.
 
-Browser automation for Japanese import research, design pipeline for the output. An unusual combination that worked.
+Final tally: 11 agents, ~1.2M tokens, 283 tool calls, 32 confirmed findings.
 
-## Session 3: Nothing Happened
+## What Got Fixed
 
-A request came in to improve a coffee chat site. Claude API returned HTTP 500 Internal Server Error. Zero tool calls. Two minutes. Server-side issue, no workaround available, session closed.
+**Security first.** Two API routes had missing admin checks. `app/api/admin/users/[id]/route.ts` and `admin/payments/[id]/refund/route.ts` were reachable without authentication. Both patched.
+
+**Credit system redesign.** The old model assigned fixed credit costs per feature. Replaced it with **actual API cost × 7**. If a session goes negative (edge cases in prompt caching), the cost is absorbed on the server side — users see `0`, never a negative balance. All negative-balance display logic lives in `lib/credits.ts`.
+
+**Interview session caching.** Each session now gets a unique key at setup time. Once a report is generated for that key, the endpoint blocks regeneration requests. `app/api/interview/setup/route.ts` issues the key; `report/route.ts` checks the cache before invoking the model. Duplicate token burns eliminated.
+
+**Model routing.** Made model assignments explicit: Opus for interview sessions, Sonnet for resume review, Opus for portfolio feedback. `lib/anthropic.ts` passes different model IDs per feature instead of a single global constant.
+
+**Feedback widget.** Built `components/feedback-widget.tsx` — a persistent inline feedback bar at the bottom of every screen, routed through Resend as real-time email. The app is in early testing; direct user feedback matters more than async surveys at this stage.
+
+## Stripping the AI Aesthetic
+
+The design audit came back with three specific patterns that read as "AI-generated site":
+
+1. Every section is a card grid — flat information architecture with no visual hierarchy
+2. No accent color, so nothing has visual weight
+3. All icons from the same rounded icon set — the single most recognizable AI-site tell
+
+Built `illustrations.tsx` with custom inline SVGs to replace the icon set. More importantly, embedded an actual animated demo scenario in the interview screen — the cursor-blinking-on-empty-field was replaced with a real conversation flow playing out.
+
+The goal: make the interface look like someone made a deliberate visual decision, not like a model populated a template.
+
+## Same Day: Fixing the open-design Reference Extractor
+
+A separate session (7h 47min, 86 tool calls) tackled a structural bug in the open-design skill.
+
+The extraction command in `SKILL.md` was:
+
+```bash
+grep -E '#[0-9a-fA-F]{3,8}'
+```
+
+It only pulled hex color values. Font families, letter-spacing, section structure — all missing. This explained why designs built "from Linear.app" would get the colors right but completely miss the feel.
+
+Replaced `extract-reference.mjs` with Playwright `getComputedStyle` measurements. Running it against linear.app immediately showed the gap:
+
+```
+h1: 72px / weight 510 / Inter Variable / letter-spacing −1.584px
+```
+
+Weight `510` and negative letter-spacing are what make Linear look like Linear. Neither value appears as a hex string in the source. `grep` never had a chance at them.
+
+Added `reference-gate.sh` as a hook: if `reference-tokens.json` doesn't exist when a `.html` file is about to be written, the build blocks. Skipping extraction is now a hard error, not a silent omission.
+
+## When to Use a Workflow vs. Direct Editing
+
+The parallel workflow was clearly right for the audit phase. The six dimensions are completely independent — the security agent doesn't need to know what the token efficiency agent found; the design agent doesn't care about authentication logic. Independence is exactly the condition that makes `pipeline()` the right primitive.
+
+The fix phase was different. File modifications were entangled — changing `lib/credits.ts` affected how `app/api/interview/setup/route.ts` handles credit checks. Fanning out to multiple agents here would have introduced conflicts. Sequential, direct edits were the right call.
+
+Pattern: parallelize when dimensions are independent; stay sequential when changes share state.
 
 ## Numbers
 
 | | |
 |---|---|
-| Total sessions | 3 |
-| Total time | ~10h 11min |
-| Total tool calls | 190 |
-| Main tools | Bash ×44, mcp__claude-in-chrome__computer ×31, Edit ×18, Read ×16 |
-| Files created | 10 |
-| Files modified | 5 |
+| Main session | 14h 11min |
+| Total tool calls | 437 |
+| Audit agents | 11 |
+| Tokens processed | ~1.2M |
+| Files created/modified | 50 |
+| Confirmed findings | 32 |
+| open-design session | 7h 47min, 86 tool calls |
 
-## What Changed
-
-Asking for "something like Toss" now means the skill visits toss.tech, measures the rendered CSS, and extracts font family, size scale, weight, letter-spacing, line-height, colors, spacing, and section structure — then binds those values into the design system before writing any output HTML.
-
-The hook gates make this non-negotiable. There is no path through the skill that produces a visual deliverable without first measuring the reference.
-
-The grep-only version of open-design was half an extractor. It's fixed.
+50 files. 21+ hours across two sessions. Commits split by feature, not by session.
 
 ---
 

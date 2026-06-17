@@ -1,102 +1,97 @@
 ---
-title: "open-design 레퍼런스 충실도 수리 — grep hex 버리고 Playwright getComputedStyle로"
+title: "동적 워크플로 437 tool calls — Claude Code로 SaaS 코드베이스 전수 감사"
 project: "portfolio-site"
 date: 2026-06-17
 lang: ko
-tags: [claude-code, open-design, playwright, design-system, hooks]
-description: "open-design 스킬이 레퍼런스 사이트에서 색깔만 뽑던 근본 원인을 찾아 수리했다. grep hex 한 줄을 Playwright 실측으로 교체하니 72px/weight 510/letter-spacing −1.584px까지 잡혔다. 7h 47min, 86 tool calls."
+tags: [claude-code, workflow, audit, open-design, playwright, coffeechat]
+description: "6차원 병렬 감사 워크플로로 coffeechat 코드베이스를 14시간 만에 전수 점검했다. 보안·토큰 효율·AI 품질·UX·디자인까지. 437 tool calls, 11 에이전트, ~120만 토큰."
 ---
 
-open-design 스킬에 "레퍼런스 사이트 URL을 줬더니 대략적인 색감만 나온다"는 문제가 오래됐다. 막연한 느낌이 아니라 메커니즘이 명확한 실패였고, 어제 하루 7시간 47분을 써서 수리했다.
+14시간 11분, 437 tool calls. coffeechat 코드베이스 전체를 Claude Code 동적 워크플로로 한 번에 돌렸다. 보안 취약점, 토큰 누수, AI 결과물 품질, UX, 디자인 AI 티까지 — 6개 차원 병렬 감사다.
 
-**TL;DR** — 추출 레시피가 `grep -E '#[0-9a-fA-F]{3,8}'` 한 줄이었다. hex 색만 잡고 폰트·구조·간격·shadow는 통째로 빠졌다. Playwright `getComputedStyle` 실측으로 교체하고 게이트 훅 2개를 달았다.
+**TL;DR** — `Workflow`로 6개 전문 감사 에이전트를 동시에 돌리고, 정합성 발견은 적대적 검증을 추가로 거쳤다. 수리 항목 대부분을 그 자리에서 커밋했다. 이날 생성/수정한 파일이 50개다.
 
-## 원인이 명확했다 — grep hex 한 줄
+## 감사 전 상황 파악 먼저
 
-`~/.claude/skills/open-design/SKILL.md` RULE 2 분기 B의 추출 명령이 이렇게 돼 있었다:
-
-```
-실제 값 추출 — grep -E '#[0-9a-fA-F]{3,8}' 로 hex, 스크린샷에서 타이포
-```
-
-grep으로 hex를 긁으면 색은 나온다. 그런데 폰트 패밀리, 폰트 스케일, letter-spacing, line-height, radius, shadow, 컨테이너 폭, 섹션 구조는 hex에 없다. "스크린샷에서 타이포"는 Claude에게 이미지를 보고 폰트를 추측하라는 뜻인데, 이게 제대로 될 리 없다.
-
-결과적으로 레퍼런스에서 색상 팔레트 몇 개만 받아서 나머지를 전부 모델 자체 판단으로 채웠다. "토스처럼"을 요청하면 토스 색은 깔리고 토스 폰트·간격·구조는 빠지는 게 이 때문이었다.
-
-## 수리 방향 탐색 — 6갈래 서치
-
-고치기 전에 최신 방법을 먼저 탐색했다. 동적 워크플로로 6개 방향을 병렬 서칭해서 유의미한 것만 추리면:
-
-- **Playwright `getComputedStyle`** — 브라우저가 실제 렌더링한 값을 읽는다. 폰트·색·간격 전부 정확.
-- **Dembrandt** (MIT, 2026-06 최신) — CSS 토큰 추출 라이브러리. 좋지만 Node 의존성 추가 비용.
-- **Figma REST API** — 디자인 파일이 있어야 한다. 직구 불가.
-
-Playwright는 이미 dental 파이프라인에 Node 1.59.1로 설치돼 있었다. 별도 의존성 없이 재사용할 수 있어서 그걸로 결정했다.
-
-## 추출기 구현 — extract-reference.mjs
-
-`~/.claude/skills/open-design/scripts/extract-reference.mjs`를 새로 만들었다. 핵심은 `getComputedStyle`로 실측하는 것이다. 색만 아니라 타이포그래피·간격·구조를 한 번에 긁는다.
-
-```js
-const h1 = document.querySelector('h1')
-const cs = getComputedStyle(h1)
-return {
-  fontSize: cs.fontSize,
-  fontWeight: cs.fontWeight,
-  fontFamily: cs.fontFamily,
-  letterSpacing: cs.letterSpacing,
-}
-```
-
-Linear.app에 실행한 결과가 이랬다:
-
-- h1: **72px / weight 510 / Inter Variable / letter-spacing −1.584px** — Linear 특유의 510 웨이트와 음수 자간이 정확히 잡혔다. 이게 "Linear 느낌"의 실체였다.
-- 다크 캔버스 `rgb(8,9,10)`, 시그니처 그린 `rgba(0,255,5,0.1)`
-- 섹션 구조: hero → benefits → PageSection ×5 → changelog → customer quotes → CTA
-
-이전엔 섹션 구조가 통째로 비었는데, DOM에서 직접 읽으니 채워진다.
-
-추출기 파일 3개가 생겼다:
-
-- `extract-reference.mjs` — Playwright 실측 메인
-- `compare-tokens.mjs` — 추출 토큰 vs 렌더된 CSS 충실도 비교 (≥70% 게이트)
-- `shot.mjs` — 전체 페이지 스크린샷 캡처
-
-## 훅 게이트 — 강제 적용
-
-추출기만 만들면 쓸지 말지는 모델 판단에 달린다. 이걸 하드 게이트로 만들었다.
-
-`reference-gate.sh` — `.html` 파일 Write를 시도할 때 `reference-tokens.json`이 없으면 차단한다. 추출을 건너뛰면 빌드 자체가 막힌다.
-
-`reference-required.sh` — 레퍼런스 URL이 감지될 때 추출 실행을 강제 알림한다.
-
-`design-router.sh`도 수정했다. "토스처럼", "Linear 느낌으로" 같은 브랜드 키워드가 나오면 `brand-urls.tsv`에서 해당 브랜드 URL을 찾아 `extract-reference.mjs`를 먼저 실행한다. 브랜드 URL 매핑은 tsv 파일로 분리했다:
+coffeechat은 이미 상당히 성숙한 상태였다. 토스 톤 디자인 시스템, 프롬프트 캐싱, 이메일 인증 게이트, 크레딧 원장(ledger), PayPal 결제까지 갖춰져 있었다. 그래서 "뭘 고치면 좋을지"보다 "뭐가 실제로 문제인지"를 먼저 찾아야 했다.
 
 ```
-toss	https://toss.tech
-linear	https://linear.app
-inflearn	https://inflearn.com
+지금 커피챗 사이트 로직 전체적으로 점검해서 문제 / 고도화할 내용이 없는지,
+면접 / 포폴 / 이력서 사용하는 데에 유저들이 더 편하게 쓸 수있는 방법 /
+퀄리티 유지하면서 사용하는 토큰 더 줄이거나 효율적으로 쓸 수 있는 방법 /
+이력서 체크, 포폴 검증, 면접 진행에 있어서 더 고도화 하고 더욱 더 효과적인 결과물이 나올 수 있는 방법 /
+사이트 디자인에서 ai 티를 제거할 수 있는 방법 각각 모두 작업해줘
 ```
 
-## 같은 날 세션 1 — 포켓몬 카드 EV 리포트
+5개 워크스트림이 동시에 들어온 요청이다. 직접 파일 읽기로 시작하면 코드베이스 전체를 메인 컨텍스트에 올려야 한다. 이런 케이스가 동적 워크플로를 써야 하는 순간이다.
 
-완전히 다른 맥락에서 open-design이 끼어들었다. 포켓몬 카드 직구 매물을 Buyee에서 탐색하다가 "HTML로 줘"라는 요청이 들어왔다. `mcp__claude-in-chrome`으로 Buyee를 직접 탐색해서 박스별 기대값(EV)을 뽑고, open-design 스킬을 타서 `~/pokemon-box-ev-report.html`로 산출했다. 2시간 22분, 104 tool calls, `mcp__claude-in-chrome__computer` 31회였다. 직구 리서치에 디자인 스킬이 붙은 케이스다.
+## 6차원 병렬 감사 워크플로
 
-## 세션 3 — 500 에러로 전멸
+`Workflow` 도구로 6개 전문 에이전트를 병렬로 띄웠다. 각 에이전트는 file:line 근거를 반드시 포함하도록 스키마를 강제했다.
 
-커피챗 사이트 개선 요청이 들어왔지만 Claude API 500 Internal Server Error가 떠서 아무것도 안 됐다. 2분, tool calls 0개. 서버 이슈라 별도 대응 없이 종료.
+- **정합성(correctness)** — 실제 버그, 레이스 컨디션, 보안 취약점
+- **토큰 효율** — 캐시 미스, 불필요한 재호출, 모델 선택 미스매치
+- **면접 AI 품질** — 꼬리 질문 로직, 모델 롤 설정, 분야별 맞춤화
+- **이력서/포폴 AI 품질** — 성과 문장 생성, 피드백 구체성
+- **UX** — 입력 흐름, 오류 메시지, 상태 피드백
+- **디자인 AI 티** — 무채색 카드 나열, 과도한 둥근 모서리, 제네릭 섹션 구조
+
+정합성 감사에서 발견이 나오면 별도 적대적 검증 에이전트가 달라붙는 구조로 설계했다. "진짜 버그인지 FP인지"를 독립적으로 재검증하는 것이다.
+
+결과: 11 에이전트, ~120만 토큰, 283 도구 호출. 확인된 발견 32건.
+
+## 수리한 것들
+
+보안에서 제일 중요한 게 먼저 나왔다. API 라우트에 admin 체크가 누락된 곳이 있었다. `app/api/admin/users/[id]/route.ts`와 `admin/payments/[id]/refund/route.ts`가 인증 없이 도달할 수 있었다. 두 파일 모두 수리했다.
+
+크레딧 설계를 통째로 바꿨다. 기존은 기능별로 고정 크레딧을 할당하는 방식이었다. 이걸 **실제 API 비용 × 7배**로 바꿨다. 음수가 되는 경우는 내가 지불하고 유저에게는 0으로 보이게 처리했다. 프론트엔드에서 음수 잔액 표시 로직은 `lib/credits.ts`에 집중시켰다.
+
+면접 세션 캐싱을 설계했다. 면접마다 고유 키를 발급하고, 그 키에 대해 보고서가 한 번 생성되면 재생성 요청을 막는 구조다. `app/api/interview/setup/route.ts`에서 세션 시작 시 키를 발급하고, `report/route.ts`에서 키로 캐시를 조회한다. 중복 토큰 소모가 차단됐다.
+
+모델 배분도 바꿨다. 면접은 Opus, 이력서는 Sonnet, 포트폴리오 피드백은 Opus로 명시적으로 분리했다. `lib/anthropic.ts`에서 기능별로 다른 모델 ID를 넘긴다.
+
+피드백 위젯을 새로 만들었다. `components/feedback-widget.tsx`는 화면 하단에 항상 떠 있는 인라인 의견 접수창으로, Resend를 통해 실시간으로 메일로 들어온다. 테스트 단계라 즉각적인 유저 피드백 수집이 필요했다.
+
+## 디자인 ai 티 제거
+
+감사 결과에서 디자인 ai 티 항목은 구체적으로 3가지였다:
+
+1. 모든 섹션이 카드 나열 구조 — 인포메이션 아키텍처 없이 평탄하다
+2. 액센트 색이 없어서 계층 구조가 없다
+3. 아이콘이 전부 라운드 아이콘셋 — "AI 생성 사이트" 공통 패턴
+
+`illustrations.tsx`를 새로 만들어서 inline SVG 커스텀 일러스트로 교체했다. 면접 화면에서 실제 대화가 흐르는 데모 시나리오를 심었다 — 커서만 깜빡이던 곳이 실제 대화 흐름을 보여준다.
+
+## 같은 날: open-design 레퍼런스 추출 수리
+
+별개 세션(7h 47min, 86 tool calls)에서 open-design 스킬의 구조적 결함도 수리했다.
+
+문제는 `SKILL.md`의 추출 명령이 `grep -E '#[0-9a-fA-F]{3,8}'`였다는 것이다. hex 색만 긁으니 폰트 패밀리, letter-spacing, 섹션 구조는 전부 빠졌다. Linear.app을 따라 만들면 색은 깔리고 "Linear 느낌"은 안 나는 이유가 여기 있었다.
+
+`extract-reference.mjs`를 Playwright `getComputedStyle` 실측으로 교체했다. Linear에 실행한 결과가 즉각적으로 달랐다:
+
+- h1: `72px` / weight `510` / `Inter Variable` / letter-spacing `−1.584px`
+
+이게 "Linear 느낌"의 실체였다. weight 510과 음수 자간은 grep으로 절대 안 잡힌다.
+
+`reference-gate.sh`를 훅으로 달았다. `.html` Write를 시도할 때 `reference-tokens.json`이 없으면 차단한다. 추출을 건너뛰면 빌드 자체가 막힌다.
+
+## 워크플로 vs. 직접 처리
+
+이번 작업에서 동적 워크플로가 확실히 맞았다. 이유가 하나다 — 6개 차원이 완전히 독립적이다. 보안 감사 에이전트가 토큰 효율을 알 필요가 없고, 디자인 에이전트가 보안을 알 필요가 없다. 이 독립성이 `pipeline()`으로 병렬화할 수 있는 조건이다.
+
+반대로, 수리 단계는 직접 진행했다. 각 파일 수정이 서로 얽혀 있어서 에이전트 분산보다 순차 처리가 안전했다.
 
 ## 통계
 
 | | 수치 |
 |---|---|
-| 총 세션 | 3 |
-| 총 소요 시간 | ~10h 11min |
-| 총 tool calls | 190 |
-| 주요 도구 | Bash 44회, mcp__claude-in-chrome__computer 31회, Edit 18회, Read 16회 |
-| 생성 파일 | 10개 |
-| 수정 파일 | 5개 |
+| 주요 세션 소요 | 14h 11min |
+| 총 tool calls (주요 세션) | 437 |
+| 감사 에이전트 | 11개 |
+| 처리 토큰 | ~120만 |
+| 생성/수정 파일 | 50개 |
+| 확인된 발견 | 32건 |
+| open-design 세션 | 7h 47min, 86 tool calls |
 
-## 얻은 것
-
-"토스처럼"을 요청하면 이제 토스 사이트를 실측해서 폰트·색·구조를 바인딩한다. 훅 게이트로 강제하기 때문에 건너뛸 수 없다. grep으로 색만 긁던 시절의 open-design은 반쪽짜리였다.
+50개 파일, 총 21시간 넘는 세션. 커밋은 기능별로 쪼갰다.
