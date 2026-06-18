@@ -1,105 +1,115 @@
 ---
-title: "디자인 레퍼런스 추출기를 고쳤다 — grep hex의 실패와 Playwright DOM 해법"
+title: "코드는 있었다, 트윗은 0건 — Claude Code 하루 9세션 기록"
 project: "portfolio-site"
 date: 2026-06-18
 lang: ko
-tags: [claude-code, open-design, playwright, design-tokens, coffeechat]
-description: "Claude Code가 레퍼런스 사이트에서 색만 가져오던 이유를 추적했다. 2 세션 171 tool call로 grep hex → Playwright getComputedStyle로 교체, Linear.app의 Inter 510 weight와 -1.584px 자간까지 잡아냈다."
+tags: [claude-code, automation, preterview, 사주, dental-promo, workflow]
+description: "9개 세션, 1,000+ tool call, 3개 프로젝트. 2주간 트윗 0건인 X봇을 발견하고 실발행까지, 37개 에이전트 병렬로 Preterview를 감사하고 카카오페이까지 붙인 하루 기록."
 ---
 
-`open-design` 스킬이 레퍼런스 사이트 디자인을 따올 때 색감만 오고 폰트·레이아웃·자간이 빠지는 버그가 있었다. "색만 온다"는 게 느낌이 아니라 추출 레시피가 문자 그대로 그것만 하고 있었다. 2 세션, 171 tool call, 11시간을 써서 원인을 추적하고 Playwright 기반 추출기로 교체했다.
+6/17 아침, "사주 프로젝트 X 바이럴 봇 잘 돌아가고 있어?"라는 질문에서 시작했다. Claude Code가 프로젝트를 뒤져보니 봇은 6/15에 만들어져 있었다. 코드는 있었다. cron도 등록돼 있었다. 그런데 `git ls-files apps/web/lib/xbot/`의 결과는 빈 줄이었다. X API 키도 없었다. 트윗은 정확히 **0건**이었다.
 
-**TL;DR** `grep hex`로 CSS 문자열을 파싱하던 방식을 버리고 Playwright `getComputedStyle`로 실제 렌더된 DOM에서 토큰을 뽑는다. 폰트 패밀리·사이즈·웨이트·자간·radius·shadow·컨테이너 폭·섹션 구조까지 추출된다.
+**TL;DR** 9개 세션, 3개 프로젝트에서 1,000+회 도구 호출. 잠든 봇을 깨우고, 37개 에이전트로 Preterview를 감사하고 카카오페이까지 붙였다.
 
-## "색만 온다"의 실제 원인
+## 2주째 잠든 봇
 
-기존 `SKILL.md`의 레퍼런스 추출 레시피는 한 줄이었다.
+봇이 조용했던 이유는 세 가지가 동시에 빠져 있었기 때문이다.
 
-```bash
-grep -E '#[0-9a-fA-F]{3,8}' site.css   # hex 색상만 추출
-# 스크린샷에서 타이포 추정
+- `git ls-files apps/web/lib/xbot/` → 빈 결과. 로컬 디스크에만 있고 커밋은 없음
+- Vercel 프로덕션에 `X_API_KEY` 등 4종 키 미설정
+- 프로덕션 엔드포인트 `/api/cron/x-post` → HTTP 404
+
+코드를 짜고 세션이 끊기면 이렇게 된다. Claude Code로 구현을 마쳤어도 `git add`와 배포는 수동으로 확인해야 한다. 세션 1에서 커밋, Vercel env 셋업, X 계정 프로필 이미지 생성(GPT image API로 힙한 선글라스 아바타), 실발행까지 한 번에 밀었다. 5시간 25분, Bash 58회, Read 27회.
+
+## 다음날 "AI 티 다 없애줘"
+
+실발행 다음날(6/18) 첫 질문이 "AI 티 나?"였다. `voices.ts`와 `generate.ts`에는 이미 anti-AI 규칙이 박혀 있었다. banned 단어 리스트("soulful", "cosmos", "energies" 등), "sharp friend who knows saju" 톤, lowercase 허용. 그런데 실제 생성물 문장 구조가 여전히 AI스러웠다.
+
+수정 포인트는 문장이 "내가 해당되는지 확인하게" 만드는 구조였다.
+
+```typescript
+// 기존
+"This year's energy brings transformation to water signs"
+
+// 수정 후
+"2003년생들 이번 달 진짜 좀 힘들 거야"
 ```
 
-여기서 다섯 가지가 동시에 실패한다. hex 문법에 없는 `rgb()`, `hsl()`, CSS 변수 `var(--color-*)` 전부 누락된다. 폰트 패밀리·사이즈·웨이트·`letter-spacing`은 grep으로 잡히지 않는다. 섹션 구조(히어로→benefits→changelog→CTA)는 CSS 파일에 없다. `@font-face`로 로드하는 커스텀 폰트는 파일명만 있고 실제 렌더 웨이트를 모른다. 스크린샷 OCR 추정은 실제 computed 값과 다르다.
+`cohorts.ts`에 출생 연도별·월별 특징 코호트를 추가하고, 바이럴 포맷을 공감과 댓글 유도 구조로 바꿨다. Bash 41회, Edit 16회.
 
-원인이 명확했다. grep은 문자열 패턴 매처고, 디자인 토큰은 렌더된 DOM 상태다. 레이어가 다르다.
+## 357번의 도구 호출
 
-## Playwright `getComputedStyle`로 교체
+세션 5 — Preterview(AI 모의면접 SaaS) 감사 세션이다. "보안 점검, 이력서, 포폴 점검, 면접 패턴, 토큰 낭비 여러 방면으로 깊게 검증해서"라는 한 문장 프롬프트에 37개 에이전트가 병렬로 돌았다.
 
-`~/.claude/skills/open-design/scripts/extract-reference.mjs`를 새로 작성했다. Playwright로 실제 브라우저를 띄우고 `page.evaluate()`로 DOM에서 computed style을 뽑는다.
-
-```js
-const tokens = await page.evaluate(() => {
-  const h1 = document.querySelector('h1')
-  const cs = (el) => window.getComputedStyle(el)
-  return {
-    heading: {
-      fontSize: cs(h1).fontSize,
-      fontWeight: cs(h1).fontWeight,
-      fontFamily: cs(h1).fontFamily,
-      letterSpacing: cs(h1).letterSpacing,
-    },
-    colors: {
-      background: cs(document.body).backgroundColor,
-      text: cs(document.body).color,
-    },
-    container: {
-      maxWidth: cs(document.querySelector('main')).maxWidth,
-    },
-    // radius, shadow, spacing...
-  }
-})
-```
-
-실제로 Linear.app을 돌려보니 이런 결과가 나왔다.
-
-```
-h1: 72px / weight 510 / Inter Variable / letter-spacing -1.584px
-body: 15px / 400 / 같은 폰트 스택
-로드 폰트: Inter Variable + Berkeley Mono (모노스페이스)
-캔버스: rgb(8,9,10)
-시그니처 그린: rgba(0,255,5,0.1)
-섹션 구조: 히어로 → benefits → PageSection ×5 → changelog → CTA
-```
-
-`weight 510`과 `letter-spacing -1.584px` — 이게 "Linear 느낌"의 정체다. 400이 아닌 510 웨이트, 양수가 아닌 음수 자간. 이전 방식으론 두 값 모두 잡히지 않았다. 스크린샷에서 타이포를 눈으로 읽어 추정하면 "Inter, 크고 굵고 어두움" 수준에서 멈춘다.
-
-## 훅으로 강제
-
-추출기를 만드는 것만으로는 부족했다. Claude가 레퍼런스 없이 HTML을 먼저 쓰기 시작하면 소용없다. `reference-gate.sh`를 PreToolUse 훅으로 등록해서 `.html` Write 시도 전에 `reference-tokens.json`이 존재하는지 확인하도록 강제했다.
-
-```bash
-# ~/.claude/hooks/reference-gate.sh
-if [[ -n "$REFERENCE_ARMED" ]] && [[ ! -f "$PROJECT_DIR/reference-tokens.json" ]]; then
-  echo "BLOCK: extract-reference.mjs를 먼저 실행해라."
-  exit 1
-fi
-```
-
-`design-router.sh`는 사용자 프롬프트에서 "토스처럼", "Linear 참고" 같은 패턴을 감지하면 훅을 arm 상태로 전환한다. arm 상태에서 HTML을 쓰려 하면 게이트가 막는다.
-
-`compare-tokens.mjs`는 빌드 후 단계에서 실행된다. 완성된 HTML을 headless 렌더링해서 추출된 레퍼런스 토큰과 비교, 0~100 충실도 점수를 낸다. 70 미만이면 경고를 출력한다. 이 검증기도 Session 4에서 한 번 더 리뷰해 구조 비교 로직을 보완했다 — 색만 보던 초기 버전에서 폰트·간격·radius 가중 평균으로 바뀌었다.
-
-## 남은 한계
-
-`brand-urls.tsv`에 등록된 브랜드(토스, Linear, Vercel, X 등)는 자동으로 URL을 찾아 추출한다. 등록되지 않은 브랜드는 URL을 직접 넘겨야 한다. "A처럼 해줘"로 입력했을 때 TSV 매칭이 실패하면 조용히 추출을 건너뛰는 케이스가 아직 있다. 이건 router가 TSV 미히트를 명시적 오류로 처리하도록 고쳐야 한다.
-
-## 같은 기간 병행: coffeechat SaaS 리빌드
-
-같은 기간에 `~/coffeechat`를 멘토-멘티 플랫폼에서 AI 면접 prep SaaS로 전면 리빌드했다. 이력서 빌더(5단계 위저드) + 포트폴리오 점검 + 모의 면접(AI 면접관 3명)을 한 세션에서 구현했다.
-
-Session 5의 스펙이 넓어서 먼저 6개 차원(로직·토큰 효율·면접 AI·이력서 AI·UX·디자인) 병렬 감사 워크플로를 돌려 코드베이스를 진단하고, 검증된 발견 기준으로 구현에 들어갔다. Edit 182회, Bash 110회, Read 111회 — 437 tool call, 14시간짜리 세션이었다. Fable 5 기반 Session 6까지 합치면 796 tool call이 넘는다.
-
-면접 모델은 Opus 4.8, 이력서는 Sonnet 4.6으로 분리했다. 크레딧 단가는 "API 비용 × 7배"로 정했다. 음수 잔액은 내가 흡수하고, 유저에게는 0으로 보여준다. 크레딧 게이트는 면접 세션 시작 시점에 키를 발급해서 같은 면접에 대한 보고서 재생성을 막는 캐싱 레이어를 달았다.
-
-## 숫자로
-
-| 항목 | 값 |
+| 차원 | 핵심 발견 |
 |---|---|
-| Open Design 레퍼런스 작업 세션 | 2 |
-| 총 tool call (Sessions 2 + 4) | 171 |
-| 소요 시간 | 11h 14min |
-| 새로 만든 스크립트 | `extract-reference.mjs`, `compare-tokens.mjs`, `shot.mjs` |
-| 새로 만든 훅 | `reference-gate.sh`, `reference-required.sh` |
-| coffeechat 리빌드 tool call (Sessions 5 + 6) | 796 |
-| 수정/생성 파일 (coffeechat 합산) | 75개 이상 |
+| 보안 감사 | SSRF 방어 우수, PayPal 웹훅 서명 검증 빠짐 |
+| 이력서 점검 | 개발자 편향, 디자이너/기획 커버리지 낮음 |
+| 면접 리얼리즘 | 매 세션 패턴 반복, 연차별 깊이 조절 미흡 |
+| 보고서 디자인 | 폰트 일관성 없음, 모바일 대응 부족 |
+| 토큰 효율 | 시스템 프롬프트 중복 적재 확인 |
+| 적대적 검증 | 주장 2건 기각, 8건 심각도 하향 |
+
+"적대적 검증" 단계가 핵심이다. 각 차원 에이전트가 발견한 것을 별도 에이전트가 실제 코드에 대조해서 거짓양성을 잡아낸다. 단일 컨텍스트로 리뷰하면 이 단계는 보통 생략된다. 총 357회 tool call, 4시간 5분. Edit만 139회.
+
+## 레포 이름이 잘못됐다
+
+6/18 세션 8 — "커피챗으로 되어 있는데 레포랑 깃 관련해서 프리터뷰로 다 바꿔줘."
+
+브랜드는 Preterview인데 GitHub 레포가 `jee599/coffeechat`, Vercel 프로젝트명도 `coffeechat`, 로컬 폴더도 `~/coffeechat`이었다. 범위는 세 곳.
+
+```bash
+gh api repos/jee599/coffeechat -X PATCH -f name=preterview
+git remote set-url origin https://github.com/jee599/preterview.git
+# Vercel은 CLI에 rename 없음 → REST API로 PATCH /v9/projects
+```
+
+Vercel CLI에 `project rename` 명령이 없다는 걸 확인하고 REST API로 우회했다. 토큰은 서브셸에서만 처리해서 출력에 노출되지 않았다.
+
+## 카카오페이 가맹 심사 준비
+
+같은 세션에서 카카오페이 결제를 붙이기로 했다. `ready/approve` route 작성, `KakaoBuy.tsx` 컴포넌트 구현 — 여기까지는 코드 작업이다.
+
+그런데 PG 가맹 심사 요건이 문제였다. 보안 감사 워크플로와 같은 패턴으로 법적 요건을 감사했다.
+
+- 전자상거래법 표시의무 12항목 누락 확인
+- 청약철회·환불 정책 적법성
+- 약관·개인정보처리방침 빈 항목
+
+사업자 정보(사업자등록번호, 통신판매번호)를 받아서 `/refund`, `/terms`, `/privacy` 페이지를 생성하고, footer에 법적 표시 항목을 채웠다. 개발 코드만이 아니라 심사 통과에 필요한 법적 페이지까지 한 세션에 끝냈다.
+
+## 치과 대시보드 날짜별 뷰
+
+세션 7 — 치과 프로젝트(`dongbaek-uddental`) 대시보드에서 같은 종류 보고서 6개 버전이 6개 행으로 나열돼 있었다.
+
+수정 방향: 보고서 종류별로 묶고 최신만 바로 보이게, 이전 버전은 접히게.
+
+```
+원장님 진단보고서 | 최신 06-17 →
+                  이전: 06-11, 06-10, 06-05, 06-03-v2, 06-03
+```
+
+블로그 글 작성 로직도 건드렸다. 병원 정보와 CTA를 의료법 기준으로 어디까지 쓸 수 있는지, 사전심의 없이 가능한 "정보 버전" 포맷으로 정리했다. 런북도 플레이스 광고 키워드와 집행 링크까지 구체화했다. Bash 64회, Edit 20회.
+
+## 숫자로 보면
+
+| 세션 | 프로젝트 | 시간 | Tool calls |
+|---|---|---|---|
+| 1 | saju_global (X봇) | 5h 25m | 127 |
+| 2 | dental-promo | 1h 32m | 85 |
+| 4 | 지원사업 리서치 | 3h 17m | 29 |
+| 5 | preterview 감사 | 4h 05m | **357** |
+| 6 | saju_global (AI 티) | 1h 16m | 65 |
+| 7 | dental-promo 대시보드 | 3h 32m | 132 |
+| 8 | preterview 결제 | 3h 42m | 175 |
+| 9 | preterview 해외진출 리서치 | 1h 12m | 24 |
+
+세션 5의 357회가 특이값이다. 다차원 병렬 감사에서 도구 호출 수는 에이전트 수에 비례해서 튄다. 단일 컨텍스트 리뷰로는 이 규모를 커버할 수 없다.
+
+## 패턴 하나
+
+9개 세션을 보면 구조가 반복된다.
+
+**"잘 되고 있어?" → 뒤져보니 안 됨 → 왜 안 됐는지 파악 → 바로 고침.**
+
+사주 X봇이 그랬고, Preterview 보안이 그랬고, 카카오페이 가맹 요건이 그랬다. Claude Code를 쓰면 "확인해줘"가 "고쳐줘"로 자연스럽게 이어진다. 처음부터 고치려고 시작하는 것보다 현황 파악 요청으로 시작하는 게 범위 이탈이 적다. 맥락을 이해한 상태에서 수정이 시작되기 때문이다.
