@@ -1,124 +1,87 @@
 ---
-title: "Claude Code, 939 Tool Calls Later: 37-Agent Security Audit, Payment Stack, and a Bot That Never Existed"
+title: "Rebranding + Payment Debugging in 3 Claude Code Sessions: 371 Tool Calls"
 project: "portfolio-site"
 date: 2026-06-19
 lang: en
 pair: "2026-06-19-portfolio-site-ko"
-tags: [claude-code, multi-agent, security-audit, payments]
-description: "9 sessions, 939 tool calls, 37 parallel agents. A Twitter bot that lived only in local memory, a full security audit, and a payment integration full of detours."
+tags: [claude-code, nextjs, payment, debugging, rebranding]
+description: "coffeechat became preterview, KakaoPay merchant review blocked us, PayApp went live, then a 7-minute session killed a credit webhook bug."
 ---
 
-I thought I had shipped a Twitter bot. I hadn't committed a single line to git.
+Real payment went through. Credits didn't arrive. Seven minutes later, after pulling Vercel runtime logs through Claude Code's MCP connection, the cause was a single environment variable mismatch: `PAYAPP_LINKVAL` didn't match what PayApp's server actually sent.
 
-That's the kind of gap that only shows up when you ask Claude Code to actually run something in production. Over two days — 9 sessions, 939+ tool calls — three projects ran in parallel: the saju (Korean astrology) X bot, Preterview (an AI mock interview product), and a dental marketing side project. Each one surfaced something different about how Claude Code changes the shape of work.
+That was the follow-up session. The day before: an 11-hour session that crammed rebranding, three payment modules, and three legal pages into one context window. 3 sessions total, 371 tool calls.
 
-**TL;DR**: The saju X bot "existed" only in local memory — no commits, no deploy, no API keys registered. Preterview went from a 37-agent parallel security audit to a full repository rename and a working payment system, all within one day.
+**TL;DR** Renamed the GitHub repo and Vercel project, fixed a stuck interview state machine, got blocked by KakaoPay's merchant review process, built PayApp in parallel, then patched a webhook env var bug the next morning in under 10 minutes.
 
-## The Bot That Never Made It to Git
+## Why "coffeechat" Had to Go
 
-On June 17, I asked Claude Code to do a live post from the saju project's X auto-posting system. The response was disorienting.
+The starting prompt was short: "Rename everything related to the repo and git to preterview."
 
-```bash
-git ls-files apps/web/lib/xbot/
-# → (empty)
-```
+The product is an AI interview prep service. The name `coffeechat` made no sense anymore — `preterview` (Pre + Interview) was the right fit. Code internals (`package.json`, README, brand copy) already used `preterview`. The problem was infrastructure.
 
-Production endpoint `/api/cron/x-post` returned **HTTP 404**. The bot had been built locally on June 15, but nothing had been committed. No deploy. No X API keys registered anywhere. The cron job was firing every 6 hours and producing exactly zero tweets.
+`git remote` still pointed at `github.com/jee599/coffeechat`. Vercel project was still named `coffeechat`. One `gh repo rename` call handled GitHub — GitHub automatically sets up redirects from the old URL, so existing webhooks don't break. Vercel was harder.
 
-One session fixed it: diagnose, commit, register Vercel environment variables (58 Bash calls, 9 Edit calls). Then the next session looked at the actual output — and the tweets read like AI wrote them. Phrases like "This tweet resonates deeply" leaked through. That's the kind of meta-commentary that makes real users cringe.
+The Vercel CLI has no `project rename` command. Claude Code hit that dead end, pivoted immediately, and called the Vercel REST API directly — `PATCH /v9/projects/{id}` with the auth token kept in a subshell variable so it never appeared in output. One API call, project renamed.
 
-Fixed `voices.ts` and `cohorts.ts` to add a banned-word list and reset the persona to "a sharp friend who actually knows saju" — not a content marketing account. Republished.
+While that was wrapping up, a separate bug surfaced: "after getting the interview report, I can't start a new interview." Claude traced the client-side state machine in `app/[locale]/interview/page.tsx` — the interview state wasn't resetting after report delivery, just locking into a terminal state. Fixed with a targeted state reset on report receipt.
 
-The lesson here isn't a Claude Code limitation. It's that "local done" and "shipped" are completely different states, and AI tools are good at blurring that line if you don't verify with a real environment check.
+## The KakaoPay Wall
 
-## 37 Agents Audited the Codebase in One Session
+The main work for the session was payment integration. KakaoPay first: app registration, API key generation, sandbox testing. Then the actual blocker appeared — **merchant review**.
 
-The highlight of this two-day stretch was a parallel multi-agent security audit of the Preterview codebase. Seven dimensions ran as independent agents simultaneously:
+Having a business registration isn't enough. KakaoPay requires a terms of service page, privacy policy, and refund policy before approving a PG merchant account. These aren't optional — they're checked during review.
 
-- Security vulnerabilities
-- Resume validation logic
-- Portfolio assessment accuracy
-- Interview realism
-- Report accuracy
-- Report design quality
-- Token efficiency
+Claude Code ran a four-lens compliance audit, surfacing 12 gaps against Korean e-commerce disclosure requirements (전자상거래법 표시의무). The business registration number (`2026-성남분당A-0452`) and business registration ID went directly into `lib/business.ts`. Three new legal pages got built: `/terms`, `/privacy`, `/refund`.
 
-37 agents total. One session. The raw numbers: Edit ×139, Read ×78, Bash ×66, totaling 357 tool calls in a single session.
+That covered the KakaoPay requirements, but review takes time. "Is there a cheaper payment option?" came up mid-session.
 
-What made this worth doing: **adversarial verification**. Two of the initial findings were rejected at the verify stage — a separate agent was prompted to actually refute each claim against the real code, not just accept the finding at face value. Without that pass, those false positives would have ended up in the fix queue.
+## PayApp in Parallel
 
-The confirmed high-severity bugs went straight into fixes:
+Claude Code scanned Korean PG providers for options with lower fees and faster onboarding. **PayApp** came out on top: 3.3% fee, instant approval for registered businesses, no waiting for merchant review.
 
-- **PayPal amount tampering** — client-controlled price was being trusted server-side without re-verification against the order record.
-- **Admin IDOR** — an admin endpoint was accessible with a predictable user ID, no ownership check.
-- **Rate limit DB migration** — `ratelimit-db.ts` created fresh to fix a schema mismatch that let burst requests through.
-- **Interview state machine reset** — users who completed one interview couldn't start a second one. The client-side state machine never reset `completed` status. This one had been sitting unnoticed.
+The KakaoPay work stayed in place. PayApp got added alongside it in the same session:
 
-The multi-agent workflow pattern works particularly well for audits because each dimension is genuinely independent — there's no cross-dimension dependency that would require a barrier. Fan out, verify adversarially, synthesize confirmed findings, fix. The main context window stays light while the agents do the heavy lifting.
+- `lib/payments/kakao.ts` — KakaoPay client
+- `lib/payments/payapp.ts` — PayApp client
+- `/api/pay/kakao/ready` and `/api/pay/kakao/approve` — KakaoPay flow
+- `/api/pay/payapp/ready` and `/api/pay/payapp/feedback` — PayApp webhook handler
+- Two payment UI components
 
-## coffeechat → preterview: When the CLI Doesn't Have the Command You Need
+Both modules live in the same codebase. When KakaoPay review clears, the switch is a config change — no code rewrite needed.
 
-Session 8: "rename the repo and everything git-related to preterview."
+## 7 Minutes to Root Cause
 
-Package names and branding were already updated. What remained was the repository identifier — GitHub repo name, Vercel project name, local git remote URL.
+Next day. Short session. "Real payment went through but credits weren't added."
 
-The GitHub rename was straightforward via `gh api`. The `.vercel/project.json` update was a one-liner. The problem: Vercel CLI has no `rename` command. So we hit the REST API directly:
+`.env.local` only had `APP_ORIGIN`. Production secrets live in Vercel — no direct DB access from local. Claude Code pulled runtime logs via Vercel MCP. Two payment attempts showed up in the logs:
 
-```bash
-curl -X PATCH "https://api.vercel.com/v9/projects/coffeechat" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"name":"preterview"}'
-```
+- **17:49** — `feedback verification failed (forgeable)` → rejected at `linkkey`/`userid` validation
+- **19:19** — `feedback linkval mismatch` → passed first validation, but `PAYAPP_LINKVAL` didn't match the `linkval` PayApp actually sent in the webhook body
 
-The token lived only inside a subshell variable and never appeared in terminal output. After the rename, `git ls-remote` confirmed the new remote connection before anything else touched it.
+The `confirmPayappFeedback` handler compares incoming `linkval` against the env var. The registered value was wrong. Root cause identified in under 10 tool calls: 2 `Bash` calls for log retrieval, 5 `Read` calls to trace the handler code, 3 more to confirm the env var path.
 
-This is one of those cases where the gap between "what the CLI exposes" and "what the API supports" matters. Claude Code found the API endpoint and called it correctly on the first try, which would have taken me a non-trivial amount of time to locate manually.
+A diagnostic script at `scripts/diag-payapp.mjs` documents the verification flow for future debugging.
 
-## Building a Payment Stack: Three Providers, Two Dead Ends
+## Tool Call Breakdown Across 3 Sessions
 
-Payment integration had the most detours.
+| Tool | Count | What it did |
+|------|-------|-------------|
+| `Bash` | 152 | Repo ops, Vercel API calls, log parsing |
+| `Edit` | 82 | State machine fix, payment routes, legal pages |
+| `Read` | 65 | Code exploration, env var tracing |
+| `Write` | 20 | 17 new files created |
+| **Total** | **371** | |
 
-**First stop: KakaoPay.** Requires merchant verification before you can process payments. Applied for review — and the audit workflow immediately flagged that the app had none of the legally required pages: no refund policy, no terms of service, no privacy policy. 12 required items under Korean e-commerce law. Most were missing.
+Session 1 hit `AskUserQuestion` five times — business registration number format, address display style, email field consolidation. Decisions that couldn't be inferred from the codebase, so Claude asked.
 
-Three legal pages generated and wired in:
+## What This Shows
 
-```
-app/[locale]/terms/page.tsx
-app/[locale]/refund/page.tsx
-app/[locale]/privacy/page.tsx
-```
+Rebranding finished at the infrastructure layer without touching application code. Payment integration ran two PG providers in parallel while waiting on KakaoPay's review process — hedging against approval delays. The webhook bug was an env var mismatch that only showed up after a live payment, in production logs that required MCP tooling to access.
 
-Business registration number (2026-성남분당A-0452) added to the footer. This is the kind of compliance gap that's easy to miss when moving fast — and a security/workflow audit catches it before users do.
+The 11-hour session worked through compression — holding the full scope of rename, payments, and legal compliance in a single context. The 7-minute session was sharper by constraint: one reported symptom, one log source, one variable out of place.
 
-**Second stop: Toss Payments.** Fee structure was too high for the current stage. Moved on.
-
-**Third stop: Payapp.** Created `lib/payments/payapp.ts`, wired it to the pricing page.
-
-One clean addition: Korean users see KakaoPay and Naver Pay options, everyone else sees the standard flow. Cloudflare handles the geo-detection:
-
-```typescript
-// lib/geo.ts
-export function getCountry(req: Request): string {
-  return req.headers.get('cf-ipcountry') ?? 'US'
-}
-```
-
-No IP geolocation library, no external service call. The header is already there from Cloudflare's edge.
-
-## The Numbers
-
-| Metric | Count |
-|---|---|
-| Sessions | 9 (June 17–18) |
-| Total tool calls | 939+ |
-| Workflow agents (security audit) | 37 |
-| Workflow agents (GTM research) | 24 |
-| Files modified | 50+ |
-| Files created | 20+ |
-
-Session 5 alone accounted for 357 tool calls — Edit ×139. At that scale, context pressure becomes real. The workflow fan-out pattern addresses this directly: the main context stays light while agents return only their results. For large-scale audit work, this is the right shape.
-
-The saju bot incident is a useful reminder that AI-assisted development velocity can outpace your deployment hygiene. Ship velocity and verified-shipped velocity are different numbers. Claude Code is fast at the former; the latter still requires discipline about actually checking production state before declaring done.
+Shorter sessions often run cleaner. Not because they're easier, but because the scope is already locked before they start.
 
 ---
 

@@ -1,80 +1,57 @@
 ---
-title: "Claude Code 939번: 사주봇 실가동 삽질, 37에이전트 보안 감사, 결제 스택 이틀 구축"
+title: "프리터뷰 리브랜딩 + 결제 디버깅: Claude Code 3세션 371 tool calls 기록"
 project: "portfolio-site"
 date: 2026-06-19
 lang: ko
-tags: [claude-code, workflow, preterview, 사주, 결제, 보안감사]
-description: "이틀 9세션 939번 도구 호출. 사주 X봇이 git에 없었던 삽질부터 37개 에이전트 Preterview 보안 감사, coffeechat→preterview 리네임, Payapp 결제 연동까지."
+tags: [claude-code, nextjs, payment, debugging, rebranding]
+description: "coffeechat에서 preterview로 리브랜딩, KakaoPay 심사 장벽에 부딪혀 PayApp으로 피벗, 실결제 후 크레딧 미적립 버그까지. Claude Code 3세션 371 tool call의 생생한 기록."
 ---
 
-이틀간 9개 세션, 939번의 도구 호출. 사주 프로젝트, Preterview, 치과 마케팅 세 프로젝트가 동시에 굴러갔다. 그 과정에서 Claude Code가 어떻게 쓰였는지 기록한다.
+실결제가 됐는데 크레딧이 안 들어왔다. 7분짜리 세션에서 Vercel 런타임 로그를 파고 들어간 끝에, `PAYAPP_LINKVAL` 환경변수가 PayApp 서버가 보내는 실제 값과 다르다는 걸 확인했다. 하루 전날엔 GitHub 레포 이름부터 Vercel 프로젝트명까지 죄다 바꾸면서 결제 모듈 세 개를 갈아치웠다.
 
-**TL;DR** 사주 X봇은 "만들었다"고 믿었는데 git에 커밋조차 없었다. Preterview는 37개 에이전트 병렬 감사로 시작해 전체 리네임과 결제 시스템까지 하루 만에 달렸다.
+**TL;DR** 11시간짜리 세션 하나에 리브랜딩·결제 통합·법적 페이지 작성을 쑤셔 넣었고, 다음 날 7분 만에 웹훅 버그 하나를 잡았다.
 
-## "봇 만들었잖아"가 완전히 틀린 이유
+## coffeechat이 preterview가 되기까지
 
-6/17 세션에서 사주 프로젝트 X 자동 포스팅을 "실발행해줘"라고 했다. 돌아온 결과가 당황스러웠다.
+세션 시작 프롬프트는 단순했다. "래포랑 깃 관련해서 프리터뷰로 다 바꿔줘." 면접 준비 서비스에 커피챗이라는 이름은 맞지 않았고, preterview(Pre+Interview)로 리브랜딩하기로 한 상태였다.
 
-```bash
-git ls-files apps/web/lib/xbot/
-# → (아무 출력 없음)
-```
+코드 내부(`package.json`, README, 브랜드 텍스트)는 이미 `preterview`로 되어 있었다. 문제는 인프라였다. `git remote`가 아직 `github.com/jee599/coffeechat`를 가리키고 있었고, Vercel 프로젝트명도 `coffeechat`이었다. `gh repo rename` 한 줄로 GitHub 쪽은 끝났는데, Vercel CLI는 `project rename` 명령 자체가 없었다. 결국 Vercel REST API(`PATCH /v9/projects`)를 직접 호출해서 바꿨다. 인증 토큰은 서브셸 변수 안에서만 쓰고 출력엔 노출 안 됐다.
 
-프로덕션 `/api/cron/x-post` → **HTTP 404**. 봇은 6/15에 로컬에서 만들었지만 커밋도, 배포도, X API 키 등록도 하나도 안 됐다. cron은 6시간마다 돌고 있었고 실제 트윗은 0건이었다.
+리브랜딩 도중 다른 버그가 올라왔다. "면접 한 번 하고 보고서 받으면 다음 면접을 못 시작한다"는 것이었다. 다이나믹 워크플로우로 `app/[locale]/interview/page.tsx`의 클라이언트 상태 머신을 추적해 보니, 보고서 수령 후 인터뷰 상태가 초기화되지 않고 종료 상태로 고착되는 문제였다.
 
-진단→커밋→Vercel 키 등록까지 한 세션에서 끝냈다 (Bash 58번, Edit 9번). 이후 세션에서 실제 생성물을 보니 AI 티가 났다 — "This tweet resonates deeply"처럼 메타 표현이 섞였다. `voices.ts`와 `cohorts.ts`를 손봐서 banned 단어 리스트를 박고, "sharp friend who knows saju" 톤으로 재설정해 재발행했다.
+## KakaoPay에서 PayApp으로 피벗
 
-## 37개 에이전트가 하루 만에 보안 감사를 끝냈다
+결제 모듈 통합이 이날의 주 작업이었다. KakaoPay 연동부터 시작했다. 앱 등록, 키 발급까지 했는데 결정적인 장벽이 있었다. **가맹점 심사**. 사업자는 있었지만 심사 통과를 위해 이용약관·개인정보처리방침·환불정책 페이지가 전부 필요했다.
 
-이 기간의 하이라이트는 Preterview 코드베이스 7개 차원 동시 감사다. 보안·이력서 점검·포트폴리오·면접 리얼함·보고서 정확성·보고서 디자인·토큰 효율을 각각 독립 에이전트로 팬아웃했다.
+`전자상거래법 표시의무`와 `PG 가맹 심사 요건`을 다이나믹 워크플로우 4개 렌즈로 감사하고 나서 12개 필수 항목 갭이 나왔다. 통신판매번호(`2026-성남분당A-0452`)와 사업자등록번호를 직접 입력해서 `lib/business.ts`에 반영하고, 법적 페이지 3개(`/terms`, `/privacy`, `/refund`)를 새로 만들었다.
 
-37개 에이전트, Edit 139번, Read 78번, Bash 66번 — 총 357 tool calls가 세션 하나에서 나왔다.
+그 사이에 "더 싼 결제 모듈 없냐"는 질문이 나왔다. 다이나믹 워크플로우가 국내 PG사들을 전수 조사한 끝에 **PayApp**(수수료 3.3%, 사업자 기반 즉시 가입)을 추천했다. 카카오페이 준비 코드를 그대로 두고 PayApp도 병렬로 붙였다. 한 세션에 `lib/payments/kakao.ts`, `lib/payments/payapp.ts`, API 라우트 4개(`/pay/kakao/ready`, `/pay/kakao/approve`, `/pay/payapp/ready`, `/pay/payapp/feedback`), 컴포넌트 2개가 생겼다.
 
-주요 발견 중 두 가지는 적대적 검증(adversarial verify) 단계에서 기각됐다. 발견 에이전트가 올린 주장을 반박 에이전트가 실제 코드에 대조해 뒤집은 것이다. 이 단계 없이 나온 감사 결과였으면 거짓 양성이 섞였을 거다.
+## 7분 만에 웹훅 버그 잡기
 
-실제로 확인된 고위험 버그들은 바로 수정에 들어갔다: PayPal 금액 위변조 방어, 관리자 IDOR 패치, `ratelimit-db.ts` 신규 생성으로 rate-limit DB 마이그레이션. 한 번 면접 보고 보고서 받으면 두 번째 면접을 못 시작하는 버그도 이 세션에서 잡혔다 — 클라이언트 상태 머신이 `completed` 상태를 리셋하지 않는 문제였다.
+다음 날 짧은 세션. "실결제 이후에 크레딧 안 들어오는데?" 그게 전부였다.
 
-## coffeechat → preterview: GitHub, Vercel, 폴더 한 번에
+`.env.local`엔 `APP_ORIGIN`밖에 없었다. 프로덕션 시크릿은 Vercel에만 있어서 직접 DB를 볼 수 없었다. Vercel MCP로 런타임 로그를 가져왔다. 두 번의 결제 시도 흔적이 있었다.
 
-세션 8에서 "래포랑 깃 관련해서 프리터뷰로 다 바꿔줘" 한 줄이 생각보다 큰 작업이었다.
+- **17:49** — `feedback 검증 실패(위조 가능)` → `linkkey`/`userid` 검증 단계에서 탈락
+- **19:19** — `feedback linkval 불일치` → 1차 검증은 통과했지만 `PAYAPP_LINKVAL`이 PayApp이 실제로 보낸 `linkval`과 달랐다
 
-패키지명·브랜드 표시는 이미 preterview로 돼 있고, 저장소 식별자만 남아있었다. `gh api`로 GitHub 레포명 변경, `.vercel/project.json` 수정, origin URL 갱신. 문제가 있었는데 Vercel CLI에 `rename` 명령이 없었다. 그래서 REST API를 직접 쳤다.
+`confirmPayappFeedback` 웹훅 핸들러가 환경변수로 linkval을 비교하는 구조인데, 등록된 값이 달랐던 것이다. Vercel 로그 `Bash(2)` + 파일 읽기 `Read(5)` 조합으로 10개 tool call 안에 원인을 특정했다. 진단 스크립트 `scripts/diag-payapp.mjs`도 남겼다.
 
-```bash
-curl -X PATCH "https://api.vercel.com/v9/projects/coffeechat" \
-  -H "Authorization: Bearer $TOKEN" \
-  -d '{"name":"preterview"}'
-```
+## 이날의 도구 사용 통계
 
-토큰은 서브셸 변수 안에서만 살았고 출력엔 노출하지 않았다. 이후 `git ls-remote`로 새 원격 연결을 검증하고 완료.
+3개 세션 합산:
 
-## 결제 스택 구축: 카카오페이 → 토스 → Payapp
+- 총 tool calls: **371회**
+- `Bash` 152번 — 레포 전환, Vercel API 호출, 런타임 로그 파싱
+- `Edit` 82번 — 상태 머신 수정, 결제 라우트, 법적 페이지
+- `Read` 65번 — 코드 탐색, 환경변수 확인
+- `Write` 20번 — 새 파일 17개 생성
 
-결제 연동이 가장 우회가 많았다.
+세션 1에서 `AskUserQuestion`을 5번 썼다. 통신판매번호, 주소 표기 방식, 이메일 통일 여부 같은 판단은 혼자 결정할 수 없으니 당연하다.
 
-카카오페이를 붙이려 했는데 **가맹점 심사**가 필요했다. 심사를 신청하고 나서야 필요한 법적 페이지들(환불 정책, 이용약관, 개인정보처리방침)이 아예 없다는 게 워크플로우 감사에서 잡혔다 — 12개 전자상거래법 필수 항목 중 대부분이 누락됐다.
+## 정리
 
-법적 페이지 3종 생성(`app/[locale]/terms/page.tsx`, `/refund/page.tsx`, `/privacy/page.tsx`)과 footer 사업자 정보 표시까지 처리했다. 통신판매업 신고번호(2026-성남분당A-0452)도 넣었다.
+리브랜딩은 코드 한 줄 안 건드리고 인프라 레이어에서 끝났다. 결제는 KakaoPay 심사 대기 중에 PayApp을 병렬로 붙였고, 실결제 후 크레딧 미적립 버그는 환경변수 불일치였다. 11시간 세션에서 압축해서 처리하고, 7분 세션에서 웹훅 로그 두 줄로 문제를 특정했다.
 
-토스페이먼츠는 수수료가 부담스러워 결국 **Payapp**을 선택했다. `lib/payments/payapp.ts` 신규 생성 후 pricing 페이지에 연결했다.
-
-한국 사용자에게만 카카오·네이버 페이를 보여주는 건 Cloudflare의 `cf-ipcountry` 헤더로 해결했다.
-
-```typescript
-// lib/geo.ts
-export function getCountry(req: Request): string {
-  return req.headers.get('cf-ipcountry') ?? 'US'
-}
-```
-
-## 숫자로
-
-| 항목 | 수치 |
-|---|---|
-| 세션 수 | 9개 (6/17~6/18) |
-| 총 tool calls | 939+ |
-| 워크플로우 에이전트 | 37개 (보안 감사) + 24개 (GTM 리서치) |
-| 수정 파일 수 | 50개+ |
-| 신규 생성 파일 | 20개+ |
-
-세션 5 혼자 357 tool calls, Edit 139번이다. 이 정도면 컨텍스트 압박이 온다. 워크플로우로 팬아웃하면 메인 컨텍스트는 가볍게 유지하면서 에이전트들이 각자 결과만 돌려준다 — 대규모 감사 작업에 이 패턴이 맞다.
+긴 세션보다 짧은 세션이 더 집중적으로 돌아가는 경우가 많다.
