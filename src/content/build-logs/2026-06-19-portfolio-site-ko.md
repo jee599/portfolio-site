@@ -1,57 +1,58 @@
 ---
-title: "프리터뷰 리브랜딩 + 결제 디버깅: Claude Code 3세션 371 tool calls 기록"
+title: "PayApp 실결제 후 크레딧 0 — Vercel 런타임 로그로 웹훅 linkval 불일치 추적"
 project: "portfolio-site"
 date: 2026-06-19
 lang: ko
 tags: [claude-code, nextjs, payment, debugging, rebranding]
-description: "coffeechat에서 preterview로 리브랜딩, KakaoPay 심사 장벽에 부딪혀 PayApp으로 피벗, 실결제 후 크레딧 미적립 버그까지. Claude Code 3세션 371 tool call의 생생한 기록."
+description: "4세션 461 tool calls: preterview 리브랜딩, KakaoPay 심사 벽에 PayApp 피벗, 실결제 크레딧 0 버그 추적, 치과 대시보드 날짜별 그래프 추가."
 ---
 
-실결제가 됐는데 크레딧이 안 들어왔다. 7분짜리 세션에서 Vercel 런타임 로그를 파고 들어간 끝에, `PAYAPP_LINKVAL` 환경변수가 PayApp 서버가 보내는 실제 값과 다르다는 걸 확인했다. 하루 전날엔 GitHub 레포 이름부터 Vercel 프로젝트명까지 죄다 바꾸면서 결제 모듈 세 개를 갈아치웠다.
+실결제 완료 알림이 떴는데 크레딧 잔액이 그대로였다. 돈은 나갔고, 웹훅도 프로덕션에 도달했고, 오류 메시지도 없었다. Vercel MCP로 런타임 로그를 읽어서 `PAYAPP_LINKVAL` 환경변수가 PayApp이 실제로 보내는 값과 다르다는 걸 잡는 데 세션 하나를 썼다.
 
-**TL;DR** 11시간짜리 세션 하나에 리브랜딩·결제 통합·법적 페이지 작성을 쑤셔 넣었고, 다음 날 7분 만에 웹훅 버그 하나를 잡았다.
+**TL;DR** 4세션 총 461 tool calls. coffeechat → preterview 레포 전환, 결제 모듈 세 번 교체, 실결제 웹훅 버그 수정, 치과 대시보드 날짜별 그래프 신설, 면접 보고서 페이지 생성.
 
 ## coffeechat이 preterview가 되기까지
 
-세션 시작 프롬프트는 단순했다. "래포랑 깃 관련해서 프리터뷰로 다 바꿔줘." 면접 준비 서비스에 커피챗이라는 이름은 맞지 않았고, preterview(Pre+Interview)로 리브랜딩하기로 한 상태였다.
+"래포랑 깃 관련해서 프리터뷰로 다 바꿔줘." 세션 시작 프롬프트는 이게 전부였다. 코드 내부(`package.json`, 브랜드 텍스트)는 이미 `preterview`로 바뀐 상태였고, 바꿔야 할 건 인프라 레이어였다.
 
-코드 내부(`package.json`, README, 브랜드 텍스트)는 이미 `preterview`로 되어 있었다. 문제는 인프라였다. `git remote`가 아직 `github.com/jee599/coffeechat`를 가리키고 있었고, Vercel 프로젝트명도 `coffeechat`이었다. `gh repo rename` 한 줄로 GitHub 쪽은 끝났는데, Vercel CLI는 `project rename` 명령 자체가 없었다. 결국 Vercel REST API(`PATCH /v9/projects`)를 직접 호출해서 바꿨다. 인증 토큰은 서브셸 변수 안에서만 쓰고 출력엔 노출 안 됐다.
+세 곳을 순서대로 처리했다. `gh repo rename`으로 GitHub 레포명을 `jee599/preterview`로 변경하고, `git remote set-url`로 로컬을 동기화한 뒤, Vercel REST API(`PATCH /v9/projects`)로 프로젝트명을 교체했다. Vercel CLI에는 `project rename` 명령 자체가 없어서 API를 직접 쳤다. 인증 토큰은 서브셸 변수에 가둬서 출력에 노출하지 않았다.
 
-리브랜딩 도중 다른 버그가 올라왔다. "면접 한 번 하고 보고서 받으면 다음 면접을 못 시작한다"는 것이었다. 다이나믹 워크플로우로 `app/[locale]/interview/page.tsx`의 클라이언트 상태 머신을 추적해 보니, 보고서 수령 후 인터뷰 상태가 초기화되지 않고 종료 상태로 고착되는 문제였다.
+리브랜딩 중간에 다른 버그가 올라왔다. "면접 한 번 하고 보고서 받으면 다음 면접을 못 시작한다." 다이나믹 워크플로우로 `app/[locale]/interview/page.tsx`의 클라이언트 상태 머신을 추적해 보니, 보고서 수령 후 인터뷰 상태가 초기화되지 않고 종료 상태로 고착되는 문제였다.
 
-## KakaoPay에서 PayApp으로 피벗
+## KakaoPay에서 PayApp으로: 결제 모듈 세 번 갈아치우기
 
-결제 모듈 통합이 이날의 주 작업이었다. KakaoPay 연동부터 시작했다. 앱 등록, 키 발급까지 했는데 결정적인 장벽이 있었다. **가맹점 심사**. 사업자는 있었지만 심사 통과를 위해 이용약관·개인정보처리방침·환불정책 페이지가 전부 필요했다.
+결제 통합이 세션 1의 주 작업이었다. KakaoPay 앱 등록과 키 발급까지 끝냈는데 결정적인 장벽이 있었다. **가맹점 심사**다. 이용약관·개인정보처리방침·환불정책 페이지가 없으면 통과가 안 된다.
 
-`전자상거래법 표시의무`와 `PG 가맹 심사 요건`을 다이나믹 워크플로우 4개 렌즈로 감사하고 나서 12개 필수 항목 갭이 나왔다. 통신판매번호(`2026-성남분당A-0452`)와 사업자등록번호를 직접 입력해서 `lib/business.ts`에 반영하고, 법적 페이지 3개(`/terms`, `/privacy`, `/refund`)를 새로 만들었다.
+`전자상거래법 표시의무`, `청약철회-환불 적법성`, `PG 가맹 심사 사이트 요건`을 다이나믹 워크플로우 4개 렌즈로 동시에 감사했다. 12개 필수 항목 중 여러 개가 비어 있었다. 통신판매번호(`2026-성남분당A-0452`), 사업자등록번호(`719-08-03709`)를 `lib/business.ts`에 반영하고, 법적 페이지 3개(`/terms`, `/privacy`, `/refund`)를 새로 만들었다. 가맹 신청은 넣었고 심사 대기.
 
-그 사이에 "더 싼 결제 모듈 없냐"는 질문이 나왔다. 다이나믹 워크플로우가 국내 PG사들을 전수 조사한 끝에 **PayApp**(수수료 3.3%, 사업자 기반 즉시 가입)을 추천했다. 카카오페이 준비 코드를 그대로 두고 PayApp도 병렬로 붙였다. 한 세션에 `lib/payments/kakao.ts`, `lib/payments/payapp.ts`, API 라우트 4개(`/pay/kakao/ready`, `/pay/kakao/approve`, `/pay/payapp/ready`, `/pay/payapp/feedback`), 컴포넌트 2개가 생겼다.
+"더 싼 결제 모듈 없냐"는 질문이 나왔다. 다이나믹 워크플로우가 카카오페이 직접연동, 토스페이먼츠 위젯, 네이버페이, 나이스/이니시스, 페이플, PayApp을 병렬로 조사했다. 결론은 PayApp — 사업자 심사 없이 즉시 사용, 링크 하나로 결제. 수수료가 영세 기준 1.9%로 다른 간편결제보다 비싸지만, 당일 연동이 가능하다는 게 결정타였다.
 
-## 7분 만에 웹훅 버그 잡기
+한 세션에 `lib/payments/kakao.ts`, `lib/payments/payapp.ts`, API 라우트 4개(`/pay/kakao/ready`, `/pay/kakao/approve`, `/pay/payapp/ready`, `/pay/payapp/feedback`), 컴포넌트 2개(`KakaoBuy.tsx`, `PayAppBuy.tsx`)가 생겼다.
 
-다음 날 짧은 세션. "실결제 이후에 크레딧 안 들어오는데?" 그게 전부였다.
+## 치과 대시보드: 날짜별 그래프와 런북 개편
 
-`.env.local`엔 `APP_ORIGIN`밖에 없었다. 프로덕션 시크릿은 Vercel에만 있어서 직접 DB를 볼 수 없었다. Vercel MCP로 런타임 로그를 가져왔다. 두 번의 결제 시도 흔적이 있었다.
+세션 2는 치과 마케팅 프로젝트(`dongbaek-uddental`)였다. "대시보드에서 핵심 지표 날짜별로 그래프에 표시해줘"라는 요청으로 시작했다.
 
-- **17:49** — `feedback 검증 실패(위조 가능)` → `linkkey`/`userid` 검증 단계에서 탈락
-- **19:19** — `feedback linkval 불일치` → 1차 검증은 통과했지만 `PAYAPP_LINKVAL`이 PayApp이 실제로 보낸 `linkval`과 달랐다
+`_tracker/build.py`의 `next_actions` 필터가 정확 일치(`== "계획"/"진행"`)로 돼 있어서 서술형 상태를 못 잡고 있었다. 필터를 부분 일치로 수정하고, `_tracker/index.html`에 날짜축 그래프를 추가했다. 산출물 목록 뷰도 개편했다 — 같은 산출물 유형은 최신 버전을 앞에 세우고 이전 버전을 접어서 보여주는 구조로.
 
-`confirmPayappFeedback` 웹훅 핸들러가 환경변수로 linkval을 비교하는 구조인데, 등록된 값이 달랐던 것이다. Vercel 로그 `Bash(2)` + 파일 읽기 `Read(5)` 조합으로 10개 tool call 안에 원인을 특정했다. 진단 스크립트 `scripts/diag-payapp.mjs`도 남겼다.
+블로그 글 작성 로직에 병원 정보를 활용하는 방식도 논의했다. 의료법상 직접 홍보는 제한되지만, 정보 제공 형식으로 작성하면 우회 가능하다. FAQ마다 이미지 한 장씩 배치하고, 강조 문구에 시각 디자인 요소를 추가하는 방향으로 블로그 제작 스킬을 업데이트했다. `04-블로그-제작리포트.html`에는 적용된 SEO/AEO 기법, 이미지 수, 글자 수, 의료법 준수 방식을 정리했다.
 
-## 이날의 도구 사용 통계
+## 실결제 후 크레딧 0: Vercel 로그에서 잡은 원인
 
-3개 세션 합산:
+"실결제 이후에 크레딧 안 들어오는데?"로 세션 4가 시작됐다.
 
-- 총 tool calls: **371회**
-- `Bash` 152번 — 레포 전환, Vercel API 호출, 런타임 로그 파싱
-- `Edit` 82번 — 상태 머신 수정, 결제 라우트, 법적 페이지
-- `Read` 65번 — 코드 탐색, 환경변수 확인
-- `Write` 20번 — 새 파일 17개 생성
+`.env.local`엔 `APP_ORIGIN`만 있었다. 프로덕션 시크릿은 Vercel에만 있어서 로컬에서 직접 DB를 볼 수 없었다. Vercel MCP로 런타임 로그를 끌어왔더니 결제 시도 흔적이 두 번 나왔다.
 
-세션 1에서 `AskUserQuestion`을 5번 썼다. 통신판매번호, 주소 표기 방식, 이메일 통일 여부 같은 판단은 혼자 결정할 수 없으니 당연하다.
+첫 번째(17:49): `feedback 검증 실패(위조 가능)` — `linkkey` 검증 단계에서 탈락. 두 번째(19:19): `feedback linkval 불일치` — 1차 검증은 통과했지만 `PAYAPP_LINKVAL` 환경변수에 저장된 값이 PayApp이 피드백으로 보내는 실제 `linkval`과 달랐다.
 
-## 정리
+코드 버그가 아니라 설정 버그였다. Vercel 환경변수 값을 직접 수정하고 재배포했다. `scripts/diag-payapp.mjs`를 남겨서 다음에 같은 문제가 생기면 어느 필드가 불일치하는지 바로 볼 수 있게 했다.
 
-리브랜딩은 코드 한 줄 안 건드리고 인프라 레이어에서 끝났다. 결제는 KakaoPay 심사 대기 중에 PayApp을 병렬로 붙였고, 실결제 후 크레딧 미적립 버그는 환경변수 불일치였다. 11시간 세션에서 압축해서 처리하고, 7분 세션에서 웹훅 로그 두 줄로 문제를 특정했다.
+결제 디버깅 이후 "이미 진행된 면접 리포트 어디서 확인해?"가 나왔다. 리포트 페이지 자체가 없었다. `app/[locale]/reports/page.tsx`를 새로 만들고, 계정 페이지 사용내역 섹션은 기본 접힘 상태(`Collapsible.tsx`)로 바꿨다.
 
-긴 세션보다 짧은 세션이 더 집중적으로 돌아가는 경우가 많다.
+## 4세션 통계
+
+총 461 tool calls, 29시간 47분. 세션 1이 212 calls(11시간 27분)로 전체의 46%를 차지했다. 도구별로는 Bash 186번, Edit 95번, Read 77번, Write 22번 순이었다.
+
+다이나믹 워크플로우를 3번 돌렸다. 면접 상태 머신 추적, 카카오페이 보안 감사, PG 가맹 요건 감사. 각각 병렬로 여러 렌즈를 돌리고 구조화된 JSON으로 결과를 받았다.
+
+가장 오래 걸린 디버깅이 가장 짧은 세션에서 해결됐다. 코드가 아니라 프로덕션 런타임 로그 두 줄에 원인이 있었다.
