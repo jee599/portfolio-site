@@ -1,112 +1,108 @@
 ---
-title: "578 Candidates, 9 in the Queue: Tracing a Silent Collapse and Auditing 77 Bugs with Multi-Agent Claude Code"
+title: "7 Claude Code Sessions: Auditing 77 Bugs via Workflow, Tracing a 578→9 Pipeline Collapse"
 project: "portfolio-site"
 date: 2026-06-20
 lang: en
 pair: "2026-06-20-portfolio-site-ko"
 tags: [claude-code, multi-agent, workflow, bug-audit, llm-automation]
-description: "6 sessions, 337 tool calls, 47 files modified. How a pipeline silently dropped 97% of its data — and how multi-agent Claude Code found 77 bugs in one shot."
+description: "7 sessions, 338 tool calls, 47 files changed. How I traced a 97% silent data loss, audited 77 Next.js bugs in one Workflow run, and delegated agent-to-agent work."
 ---
 
-578 candidates in the pipeline. 9 made it to the queue. Nobody noticed.
+578 candidates were in the queue. Only 9 made it out.
 
-**TL;DR** Six Claude Code sessions, 337 tool calls across two projects in one day. Traced a silent 97% data collapse in `local-commerce-agent`, then audited 77 UI/UX bugs across 10 domains in `preterview` using a parallel multi-agent workflow — 24 of them fixed in a single 1h42m session.
+97% of the data vanished somewhere in the pipeline — silently, no errors, no alerts. Nobody noticed until I looked at the numbers directly.
 
-## The Queue That Silently Ate 97% of Its Data
+**TL;DR** — 7 sessions, 338 tool calls, 5 projects in parallel. Traced a silent data collapse in `local-commerce-agent`, ran a single Workflow that surfaced 77 UI/UX bugs across a Next.js SaaS, and completed a full dental clinic measurement cycle with exactly 1 tool call from the main session.
 
-`local-commerce-agent` is a pipeline: a local crawler collects business targets, Codex builds a prioritized queue, Gmail drafts get generated from that queue. The crawler had pulled 578 candidates (95 draft-quality). The actual queue had 9 items.
+## When 578 Becomes 9
 
-The investigation prompt:
+`local-commerce-agent` is a pipeline: a local crawler collects business targets → Codex builds a queue → Gmail drafts get generated from that queue.
+
+The crawler pulled 578 candidates (95 draft-quality). The actual queue had 9.
+
+The diagnostic prompt:
 
 ```
-improve the JDLab safe no-send cron/crawler/Codex-wrapper logic using the 
-latest completed run evidence so future runs convert Hermes-local crawler 
-evidence into a much larger, better diversified validated queue.
+improve the JDLab safe no-send cron/crawler/Codex-wrapper logic using the latest
+completed run evidence so future runs convert Hermes-local crawler evidence into a
+much larger, better diversified validated queue.
 ```
 
-10 Bash calls and 10 Read calls into the artifacts exposed the root cause. `_local_evidence/*.json` held all 578 candidates. But the top-level batch file that Codex populates? 11 of 15 lanes were empty. The queue builder only reads that top-level batch — so the entire local evidence layer was silently ignored on every run.
+10 parallel Bash calls, 10 parallel Read calls to sweep the artifacts. `_local_evidence/*.json` had all 578 candidates. The top-level batch file — which Codex populates and the queue builder reads — had 11 of 15 lanes empty. Since the queue builder only reads the top-level batch, all local crawler evidence was silently ignored on every single run.
 
-The fix: a collapse guard in the queue builder. After loading the local crawl summary, compare pool size against lane distribution and set an `approval_required` flag if the numbers diverge beyond threshold. Changes landed in 8 Edit calls and 3 Write calls: guard logic in `build-jdlab-hourly-queue.mjs`, prompt reinforcement in `jdlab-build-codex-cron-prompt.mjs`, plus a new test file.
+Fix: added a collapse guard to `build-jdlab-hourly-queue.mjs`. It now compares the local crawl summary against full-size and lane-distribution expectations, and sets an `approval_required` flag when the ratio diverges beyond threshold. Also patched `jdlab-build-codex-cron-prompt.mjs` with stronger prompting and added one new test file. 8 Edit calls, 3 Write calls. 9 minutes, 32 tool calls.
 
-An independent Codex review afterward caught one more MAJOR logic issue: the `isCopyBearing` helper didn't exist, making copy-bearing classification fall back to incorrect defaults. A separate session (session 3, 7 tool calls total) fixed it: 4 Read calls for context, one helper addition.
+Session 3 was an independent Codex review of the same fix — and it caught an additional MAJOR logic issue: the `isCopyBearing` helper was missing entirely, making copy-bearing classification unreliable. 4 Read calls for context, then the helper was added. 7 tool calls.
 
-## What 10 Parallel Agents Found in a 9,400-Line Codebase
+## Auditing 77 Bugs in One Workflow Run
 
-`preterview` is an AI mock interview SaaS on Next.js App Router — ~9,400 lines across 10 domains: interview room, resume builder, portfolio, auth, payments, dashboard, admin, landing, and i18n.
+`preterview` is a Next.js App Router AI mock-interview SaaS. Interview room, resume builder, portfolio, auth, billing, dashboard, admin, landing, i18n — 10 domains, ~9,400 lines of component code. Too large to audit manually in any reasonable time.
 
-The prompt: "find all the small bugs."
+One prompt:
 
-Workflow structure:
+```
+preterview ui/ux나 기능상에 자잘한 버그들 없나 모두 찾아봐
+(Find all minor bugs in preterview's UI/UX and functionality)
+```
 
-1. **10 parallel finder agents** — one per domain, each reading only its slice of the codebase
-2. **Per-finding skeptical verifier agents** — cross-check each finding against actual code, filter false positives
-3. **Synthesis stage** — deduplicate across domains, prioritize by impact
+Claude Code analyzed the structure, then designed the Workflow automatically: **10 domain-scoped finder agents running in parallel → a skeptical verification agent cross-referencing each finding against actual code → false positive elimination → deduplication and priority ranking**. While finder A scans domain X, domain Y's verification is already running. No sequential bottleneck.
 
-Results: 77 found → 21 false positives rejected → 56 confirmed → 46 after cross-domain dedup.
+Results: 77 found → 21 rejected → 56 confirmed → 46 after merging duplicates. Severity breakdown: high 2, medium 8, low 26, nit 10. The most repeated pattern: i18n gaps — Korean text leaking through to English-locale users.
 
-The dominant patterns were predictable in retrospect: hardcoded English strings where i18n keys should be, and missing error handling around async boundaries. Both are the kind of thing that accumulates invisibly — no test fails, nothing crashes, it just quietly degrades the experience for users who aren't on the happy path.
+Then I pushed further:
 
-Then a second pass: "judge from all angles and fix only what actually needs fixing." Each confirmed bug scored across 4 lenses:
+```
+Verify every finding: does it actually need fixing, are there side effects after the fix,
+and check global service / usability / security / token waste. Fix only what clears all lenses.
+```
 
-- Global service impact (does this break non-English users?)
-- Usability (does this surface as a confusing UX?)
-- Security (does this expose anything?)
-- Token waste (does this cause unnecessary LLM calls?)
+A second Workflow rescored each of the 55 remaining findings across those 4 dimensions, modeled side effects per proposed change, and returned a final priority list. Final instruction: "Fix only what actually needs fixing."
 
-Side-effect analysis ran per bug before any fix was approved. 24 bugs made the final cut.
+24 bugs fixed. 33 files changed: `InterviewRoom.tsx`, `auth-context.tsx`, `storage.ts`, `lib/format.ts`, `messages/en/*.json`, and more. Session: 1h 42min, 162 tool calls.
 
-Session 2: 162 tool calls, 57 Edit, 55 Bash, 43 Read. 1 hour 42 minutes. 33 files touched — `InterviewRoom.tsx`, `auth-context.tsx`, `storage.ts`, `lib/format.ts`, `messages/en/*.json`, `messages/ko/*.json`, and 27 more.
+## Delegating an Agent to Another Agent
 
-Sequential review of 10 domains would have taken most of a workday. The parallel structure compressed it into a single session with no context window overload on any individual agent.
+The Dongbaek UD Dental periodic measurement ran on a single prompt:
 
-## The Wrong Domain Baked Into 12 Files
+```
+동백유디치과(dongbaek-uddental) 정기 측정이다.
+dental-clinic 서브에이전트에 위임해 수행하라.
+(Run the periodic measurement for Dongbaek UD Dental. Delegate to the dental-clinic subagent.)
+```
 
-Session 4 was a "wrong context hardcoded everywhere" problem. The public site domain (`jidonglab.com`) and the Gmail sender alias (`jd@tryjdlab.com`) were being confused throughout the codebase — `tryjdlab.com` was appearing as a footer URL in 12 files that should have been pointing to `jidonglab.com`.
+The main Claude session spawned the `dental-clinic` agent. The agent loaded `~/dental-promo/dongbaek-uddental/` — `clinic.json`, `history.json`, cache — restored its context, and ran the full cycle end-to-end: SERP measurement for 6 keywords (0 blocked) → parsing the `place-stats-2026-06-19.md` inbox file → updating `history.json` → running `sync.sh` → commit and push.
 
-Strategy: replace `tryjdlab.com` with `jidonglab.com` in public URL contexts, leave sender alias contexts untouched. 8 Bash calls to map every reference across the codebase, 17 Edit calls across 12 files. Test fixtures updated alongside to prevent regression.
+Side result: the first published blog post entered search rankings at position 7 for the `동백 임플란트` keyword — one day ahead of expected indexing. The main session used exactly 1 tool call: `Agent`.
 
-This one required careful context discrimination — same string, two different semantic roles, two different intended values. The Bash mapping pass was essential before touching anything.
+## The Silent Domain Contamination
 
-## Six Funding Documents Without a Single New Search
+Session 4 was a "wrong context baked in everywhere" bug that had spread quietly. The public-facing domain (`jidonglab.com`) and the Gmail sender alias (`jd@tryjdlab.com`) had been confused throughout the codebase — 12 files had `tryjdlab.com` hardcoded as footer URLs.
 
-Session 5 was a different type of work. For two products — `local-commerce-agent` and `preterview` — the session produced 6 documents: 2 technical business analyses, 1 grant fit analysis, 2 business plans, 1 announcement checklist.
+8 Bash calls to map all references across the repo. 17 Edit calls to fix 12 files: replaced `tryjdlab.com` with `jidonglab.com` in public URL contexts, left sender aliases untouched. Test fixtures updated to block regression. 4 minutes, 39 tool calls.
 
-Two days earlier, a prior research session had already vetted 57 Korean government grant programs in `~/funding/`. That data was reused as the base — the grant fit analysis narrowed from the existing 57 programs down to the best fits for both products, with no new web searches needed.
+Same string, two different semantic roles, two different correct values. The mapping pass before touching anything was the key step.
 
-Completed documents were delivered via Telegram through Hermes. 33 Bash, 9 Write, 9 TaskCreate calls.
+## 6 Business Documents in One Day
 
-The lesson here isn't about Claude Code mechanics — it's about treating prior research output as a reusable asset. Re-running the same research is a common source of wasted effort.
+Session 6 was a different kind of work. Two products — `local-commerce-agent` (dental ad automation) and `preterview` — needed: 2 technical business analyses, 2 business plans, 1 government grant fit analysis, 1 announcement checklist. 6 documents total. Completed documents were sent via Telegram through the Hermes relay.
 
-## Product Hunt: The Answer Was Already in the GTM Playbook
+One observation: `~/funding/` already had pre-validated data on 57 grant programs from two days prior. Claude Code found and reused it automatically — no fresh research needed, just narrowing the existing dataset down to matches for both products. 5h 30min, 88 tool calls.
 
-Session 6: "Where and how should we sell this — should we launch on Product Hunt?"
+Prior research output is a reusable asset. Re-running the same research every session is silent waste.
 
-A GTM playbook from June 18 already existed, built from 25 research agents and 16 fact-checked data points. Product Hunt was already classified there as "Channel 4 · SECONDARY · one-day spike." Rather than re-researching, the session ran a 2026-reality-check workflow: 12 agents, adversarial fact-checking included.
+## The Day in Numbers
 
-Conclusion: Product Hunt is not the first move, and it's not the right first channel.
-
-2026 PH outcomes are driven by existing fan base and coordinated day-of traffic. Without a pre-existing community, top-10 placement probability is low regardless of product quality. The correct sequence: establish presence on Hacker News Show HN, relevant subreddits, Discord servers — build early users first, then launch on PH when you have an audience to activate.
-
-Adversarial fact-checking confirmed all core conclusions as supported. It also corrected a few figures that had been presented as measurements but were actually 2016-era conventional wisdom.
-
-## The Numbers
-
-| Metric | Count |
-|--------|-------|
-| Sessions | 6 |
-| Total time | ~8 hours |
-| Tool calls | 337 |
+| Metric | Value |
+|---|---|
+| Sessions | 7 |
+| Total tool calls | 338 |
 | Files modified | 47 |
 | Files created | 14 |
-| Bash | 116 |
-| Edit | 87 |
-| Read | 81 |
-| Write | 14 |
-| Workflow | 5 |
+| By tool | Bash 116, Edit 87, Read 81, TaskUpdate 18, Write 14, Workflow 5 |
 
-Session 2 alone accounted for 162 tool calls — nearly half the day's total. Multi-agent workflows consume Bash/Edit/Read at scale because each sub-agent runs its own read-verify-edit cycle. The cost is real, but so is the compression: 10 domains reviewed in parallel rather than sequentially.
+Session 2 alone accounted for 162 tool calls — nearly half the day's total. That's what Workflow looks like at scale: it consumes Bash, Edit, and Read in bulk because parallel agents each run their own read-verify-edit cycles. Sequential manual review of 10 domains would have taken most of a workday. The parallel structure compressed it into one session.
 
-The throughput pattern across all 6 sessions was the same: parallel agents for discovery, skeptical agents for verification, synthesis for prioritization. That structure works whether you're auditing bugs, reviewing grant fit, or fact-checking market analysis.
+The throughput pattern across all 7 sessions was consistent: parallel agents for discovery, skeptical agents for verification, synthesis for prioritization. That structure generalizes — bug audits, grant fit analysis, pipeline debugging, agent delegation.
 
 ---
 
