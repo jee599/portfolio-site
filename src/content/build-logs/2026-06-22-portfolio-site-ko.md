@@ -1,98 +1,78 @@
 ---
-title: "next-intl raw 키 버그 + 7세션 489 tool calls — Claude Code 멀티에이전트 집중 투입기"
+title: "6 세션 388 tool call — Claude Opus 4.8로 하루에 4개 프로젝트 전부 돌린 기록"
 project: "portfolio-site"
 date: 2026-06-22
 lang: ko
-tags: [claude-code, next-intl, i18n, multi-agent, preterview, ultracode]
-description: "7개 세션 489번 도구 호출. preterview 모바일 UI 전수 수정, next-intl scopeClientMessages 버그 추적, 12 에이전트로 사업계획서 자동 생성까지."
+tags: [claude-code, multi-agent, workflow, preterview, saju, dental, funding]
+description: "하루 6개 Claude Code 세션 388 tool call로 i18n 버그 추적·12에이전트 사업계획서·X봇 최적화까지. Claude Opus 4.8 멀티에이전트 실전 기록."
 ---
 
-7개 세션, 489번의 도구 호출, 수정 파일 35개 + 생성 파일 26개. 이번 주 작업의 대부분은 preterview(AI 모의면접 SaaS) UI 디버깅과 사업 문서 자동화에 집중됐다.
+어제 하루 Claude Code 세션을 6개 열었다. 총 388번 tool call, Bash 210회, Read 63회, Edit 45회. 작업한 프로젝트가 preterview / saju_global / 치과 광고 / 펀딩 보고서까지 4개다.
 
-**TL;DR** ultracode 모드로 preterview 모바일 UI를 182 tool calls로 전수 수정했고, i18n raw 키 노출 버그의 원인인 `scopeClientMessages`를 추적해 잡았다. 사업계획서는 12 에이전트 fan-out으로 34분, 127만 토큰 만에 7,747단어짜리 보고서로 완성됐다.
+**TL;DR** 멀티에이전트 워크플로를 쓰면 보고서·사업계획서처럼 대용량 텍스트 작업이 극적으로 빨라진다. 단, 모델이 Opus 4.8이어야 에이전트 지시를 제대로 따른다.
 
-## 모바일에서 innerWidth가 2240px
+## i18n raw 키 버그 — 범인 찾는 데 Bash 116번
 
-`innerWidth가 2240px(창은 784px)` — 첫 화면 확인에서 바로 나온 수치다. 모바일 뷰포트 390px로 접속했는데 페이지가 가로로 심하게 넘쳐 축소 렌더되고 있었다.
+세션 2에서 가장 오래 걸린 건 preterview UI 버그였다. 증상은 단순했다: 면접 화면에서 버튼이 `interview.room.endInterview` 같은 raw 키로 노출됨.
 
-사용자 보고: 버튼이 깨지고, 영어로 된 글씨가 나오고, 자간 때문에 비정상적으로 엔터가 쳐진다. `/effort ultracode`로 세션을 시작했다. 이 모드는 `xhigh` effort + dynamic workflow 오케스트레이션이 자동으로 켜진다.
+처음엔 키 누락을 의심했다. `en.json` / `ko.json` 둘 다 확인했더니 키는 있었다. 코드도 `tr("room.endInterview")`로 정확히 호출하고 있었다. 그런데도 raw 키가 노출됐다.
 
-182번의 도구 호출이 소진됐다 — Bash 46, Edit 40, Read 35, 브라우저 도구 26. 수정 파일 24개:
+프롬프트를 이렇게 바꿨다.
 
 ```
-app/[locale]/layout.tsx       ← 뷰포트 메타
-i18n/routing.ts               ← 기본 locale 처리
-messages/ko/*.json × 6        ← 누락 키 보완
-messages/en/*.json × 2
-globals.css                   ← 오버플로 원인 제거
+왜 raw 키가 보이는지 next-intl 메시지 로딩 경로를 따라가서 찾아줘
 ```
 
-영어/한국어 혼용 문제는 `i18n/routing.ts`의 locale 감지 로직이 원인이었다. 브라우저 `Accept-Language: en`이면 홈이 `/en`으로 redirect되는데, 이후 한국어로 전환해도 일부 클라이언트 컴포넌트가 영어 메시지를 그대로 참조하고 있었다. `InterviewRoom.tsx`, `RadarChart.tsx`, `NaverBuy.tsx` 등 동적 컴포넌트들이 대상이었다.
+Claude가 `i18n/request.ts`의 `scopeClientMessages(await getMessages(), strippedPath)`를 찾아냈다. 라우트별로 클라이언트에 보낼 i18n 네임스페이스를 `x-cc-pathname` 헤더 기반으로 골라 보내는 최적화 함수였다. 헤더가 비어있으면 `strippedPath`가 `/`로 떨어지면서 interview / portfolio 네임스페이스를 통째로 제외해버리는 구조. 이 함수 하나가 범인이었다.
 
-## raw 키 버그 — 범인은 scopeClientMessages
+Read로 코드 경로를 전부 추적하면서 Bash 116번을 썼다. dev 서버를 올리고, 실제 렌더 HTML에 raw 키가 찍히는지 확인하고, 수정 후 `playwright.config.ts`까지 새로 붙였다. 브랜치 보호 설정도 이 세션에서 함께 처리했다. 모바일 320px 헤더 오버플로와 버튼 텍스트 한 글자씩 깨지는 문제도 같이 잡았다.
 
-배포 후 두 번째 세션에서 모의면접과 포트폴리오 점검 화면의 버튼이 `interview.room.endinterview`처럼 raw 키 그대로 노출되는 버그가 잡혔다.
+## 13개 유닛 × 적대적 재보정 — 펀딩 통과확률 숫자로 뽑기
 
-타입체크는 통과, `en/ko` 메시지 파일에 키도 전부 존재했다. next-intl은 키를 못 찾으면 경로 전체를 그대로 출력한다 — 즉 파일 문제가 아니라 **클라이언트로 메시지가 전달되는 경로**에 문제가 있다는 신호였다.
+세션 4는 `/effort ultracode`로 시작했다. 정부/민간 지원 프로그램 통과확률을 "냉정하게" 숫자로 뽑는 게 목적이었다.
 
-`i18n/request.ts` → `scopeClientMessages(await getMessages(), strippedPath)`.
+기존 보고서에는 "중상/중/하" 같은 정성 평가만 있었다. 프롬프트:
 
-이 함수가 범인이었다. 라우트 경로(`x-cc-pathname` 헤더)를 기준으로 클라이언트에 보낼 i18n 네임스페이스를 골라 최적화하는 구조인데, 헤더가 빈 상태로 내려오면 `strippedPath`가 `/`로 떨어지면서 `interview`, `portfolio`, `resume` 네임스페이스가 모두 제외된다.
-
-`proxy.ts`가 헤더를 set → next-intl 미들웨어 → RSC로 전파되어야 하는데, soft navigation(앱 내 라우팅) 시 이 전파 경로가 끊기는 케이스가 있었다. 재발 방지를 위해 Playwright e2e 스펙을 추가했다.
-
-```ts
-// e2e/i18n-softnav.spec.ts
-test('soft navigation preserves i18n namespace', async ({ page }) => {
-  await page.goto('/ko/interview');
-  // raw 키 노출 여부 검증
-});
+```
+preterview / 치과 각각 핏에 맞고 확률이 높은것들이랑, 얼마주는지, 냉정한 통과확률이랑 해서 심플하게 보고서로 줘
 ```
 
-`playwright.config.ts`와 함께 커밋했고, CI에서 soft navigation 이후 i18n 네임스페이스 유지 여부를 자동으로 잡는다.
+단일 추정으로 찍으면 편향이 들어간다. Claude가 스스로 판단해서 동적 워크플로를 띄웠다: 13개 프로그램×사업 유닛을 독립 추정 → 회의적 재보정(adversarial) 파이프라인으로 돌렸다. 결과는 `~/reports/funding-conclusion-2026-06-22.md`로 나왔다.
 
-## 12 에이전트, 34분, 사업계획서 2건
+같은 세션에서 preterview 첫 결제 경로도 워크플로로 설계했다 — 6개 렌즈(Reddit/niche-forum, Product Hunt, 직접 영업 등) 병렬 설계 후 EV 랭킹. 결론은 Paddle(Merchant of Record)로 정착했다. 법인 없음·예산 $0·1인 제약 조건에서 세금·VAT 처리를 가장 적게 신경 쓰는 구조다.
 
-세션 7에서는 두 사업(치과 마케팅 자동화 + preterview)의 사업계획서 작성을 멀티에이전트 워크플로로 돌렸다.
+## 사업계획서 12에이전트 — 127만 토큰, 34분
 
-워크플로 구조:
+세션 6이 이날의 하이라이트다. 치과 마케팅 자동화 + preterview 두 사업 사업계획서를 "기술적·상업적으로 뛰어나게" 써달라는 요청이었다.
 
-1. **Foundation** (병렬 6) — 제품 프로파일 2 + 정부/민간 지원사업 리서치 + 합격 사례 분석
-2. **Plans** (병렬 2, high effort) — PSST용 + IR용 사업계획서
-3. **Verify** — 팩트체크 + 완전성 비평
-4. **Integrate** — 통합 마크다운 조립
-5. **Render** — OD-equivalent HTML + PDF
+Claude가 작업 디렉터리 `~/funding/bizplan-2026-06-21/`를 만들고 12개 에이전트를 fan-out했다.
 
-34분, 127만 토큰. `~/funding/bizplan-2026-06-21/REPORT.md`가 7,747단어로 완성됐다. PSST + IR + 3개년 재무 + 단위경제 + 기술 아키텍처 + 프로그램 카탈로그 + 실행 캘린더 전부 포함.
+- Foundation (병렬 6): 제품 프로파일 × 2 / 정부·공공 비지분 프로그램 / 민간 VC·AC / 정부 PSST 합격설계도 / 민간 IR 합격공식
+- Plans (병렬 2, high effort): 각 사업 완결 사업계획서 (PSST + IR + 3개년 재무 + 단위경제 + 기술아키텍처)
+- 이후 Strategy / Critique / Assemble 단계 순차 실행
 
-렌더링은 기존에 만들어둔 `md2report/report.py`를 재사용했다. Linear/토스 DNA, Pretendard 폰트, 인쇄/PDF 친화 구조다. 이번 보고서에서 처음으로 마크다운 테이블 렌더링을 테스트했고 정상 작동했다.
+34분, 약 127만 토큰. `REPORT.md` 약 7,747단어로 완성됐다. 이걸 `md2report/report.py`(Pretendard 폰트, 인쇄/PDF용 OD-equivalent 렌더러)로 HTML+PDF 변환했다.
 
-이전 세션(6/19)에서 먼저 리서치한 57건 정부 프로그램 데이터(`~/funding/`)가 기반이 됐다. 이걸 다시 리서치하지 않고 기존 파일을 읽어 에이전트에 컨텍스트로 주입하는 방식을 썼다. 중복 리서치를 피하면 토큰이 절약되고 에이전트 수도 줄어든다.
+멀티에이전트 워크플로의 실질적인 장점이 여기서 드러났다. 한 컨텍스트에서 PSST 합격설계도를 분석하면서 동시에 IR 합격공식을 연구하고, 재무 모델을 뽑고, 적대적 검증까지 병렬로 돌린다. 순차적으로 했으면 몇 시간이 걸렸을 작업이다.
 
-## 네이버 광고 대행 수수료 구조
+## X봇 개선 — 6h 고정 스케줄에서 불규칙 슬롯으로
 
-동백유디치과 플레이스 광고 파일럿을 시작하면서 광고 대행 수수료 구조가 궁금해졌다. 캠페인은 `동백유디_플레이스_파일럿` 단일, 예산 5,000원/일, 노출·클릭 모두 0이었다.
+세션 3, saju_global X봇 작업은 짧지만 클린한 케이스다.
 
-"내 계정 명의로 집행하면 15%가 떨어진다"는 전제가 틀렸다. 15%는 계정 명의가 아니라 **네이버 공식대행사 자격**이 트리거다. 6개 축 리서치(사업자등록·재대행 진입·의료광고 합법성·세금계산서 구조·직접가입 혜택·1인 시세) + 적대적 검증 에이전트로 교차확인했다.
+"봇 돌리는 게 너무 안 좋은데?" 한 마디로 시작했다. 확인해보니 스팸봇 타입은 아니었다 — 6시간마다 공식 X API로 1건 발행하는 구조. 문제는 발행 시간이 예측 가능하고, 스레드 포맷이 스팸 패턴처럼 보일 수 있다는 점이었다.
 
-결론: 1인으로 단기 시작은 **재대행(대행사 하위 대행)** 구조가 현실적이고, 직접 공식대행사는 법인 + 광고대행업 사업자 + 월 집행 규모가 일정 수준을 넘어야 한다.
+세 가지를 패치했다.
 
-## 세션별 도구 사용 통계
+`rotate.ts`에서 `slotCounter`(6h 고정)를 제거하고 매일 바뀌는 4개 불규칙 슬롯 로직으로 교체했다. `formats.ts`에는 스레드 포맷 OFF 스위치와 `ACTIVE_FORMATS`를 추가했다. `generate.ts`에는 AI 말투 스크럽 강화 + 모델 업그레이드를 적용했다.
 
-| 세션 | 내용 | tool calls | 핵심 도구 |
-|------|------|-----------|---------|
-| 1 | 동백유디 정기 측정 | 2 | Agent, Bash |
-| 2 | preterview GTM 분석 | 35 | Workflow, Bash |
-| 3 | 모바일 UI 전수 수정 | 182 | Bash, Edit, Read, Browser |
-| 4 | 사업 기술 문서 + 지원사업 | 98 | Bash, TaskCreate, Write |
-| 5 | 네이버 광고 대행 리서치 | 32 | Bash, WebSearch, WebFetch |
-| 6 | preterview UI 재점검 + 배포 | 113 | Bash, Edit, Read |
-| 7 | 심층 사업계획서 | 27 | Workflow, Bash |
+`vercel.json` cron도 `20 */6 * * *` → `*/15 * * * *`로 바꿨다. 15분마다 cron을 돌리되 내부 스케줄 게이트로 실제 발행 시간을 제어하는 패턴이다.
 
-전체 489 tool calls 중 Bash가 189(39%)로 가장 많고, Read 71, Edit 66 순이다. 브라우저 도구 26은 전부 preterview 렌더 검증에 집중됐다.
+이 세션은 Bash 25회, Read 13회, Edit 10회. 경량 작업이었지만 의도가 조금 모호한 부분은 `AskUserQuestion`으로 한 번 확인하고 진행했다.
 
-## 이번 주 배운 것
+## 하루 작업 수치 정리
 
-ultracode 모드가 무조건 좋은 건 아니다. `scopeClientMessages` 버그는 에이전트를 더 쓴다고 잡히지 않는다 — 코드 실행 경로를 직접 따라가는 과정에서 잡혔다. 182 tool calls 세션이 끝나고도 raw 키 버그는 남아있었다. 두 번째 세션에서 더 느리게, 더 집중해서 읽으며 잡았다.
+388 tool call 중 Bash가 210번(54%)이다. 이 비율이 높은 이유는 두 가지다. 서버 실행·배포·playwright 실행처럼 터미널이 필요한 검증 작업이 많았고, 멀티에이전트 워크플로가 에이전트마다 bash 명령을 여러 번 호출한다.
 
-에이전트 fan-out은 **독립적으로 병렬화할 수 있는 작업**에서 효과가 크다. 사업계획서 섹션 6개를 동시에 쓰는 건 fan-out이 맞다. i18n 버그 추적은 순차 추론이 맞다.
+Opus 4.8 기준으로 동적 워크플로가 가장 빛난 작업은 사업계획서와 펀딩 분석이었다. 에이전트를 "찍어내는" 게 아니라 pipeline → adversarial verify 구조로 설계할 때 결과물 신뢰도가 올라간다.
+
+i18n 버그 추적처럼 단일 컨텍스트에서 코드 경로를 따라가는 작업은 에이전트 없이 직접 Read + Bash + Edit 루프가 더 효율적이었다. tool call 수가 많아도 빠르다. 작업 성격에 따라 도구를 가려 써야 한다는 건 결국 당연한 결론이다.
