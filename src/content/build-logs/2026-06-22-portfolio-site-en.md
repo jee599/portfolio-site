@@ -1,160 +1,133 @@
 ---
-title: "9 Sessions, 513 Tool Calls: Running 4 Unrelated Projects in One Day with Claude Code"
+title: "Claude Code: 10 Sessions, 633 Tool Calls — Verifying 42 Grants, Building Interview Demo GIFs, and Scraping Game Screenshots"
 project: "portfolio-site"
 date: 2026-06-22
 lang: en
 pair: "2026-06-22-portfolio-site-ko"
-tags: [claude-code, multi-agent, workflow, preterview, dental, i18n, debugging]
-description: "How multi-agent delegation and a 12-agent parallel workflow let me ship across dental marketing, AI interviews, a fortune-telling app, and startup pitches — all in one day."
+tags: [claude-code, multi-agent, workflow, automation]
+description: "10 sessions, 633 tool calls over 2 days. Parallel agents verified 42 funding programs, Playwright built interview demo GIFs, Google Play CDN yielded game screenshots sans API."
 ---
 
-Nine sessions. 513 tool calls. Four completely unrelated domains — all in one day.
+10 sessions. 633 tool calls. 2 days.
 
-Dental marketing audits, an AI interview platform's i18n bug, a fortune-telling app's X bot, and back-to-back startup pitch decks. I ran all of them through Claude Code on the same day, context-switching between Korean medical advertising regulations and Next.js middleware internals without losing the thread.
+The domains couldn't be more different — dental ad agency, AI interview platform, fortune-telling app X bot, government grant applications, mobile game recommendation catalog. All of it ran through a single session stream without switching tools or losing context between projects.
 
-**TL;DR** — Two patterns made this possible: subagent delegation (the `dental-clinic` subagent handled dental work autonomously) and dynamic workflow fan-out (12 parallel agents for business plan research). The heaviest single session was 193 tool calls, chasing a `scopeClientMessages` bug deep inside next-intl.
+**TL;DR** Three patterns stand out from this stretch. A live-verify workflow that dispatched 6 parallel agents against 42 funding programs and confirmed their real-time status. Google Play CDN scraping to build a visual game catalog without a single external API call. A Playwright-based screenshot-to-GIF pipeline that turned an HTML mockup into a polished demo animation through iterative feedback loops.
 
-## The Sessions at a Glance
+## How 42 Funding Programs Got Verified by Parallel Agents
 
-| Session | Domain | Core Work | Tool Calls |
-|---------|--------|-----------|------------|
-| 1 | Naver Ads | Solo agency structure research | 32 |
-| 2 | preterview | i18n bug fix + deploy + E2E tests | 193 |
-| 3 | Saju App | X bot posting pattern overhaul | 49 |
-| 4–5 | Dental marketing | Weekly metrics + content prep | 13 |
-| 6 | Dental ads | Naver medical ad review tracking | 39 |
-| 7 | preterview | Visual interview validity research | 58 |
-| 8–9 | Startup | Business plans + first payment/GTM | 129 |
+Session 9 was the largest by scope. The request: "Find all government and private funding programs that fit both preterview (AI interview platform) and a dental ad agency. Estimate pass probability for each and fill out the application forms."
 
-None of these were simple "add a feature" requests. Domain research, root cause debugging, regulatory interpretation (Korean Medical Advertising Act), multi-agent orchestration — the nature of work was completely different session to session. That variety is what makes the routing layer interesting.
+The `~/funding/` directory already had 30 programs from a June 17 research run and business plan drafts from a June 21 workflow. The job wasn't fresh research — it was **live-verifying existing research and filling real application forms based on what's actually open right now**.
 
-## The Bug That Ate 193 Tool Calls
+The workflow ran in two phases.
 
-The preterview i18n bug looked trivial on the surface. Users were seeing raw translation keys — `interview.room.endInterview`, `portfolio.section.title` — instead of actual translated text. Classic "keys missing from translation file" symptom.
+**Phase 1 — Verification.** Six agents split the program categories in parallel: VC equity accelerators, government non-equity grants, urban accelerators, tech commercialization programs, and global track programs. Each agent checked its category with live web access — currently accepting applications, deadline accurate, solo-founder eligible. Any program that had closed, changed its terms, or was unreachable got flagged and dropped.
 
-Except the keys weren't missing.
+**Phase 2 — Fill.** Twelve agents each drafted application content for the programs that survived verification. One agent per application draft, all running concurrently.
 
-First hypothesis: missing translation file. Both `en.json` and `ko.json` had the keys. Second hypothesis: `useTranslations()` called with the wrong namespace. Also no. Third: locale detection failing at the middleware level. Nope — the locale was resolving correctly.
+Final output: 42 verified programs, 12 application and business plan drafts in `~/funding/apply-2026-06-22/applications/`. Sample filenames: `01-primer29-preterview.md`, `13-K-Global-mentee-business-plan.md`, `15-solo-creator-center-business-plan.md`.
 
-The actual culprit was `scopeClientMessages`. In next-intl, this optimization function slices the full message bundle before sending it to the client, keeping only the namespaces relevant to the current route. The slicing is based on the current pathname, which the middleware injects as an `x-cc-pathname` header. Under a specific set of conditions — a soft navigation immediately after an auth redirect — that header arrived empty on the server.
+The part worth noting was running **two rounds of pass probability estimation**. Single-agent estimates trend optimistic — the agent researched the program, understands the fit, and wants to be helpful. Session 10 corrected for this by running 13 programs × business units through an "independent estimate → skeptical recalibration" pipeline. A separate agent re-evaluated each estimate with a critical lens, looking for reasons the application might fail rather than reasons it might succeed.
 
-```ts
-// when x-cc-pathname header is missing, strippedPath falls back to "/"
-// "/" matches only the root namespace
-// → interview, portfolio, and all other namespaces get excluded
-const messages = scopeClientMessages(await getMessages(), strippedPath)
+The final numbers were cold: Primer 29th cohort (preterview) 23%, Linkup Dental 31%. More useful than inflated first-pass numbers.
+
+## Pulling High-Res Game Screenshots Directly from Google Play CDN
+
+Session 8 was a "mobile games for 4–6 friends" recommendation report. The deliverable needed actual in-game screenshots — a visual catalog, not a text summary. The existing text renderer (`md2report/report.py`) wasn't designed for image-heavy layouts, so a catalog-format HTML had to be built from scratch.
+
+Eight candidate games were selected: AFK Journey, Seven Knights Idle Adventure, Eversoul, Mushroom Survival, Legend of Slime, Blue Archive, Whiteout Survival, Last War. A research workflow spun up in the background while the screenshot extraction approach was validated.
+
+```bash
+# Direct pull from Google Play CDN — works with just the appId base URL
+curl "https://play-lh.googleusercontent.com/{base_path}=w1080-h1920" -o screenshot.png
 ```
 
-The client received an empty message map, resolved every key to itself, and rendered raw key strings. The fix was a one-liner: guard against the empty header case and fall back to the full path. But getting to that one-liner required going inside next-intl's source to understand how `scopeClientMessages` actually works.
+Trimming the URL to the base path before `=w` and appending a resolution suffix returns a clean PNG at that size. 7–14 screenshots per game — app icons and in-game screens — were pulled for all 8 games this way. No API key. No scraper setup. Just the CDN URL pattern.
 
-That's where the 193 tool calls went: 116 Bash (running the dev server, checking headers in flight, reading next-intl internals), 25 Read, 22 Edit. Most of the Bash calls were one-liners checking middleware response headers under different navigation scenarios.
+Confirming these were actual gameplay footage and not promotional banners required visual inspection. A local HTTP server served a contact sheet of all collected images, and `mcp__claude-in-chrome` ran a visual verification pass. A few promo banners slipped in and got culled.
 
-After landing the fix, I added regression coverage: a Playwright E2E spec (`e2e/i18n-softnav.spec.ts`) that specifically covers soft navigation after auth redirects, wired into CI (`.github/workflows/ci.yml`). Total files touched or created: 28.
+The URL pattern is stable enough to reuse on any future app catalog report. Google Play's CDN uses a consistent structure per appId, and the resolution suffix is predictable.
 
-The lesson: when a translation library isn't showing text, check the message delivery path before checking the message content. The translations were fine — the optimization layer was silently dropping them.
+## Building a 30-Second Interview Demo as an Animated GIF
 
-## Delegating Dental: The Subagent Pattern in Practice
+Session 7 included a request: "Make a 15–30 second animation showing the actual preterview interview flow and the results report. We need this for viral marketing."
 
-Dental marketing work (sessions 4 and 5) never touched my main context. I delegated entirely to the `dental-clinic` subagent, which maintains its own persistent state in `~/dental-promo/{slug}/`: a `clinic.json` with clinic profile, `history.json` with metric timelines, and a `cache/` directory for SERP snapshots and content drafts.
+The approach: Playwright renders `preterview-demo.html`, captures a timed sequence of screenshots, and stitches frames into a GIF. On the first run, a `--user-data-dir` flag caused a browser conflict and the process failed. Removing that flag on the second run worked cleanly.
 
-Session 4 was routine measurement. The subagent ran the full stack: SERP rank checking, Naver blog index verification, Place review scraping, and updating `monitoring/` logs. My main session used exactly 2 tool calls — one to spin up the subagent, one to read the result digest.
+Feedback came in three rounds:
 
-```
-Agent(dental-clinic) → load clinic.json + history.json → run measurements
-  → update history.json + monitoring/ → sync.sh → commit + Vercel redeploy
-me → check result digest → done
-```
+1. "Too fast" — doubled the frame delay on AI response frames
+2. "Show the user's answer too" — added answer text overlay to the interview frames
+3. "The AI icon looks too AI-y" — replaced sparkle icon with a plain circle avatar
 
-13 tool calls across sessions 4 and 5 combined. Not because the work was simple — SERP measurement with proper caching is nontrivial — but because the subagent handles execution and the main thread handles only intent and review.
+Each round regenerated the full GIF and confirmed the output before moving to the next change. The final 28-second animation covered question delivery, user answer display, and AI follow-up — a realistic pass through the interview loop.
 
-Session 5 broke this clean pattern. The subagent died partway through `sync.sh`. Content was fully generated and written to disk, but the commit hadn't happened. I had to directly verify the filesystem state, run the medical law compliance linter manually (Korean medical advertising regulations require specific disclaimers), and commit the files myself.
+For additional viral surface area, three purpose-built HTML files were created alongside the demo: `preterview-demo.html` (live interview flow), `preterview-portfolio.html` (portfolio review screen), `preterview-product.html` (product landing). Each was screenshot-captured at a specific viewport for platform-specific use.
 
-The subagent's summary had said "completed." It wasn't. **Agent outputs describe intent, not guaranteed state.** Always verify the artifact, especially for operations that touch external systems or have compliance implications.
+## Breaking the 6-Hour Fixed Publishing Cadence
 
-## 12 Agents in Parallel: The Business Plan Fan-Out
+Session 3. The saju (Korean fortune-telling) app's X bot was running on `20 */6 * * *` — posting every 6 hours at the exact same minute past the hour. The fixed cadence was a dead giveaway for automation.
 
-Sessions 8 and 9 were structurally the most interesting. I needed business plans for two businesses — a dental marketing automation SaaS and preterview, an AI interview platform — produced simultaneously, at a quality level suitable for startup program applications.
+Three changes shipped:
 
-Writing both in a single context produces cross-contamination: the framing of one business leaks into the other, and a single agent's perspective doesn't cover the full research surface. So I kicked off a dynamic workflow with explicit phase structure:
+**Slot randomization.** Dropped the `slotCounter` approach entirely. Each day now samples 4 different time slots from a weighted distribution that avoids clustering. The day's slots are calculated once at midnight and stored.
 
-```
-Foundation (parallel 6)
-  ├─ Market analysis (dental automation)
-  ├─ Market analysis (AI interviews)
-  ├─ Competitor mapping (both)
-  ├─ Regulatory landscape (Korean healthcare)
-  ├─ Revenue model benchmarks
-  └─ Technology stack assessment
+**Thread format removal.** Consecutive-tweet threads were removed from `ACTIVE_FORMATS`. They read as scheduled content more than single posts do.
 
-Plans (parallel 2, high effort)
-  ├─ Business plan draft A (dental SaaS)
-  └─ Business plan draft B (preterview)
+**AI-tone scrub + model upgrade.** Strengthened the scrubbing pass in `viral.ts` and `generate.ts` to strip hedging language, filler phrases, and construction patterns that pattern-match to generated text.
 
-Strategy (parallel 2)
-  ├─ GTM + first payment strategy
-  └─ Investor narrative
+`vercel.json` cron changed to `*/15 * * * *`. The publish gate in `route.ts` handles the slot logic at the app layer — checking whether the current 15-minute window matches one of the day's sampled slots before actually posting. 7 files changed, Bash 25, Edit 10, Read 13.
 
-Adversarial Verify
-  └─ Independent critic: challenge assumptions across both plans
+## Agent Delegation: One Clean Case, One Recovery
+
+**Session 4** (regular dental measurement) took 2 tool calls. Delegated to `Agent(dental-clinic)`, received the result digest. `Dongbaek implant` holding #8 in Naver, score 33 unchanged. Nothing to do.
+
+**Session 5** (weekly dental content) had a subagent die mid-`sync.sh`. Content was fully written, but the commit hadn't happened. The agent's final message came through as: "That was a course-syntax error. Running sync.sh." Clipped. No confirmation.
+
+Rather than trust the partial output, the filesystem was checked directly:
+
+```bash
+git status               # confirmed uncommitted files
+# ran medical compliance linter manually
+# validated HTML structure
+git commit               # finished it
 ```
 
-12 agents running concurrently. Combined raw output: approximately 1.27 million tokens of draft material. That got synthesized and pushed through `md2report/report.py` to produce structured HTML and PDF.
+Linter results: 101 sentences, 0 warnings. No markdown symbols in body text. Then `sync.sh` manually, commit `91a6704`, 12 files +429 lines, pushed, Vercel redeployed.
 
-Session 9 added a calibration pass: 13 startup program applications, each independently scored, then run through a skeptic re-calibration pipeline. Goal was stripping optimism bias from first-pass estimates. Results after calibration: Primer 29th cohort (preterview) 23%, Linkup Dental 31%, with per-program reasoning attached.
+Delegating to a subagent means delegating the work, not the verification. The main session owns the finish line.
 
-Parallel agents aren't inherently better than single-pass. But for work where **diversity of framing matters** — business plans need to consider market, product, regulatory, and investor perspectives simultaneously — the quality floor from parallel independent agents is measurably higher.
+## Navigating a Government Medical Ad Portal with Browser Automation
 
-## The X Bot Didn't Sound Human Enough
+Session 6: Naver blocked a dental PowerLink ad creative. Stated reason: "Missing review approval number." Used `mcp__claude-in-chrome` to navigate `dentalad.or.kr` directly — 21 computer actions, 5 navigates, 10 javascript executions.
 
-Session 3 was the smallest by complexity, but the changes had the clearest behavioral impact.
+First hit was an SSL error. Re-confirmed the correct path (`dentalad.or.kr/main/`), navigated in, and located the login flow and account history pages. The history view showed a prior approval from 2023: `P_2023032120119` (conditional approval). No login credentials were available to go further, so only confirmed facts were reported — the number exists, it's conditional, it predates the current campaign.
 
-The saju app's X bot was posting on a fixed 6-hour schedule (`20 */6 * * *`). Exact 6-hour intervals are immediately recognizable as automation. Three changes:
+This is exactly where browser automation earns its place: external administrative systems with no API, everything behind a UI.
 
-**Randomized daily slots.** Replaced the fixed cron with four randomized posting windows per day, recalculated daily. The bot posts at human-plausible times rather than exactly 00:20, 06:20, 12:20, 18:20.
+## Session-by-Session Breakdown
 
-**Dropped threaded format.** The bot was posting in threads (sequential reply chains). Single tweets only now. Threads from a bot account look like attempted engagement farming regardless of content quality.
+| Session | Date | Tool Calls | Key Work |
+|---------|------|-----------|----------|
+| 1 | 6/21 | 32 | Naver ad solo-agency fact research |
+| 2 | 6/21 | 193 | preterview i18n bug + E2E tests |
+| 3 | 6/21 | 49 | X bot publishing pattern overhaul |
+| 4 | 6/22 | 2 | Dental regular measurement (delegated) |
+| 5 | 6/22 | 11 | Dental weekly content + manual recovery |
+| 6 | 6/22 | 72 | Medical ad review number via browser |
+| 7 | 6/21 | 120 | 12-agent business plans + preterview demo GIF |
+| 8 | 6/22 | 68 | Game catalog HTML + screenshot automation |
+| 9 | 6/22 | 51 | 42-program live-verify + 12 applications |
+| 10 | 6/21 | 35 | Pass probability recalibration + preterview payments |
 
-**Prompt-level AI tone scrub.** Added explicit negative examples to the generation prompt: no "I", no "fascinating", no overly structured phrasing. Fortune content should read like an enthusiast wrote it, not like an LLM was asked to "write an engaging tweet about fortune telling."
+Tool breakdown: Bash 269, Read 127, Edit 85, Write 48, mcp__claude-in-chrome 54, Agent 4 (subagent delegation), Workflow 5 (dynamic workflows).
 
-Also changed `vercel.json` cron from `20 */6 * * *` to `*/15 * * * *` — every 15 minutes — with the slot gate logic moved into the app. The cron just wakes the function; the function decides whether it's time to post. This separates trigger cadence from publish logic, making it easier to tune without touching cron syntax again.
+Bash leads by a wide margin. Server start, screenshot extraction, SERP measurement, build checks, commits, linter runs — all go through Bash. A session where Bash exceeds Edit is exploration and verification-heavy. A session where Edit leads is implementation-heavy. Sessions 8 and 9 skew Bash; session 2 skews Edit.
 
-## Tracking a Medical Ad Approval with Browser Automation
+Sessions 2 (193 calls) and 7 (120 calls) are the two extremes. Session 2 was a single-bug deep-dive that traced a next-intl hydration issue through the framework internals. Session 7 combined a 12-agent fan-out for grant applications with Playwright-based multimedia production — two different categories of complexity in the same session block.
 
-Session 6 started with Naver blocking an ad creative. Reason given: "medical advertising approval number not included." Korean medical advertising regulations require that dental ads referencing clinical outcomes carry a pre-approval number from the Korean Dental Association (KDA).
-
-The approval existed — obtained in 2023 — but finding the reference number required accessing the KDA's approval lookup system at `dentalad.or.kr`, which has no API.
-
-I used `mcp__claude-in-chrome` for the lookup: 19 computer tool calls + 4 navigate calls. The tool navigated to the site, authenticated, searched by clinic name and date range, and returned the approval record. The creative got updated with the approval number, resubmitted, and cleared.
-
-This kind of task — navigating a legacy government-adjacent web portal to retrieve a specific piece of information — is exactly where browser automation earns its keep. The alternative is a 15-minute manual process involving login, pagination, and hoping you find the right record.
-
-## What Made the Context Switching Work
-
-513 tool calls across 9 sessions in completely different domains could easily become chaos. An explicit routing layer kept it coherent:
-
-**`dental-clinic` subagent** handles all dental domain work. Main session provides intent, reviews output. Domain knowledge, measurement infrastructure, compliance linting, and content generation all live inside the subagent's persistent state. The main context stays clean.
-
-**Dynamic workflow fan-out** for broad parallel work: research across multiple dimensions, independent drafts that need synthesis, calibration passes. Kicking off the 12-agent workflow for the business plans took one tool call from the main session.
-
-**Direct main session** for focused engineering work: the preterview i18n debug, CI config, code edits. When you need to go deep in one codebase, staying in the main context is right — you want the full history of what you tried and why.
-
-Without this routing, session 2's 193-call debugging session would have contaminated context for every session after it. With it, the dental sessions ran in 13 tool calls combined, and the main thread stayed clear for the engineering work that needed depth.
-
-The routing decisions aren't magic. They're three modes — delegate, fan-out, go direct — chosen based on whether the work is domain-isolated, breadth-first, or depth-first.
-
-## By the Numbers
-
-- **Total sessions**: 9
-- **Total tool calls**: 513
-- **Breakdown**: Bash 245, Read 72, Edit 58, Write 33, mcp__claude-in-chrome 43
-- **Files modified**: 23
-- **Files created**: 31
-- **Heaviest session**: 193 calls (preterview i18n bug)
-- **Subagents deployed**: dental-clinic × 2, dynamic workflow × 4
-
-The Bash count (245 of 513) is the most telling stat. Most of it is concentrated in session 2. Deep debugging burns through Bash calls fast — each header inspection, each test run, each middleware trace is a separate call.
-
-The dental sessions' 13 combined tool calls are the contrast. Same amount of work by output (measurement + content generation for a full marketing operation), near-zero main-session cost because the subagent absorbed it. That's the subagent pattern working as intended.
+The agent failure in Session 5 was the only case where a delegated task needed direct main-session recovery. The pattern it exposed: when a subagent's final message is ambiguous or truncated, don't interpret it charitably. Check the filesystem directly before reporting success.
 
 ---
 
