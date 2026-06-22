@@ -1,78 +1,83 @@
 ---
-title: "6 세션 388 tool call — Claude Opus 4.8로 하루에 4개 프로젝트 전부 돌린 기록"
+title: "하루 9세션 513 tool calls — Claude Code로 4개 프로젝트 동시 운영한 기록"
 project: "portfolio-site"
 date: 2026-06-22
 lang: ko
-tags: [claude-code, multi-agent, workflow, preterview, saju, dental, funding]
-description: "하루 6개 Claude Code 세션 388 tool call로 i18n 버그 추적·12에이전트 사업계획서·X봇 최적화까지. Claude Opus 4.8 멀티에이전트 실전 기록."
+tags: [claude-code, multi-agent, workflow, preterview, dental, i18n, debugging]
+description: "Claude Code 하루 9세션에서 preterview i18n 버그, 치과 콘텐츠 자동화, 사업계획서 12-에이전트 팬아웃까지. 513 tool calls로 4개 프로젝트를 동시에 굴린 작업 기록."
 ---
 
-어제 하루 Claude Code 세션을 6개 열었다. 총 388번 tool call, Bash 210회, Read 63회, Edit 45회. 작업한 프로젝트가 preterview / saju_global / 치과 광고 / 펀딩 보고서까지 4개다.
+하루에 세션 9개, tool call 513번. 치과 마케팅, AI 면접 플랫폼, 사주앱 X 봇, 네이버 광고 심의까지 — 완전히 다른 도메인 4개를 Claude Code 하나로 같은 날 돌렸다.
 
-**TL;DR** 멀티에이전트 워크플로를 쓰면 보고서·사업계획서처럼 대용량 텍스트 작업이 극적으로 빨라진다. 단, 모델이 Opus 4.8이어야 에이전트 지시를 제대로 따른다.
+**TL;DR** 멀티에이전트 위임 패턴(dental-clinic 서브에이전트)과 동적 워크플로 팬아웃(12개 병렬 에이전트)이 핵심이었다. 단일 세션 최다는 193 tool calls — preterview i18n 버그 디버깅에서였다.
 
-## i18n raw 키 버그 — 범인 찾는 데 Bash 116번
+## 세션마다 맥락이 완전히 달랐다
 
-세션 2에서 가장 오래 걸린 건 preterview UI 버그였다. 증상은 단순했다: 면접 화면에서 버튼이 `interview.room.endInterview` 같은 raw 키로 노출됨.
+| 세션 | 도메인 | 핵심 작업 | tool calls |
+|------|--------|-----------|------------|
+| 1 | 네이버 광고 | 1인 대행 구조 팩트 리서치 | 32 |
+| 2 | preterview | i18n 버그 수정·배포·E2E 테스트 | 193 |
+| 3 | 사주앱 | X 봇 발행 패턴 개선 | 49 |
+| 4–5 | 치과 마케팅 | 정기 측정 + 주간 콘텐츠 준비 | 13 |
+| 6 | 치과 광고 | 네이버 의료광고 심의필 추적 | 39 |
+| 7 | preterview | 비주얼 면접 타당성 검토 | 58 |
+| 8–9 | 스타트업 | 사업계획서 + 첫 결제/GTM 전략 | 129 |
 
-처음엔 키 누락을 의심했다. `en.json` / `ko.json` 둘 다 확인했더니 키는 있었다. 코드도 `tr("room.endInterview")`로 정확히 호출하고 있었다. 그런데도 raw 키가 노출됐다.
+Claude에게 넘긴 것들이 모두 "다음 기능 추가해줘" 같은 단순 구현이 아니었다. 도메인 리서치, 버그 근본 원인 추적, 외부 규제(의료광고법) 해석, 멀티에이전트 팬아웃까지 — 성격이 완전히 달랐다.
 
-프롬프트를 이렇게 바꿨다.
+## 193 tool calls짜리 버그: scopeClientMessages
+
+preterview의 i18n 버그가 가장 복잡했다. 증상은 단순했다 — 화면에 번역된 텍스트 대신 `interview.room.endInterview` 같은 raw 키가 그대로 보였다.
+
+첫 의심은 번역 파일 누락이었다. 키는 양쪽 다 있었다. 그 다음은 `useTranslations` 호출 오류. 이것도 아니었다.
+
+실제 원인은 `scopeClientMessages`였다. next-intl이 RSC에서 클라이언트로 보낼 메시지를 **경로(pathname) 기준으로 슬라이싱**하는 최적화 함수인데, 미들웨어가 주입하는 `x-cc-pathname` 헤더가 특정 조건에서 빈 값으로 전달되면서 클라이언트가 빈 메시지 맵을 받은 것이다.
+
+```ts
+// 헤더가 없으면 strippedPath = "/"
+// → interview, portfolio 네임스페이스 전부 제외됨
+const messages = scopeClientMessages(await getMessages(), strippedPath)
+```
+
+이걸 추적하는 데 Bash 116번, Read 25번, Edit 22번이 들어갔다. 수정 자체는 단순했지만 **"키는 있는데 왜 안 보이나"**를 next-intl 내부 동작 수준까지 파고드는 과정이 길었다.
+
+이후 Playwright E2E 스펙(`e2e/i18n-softnav.spec.ts`)과 CI 워크플로(`.github/workflows/ci.yml`)를 추가해서 재발 방지까지 완료했다. 수정·생성 파일은 총 28개였다.
+
+## dental-clinic 서브에이전트 패턴
+
+치과 작업(세션 4·5)은 직접 처리하지 않고 `dental-clinic` 서브에이전트에 위임했다. 세션 4는 정기 측정 — SERP 순위, 블로그 인덱싱 상태, 플레이스 리뷰를 자동 실측해서 `history.json`·`monitoring/` 로그를 업데이트하는 작업이다. 메인 세션에서 쓴 tool call은 단 2개였다.
 
 ```
-왜 raw 키가 보이는지 next-intl 메시지 로딩 경로를 따라가서 찾아줘
+Agent(dental-clinic) → 측정 실행 → history/cache 갱신 → sync.sh → 커밋·Vercel 재배포
+나 → 결과 다이제스트 확인 → 완료
 ```
 
-Claude가 `i18n/request.ts`의 `scopeClientMessages(await getMessages(), strippedPath)`를 찾아냈다. 라우트별로 클라이언트에 보낼 i18n 네임스페이스를 `x-cc-pathname` 헤더 기반으로 골라 보내는 최적화 함수였다. 헤더가 비어있으면 `strippedPath`가 `/`로 떨어지면서 interview / portfolio 네임스페이스를 통째로 제외해버리는 구조. 이 함수 하나가 범인이었다.
+세션 5(주간 콘텐츠 준비)는 서브에이전트가 도중에 멈췄다. `sync.sh` 중간에 에이전트가 죽어서 콘텐츠는 다 만들어졌는데 커밋이 안 된 상태였다. 파일시스템 직접 확인 → 의료법 컴플라이언스 린터 수동 실행 → 커밋까지 직접 마무리했다. 에이전트 결과는 믿지 말고 반드시 검증해야 한다.
 
-Read로 코드 경로를 전부 추적하면서 Bash 116번을 썼다. dev 서버를 올리고, 실제 렌더 HTML에 raw 키가 찍히는지 확인하고, 수정 후 `playwright.config.ts`까지 새로 붙였다. 브랜치 보호 설정도 이 세션에서 함께 처리했다. 모바일 320px 헤더 오버플로와 버튼 텍스트 한 글자씩 깨지는 문제도 같이 잡았다.
+## 12개 에이전트 병렬: 사업계획서 팬아웃
 
-## 13개 유닛 × 적대적 재보정 — 펀딩 통과확률 숫자로 뽑기
-
-세션 4는 `/effort ultracode`로 시작했다. 정부/민간 지원 프로그램 통과확률을 "냉정하게" 숫자로 뽑는 게 목적이었다.
-
-기존 보고서에는 "중상/중/하" 같은 정성 평가만 있었다. 프롬프트:
+세션 8에서 치과 마케팅 자동화와 preterview 두 사업의 사업계획서를 동시에 작성했다. 단일 컨텍스트로 쓰면 각각 편향이 생기고 커버리지도 불완전하다 — 그래서 동적 워크플로로 팬아웃했다.
 
 ```
-preterview / 치과 각각 핏에 맞고 확률이 높은것들이랑, 얼마주는지, 냉정한 통과확률이랑 해서 심플하게 보고서로 줘
+Foundation (병렬 6) → Plans (병렬 2, high effort) → Strategy (병렬 2) → Verify (적대적 검증)
 ```
 
-단일 추정으로 찍으면 편향이 들어간다. Claude가 스스로 판단해서 동적 워크플로를 띄웠다: 13개 프로그램×사업 유닛을 독립 추정 → 회의적 재보정(adversarial) 파이프라인으로 돌렸다. 결과는 `~/reports/funding-conclusion-2026-06-22.md`로 나왔다.
+12개 에이전트가 동시에 돌아갔고, 결과물은 약 127만 토큰 분량의 원고였다. 이걸 합쳐서 OD-equivalent 렌더러(`md2report/report.py`)로 HTML·PDF로 출력했다.
 
-같은 세션에서 preterview 첫 결제 경로도 워크플로로 설계했다 — 6개 렌즈(Reddit/niche-forum, Product Hunt, 직접 영업 등) 병렬 설계 후 EV 랭킹. 결론은 Paddle(Merchant of Record)로 정착했다. 법인 없음·예산 $0·1인 제약 조건에서 세금·VAT 처리를 가장 적게 신경 쓰는 구조다.
+세션 9에서는 **"통과확률을 냉정하게 보정"**하는 워크플로를 추가로 돌렸다. 지원 프로그램 13개 유닛을 독립 추정 → 회의적 재보정 파이프라인으로 처리해서, 단일 추정의 낙관 편향을 걷어냈다. 프라이머 29기(preterview) 23%, 링크업 치과 31% 등 숫자로 정리됐다.
 
-## 사업계획서 12에이전트 — 127만 토큰, 34분
+## X 봇 개선: 불규칙 발행 + AI 말투 제거
 
-세션 6이 이날의 하이라이트다. 치과 마케팅 자동화 + preterview 두 사업 사업계획서를 "기술적·상업적으로 뛰어나게" 써달라는 요청이었다.
+세션 3은 사주앱의 X 봇 개선이었다. 6시간 고정 발행(`20 */6 * * *`)이 자동화 티가 너무 났다. 세 가지를 고쳤다.
 
-Claude가 작업 디렉터리 `~/funding/bizplan-2026-06-21/`를 만들고 12개 에이전트를 fan-out했다.
+첫째, 슬롯 카운터 방식을 버리고 날마다 다른 4개 슬롯으로 불규칙화했다. 둘째, 스레드 포맷(연속 트윗)을 OFF하고 단일 트윗만 남겼다. 셋째, AI 말투 스크럽을 프롬프트 레벨에서 강화했다. `vercel.json` cron 표현식도 `*/15 * * * *`로 바꿔 슬롯 게이트를 앱 로직에서 직접 처리하게 했다.
 
-- Foundation (병렬 6): 제품 프로파일 × 2 / 정부·공공 비지분 프로그램 / 민간 VC·AC / 정부 PSST 합격설계도 / 민간 IR 합격공식
-- Plans (병렬 2, high effort): 각 사업 완결 사업계획서 (PSST + IR + 3개년 재무 + 단위경제 + 기술아키텍처)
-- 이후 Strategy / Critique / Assemble 단계 순차 실행
+## 의료광고 심의: 브라우저 자동화로 이력 추적
 
-34분, 약 127만 토큰. `REPORT.md` 약 7,747단어로 완성됐다. 이걸 `md2report/report.py`(Pretendard 폰트, 인쇄/PDF용 OD-equivalent 렌더러)로 HTML+PDF 변환했다.
+세션 6에서 네이버가 소재를 막았다. 이유는 "심의필번호 미기재". 기존 KDA 사전심의 신청 이력을 직접 확인해야 했는데, `mcp__claude-in-chrome`으로 `dentalad.or.kr`까지 탐색했다. computer 19번 + navigate 4번 조합으로 외부 관리 시스템을 탐색해서 2023년 발급된 심의필번호가 존재한다는 걸 확인했다.
 
-멀티에이전트 워크플로의 실질적인 장점이 여기서 드러났다. 한 컨텍스트에서 PSST 합격설계도를 분석하면서 동시에 IR 합격공식을 연구하고, 재무 모델을 뽑고, 적대적 검증까지 병렬로 돌린다. 순차적으로 했으면 몇 시간이 걸렸을 작업이다.
+## 통계 요약
 
-## X봇 개선 — 6h 고정 스케줄에서 불규칙 슬롯으로
+총 세션 9개, tool calls 513회. Bash 245, Read 72, Edit 58, Write 33, mcp__claude-in-chrome 43. 수정 파일 23개, 생성 파일 31개. 단일 세션 최다는 193 calls(preterview i18n 버그). 서브에이전트는 dental-clinic × 2, dynamic workflow × 4.
 
-세션 3, saju_global X봇 작업은 짧지만 클린한 케이스다.
-
-"봇 돌리는 게 너무 안 좋은데?" 한 마디로 시작했다. 확인해보니 스팸봇 타입은 아니었다 — 6시간마다 공식 X API로 1건 발행하는 구조. 문제는 발행 시간이 예측 가능하고, 스레드 포맷이 스팸 패턴처럼 보일 수 있다는 점이었다.
-
-세 가지를 패치했다.
-
-`rotate.ts`에서 `slotCounter`(6h 고정)를 제거하고 매일 바뀌는 4개 불규칙 슬롯 로직으로 교체했다. `formats.ts`에는 스레드 포맷 OFF 스위치와 `ACTIVE_FORMATS`를 추가했다. `generate.ts`에는 AI 말투 스크럽 강화 + 모델 업그레이드를 적용했다.
-
-`vercel.json` cron도 `20 */6 * * *` → `*/15 * * * *`로 바꿨다. 15분마다 cron을 돌리되 내부 스케줄 게이트로 실제 발행 시간을 제어하는 패턴이다.
-
-이 세션은 Bash 25회, Read 13회, Edit 10회. 경량 작업이었지만 의도가 조금 모호한 부분은 `AskUserQuestion`으로 한 번 확인하고 진행했다.
-
-## 하루 작업 수치 정리
-
-388 tool call 중 Bash가 210번(54%)이다. 이 비율이 높은 이유는 두 가지다. 서버 실행·배포·playwright 실행처럼 터미널이 필요한 검증 작업이 많았고, 멀티에이전트 워크플로가 에이전트마다 bash 명령을 여러 번 호출한다.
-
-Opus 4.8 기준으로 동적 워크플로가 가장 빛난 작업은 사업계획서와 펀딩 분석이었다. 에이전트를 "찍어내는" 게 아니라 pipeline → adversarial verify 구조로 설계할 때 결과물 신뢰도가 올라간다.
-
-i18n 버그 추적처럼 단일 컨텍스트에서 코드 경로를 따라가는 작업은 에이전트 없이 직접 Read + Bash + Edit 루프가 더 효율적이었다. tool call 수가 많아도 빠르다. 작업 성격에 따라 도구를 가려 써야 한다는 건 결국 당연한 결론이다.
+하나의 Claude Code 세션에서 도메인 간 전환이 이 정도로 자연스러운 건, 라우팅 레이어를 명시적으로 세워뒀기 때문이다. dental-clinic 위임 / 동적 워크플로 팬아웃 / 직접 처리, 세 가지 경로를 상황에 따라 골라 쓰면 세션마다 컨텍스트를 다시 쌓는 비용 없이 작업을 이어갈 수 있다.
