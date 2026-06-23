@@ -1,128 +1,146 @@
 ---
-title: "Codeit Shipped First — So I Ran 11 Claude Code Sessions and 664 Tool Calls"
+title: "335 Tool Calls in One Session: AI Avatar Interviews and Paddle Payments with Claude Code"
 project: "portfolio-site"
 date: 2026-06-23
 lang: en
 pair: "2026-06-23-portfolio-site-ko"
-tags: [claude-code, preterview, heygen, simli, paddle, visual-interview, competitive-analysis, ultracode]
-description: "Codeit launched an AI mock interview product 6 days before this log. Here's what 11 sessions, 664 tool calls, and 51 hours of Claude Code looked like in response."
+tags: [claude-code, preterview, heygen, simli, paddle, multi-agent, ultracode]
+description: "13 sessions, 64 hours, 853 tool calls over 3 days. Shipping HeyGen+Simli visual interviews and Paddle international payments for Preterview — with the real friction included."
 ---
 
-Eleven Claude Code sessions. 664 tool calls. One session that ran for 27 hours and 28 minutes straight. Six days after a competitor shipped, this is what the response looked like — not a pivot meeting, not a roadmap review, just Claude Code running through live avatar interviewers, international payment wiring, a 24-agent ad strategy sweep, and cold email drafts, all in parallel.
+One session ran for 27 hours 28 minutes and made 335 tool calls. That's not a typo. It's what happened when I asked Claude Code to build a real-time AI avatar interview system from a single sentence — three photo-realistic interviewers, lip sync, push-to-talk, browser control, the whole thing.
 
-## TL;DR
+This is the sprint log for Preterview: 3 days, 13 sessions, 853 total tool calls. AI visual interviews (HeyGen + Simli), Paddle international payments, a public demo page, and an ad strategy research pass — all in the same sprint.
 
-Codeit launched "Ascent," an AI mock interview product, on June 17. The build log from the following six days covers: a photorealistic avatar interview POC using HeyGen + Simli, Paddle international payment integration replacing PayPal, a 24-agent ad research workflow consuming approximately 880k tokens, a sales page, and cold email templates. The biggest bottleneck wasn't code quality or architecture. It was cost — specifically, keeping a 20-minute, 3-interviewer session under $1.
+**TL;DR:** Claude Code holds up as a combined project manager and implementer. Stack decisions, cost modeling, and code all fit in a single session. The real tax: any integration touching external APIs takes roughly 2× longer than you estimate. Missing `.env.local`, vendor rate limits, and concurrent session caps accumulate fast.
 
-## The Competitor Audit That Started Everything
+## The Session That Ate 27 Hours
 
-Session 10 came in with a direct ask: "Codeit just launched something that looks like Preterview — compare them."
+Session 5 started with this:
 
-Claude's first move was product reconnaissance, not code. It mapped the Preterview stack (resume builder, 5-axis portfolio review, 3-interviewer AI voice mock interview, credit billing, global targeting) and cross-referenced against the Codeit product. Result: Ascent, launched June 17, 2026. Exactly six days earlier.
+> "Like a real Zoom interview — three interviewers rendered in 3D, lip sync, they can see my screen, I use a microphone"
 
-The response ran as a two-stage workflow. Stage one: establish what Ascent actually does and where it overlaps with Preterview. Stage two: answer "how do we differentiate and sell better" — competitor dissection, internal gap audit, channel and pricing research, a first draft, adversarial self-critique, and a concrete action plan, in that order.
+No spec doc. No architecture diagram. Just that sentence.
 
-The overlap was real but bounded. Both products do post-interview reports (attitude and delivery scoring plus multi-dimensional competency ratings) and resume/cover-letter to expected-question pipelines. That's adjacent market territory, not a head-on collision — but the timing created urgency.
+The first thing Claude did wasn't write code — it decomposed scope. Two branches:
 
-## 335 Tool Calls — The Visual Interview Session
+**Scope A — Push-to-talk.** You speak, submit, the interviewer responds. Looks like Zoom, but it's turn-based under the hood. Interviewer audio can be pre-generated, timing can be extracted offline, and the Web Speech API (free) handles the user's side.
 
-Session 5 started with one sentence.
+**Scope B — Real-time.** The system listens continuously and interjects naturally. Requires WebRTC + VAD. Contains roughly 90% of the cost and complexity.
 
-> "I want an interview that renders 3 interviewers as 3D faces like a real Zoom call, with synchronized lip movement, requires my screen, and uses my mic."
+Scope A won. The reasoning was concrete: pre-generating audio makes timing extraction deterministic, no streaming pipeline is required, and the free Web Speech API stays intact. Before any code was written, Claude generated `~/reports/preterview-scopeA-options.html` — a layer-by-layer option comparison within Scope A constraints. Decide first, build second.
 
-27 hours and 28 minutes. 335 tool calls. That single session accounts for 51% of all tool calls across the entire 11-session run.
+Vendor selection ran through a dynamic multi-agent workflow. HeyGen Streaming API, Simli, LiveAvatar, and D-ID were all benchmarked against latency, pricing, and concurrent session limits. Result: **HeyGen for avatar streaming + Simli for real-time lip sync**.
 
-The first thing Claude did was split the scope — cleanly, before touching any code.
+New files from that session: `HeyGenAvatarTile.tsx`, `SimliAvatarTile.tsx`, `VisualInterviewPoc.tsx`, `heygen.ts`, `simli.ts`, plus three API routes. `mcp__claude-in-chrome__computer` was called 48 times — Claude drove the browser directly to validate UI state rather than guessing from code alone.
 
-**Scope A — Push-to-talk.** You speak, submit, the interviewer responds. It looks like Zoom but it's turn-based.
+The session transcript has moments like this still in it:
 
-**Scope B — True real-time.** The system listens continuously and can interrupt. Requires WebRTC + VAD. About 90% of the cost and effort lives here.
+```
+"still showing 3D model"
+"no"
+"you can restart the server yourself"
+```
 
-Scope A was confirmed, and vendor selection began. A 3D model went in first. Then immediately: "How do we switch to photorealistic avatars?"
+`.env.local` was missing, so API keys weren't loading. Server restarts were needed to pick up env changes. Three simultaneous avatars failed — Simli's concurrent session limit was one. These aren't bugs in Claude's output; they're the expected friction of live external API integration. 335 tool calls is what working through that friction looks like.
 
-Claude ran web searches against HeyGen Streaming API, Simli, LiveAvatar, and D-ID — not to read docs, but to verify actual latency and pricing against real architecture constraints. The Preterview architecture is turn-based, which means avatar video can be pre-generated rather than streamed in real-time. That narrowed the viable combination: HeyGen for avatar streaming, Simli for real-time lip sync.
+## "Under $1 Per 20-Minute Interview"
 
-Files created: 8 new, 6 modified. `HeyGenAvatarTile.tsx`, `SimliAvatarTile.tsx`, `VisualInterviewPoc.tsx`, `heygen.ts`, `simli.ts`, and 3 API routes.
+Same session. After the POC was running, the cost constraint landed:
 
-The `mcp__claude-in-chrome__computer` tool was called 48 times. Claude was directly driving the browser, checking UI state visually, and fixing what it saw. The session transcript has raw mid-build messages still in it:
+> "this is way too expensive — one interview needs to be around $1, 20 minutes, no more"
 
-> "It's still showing the 3D model" / "Not working" / "Can't you restart the server yourself?"
+LiveAvatar was the first attempt. Real API key, real test run. Per-session cost came back over budget.
 
-`.env.local` was missing, so API key wiring failed. Changes weren't taking effect without a server restart. Three avatars were supposed to render simultaneously but only one did — that turned out to be a Simli concurrent session limit.
+Claude ran a dynamic workflow: *"Verify cheapest path to ≤$1 per 20-min 3-interviewer photoreal session."* Agents fanned out across vendor pricing pages, API docs, and community threads. Output: a stack-ranked list of paths that hit the budget.
 
-## "It Has to Cost Under a Dollar per Interview"
+The winning path: Simli Free tier for lip sync + generate each avatar once and reuse across sessions. One-time generation cost amortized to near-zero per interview. The constraint forced a useful architectural insight — stateless avatar rendering is cheaper than stateful streaming. Lock this kind of constraint in early because it reshapes the architecture.
 
-Cost became the actual constraint. The budget line landed mid-session:
+## Paddle Payments: Read the Existing Code First
 
-> "This is way too expensive. It needs to be under a dollar for a 20-minute interview. That's the ceiling."
+Session 9 started with six words: *"attach Paddle payments to Preterview."*
 
-LiveAvatar was tried first. Credits were loaded, real API keys were wired up, and actual tests ran. The per-session cost came in over the limit.
+That became 249 tool calls across 23 hours 21 minutes.
 
-Claude spun up a workflow — 24 agents cross-verifying vendor pricing and narrowing down viable paths within the "$1 / 20 minutes / 3 interviewers" budget. The conclusion: leverage the Simli Free tier, and generate each avatar once and reuse it rather than generating fresh video per session.
+Before writing a single line, Claude read the entire existing payment architecture. The `feat/geo-payment-routing` branch was already merged. The structure was already in place: Korea → PayApp (KRW), International → PayPal (USD), three credit pack tiers (₩9,900 / ₩49,000 / ₩99,000), idempotent credit fulfillment logic, webhook-based fulfillment pattern.
 
-It's a meaningful constraint to lock in early. The architecture you build around "$1 per session" looks different from the one you'd build if cost wasn't a hard ceiling.
+The decision followed directly from the read: **replace only the international path (PayPal → Paddle)**. Don't touch the Korean PayApp integration.
 
-## Paddle Integration: Reading the Existing Code Was Half the Job
+Paddle's official docs were verified before implementation — specifically webhook signature validation, because getting that wrong is catastrophic and silent. Files generated: `lib/payments/paddle.ts`, three API routes (`create`, `webhook`, `confirm`), `PaddleBuy.tsx`, and `docs/paddle-setup.md`.
 
-Session 8 started with one line: "Let's wire up Paddle payments for Preterview."
+The sandbox setup ran in-session: sandbox API key (`pdl_sdbx_apikey_...`) issued from the Paddle dashboard, checkout page and success redirect verified via Chrome MCP. `mcp__claude-in-chrome__computer` was called 67 times. Separate Bash call count: 63.
 
-93 tool calls, 15 hours 27 minutes.
+The tool call count makes sense when you consider the depth of pre-implementation reading. When you're wiring into an existing payment system, thorough reading before writing is where correctness lives.
 
-Claude's first action was a full audit of the existing payment infrastructure before writing a single line. The `feat/geo-payment-routing` branch had already been merged. The structure: Korean users go through PayApp (₩), international users through PayPal ($). Three credit pack tiers (9,900 / 49,000 / 99,000 KRW), idempotent credit grant logic, and webhook-based fulfillment patterns were all already in place.
+## The Public Demo: Measure Cost Before Writing Code
 
-The conclusion was simple: replace only the international path. PayApp stays untouched.
+Session 6 — public demo page with 5–7 free turns. 1 hour 10 minutes, 43 tool calls.
 
-Before writing implementation code, Claude verified the Paddle documentation across four separate areas — client-side checkout, webhook signature verification, order creation, and credit fulfillment — because getting webhook signature verification wrong is a silent failure mode that only shows up in production disputes.
+The sequence was deliberate: **cost modeling first, implementation second**.
 
-Files produced: `lib/payments/paddle.ts`, three API routes (`create`, `webhook`, `confirm`), `PaddleBuy.tsx`, and `docs/paddle-setup.md`.
+`scripts/demo-cost.mjs` ran a real single-turn test through Claude Opus 4.8 and counted tokens. With measured per-turn cost in hand, the per-IP rate limit policy was set from data rather than intuition. The demo route structure followed `/interview` conventions exactly: thin async server page + `DemoInterview.tsx` client component + standalone `app/api/demo/turn/route.ts`. When the architecture is clear upfront, 43 tool calls is enough to ship a feature end-to-end.
 
-Tool breakdown: Bash (40), Read (18), Edit (10), Write (6). The Read count is notably higher relative to the visual interview session — this session spent proportionally more time understanding existing patterns and following them precisely, rather than generating net-new code.
+## The PRD Written After Reading the Code
 
-## 24 Agents, 880k Tokens, One Ad Strategy
+Session 7 — PRD PDF. 10 minutes, 23 tool calls.
 
-Session 9 opened with `/effort ultracode` and ran two workflows.
+First draft generated. User feedback: *"the mock interview section is the core — strengthen it."*
 
-First workflow: "Is Instagram the right channel? What's the most effective targeting and budget allocation, with actual numbers, for both Korean and global markets?"
+Claude re-read the actual interview feature code, then rewrote the PRD. The mock interview section expanded from a paragraph to six sub-sections: three-stage interview setup, three-interviewer panel roles, live interview room features, follow-up question loop, post-interview report, and re-interview flow.
 
-Five agents ran in parallel pulling 2024–2025 benchmark data: Naver PowerLink CPC, Meta Korea CPM, Kakao Moment, global Meta and TikTok, and Reddit. The outputs then went through adversarial verification — and all 13 core metrics were revised. Single-agent estimates trend optimistic. Adversarial cross-checking is what makes the numbers usable.
+Next request: *"text isn't readable on mobile."* CSS font-size adjustment, re-render. Done.
 
-Second workflow: "Do steps 1, 2, 3." — Naver PowerLink setup, three Reddit ad creatives, and a pixel + landing page QA checklist, each generated with platform-specific constraints baked in and verified against actual specs.
+The sequence matters: code read → PRD rewrite → layout fix. The document reflects what was actually built, not what was planned before building.
 
-Total: 24 agents, approximately 880k tokens. The tool call count shows 18 in the main session — the actual agent invocations inside the workflows multiply that figure considerably.
+## Ad Strategy: Adversarial Verification Rewrote Every Number
 
-## Demo Video, Sales Page, Cold Email
+Session 10 opened with `/effort ultracode`. The ask: objective benchmarks with sources for ad spend targeting, both Korea and global markets.
 
-Session 4 rewrote `preterview-demo.html` around a game developer portfolio scenario and turned it into a video. Playwright extracted frames using `?capture=1&t=<seconds>` parameters, ffmpeg encoded the output. Two files: `preterview-demo-ko.mp4` and `preterview-demo-en.mp4`, both 1280×720 at 30fps, each 39.5 seconds.
+Two dynamic workflows ran.
 
-Session 7 went through the `open-design` skill to produce the sales page and cold emails. Brand tokens were pulled directly from Preterview's `globals.css` and bound into the design — violet accent `#6E56F7`, near-black hero background. Two cold email variants: one for influencers, one for university career centers. Both written in inline CSS for email client compatibility.
+**First workflow:** Five agents ran in parallel — Naver PowerLink CPC rates, Meta Korea CPM, KakaoMoment benchmarks, global Meta ad performance (2024–2025 actuals), Reddit ad benchmarks. After the initial pass, adversarial verification ran: agents were tasked with refuting each claimed number. Result: **13 out of 13 key figures were revised**. Single-agent estimates carry optimism bias. Adversarial cross-checking is what makes benchmark numbers usable for actual budget decisions.
 
-Session 6 built a public demo page capped at 5–7 turns. IP-based rate limiting was added to put a ceiling on Opus API costs. The cost was actually computed by running a real single-turn test against Opus 4.8 pricing (input $5/1M, output $25/1M) rather than estimated.
+**Second workflow:** Naver PowerLink campaign setup, three Reddit ad creative variants, pixel + landing page QA checklist — validated against current platform constraints. Total: 69 tool calls.
 
-## The Full Numbers
+The output was an actionable channel-by-channel spend plan with sourced numbers that had already survived a refutation pass.
+
+## The Sidebar Sessions
+
+**Session 4 (38 min, 45 tool calls):** `preterview-demo.html` rewritten as a game developer portfolio interview scenario. Playwright extracted frames, ffmpeg encoded them. Output: `preterview-demo-ko.mp4` and `preterview-demo-en.mp4`, both 1280×720, 30fps, 39.5 seconds.
+
+**Session 2 (13 min, 1 tool call):** Dental clinic keyword ranking check. The single tool call was `Agent(dental-clinic)` — full delegation. The sub-agent handled placement ranking measurement, `history.json` update, and `sync.sh` push internally. Sub-agent internals don't appear in the main session's tool call count.
+
+**Session 1 (5 min, 17 tool calls):** Cron job status check. 26 deliveries confirmed, PDF report generated — 4 pages, 776KB.
+
+**Session 3 (1h 4min, 20 tool calls):** Research on a startup data leak incident — separate project context.
+
+**Session 8 (2h 44min, 51 tool calls):** Korean government and private startup support program research.
+
+## Full Session Stats
 
 | Session | Duration | Tool Calls | Focus |
 |---------|----------|------------|-------|
-| 1 | 5m | 17 | JDLab cron status report |
-| 2 | 13m | 1 | Dental clinic monitoring delegation |
-| 3 | 1h 4m | 20 | Research on startup data leak incident |
+| 1 | 5m | 17 | Cron status report |
+| 2 | 13m | 1 | Clinic ranking check (delegated) |
+| 3 | 1h 4m | 20 | Startup data leak research |
 | 4 | 38m | 45 | Preterview demo video |
 | 5 | 27h 28m | 335 | Visual interview POC (Simli + HeyGen) |
 | 6 | 1h 10m | 43 | Public demo page |
-| 7 | 1h 52m | 75 | Sales page + cold emails |
-| 8 | 15h 27m | 93 | Paddle international payments |
-| 9 | 1h 6m | 18 | Ad strategy (ultracode) |
-| 10 | 1h 50m | 17 | Codeit Ascent comparison + action plan |
-| **Total** | **51h** | **664** | |
+| 7 | 10m | 23 | Preterview PRD PDF |
+| 8 | 2h 44m | 51 | Gov/private grant research |
+| 9 | 23h 21m | 249 | Paddle international payments |
+| 10 | 8h 46m | 69 | Ad strategy research (ultracode) |
+| **Total** | **64h** | **853** | |
 
-Sessions 5 and 8 — the visual interview POC and the Paddle integration — together account for 65% of total tool calls. The common thread: both sessions required reading a lot of existing code before writing any. Deep exploration accumulates Bash and Read calls faster than any amount of feature work.
+Session 5 (visual interview) is 39% of all tool calls. Session 9 (Paddle) is 29%. Both sessions started with deep reads of existing code before touching anything — exploration-heavy work stacks up Bash and Read calls fast.
 
-Session 2 shows 1 tool call. That was a delegation to a `dental-clinic` sub-agent, with only the digest coming back to the main session. Agent delegation doesn't appear in the main session's tool call count.
+## What's Left
 
-## What's Still Open
+- Simli lip sync quality: gaze tracking still reads slightly off, eye contact breaks immersion
+- Paddle sandbox round-trip test: full purchase → webhook → credit fulfillment
+- Public demo deployment: confirm production routing before announcing
 
-The Simli lip sync quality needs another pass — eye contact in particular still reads as slightly off. Paddle sandbox needs a full round-trip test. And the Preterview action plan v2 has a stated target of "N paying customers within 8 weeks" that hasn't been validated yet.
-
-The competitor shipped first. The response was 51 hours of Claude Code sessions. Whether that's fast enough depends entirely on what ships next.
+The pattern from this sprint: external API integrations consistently take 2× estimated time. The code itself moves fast. The integration surface — missing secrets, vendor rate limits, concurrent session caps, sandbox quirks — is where the hours actually go.
 
 ---
 
