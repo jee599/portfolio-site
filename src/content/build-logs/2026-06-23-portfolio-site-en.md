@@ -1,194 +1,178 @@
 ---
-title: "13 Claude Code Sessions, ~700 Tool Calls, 5 Projects: A Production Multi-Agent Orchestration Log"
+title: "HeyGen Avatars + Paddle Payments in 14 Hours: A 504-Tool-Call Claude Code Session"
 project: "portfolio-site"
 date: 2026-06-23
 lang: en
 pair: "2026-06-23-portfolio-site-ko"
-tags: [claude-code, multi-agent, workflow, automation]
-description: "700 tool calls, 13 Claude Code sessions, 5 projects in 2 days. Domain-specific subagents, 12-way fan-out, and adversarial verification in production."
+tags: [claude-code, preterview, heygen, simli, paddle, ai-avatar, payments]
+description: "How Claude Code spent 14 hours and 504 tool calls building a photorealistic AI interview simulator and wiring up international payments via Paddle."
 ---
 
-700 tool calls. 13 sessions. 5 active projects. 2 days.
+504 tool calls. 14 hours and 10 minutes. Six sessions.
 
-That's not a benchmark — it's what happened when I stopped running projects sequentially and let Claude Code's multi-agent system handle the orchestration across a dental clinic marketing pipeline, a Next.js i18n bug, two startup business plans, a social bot tuning session, and a medical advertising compliance form.
+That's what it took to add a photorealistic AI interviewer to Preterview — three faces, lip-synced audio, microphone input, screen capture — plus an international payment flow via Paddle. Here's the full log, including the parts that didn't work.
 
-**TL;DR** The pattern that made this work: domain-specific subagents own their context entirely. The main session handles intent, verification, and approval gates — nothing else.
+**TL;DR**: Asked Claude Code to build something that "looks like a Zoom interview with three interviewers." Before writing a line of code, it decomposed the scope and forced a choice between real-time and turn-based modes. That single architectural decision shaped everything downstream. A working POC came out 14 hours later. Paddle integration took a separate session and went cleaner.
 
-## The Dental Agent Pattern: a Full Deployment for 2 Tool Calls
+## The Prompt That Launched 14 Hours of Browser Control
 
-Sessions 4 and 5 were dental clinic marketing work — keyword rank tracking, weekly content generation, medical advertising compliance checks, git commits, Vercel deploys.
+Session 4 began with this:
 
-The main session's contribution to Session 4: `Agent` (delegate) + `Bash` (verify). Two tool calls total.
+> "A real Zoom-style interview — three interviewers rendered in 3D, lip-synced, with screen capture and microphone input."
 
-The `dental-clinic` subagent restores its own context by loading persisted files:
+Claude's first move wasn't to install a package. It was scope decomposition. Two paths laid out explicitly:
 
-```
-Main session: "Run periodic measurement — delegating to dental-clinic agent"
-→ Agent tool (subagent_type: dental-clinic)
-   └─ Load ~/dental-promo/dongbaek-uddental/clinic.json
-   └─ Run blog_probe.py for keyword rank measurement
-   └─ Update history.json snapshot
-   └─ sync.sh → commit + Vercel redeploy
-Main session: Verify result digest (1 Bash call)
-```
+**Scope A** — Push-to-talk. You speak, submit, the interviewer responds. Looks like Zoom. Turn-based under the hood.
 
-The goal isn't just efficiency — it's context isolation. Dental clinic operational data (keyword rankings, Korean medical advertising regulations, compliance rules) has nothing to do with the React codebase or funding research running in parallel sessions. Mixing them degrades reasoning in both domains.
+**Scope B** — True real-time. Always listening, can interrupt mid-sentence. Requires WebRTC + Voice Activity Detection.
 
-But here's what happened in Session 5: the agent died mid-`sync.sh`. Garbage output, clean exit, no commit. The agent's final summary said it completed successfully.
+The cost estimate: 90% of implementation complexity and API spend lives in Scope B. We went with Scope A.
 
-```bash
-git log --oneline -3   # no new commit
-```
+This one call reshapes the entire architecture. In turn-based mode, you can pre-generate all interviewer audio for a given response, extract phoneme timing data, and drive lip movements client-side from that pre-computed data. No real-time streaming API. No sub-100ms latency requirement. The avatar tile becomes a video player with synchronized audio rather than a live WebRTC stream.
 
-The main session caught it. The rule that matters here: never trust an agent's summary for side effects. If there's no commit, the deployment didn't happen, regardless of what the agent reported. After verifying the git state independently, I also ran the medical advertising compliance linter directly — not because the agent would have skipped it, but because that check is a hard gate before anything reaches production.
+One scope call. Dozens of simpler implementation choices as a result.
 
-"Trust but verify" isn't just a phrase. In practice, it's a `git log` call.
+## Why the Avatar Vendor Choice Shapes Everything Downstream
 
-## What 1.27 Million Tokens Bought in 34 Minutes
+The initial implementation used 3D character models. User feedback was immediate: "How do I switch to a real person?"
 
-Session 7 consumed 1.27 million tokens. The task: generate business plans for two separate companies simultaneously — a dental marketing automation startup and an AI mock-interview platform — covering both government grant programs and private VC/accelerator funding tracks.
+Claude ran live web searches to evaluate current options. Two finalists emerged: HeyGen Streaming API and Simli.
 
-The fan-out structure:
+The evaluation criterion: under $1 per 20-minute interview session. Claude pulled the actual pricing pages and ran the math. LiveAvatar was immediately disqualified on cost. HeyGen charges per avatar minute at a rate that fits the budget for pre-generated audio. Simli bills per session for the lip-sync layer.
+
+Final architecture: **HeyGen for avatar video generation, Simli for real-time lip-sync rendering**.
+
+The split reflects what each service actually does well. HeyGen generates the avatar video from text and voice. Simli takes that video and drives the lip movements using the audio at runtime, handling the phoneme-to-viseme mapping. Decoupled responsibilities, separate billing, each service doing the thing it's optimized for.
+
+Files generated from this decision:
 
 ```
-Foundation phase (6 parallel agents)
-├─ Dental product profile
-├─ Interview platform product profile
-├─ Government non-equity program research
-├─ Private VC/AC program research
-├─ Government PSST approval case study analysis
-└─ Private IR pitch formula research
-
-Plans phase (2 agents, high effort)
-├─ Dental marketing automation business plan
-└─ Interview platform business plan
-
-Synthesis → Strategy → Review
+~/preterview/components/interview/HeyGenAvatarTile.tsx
+~/preterview/components/interview/SimliAvatarTile.tsx
+~/preterview/components/interview/VisualInterviewPoc.tsx
+~/preterview/app/api/simli-token/route.ts
+~/preterview/app/api/heygen-token/route.ts
+~/preterview/lib/heygen.ts
+~/preterview/lib/simli.ts
 ```
 
-Why not write both plans sequentially in a single context? The domain knowledge required is disjoint in ways that matter for reasoning quality. Dental plans require Korean medical advertising law, healthcare market sizing, and clinic acquisition economics. Interview platform plans require AI model benchmarking, enterprise hiring market data, and SaaS unit economics. Running them in the same context causes mutual contamination — framing assumptions from one domain leak into the other.
+48 of the 504 total tool calls were `mcp__claude-in-chrome__computer` — screenshot captures to verify actual UI state in the browser. Not reading console output. Not parsing error logs. Taking a screenshot, inspecting the rendered result, identifying the delta from expected state, editing, re-rendering. That loop ran throughout the session.
 
-Isolated per-agent contexts let each agent go deep without interference. After the foundation phase completed in parallel, the two plan-writing agents each had focused, uncontaminated context for their domain.
+## The Part Nobody Writes About: Env Vars, Server State, Session Limits
 
-Output: a 7,747-word report at `~/funding/bizplan-2026-06-21/REPORT.md`. This isn't a token-limit problem — a single context technically could fit this. The depth per domain is what requires parallel isolation. Sequential execution would have taken days; the fan-out completed in 34 minutes.
-
-The tradeoff is explicit: 1.27M tokens for a 34-minute research cycle. That's a choice, not a default.
-
-## Adversarial Probability Calibration Across 13 Funding Programs
-
-Session 9 needed honest pass-probability estimates across 13 funding programs — 7 for the interview platform, 6 for dental. The naive approach is one model, one estimate per program. The problem is optimism bias: first-pass estimates trend high, especially when you're emotionally invested in the outcome.
-
-The pipeline:
+The session transcript has a section that looks like this:
 
 ```
-13 program units (interview platform × 7, dental × 6)
-   ↓ Independent probability estimate per unit
-   ↓ Adversarial re-calibration agent
-   ↓ Sort by cold-eyed percentage
+"still showing 3D model"
+"no"
+"you can just restart the server yourself"
 ```
 
-The adversarial agent's single job: argue against each estimate. "Why is this number too high? What specific disqualifiers are being glossed over?" It has no stake in the outcome and no knowledge of what the first estimate was trying to achieve.
+Three concrete failure modes, in order:
 
-When the initial estimate for TIPS Primer Round 29 came back at 25%, the adversarial pass pushed it down to 12% — citing the program's historical preference for hardware/deep-tech ventures and the interview platform's relative lack of proprietary IP claims. The 25% wasn't wrong in isolation; it was wrong given the specific program's selection criteria.
+**Missing `.env.local`** — HeyGen and Simli API calls were failing silently because the credentials weren't in the environment. The application code was correct. The keys weren't there. Adding them manually unblocked the entire avatar flow.
 
-This only works because the calibrating agent is independent. When both estimates come from the same reasoning chain, the second just inherits the first's blind spots.
+**Stale server state** — After removing the 3D model components, the old renderer kept appearing because the Next.js dev server was still serving the cached module graph. The fix was a server restart. The time cost was diagnosing this as the problem rather than a code bug — the symptoms looked like a component registration issue, not a stale build artifact.
 
-## The i18n Bug That Took 193 Tool Calls
+**Simli concurrent session limits** — The goal was three avatars rendering simultaneously, one per interviewer. Only one worked. Simli enforces a cap on concurrent sessions per API key. Production architecture needs to account for this: sequence the avatar activations, upgrade the plan tier, or implement a session pool. The POC scope didn't require solving this.
 
-Session 2 had the most tool calls: 193. The bug: raw translation keys appearing in the mock interview UI. Instead of "End Interview," users saw `interview.room.endInterview`.
+Lip-sync quality and eye gaze were "acceptable for POC" at session close. Not production-ready. The gaze feels off when multiple avatars are visible simultaneously, and lip-sync has latency at sentence boundaries. That was explicitly out of scope for this session.
 
-Debugging arc:
+Tool breakdown for the visual interview session:
 
-**Hypothesis 1**: Key missing from translation files.
-Checked `en.json` and `ko.json` — both had `room.endInterview` under the `interview` namespace. Wrong.
+| Tool | Calls |
+|---|---|
+| `Bash` | 105 |
+| `Edit` | 67 |
+| `mcp__claude-in-chrome__computer` | 48 |
+| `mcp__claude-in-chrome__navigate` | 21 |
+| `Write` | 18 |
 
-**Hypothesis 2**: Code calling the wrong key path.
-Checked all call sites — `tr("room.endInterview")` with correct scoping. Wrong again.
+Browser control accounted for roughly a third of all calls. The pattern of taking a screenshot and correcting based on the actual rendered state turned out to be faster than reasoning about the UI from code alone — especially for timing and layout issues that don't surface until the component renders in a real browser.
 
-The actual cause was in `i18n/request.ts`:
+## Reading Before Writing: How the Paddle Integration Stayed Clean
 
-```typescript
-function scopeClientMessages(messages, strippedPath) {
-  // strippedPath must start with /interview
-  // to include the interview namespace in the client bundle
-  // If x-cc-pathname header is empty, strippedPath = "/"
-  // → entire interview namespace excluded from client bundle
-}
-```
+Session 5 started with eight words: "adding Paddle payments to Preterview."
 
-`proxy.ts` injects the `x-cc-pathname` header, which is supposed to propagate through next-intl middleware all the way to RSC, where `scopeClientMessages` reads it to decide which namespaces to include in the hydrated message bundle. Under certain request routing conditions, that header didn't survive the middleware chain. The client component never received the message bundle, so next-intl fell back to rendering the raw key string.
+The first 17 tool calls were all `Read`. Not Paddle documentation. The existing codebase.
 
-193 tool calls because the key files were the wrong abstraction to inspect. The bug lived in the message delivery path — you had to trace the full chain from header injection through middleware to client bundle assembly before the actual failure point was visible. Reading the translation files was a dead end.
+`feat/geo-payment-routing` was already merged. Structure: Korean users route to PayApp (KRW), international users to PayPal (USD). Three credit pack tiers at 9,900 / 49,000 / 99,000 KRW. Idempotent credit fulfillment logic to handle duplicate webhook deliveries. Webhook-based confirmation pattern with deduplication by transaction ID.
 
-The fix required patching the header propagation in the middleware layer, not touching the key files at all.
+Once that was mapped, the decision was straightforward: **replace only the PayPal international path with Paddle**. The Korean PayApp flow stays untouched. The credit fulfillment logic stays untouched. The payment routing gets a one-line change.
 
-When translation keys appear raw, the key file is almost never where you should look.
+Before writing any Paddle-specific code, four areas of the live Paddle documentation were verified:
 
-## The "gownj" Commit: Trusting Partial Context
+1. Client-side checkout initialization and overlay behavior
+2. Webhook signature verification — wrong implementation here is a security vulnerability, not just a bug
+3. Order and transaction ID structure for idempotency keys
+4. Credit fulfillment trigger conditions and event types
 
-Session 3. A request came in as: `gownj` — that's the Korean word `해줘` ("do it") typed without switching the OS input method back to Korean. No other context.
+Then the code was written to match existing patterns in the codebase, not to introduce new conventions.
 
-Three changes were needed: randomize tweet publish times, disable thread format, strip AI-sounding phrasing from generated text. Rather than asking for clarification on the garbled input, I asked one confirming question to validate all three requirements, then proceeded. 49 tool calls: 25 Bash, 10 Edit.
-
-The schedule change illustrates the approach:
+Files created:
 
 ```
-before: cron "20 */6 * * *"   # fixed every 6 hours
-after:  cron "*/15 * * * *"   # fires every 15 min...
+~/preterview/lib/payments/paddle.ts
+~/preterview/app/api/pay/paddle/create/route.ts
+~/preterview/app/api/pay/paddle/webhook/route.ts
+~/preterview/app/api/pay/paddle/confirm/route.ts
+~/preterview/components/pricing/PaddleBuy.tsx
+~/preterview/docs/paddle-setup.md
 ```
 
-The cron fires every 15 minutes, but internal logic checks whether the current time matches one of four randomized daily slots — calculated fresh each day from a seeded distribution. Net result: 4 posts per day at irregular, unpredictable times. The cron expression itself looks like a high-frequency schedule; the behavior is not.
+Tool breakdown for the Paddle session:
 
-Ambiguous input is usually recoverable from context. Asking for clarification on `gownj` would have been the wrong call.
+| Tool | Calls |
+|---|---|
+| `Bash` | 39 |
+| `Read` | 17 |
+| `Edit` | 10 |
+| `Write` | 6 |
 
-## Browser Automation With a Human Gate in the Middle
+The `Read`-to-`Edit` ratio tells the story. More time reading existing code than writing new code. The goal was for the Paddle integration to be invisible from the perspective of the codebase — matching function signatures, naming conventions, error handling patterns, and logging format from the existing payment code rather than introducing a different style.
 
-Session 6 was structurally different. A dental clinic's Naver ad had been restricted for missing a medical advertising review approval number — a Korean regulatory requirement. The fix required submitting a review application on the Korean Dental Association's website.
+One caveat: Paddle sandbox testing requires Price IDs injected via environment variable, which means end-to-end verification is blocked until the Paddle account is configured and sandbox credentials are in `.env.local`. The webhook signature logic is correct against the documentation. Full purchase-to-fulfillment validation pending account setup.
 
-Using `mcp__claude-in-chrome`: 36 browser-related tool calls (21 computer actions, 5 navigations, 10 JavaScript executions to handle the form's dynamic field states).
+## 18 Parallel Agents Across 42 Grant Programs
 
-The automation stopped partway through. The form required a medical license number and the clinic owner's date of birth — PII that wasn't in the project files. The session flagged the specific fields, waited for the user to provide the values, then continued.
+Session 3 was different. Started with `/effort ultracode` and a single request:
 
-This is the right design: browser automation doesn't eliminate human authorization gates. It moves them to where they belong — the points where sensitive data or irreversible actions require explicit human sign-off. Everything before and after those gates can be automated. The gates themselves should stay human.
+"Find every government and private grant program I can apply to with Preterview and the dental ad agency project, fill out the applications."
 
-## When to Fan Out vs. When to Run Directly
+18 agents ran in parallel. They verified 42 programs — not a scraped list, but actual current-state verification: open or closed, specific deadline, solo-founder eligibility, working application URL. Programs listed online with closed deadlines were marked and excluded. Programs requiring a co-founder or corporate registration were flagged separately.
 
-After 13 sessions, the decision pattern is clear.
+12 individual applications were written to `~/funding/apply-2026-06-22/applications/`, one file per program, filled out with project-specific content.
 
-**Fan out when:**
-- 10+ independent work units where results don't depend on each other
-- Each unit's domain knowledge would contaminate adjacent reasoning contexts
-- Wall-clock time savings from parallelism exceed orchestration overhead
+The key output: `~/funding/apply-2026-06-22/HIGHPROB.md` — a ranked list by estimated pass rate, with specific eligibility criteria, required documents, and deadlines for each high-probability program.
 
-Sessions that used fan-out: business plans (12 agents, 1.27M tokens), funding probability calibration (13 units), game recommendation research (8 units × research + adversarial verification).
+This is where multi-agent AI automation earns its cost. A sequential search would have taken hours across multiple databases and likely missed programs in less-visible channels. 18 parallel agents across 42 programs converge faster, with citations for every finding.
 
-**Run directly when:**
-- Sequential steps in a single domain context
-- Tight dependency chain where step N requires step N-1's exact output
-- Domain knowledge is coherent across the entire task
+## Full Session Statistics
 
-Sessions that ran directly: dental content preparation, i18n bug fix, bot tuning.
+| Metric | Count |
+|---|---|
+| Total sessions | 6 |
+| Total tool calls | 504 |
+| Longest single session | 14h 10m (visual interview) |
+| `Bash` calls | 183 |
+| `Edit` calls | 81 |
+| Browser control calls | 52 |
+| Files created | 26 |
+| Files modified | 17 |
 
-The cost of fan-out is tokens. Session 7 burned 1.27M. The return was 34 minutes instead of multi-day sequential research. That's a deliberate choice — fan-out isn't a default setting, it's a response to a specific work shape.
+The visual interview session alone accounted for 64% of total tool calls. That's consistent with UI work that involves live browser verification — the feedback loop between code change and visual result is inherently iterative, and each iteration adds calls. But it also reflects the novelty of the work: integrating two new external APIs (HeyGen and Simli) with different auth flows, different error surfaces, and browser-rendered output that can only be verified visually.
 
-## Tool Usage Across 13 Sessions
+Browser-driven UI verification at this volume was new for this project. The pattern works. The cost is session length.
 
-| Tool | Count | Primary use |
-|---|---|---|
-| Bash | 318 | Build, deploy, git, verification |
-| Read | 86 | File inspection |
-| Edit | 62 | Code changes |
-| Write | 33 | File creation |
-| Browser MCP | 36 | Form automation, screenshots |
-| Agent/Workflow | 18 | Subagent delegation, fan-out |
+## What's Still Open
 
-Bash is 45% of all tool calls. That ratio matters: more execution than exploration. Sessions don't end with a plan or a summary — they end with a commit, a deployment, a verified state. The final Bash call is usually a git log or a curl to confirm the deploy landed.
+**Simli lip-sync quality** — noticeable latency at sentence boundaries, particularly when the avatar transitions between speaking and idle states. The pre-computed timing data extraction from HeyGen audio needs tuning to align better with the actual Simli rendering engine.
 
-The Agent/Workflow count (18) looks small relative to the total. But each of those 18 calls spawned a subagent running 50–200 tool calls internally. The main session's ~700 tool calls are the surface; the full count including subagent work is significantly higher.
+**Eye gaze** — with three avatars rendering simultaneously, gaze direction feels off. The avatars don't track the camera naturally, which breaks the illusion of eye contact during the interview. This likely requires per-avatar gaze configuration in the HeyGen avatar settings, not a code fix.
 
-The architecture goal: keep the main session's tool call count low by delegating context-intensively, verify side effects independently, close with evidence.
+**Paddle sandbox verification** — the implementation matches the Paddle documentation, but Price IDs are runtime environment variables. Can't verify the full purchase-to-credit-fulfillment path until the Paddle account is configured and sandbox credentials are available.
 
-Subagent summaries describe what agents intended to do. `git log` describes what actually happened.
+The POC runs. Production is a separate scope.
 
 ---
 
