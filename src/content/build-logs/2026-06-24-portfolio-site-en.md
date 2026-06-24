@@ -1,74 +1,120 @@
 ---
-title: "27 Hours, 335 Tool Calls, $1/Session: Building AI Visual Interviewers with Claude Code"
+title: "Claude Code 839 Tool Calls: Competitor Analysis, Paddle Payments, and Ad Pixels in 72 Hours"
 project: "portfolio-site"
 date: 2026-06-24
 lang: en
 pair: "2026-06-24-portfolio-site-ko"
-tags: [claude-code, preterview, ai-avatar, heygen, simli, multi-agent]
-description: "How I shipped photorealistic AI interviewers with HeyGen + Simli lip-sync into preterview using Claude Code — and crushed cost to under $1 per 20-min session."
+tags: [claude-code, preterview, paddle, multi-agent, automation]
+description: "How a solo founder used Claude Code multi-agent workflows to ship competitor analysis, Paddle payment integration, and ad pixels in 72 hours."
 ---
 
-27 hours and 28 minutes. 335 tool calls. One Claude Code session. That's what it took to wire a visual interview feature into preterview.
+839 tool calls across 7 sessions. That's what Claude Code logged while I compressed roughly a week of startup work into 72 hours — competitor analysis, government grant research, sales email production, Paddle payment integration, ad pixel setup, and somehow a moving checklist app along the way.
 
-**TL;DR** — Three photorealistic AI interviewers powered by HeyGen streaming + Simli lip-sync, running at under $1 per 20-minute session. Getting cost that low turned out to be harder than the implementation itself.
+**TL;DR** Dynamic Workflow (multi-agent fan-out) was the defining pattern of this sprint. Complex research got delegated to workflows; implementation was handled directly. Of the 839 total tool calls, Bash 286 · Edit 123 · Read 95 form the core triangle.
 
-## "Not 3D — Make It Look Like Zoom"
+## Dynamic Workflow Became the Default Operating Mode
 
-The initial ask was: three AI interviewers with faces, lip-sync, my camera on screen too. Before touching code, I ran a feasibility pass.
+Every session this week settled into the same structure: a complex question comes in, Claude doesn't answer it directly — it spins up a Dynamic Workflow instead. Dozens of agents fan out in parallel doing web search, code analysis, and cross-verification. When they finish, a `<task-notification>` comes back.
 
-Two scopes emerged. Scope A: turn-based with push-to-talk over HTTP. Scope B: real WebRTC with continuous streaming. B had 2× the implementation complexity and 10× the cost. We went with A.
+A concrete example: "I want to run ads for preterview — is Instagram better? Search for objective benchmarks on which channel and targeting give the best bang for the buck, both domestic and global." That single prompt kicked off a workflow with 24 agents. Five research agents ran in parallel collecting real benchmark data across Naver, Meta, Google, Reddit, and TikTok. Seventeen verification agents then audited every number for credibility. Result: 13 major data points were revised or refuted. Roughly 880k tokens, 245 web tool calls.
 
-First pass used 3D avatars. They worked. The feedback was immediate: "Not like that — make it look like a real video call." Pivot to photorealistic avatars.
+Every research-shaped question went through this pattern. I counted more than 7 workflow runs just this week.
 
-## Why HeyGen + Simli
+The efficiency gain isn't subtle. A research task that would take 3–4 hours of manual searching gets done in 15–20 minutes with adversarial verification baked in. The key insight is treating Claude not as a smarter search engine, but as an orchestrator — one that can spin up specialist agents and cross-check their findings before surfacing results.
 
-I ran vendor comparison as a multi-agent workflow — four parallel agents benchmarking HeyGen Streaming API, Simli, D-ID, and Tavus against three criteria: streaming latency (anything over 3 seconds breaks conversational flow), concurrent stream count (three interviewers means three simultaneous streams), and Korean TTS quality with 2026 pricing.
+## Dissecting a Competitor in Under 24 Hours
 
-HeyGen won on avatar quality and had a free tier for API testing. Simli's lip-sync accuracy was noticeably better than every other vendor on the shortlist. The final stack: HeyGen handles avatar streaming, Simli handles mouth tracking.
+On June 17th, Codeit launched Ascent — an AI mock interview product that directly overlaps with Preterview's core feature set. I found out six days after launch.
 
-New components: `SimliAvatarTile.tsx`, `HeyGenAvatarTile.tsx`, combined into a three-panel layout in `VisualInterviewPoc.tsx`. Also added external streaming domain allowances in `next.config.ts`.
+I threw a single prompt: "Codeit just released something that looks similar to my preterview — compare them based on the current state." The workflow fanned out across four tracks simultaneously: detailed product investigation of Ascent, company and strategy context for Codeit (including their KADE and WhatTime acquisitions), the broader domestic AI mock interview competitive landscape, and adversarial verification of the five key claims that emerged.
 
-## The Real Battle: Getting to $1/Session
+The verification stage surfaced one important refutation: the initial claim that "Ascent has GitHub/portfolio URL analysis" came back refuted — it doesn't exist. What was confirmed through actual testing: Ascent supports both video and voice, covers all job categories (with ~113 company-specific interview profiles), and is Korean-only. That's a fundamentally different market position from Preterview's developer-focused, globally-oriented, GitHub-integrated product. Adjacent market, not head-to-head competition.
 
-"This is way too expensive. One interview session needs to cost around a dollar — under that for 20 minutes."
+Total for this session: 163 tool calls. Bash 50 · Read 17 · Edit 14.
 
-Initial implementation landed at $5–10 per 20-minute session. HeyGen's streaming billing was higher than projected. I ran a dedicated cost optimization workflow — 24 agents, 880k tokens — and landed on three changes that got us under the target.
+The speed matters. Manual competitive research for a product launch would realistically take a full day with uncertain coverage. Having adversarial verification built into the workflow means the analysis arrives with explicit confidence levels on each finding — much more useful than a summary that silently elides uncertainty.
 
-First: don't stream all three interviewers simultaneously. Only the one currently speaking is active. Second: replace TTS with the Web Speech API wherever the audio quality delta doesn't matter. Third: HeyGen streaming only activates when an interviewer is actually delivering a line. Because it's turn-based, interviewer dialogue can be pre-generated and timed ahead of delivery — which means HeyGen is idle for most of the session duration.
+## Paddle Integration: 271 Tool Calls and Browser Automation
 
-## Ad Strategy, Also via Workflow
+The heaviest session of the week was Paddle payment integration: 23 hours 40 minutes elapsed, 271 tool calls.
 
-After shipping the visual feature, a separate session focused on paid acquisition strategy. The question: "Is Instagram better? Give me objective numbers on where to spend and who to target."
+Preterview already had geo-routed payments — Korean users go through PayApp, international users through PayPal. Paddle made sense as a PayPal replacement because it operates as a Merchant of Record, which handles international tax compliance automatically.
 
-Five parallel research agents: Naver PowerLink (Korea), Meta Korea, global Meta + TikTok, Google, YouTube, and job-seeker channel density analysis. 24 agents total, 880k tokens, 245 web searches, 8 hours 46 minutes to synthesize.
+Before writing any code, Claude validated the current integration approach against Paddle's live documentation. The stated reason: "Paddle Billing API changes frequently, and getting webhook signature verification wrong is catastrophic." After that validation pass, the generated files were:
 
-Conclusion: Naver PowerLink (Korea) + Google Search Ads (global). Job-seeker intent keywords had low CPC and high conversion intent. Ad pixel integration followed — `consent-banner.tsx`, `conversions.ts`, `track.ts` — all in the same session.
+- `lib/payments/paddle.ts`
+- `app/api/pay/paddle/create/route.ts`
+- `app/api/pay/paddle/webhook/route.ts`
+- `app/api/pay/paddle/confirm/route.ts`
+- `components/pricing/PaddleBuy.tsx`
 
-## A Competitor Launched Six Days Earlier
+The existing PayPal code was preserved but hidden from the UI — a clean failover path without dead code removal.
 
-Codeit, one of the larger Korean coding bootcamp platforms, shipped an AI mock interview product called Ascent six days before I ran this analysis. Needed to know if preterview was walking into a direct collision.
+What made this session unusual: `mcp__claude-in-chrome__computer` was called 67 times. Claude operated the browser directly — copying Price IDs from the dashboard, registering webhook endpoints, running sandbox payment tests. Browser automation as a first-class part of the implementation workflow, not a separate step.
 
-Workflow: four parallel research tracks (Ascent live product audit, Codeit strategy + KADE acquisition context, Korean AI interview competitive landscape, cross-verification of key claims) → individual verification of five major claims → synthesis.
+Mid-session I caught an issue: "Wait, isn't the checkout going through PayPal still, not Paddle?" Claude took a screenshot of the browser state, confirmed the routing logic had a bug, and fixed it. The feedback loop between browser automation and code editing compressed a debugging cycle that would normally require switching contexts repeatedly.
 
-The cross-verification step caught an important correction. The initial finding — "Ascent supports GitHub/portfolio URL parsing" — came back **refuted**. The feature doesn't exist. What Ascent actually is: a Korean-language-only product for all job categories (marketing, PM, manufacturing, ~113 company-specific interview sets). Preterview is developer-specific and English-capable. The overlap is a shared skeleton — voice mock interview plus multi-dimension feedback reports — but the target user is different enough that it's adjacent markets, not direct competition.
+## ₩500K Ad Budget, Three Workflow Runs, and Pixels on Every Page
 
-## Session Breakdown
+The advertising session (8 hours 46 minutes, 69 tool calls) had a progressively narrowing structure. It started broad — "Is Instagram better?" — and tightened through several turns: "Let's cap the budget at ₩500K and keep it trendy" → "What's a pixel exactly?" → "Let's go with Naver — find me the most cost-efficient keywords."
 
-| Session | Time | Tool Calls |
-|---------|------|------------|
-| Visual interview implementation | 27h 28min | 335 |
-| Competitor analysis + bug fixes + logging | 10h 25min | 163 |
-| Ad strategy research | 8h 46min | 69 |
-| Demo page | 1h 10min | 43 |
-| PRD | 10min | 23 |
+Three sequential workflow runs handled the research side:
 
-The 335 tool calls in the visual interview session broke down as: `Bash (110), Edit (72), mcp__claude-in-chrome (48), Write (18)`. Browser automation accounted for 14% of total calls — Claude directly operated the browser to check the HeyGen dashboard, visually verify lip-sync output, and confirm Simli credit balances.
+1. Channel, targeting, and budget benchmarks
+2. Naver PowerLink setup, ad copy drafts, and pixel implementation checklist
+3. Per-channel projected reach funnel model at the ₩500K budget
 
-## The Pattern That Solidified
+After settling on Naver, a fourth workflow run pulled real monthly search volume and CPC data to rank keywords by cost efficiency.
 
-Vendor comparison, keyword CPC research, competitor analysis — multi-agent workflows are dramatically faster for this class of work. A single session with full context is better for component-level implementation. The split is clean: research goes to workflow, implementation stays direct.
+The pixel implementation was direct code work:
 
-That's the model now. Spin up a workflow when the work fans out across independent sources. Stay in a single session when the work requires maintaining state across a file tree.
+- `components/marketing/analytics-scripts.tsx` — Naver Click Choice pixel + Google gtag loading
+- `lib/marketing/consent.ts` — GDPR consent state management
+- `lib/marketing/track.ts` — conversion event wrappers
+
+The advertiser scripts went into Next.js `layout.tsx`, with conversion events wired to the Paddle payment success page. The full funnel from ad click to purchase confirmation now has tracking coverage.
+
+## The Stop Hook Caught Two Commits Worth Keeping Clean
+
+Sessions 4 and 7 both hit the stop hook right before commit:
+
+```
+Stop hook feedback:
+Found 2 debug leftover(s) in working tree.
+```
+
+The hook detects debug log residue and temporary comments, blocking the commit until they're cleaned. Session 4 caught leftover debug code from the email HTML work. Session 7 caught a temporary comment inside the pixel implementation. Both times the follow-up was: "Check that everything related is working correctly and there are no side effects" — and Claude did a full scope review before the commit went through.
+
+The design gate also triggered repeatedly. Every time I generated HTML for the moving checklist app, a sales page, or an email template, it blocked until I specified the Open Design pass rationale. For the Preterview sessions, the gate cleared after confirming that `globals.css` verbatim tokens were bound to the generated output.
+
+These hooks aren't friction — they're the mechanism that prevents "it compiles" from being confused with "it's ready." Over a 72-hour sprint with context switching between five completely different problem domains, automated guards on commit quality are worth more than any manual review process I could realistically sustain.
+
+## Aside: A Moving Checklist App, Also Built with Claude Code
+
+Session 5 (1 hour 3 minutes, 79 tool calls) had nothing to do with startups. I'm moving into a 34-pyeong apartment, merging two households. I needed a tool to help sort what to keep, sell, and throw away.
+
+"Build it as a site and deploy it. Make sure it saves state."
+
+Claude produced three CSVs — appliance decision table, furniture decision table, utilities/admin checklist — and built an interactive app with keep/sell/toss classification, live aggregate counts, and localStorage auto-save. Deployed.
+
+This is a real pattern in solo founder Claude Code usage: personal life bleeds naturally into the work context. The same tool, the same workflow, the same session structure — the domain just changes. The overhead of spinning up a dedicated tool for a one-off personal project approaches zero.
+
+## By the Numbers
+
+| Category | Count |
+|----------|-------|
+| Sessions | 7 |
+| Total tool calls | 839 |
+| Bash | 286 |
+| Edit | 123 |
+| Read | 95 |
+| mcp__claude-in-chrome__computer | 97 |
+| Files modified | 30 |
+| Files created | 45 |
+
+The pattern that made this compression possible: research questions go to workflows, implementation is direct. That separation is what let 72 hours absorb what would normally take a full work week.
+
+Multi-agent orchestration isn't magic — it's a specific architectural choice. Treat Claude as an orchestrator rather than a single-threaded assistant, give it tools that can fan out and verify in parallel, and the throughput increase is real and measurable. 839 tool calls is a lot. But 839 individual prompts would have taken a month.
 
 ---
 
