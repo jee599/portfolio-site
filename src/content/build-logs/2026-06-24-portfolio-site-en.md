@@ -1,173 +1,177 @@
 ---
-title: "924 Tool Calls: When 'It Doesn't Work' Becomes Your Best Feature Spec"
+title: "PayPal to Paddle in 271 Tool Calls — 8 Sessions, 933 Total, One Week of Claude Code"
 project: "portfolio-site"
 date: 2026-06-24
 lang: en
 pair: "2026-06-24-portfolio-site-ko"
-tags: [claude-code, preterview, paddle, multi-agent, automation, logging]
-description: "10 sessions, 924 tool calls in 3 days: how a bug I couldn't reproduce triggered a logging system, Paddle payments, competitor analysis, and ad pixels."
+tags: [claude-code, preterview, paddle, cold-email, multi-agent, workflow]
+description: "One inverted boolean in geo.ts, 23h 40m to find it. What 933 Claude Code tool calls across 8 sessions produces: Paddle migration, competitor teardown, 185 cold emails."
 ---
 
-924 tool calls across 10 sessions. That's what Claude Code logged while I spent three days working from a single user report I couldn't reproduce — and ended up shipping a client-side logging system, Paddle payment integration, competitor analysis, ad pixel infrastructure, government grant research, and somewhere in the middle, a moving checklist app.
+The week started with a screenshot and a message: "Isn't this supposed to show Paddle, not PayPal?"
 
-**TL;DR** A "it doesn't work" feedback became the forcing function for a proper logging system — because I couldn't reproduce the bug without one. The rest of the sprint ran on a consistent pattern: Dynamic Workflow multi-agent fan-out handles research, Claude handles implementation directly. Total: 10 sessions, 924 tool calls, 100+ hours elapsed.
+That single screenshot launched Session 2 — 23 hours, 40 minutes, 271 tool calls to track down a payment gateway swap that wasn't fully working. By the end of the week, 8 sessions and 933 total tool calls had shipped: a Paddle integration, a 4-agent competitor teardown with one refuted claim, 42 government grant programs live-verified (then re-verified two days later), a moving checklist web app, and a cold email pipeline covering 185 universities with per-institution personalization.
 
-## The Bug That Refused to Show Itself
+**TL;DR**
+- Session 2 (23h 40m, 271 tool calls): PayPal → Paddle migration; the bug was an inverted boolean in `lib/geo.ts`
+- Session 4 (22h 37m, 168 tool calls): 4 parallel agents on Codeit Ascent + a client logging system from scratch
+- Sessions 5 & 7: 42 government grants validated, then re-validated two days later because grant status moves fast
+- Session 8 (27h 53m, 290 tool calls): 185 university cold email automation, each one personalized
+- Pattern across all 8: delegate research to dynamic workflows, implement directly
 
-Session 4 (22 hours 37 minutes, 168 tool calls) started with a user report: resume and portfolio uploads weren't working for a specific user. Claude tested it directly. It worked. Then the follow-up came:
+## The Screenshot That Took 23 Hours to Resolve
 
-> "The user said there was supposed to be a login alert, but it never appeared?"
+preterview already had geo-routed payments wired up: Korean users go to PayApp (KRW), international users go to PayPal (USD). The goal was replacing PayPal with Paddle. The operational reason is specific — Paddle is a Merchant of Record, meaning Paddle handles VAT, GST, and tax compliance in every country it supports. For a solo founder selling internationally, that eliminates an entire compliance surface area.
 
-"Try it yourself." Claude tried. This time it failed — the upload button triggered nothing. No error, no toast, no network request visible. And because there was zero logging on the client side, there was no way to trace where the flow had died. It was one specific user's failure path, and the stack was completely silent.
+Before writing a single file, Claude read through Paddle Billing's official documentation with a concrete concern: "Paddle Billing API changes frequently, and getting webhook signature verification wrong is catastrophic — a bad implementation lets anyone fake a purchase confirmation." Three things were locked down first:
 
-The direction locked in at that point. Not "fix the bug" — first build the logging system so we can see what's actually happening. You can't fix what you can't see.
+1. Webhook signature verification method (HMAC-SHA256 against Paddle's public key)
+2. `Paddle.js` v2 initialization pattern — differs from v1 in how the checkout overlay is constructed
+3. Idempotent credit grant pattern — prevent double-crediting when Paddle retries webhook delivery on transient failures
 
-A workflow ran to spec the architecture. Design conclusion: `client-log` API route paired with an `action-logger.tsx` component. Every button click, file selection, API call success, and API call failure writes to the database. An admin panel makes it queryable. The spec was intentionally minimal — write-only from the client, read-only from admin, no real-time streaming.
-
-Generated files:
-- `app/api/client-log/route.ts`
-- `components/action-logger.tsx`
-- `lib/clientEvents.ts`
-- `app/admin/logs/page.tsx`
-- `app/api/admin/logs/export/route.ts`
-
-Right before commit, the stop hook fired:
+After that confirmation pass, implementation started:
 
 ```
-Found 1 debug/TODO leftover(s) in working tree.
+lib/payments/paddle.ts                       — configure/create/capture/verifyWebhook
+app/api/pay/paddle/create/route.ts           — checkout session creation
+app/api/pay/paddle/webhook/route.ts          — event handler with signature verification
+app/api/pay/paddle/confirm/route.ts          — post-payment credit allocation
+components/pricing/PaddleBuy.tsx             — frontend checkout component
+app/[locale]/pricing/success/page.tsx        — post-payment confirmation page
+docs/paddle-setup.md                         — implementation reference
 ```
 
-This hook runs on every pre-commit and blocks until debug residue is cleaned. After cleanup, the follow-up ask: "Check that nothing related to your work is causing unexpected side effects." Claude ran a second workflow — adversarial review of whether the logging system hit any existing API routes, affected middleware behavior, or added meaningful bundle weight. Finding: the logging implementation was clean. Side note surfaced: `feat/paddle-checkout` was still unmerged to main, so nothing was touching prod anyway.
+Everything appeared complete. The `PaddleBuy` component was mounted. Then the screenshot arrived: PayPal buttons still rendering.
 
-The original bug got reproducible once logging was live. It turned out the authentication check was failing silently because a token refresh edge case wasn't surfacing errors to the UI — it was swallowing them. Logging showed the exact call where it died. That's the only reason the fix was trustworthy: the trail existed.
+Root cause: the conditional in `lib/geo.ts` was inverted. International traffic was still routing to `paypal`. One flipped boolean. The logic reads correctly in isolation — the condition itself is backwards. The kind of bug that survives code review because it looks right.
 
-The takeaway here isn't specific to Claude Code — it's that "can't reproduce" is often really "no instrumentation." The logging system existed before the bug fix, not after it.
+After fixing the condition, the full payment flow was verified directly via Chrome automation — not unit tests, not mocks: sandbox checkout → webhook delivery → credit granted. Claude operated the Paddle sandbox UI directly using `mcp__claude-in-chrome__computer`.
 
-## Paddle Payments: 67 Browser Operations Inside the Implementation Loop
+Two stop hooks fired before wrapping up:
 
-The heaviest session of the sprint by tool calls — 23 hours 40 minutes elapsed, 271 total — was Paddle payment integration.
+```
+Found 2 debug/T​ODO leftover(s) in working tree.
+```
 
-Preterview already had geo-routed payments: Korean users go through PayApp (KRW), international users through PayPal (USD). The goal was replacing the international leg with Paddle. The core reason: Paddle is a Merchant of Record, which means it handles cross-border tax compliance automatically — VAT registration, invoicing, filing — none of which a solo founder wants to manage manually across 100+ countries.
+After cleanup, the follow-up prompt: "Check that all related functionality works — look for side issues from multiple angles." A workflow ran an adversarial review of how the Paddle changes affected the existing PayApp integration, admin refund flows, and the payments table schema. Conclusion: `feat/paddle-checkout` wasn't merged to main yet. Production was clean.
 
-Before writing any code, Claude validated the current Paddle integration approach against live documentation. The stated rationale: "Paddle Billing API changes frequently, and getting webhook signature verification wrong is catastrophic — a bad verification implementation means any attacker can trigger purchase confirmations." That doc-first validation pass took a non-trivial chunk of the session, but it's the right call when the alternative is building on stale assumptions.
+Session 2 breakdown: 68 Bash calls, 67 Chrome manipulations, 36 file edits across 23 hours 40 minutes.
 
-The generated output:
-- `lib/payments/paddle.ts` — SDK wrapper and type definitions
-- `app/api/pay/paddle/create/route.ts` — checkout session creation
-- `app/api/pay/paddle/webhook/route.ts` — event handler with signature verification
-- `app/api/pay/paddle/confirm/route.ts` — post-payment credit allocation
-- `components/pricing/PaddleBuy.tsx` — frontend checkout component
-- `docs/paddle-setup.md` — implementation reference
+## 4 Agents in Parallel: Tearing Down a Competitor
 
-The existing PayPal integration stayed in the codebase but got hidden from the UI — a clean failover without removing working code.
+Session 4 opened with: "Codeit seems to have something similar to preterview — compare them on current state."
 
-What made this session architecturally unusual: `mcp__claude-in-chrome__computer` was called 67 times. Claude operated the Paddle dashboard directly. That means: creating products, configuring three price tiers, issuing API keys, generating webhook secrets, registering the webhook endpoint URL, running sandbox payment tests, and verifying that credit allocation triggered correctly on the backend.
+Codeit Ascent: an AI mock interview service launched six days before this session. One of Korea's largest developer education platforms entering directly adjacent territory.
 
-Browser automation wasn't a post-implementation step — it was woven into the implementation loop. Generate the route, register the endpoint in the dashboard, test it, check the response, fix the route, test again. The full cycle without switching contexts.
+Four workflow branches ran simultaneously:
 
-Mid-session, I spotted something wrong: "Wait — the checkout is still showing PayPal, not Paddle."
+- **Ascent product deep-dive**: full feature inventory, UX flows, pricing model, capability limits
+- **Codeit company strategy**: why they built this, how it fits their existing subscription ecosystem
+- **Domestic competitive landscape**: who else is active in the AI mock interview space
+- **Cross-validation of 5 key claims**: adversarial verification of findings from the first three branches
 
-Claude took a browser screenshot, confirmed the `PaddleBuy` component wasn't rendering, traced it to `lib/geo.ts` where the routing condition was resolving to the wrong branch, and fixed it. The feedback loop between live browser state and code was what made this debuggable in-session rather than in a separate pass.
+Cross-validation surfaced one refuted claim: "Ascent supports GitHub and portfolio URL analysis." Live check against the actual product: it doesn't. The feature appears in some media coverage — it doesn't exist in the product.
 
-One more thing came out of this session — a user-facing improvement: "It'd probably be better if users land on a confirmation page after a credit purchase, right?" — `app/[locale]/pricing/success/page.tsx` got built the same session.
+Confirmed facts after verification:
+- Video and audio bidirectional simultaneously (both directions active at once, not turn-based)
+- ~113 company-specific interview sets across all job categories
+- Korean-only — no multilingual or English support
+- Bundled into Codeit's existing subscription tier, not a standalone product
 
-## Dissecting a Competitor That Launched Six Days Ago
+The overlap with preterview: voice-based bidirectional conversation + multidimensional feedback report. The divergence: preterview focuses on technical interview simulation for developers; Ascent covers all job categories with shallower per-category depth. Not a direct collision — adjacent market, broader audience.
 
-Codeit launched Ascent — an AI mock interview product — on June 18th. I found out on June 24th, six days later. Session 4 handled this alongside the logging work.
+Immediate follow-up: "How do we make it better and actually get paying users?"
 
-"Codeit released something that looks similar to my preterview. Compare them based on current state."
+Second workflow: global competitor mapping (Final Round AI, interviewing.io, Interviewer.AI) + GTM channel analysis + pricing benchmarks → initial draft → 3-lens self-critique:
+1. Is this too obvious to be actionable?
+2. Can one founder actually execute this at current scale?
+3. Will paying customers materialize from this specific plan?
 
-The workflow fanned out across four parallel tracks:
-1. Detailed product investigation of Ascent — features, UX flows, pricing
-2. Codeit company and strategy context — what they've been acquiring and building
-3. Domestic competitive landscape — who else is in the AI mock interview space
-4. Adversarial cross-verification — five key claims audited for accuracy
+Output: a hypothesis-driven execution plan targeting first paying users within 8 weeks.
 
-The verification stage produced one important refutation worth naming explicitly: the initial claim that "Ascent has GitHub/portfolio URL analysis" came back refuted. It doesn't exist. The feature appeared in some coverage but wasn't in the actual product.
+Same session, different problem: a client logging system. The trigger — "is resume and portfolio upload actually working? I heard it wasn't." Claude tested it directly. It worked. Then: "but users said it was broken." Re-test. Failed. No server-side logs meant no visibility into where the request died.
 
-What was confirmed through actual testing: Ascent supports video and audio interaction in both directions, covers all job categories with approximately 113 company-specific interview profiles, and is Korean-only. That's fundamentally different positioning from Preterview's developer-focused, English-capable, GitHub-integrated product. Adjacent market, not head-to-head competition.
+A design workflow ran first to spec the system. Then:
 
-The follow-up question arrived immediately: "What would we need to do to actually outperform and outsell them?"
+```
+app/api/client-log/route.ts          — log ingestion endpoint
+components/action-logger.tsx         — client-side event wrapper
+lib/clientEvents.ts                  — event type definitions
+app/admin/logs/page.tsx              — admin log viewer with filters
+app/api/admin/logs/export/route.ts   — CSV export
+```
 
-Second workflow. This one ran: Preterview codebase gap analysis, global competitor mapping (Final Round AI, interviewing.io), GTM channel and pricing research, then assembled a draft. The draft then went through a three-lens self-critique: is this obvious / can a solo founder actually execute this / will this move purchase decisions. Result: an 8-week execution plan built around the hypothesis of hitting the first N paying international customers, not around feature parity with Ascent.
+Button clicks, file selection events, API success and failure — all written to DB, queryable from admin, exportable to CSV. The kind of observability that should have been there from day one.
 
-The speed of this analysis matters. Manual competitive research for a product you didn't know about until this morning would realistically take a full day with uncertain depth. Adversarial verification built into the workflow means findings arrive with explicit confidence levels — which claims were tested against the actual product vs. which came from coverage that might be inaccurate.
+## 42 Grant Programs. Then 42 Again Two Days Later.
 
-## Naver Ad Copy in 15 Characters Flat
+Session 5 (2h 44m, 51 tool calls): "Find all government and private grants that fit preterview or the dental advertising project — links and realistic pass probability."
 
-Session 7 (23 hours 25 minutes, 76 tool calls) had a progressively narrowing structure. Each question became more specific than the last, and three sequential workflow runs tracked the scope down.
+A master report already existed in `~/funding/` from June 21st. Instead of ignoring it, 18 agents fanned out and live-verified all 42 programs against the current date — checking solo-founder eligibility requirements, confirming deadlines hadn't shifted, verifying application URLs actually resolved to open submissions.
 
-**First workflow:** "Is Instagram better for preterview? Find objective benchmarks on which channel and targeting gets the best ROI — domestic and global." → 24 agents, approximately 880k tokens, 245 web tool calls. Thirteen major data points were revised or refuted after adversarial verification. The verified conclusion: Naver PowerLink has meaningfully higher intent-to-purchase signal for the Korean developer interview preparation market than Meta or Instagram.
+Near-deadline programs flagged:
+- Primer 29th cohort: June 28
+- K-Global Startup Competition: June 30
+- NPU (Next Platform Universe): June 29
 
-**Second workflow:** Naver PowerLink account setup guide, three Reddit ad creatives, and a pixel implementation checklist — QA'd against actual platform constraints before finalizing.
+Session 7, two days later (2h 52m, 67 tool calls): "Simple update, objective, current state."
 
-**Third workflow:** "Let's cap the budget at ₩500,000 (~$360 USD)." → Per-channel projected reach funnel model at the ₩500K budget level, broken out by impressions, clicks, estimated conversions.
+Grant status changes faster than expected. 18 agents ran again — 14 re-verifications of prior entries, 4 gap sweeps for newly opened programs. Two material changes:
+- Pangyo Value-Up: confirmed non-fit for the dental advertising project (industry restrictions)
+- Microsoft AI Voucher: confirmed as excluding marketing agencies
 
-After the channel decision narrowed to Naver, a fourth workflow pulled real monthly search volume and CPC data, ranking keyword groups by cost efficiency. The output: Naver PowerLink ad copy within the 15-character headline constraint, organized by keyword group:
+The finding that held across both sessions: for a zero-traction solo founder, the realistic win rate concentrates in no-equity programs — mentoring, cloud infrastructure credits, government-backed loans, and subsidies. Pass rates 40–85%. Equity-based seed programs and accelerators: single-digit acceptance rates, with traction expectations incompatible with the current stage.
 
-- 면접말버릇 (interview filler-word habits)
-- 면접습관교정 (interview habit correction)
-- AI면접 (AI interview)
-- 개발자면접 (developer interview)
+## 185 Cold Emails, Each One Different
 
-Fifteen Korean characters is a brutal headline constraint. A single word can burn six characters. Every syllable gets weighed against click intent.
+Session 8 was the largest by tool calls: 27h 53m, 290 tool calls.
 
-Pixel implementation was direct code work — no workflow:
-- `components/marketing/analytics-scripts.tsx` — Naver Click Choice + Google gtag loading
-- `lib/marketing/consent.ts` — GDPR consent state management
-- `lib/marketing/conversions.ts` — conversion event definitions
-- `lib/marketing/track.ts` — event wrapper layer
+The goal: build a cold email pipeline to sell preterview to IT education institutions. 72 domestic + 113 overseas = 185 total targets. Constraint: no guessed emails. Every address had to be publicly verifiable — found on an institution's official site or a publicly indexed contact directory. If no public address existed, mark as `noEmail`.
 
-GA4 measurement ID `G-ES6SENFGM2` connected to the Paddle payment success page. The funnel from ad click through to credit purchase now has full tracking coverage across both channels.
+The personalization requirement was the substantive challenge. A cold email to Samsung Software Academy (SSAFY) needs to reference their specific curriculum structure and career placement statistics. An email to MIT CSAIL requires a research-lab framing, not a corporate sales approach. Yonsei University's career development center responds to different signals than an independent coding bootcamp. Same product, entirely different positioning per target institution.
 
-## 42 Government Grants, Verified Twice Two Days Apart
+Final output: a single CSV with institution name, verified public email, domestic/overseas flag, personalized subject line, and the full personalized body for each of the 185 targets.
 
-Sessions 5 and 8 were directly linked — a research task with a built-in expiration date.
+One blocker repeated mid-session: the "▶ 30-second demo — click to play" button kept failing in email clients. Most major email clients (Gmail, Outlook, Apple Mail) block video autoplay and frequently strip embed code entirely. Multiple implementation attempts, all the same result.
 
-**Session 5** (2 hours 44 minutes, 51 tool calls): "Find all government and private grants currently suitable for Preterview and the dental ad project." A master report from June 21st already existed in `~/funding/`. A workflow used it as base context and ran live verification on 42 grants — checking whether each was still open, whether the deadline had shifted, whether the eligibility criteria matched the current product stage.
+Final solution: GIF preview showing the first few seconds of the demo, link to the full hosted video. Universally compatible without modification per client.
 
-Three deadline-critical items surfaced: Primer 29th cohort closes June 28th, K-Global closes June 29th, Samsung C-Lab closes June 26th.
+Delivery throttle: a cron job configuration capped at 30 sends per day. Bulk-sending 185 cold emails at once destroys domain reputation. The throttle completes the outreach over roughly six days while keeping the sending domain out of spam filters.
 
-**Session 8** (1 hour 36 minutes, 5 tool calls), two days later: "Simple current-status search — links, close dates, rough probability estimate."
+## Sidebar: Moving Apartments with Claude Code
 
-Grant listings change within days. An application page can go dark without any announcement. Eighteen agents fanned out: 14 re-verified grants from the prior list, 4 swept for newly opened programs that fit. Direction: "Don't re-research everything — filter to what's still alive as of June 24th and re-sort by priority."
+Session 3 (1h 3m, 79 tool calls) had nothing to do with software products. It was about merging two apartments into one.
 
-The pattern here: research that has a short shelf life needs explicit reverification cadence. The multi-agent setup makes reverification fast enough that it's worth running again rather than assuming 48-hour-old data is still accurate.
+Three CSVs: an appliance decision table (31 items — refrigerator, washing machine, air conditioners, TVs), a furniture decision table, and an administrative/telecom checklist (40 items: ISP transfer, address change notifications, government registrations). Then: "turn this into a deployable site."
 
-## Moving Apartments Is Also a Software Problem
+A single-page HTML app: Keep, Sell, and Toss tabs that update item counts in real time, with state persisting to `localStorage`. Vercel Blob API for server-side sync so two people coordinating the move see the same state from different devices.
 
-Session 3 (1 hour 3 minutes, 79 tool calls) had nothing to do with startups. I'm combining two apartments — a 24-pyeong and a 32-pyeong unit — into a single 34-pyeong place. I needed a tool to track what to keep, sell, and throw away across 70+ items.
+A solo operation blurs the line between personal and professional. Claude Code doesn't maintain that distinction.
 
-"Build it as a site and deploy it. Make sure it saves state."
+## What 933 Tool Calls Distributes To
 
-Three CSVs first: appliance decision table (31 items), furniture decision table, utilities and admin checklist (40 items). Then an interactive app — keep/sell/toss tabs, live aggregate counts per category, localStorage auto-save so nothing gets lost between sessions.
+Tool call breakdown across the 8 sessions:
+- **Bash**: 176+ calls — the dominant category
+- **Chrome direct manipulation** (`mcp__claude-in-chrome__computer`): 90+ calls — Paddle dashboard, Gmail, email client testing, grant application page verification
+- **Edit**: 36+ calls in Session 2 alone
 
-The design gate triggered, as it always does when an HTML artifact gets generated. Cleared after specifying the OD-equivalent design pass rationale. Vercel Blob API got wired in afterward for server-side state sync — so the checklist persists across devices.
+The pattern that repeated across every session without exception: delegate research to dynamic workflows, implement directly. While a workflow was fanning out across 4–18 parallel agents, either the next implementation task was being set up or a question from a different context was being handled. Research and implementation phases ran concurrently rather than sequentially.
 
-This is a real characteristic of solo founder Claude Code usage: personal context and work context blend in the same session without ceremony. The tool doesn't care about the domain boundary. The overhead of spinning up a dedicated tool for a one-off personal project approaches zero when the assistant is already open and context-loaded.
+Dynamic workflows handle fan-out with adversarial cross-validation built in — one branch explicitly tasked with refuting the other branches' findings before those findings inform implementation. Claude handles the actual code with verified, grounded context rather than unvalidated web-scraped claims.
 
-## The Full Picture
-
-| Session | Elapsed | Tool Calls | Core Work |
-|---------|---------|------------|-----------|
-| 1 | 14 min | 2 | Dongbaek UDI dental monitoring delegation |
+| Session | Duration | Tool Calls | Core Work |
+|---------|----------|------------|-----------|
+| 1 | 14m | 2 | Dental clinic metrics (subagent delegation) |
 | 2 | 23h 40m | 271 | Paddle payment integration |
-| 3 | 1h 3m | 79 | Moving checklist app |
-| 4 | 22h 37m | 168 | Codeit competitor analysis + behavior logging |
-| 5 | 2h 44m | 51 | Government grants — 42 verified |
-| 6 | 7 min | 5 | Threads marketing strategy |
-| 7 | 23h 25m | 76 | Ad pixels + Naver/Google setup |
-| 8 | 1h 36m | 5 | Grants re-verification |
-| 9 | 27h 35m | 267 | Cold email + sales page + GA4 |
-| **Total** | **100h+** | **924** | |
+| 3 | 1h 3m | 79 | Apartment moving app |
+| 4 | 22h 37m | 168 | Competitor analysis + client logging |
+| 5 | 2h 44m | 51 | 42 grant programs live-verified |
+| 6 | 7m | 5 | Threads marketing strategy |
+| 7 | 2h 52m | 67 | Grant re-verification + preterview IR |
+| 8 | 27h 53m | 290 | Cold email automation (185 universities) |
+| **Total** | — | **933** | |
 
-Top tools by call count: Bash 195 · Edit 103 · Read 57. `mcp__claude-in-chrome__computer` crossed 90 — used to operate the Paddle dashboard, Naver Ads account, and Google Analytics directly from inside the Claude session.
-
-The pattern that repeated across every substantive session: complex research goes to Dynamic Workflow, implementation is handled directly. While a workflow runs in the background, Claude processes the next implementation task or user question. When the `<task-notification>` returns, synthesis happens and the next cycle starts.
-
-This separation is what made three days absorb what would normally take a full work week. Research and implementation run in parallel rather than sequentially. Multi-agent AI automation isn't a single fast assistant — it's a team structure where different tasks run simultaneously.
-
-924 individual sequential prompts would have taken a month. 924 tool calls across coordinated multi-agent workflows took three days. That's the number worth holding onto.
+The throughput isn't high because any single task runs fast. It's because the workflow separation means research results are ready when implementation starts, implementation runs while the next research batch is queued, and nothing blocks on sequentially gathering context before beginning to build.
 
 ---
 
