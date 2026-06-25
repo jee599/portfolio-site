@@ -1,128 +1,109 @@
 ---
-title: "Cold-Emailing 185 Institutions & Live Paddle Payments: 600 Tool Calls Across 5 Claude Code Sessions"
+title: "676 Claude Code Tool Calls in 72 Hours: Parallel Payment, Outreach, and Ad Infrastructure for Preterview"
 project: "portfolio-site"
 date: 2026-06-25
 lang: en
 pair: "2026-06-25-portfolio-site-ko"
-tags: [claude-code, preterview, paddle, cold-email, dynamic-workflow]
-description: "How 5 Claude Code sessions and 600 tool calls built a verified cold email list for 185 institutions, wired Paddle live payments, and stress-tested ad spend estimates with adversarial multi-agent verification."
+tags: [claude-code, preterview, paddle, marketing, google-ads, workflow]
+description: "72 hours, 3 Claude Code sessions, 676 tool calls — cold emails to 192 institutions, Paddle KYC rejected twice, GA4 + Naver pixel live."
 ---
 
-600 tool calls. 5 sessions. One week of preterview launch prep.
+Three Claude Code sessions ran in parallel over 72 hours, each attacking a different front: Session 3 built cold email infrastructure for 192 educational institutions (303 tool calls), Session 4 integrated Paddle payments (211 tool calls), Session 6 wired the ad infrastructure (162 tool calls). Total: 676 tool calls across the Preterview launch prep track alone.
 
-The single heaviest session: 290 tool calls to build a cold email infrastructure targeting 185 institutions — university career offices, coding bootcamps, and IT training programs across Korea and internationally — each with a verified contact and personalized pitch. The lightest session handled ongoing client SEO monitoring in exactly 2 tool calls, entirely delegated to a subagent that restored its own context, ran its checks, and committed results without touching the main session.
+**TL;DR** — 192 cold email drafts done, Paddle rejected twice and under appeal, GA4 + Naver conversion pixel live. Everything except payments is ready.
 
-**TL;DR:** A two-pass multi-agent Workflow scraped and cross-validated emails for 185 institutions. Paddle live payments got cleanly merged from a 23-commit-behind branch and configured via Browser MCP. An adversarial verification pass corrected 13 of 17 ad spend estimates before I trusted any of them. The one thing that definitively failed: embedding video in cold email.
+## How 192 Cold Emails Came Out of a Single Prompt
 
-## How a One-Line Prompt Scaled to 185 Personalized Emails
+Session 3 started with one sentence: "Make a sales page or email form."
 
-The starting prompt was a single sentence: "Write a cold email template for preterview, targeting university career offices."
+The scope escalated fast.
 
-preterview is an AI interview practice tool — the kind of product that career centers recommend to students preparing for job season. The scope kept growing with each follow-up:
+> "Crawl every university admissions office and cram school, domestic and international. We're emailing all of them."
 
-"Make it 30–50 domestic institutions, 50+ international. Personalized copy per institution. Real contacts only — no guesses, nothing without a verifiable source."
+Dynamic Workflow ran twice. Round one: 95 institutions, 92 with verified public emails. Round two expanded to 198 (72 domestic, 113 international). One rule baked into every prompt: **no guessed emails**. If an address wasn't publicly listed on an official page, it didn't make the list.
 
-That last constraint — *verified contacts only* — forced the architecture into a multi-agent Workflow. Sequential single-context scraping couldn't handle the cross-validation requirement at this scale. Two runs:
+Personalization was the actual work. Generic pitches don't land. One feedback pass stripped out anything that promised "workshop partnerships" or future commitments that weren't on the table. The concrete number that survived every round: "API cost of roughly $2 per interview session during the promotional period." The reasoning behind it — "we can't just give it away for free" — made it into the final copy verbatim.
 
-- **Round 1**: 95 institutions scraped, 92 with verified emails
-- **Round 2**: 198 institutions scraped, 185 with verified emails
+Final artifacts under `~/preterview/marketing/`: `preterview-sales.html`, `preterview-email-univ.html`, `cold-emails.md`, `send_outreach.py` (CSV-throttled dispatch script). Session 3 breakdown: 70 Edit calls, 109 Bash calls, 20 Gmail draft MCP calls.
 
-The list spans Samsung SSAFY, Woowa Tech Course (우아한테크코스), Multicampus, and other Korean programs, plus MIT CSAIL, international coding bootcamps, and university CS departments. Each institution: parallel-scraped from multiple sources, email cross-validated against an official page, contacts without a citable source explicitly excluded. No pattern-inferred addresses like `careers@university.edu` — if the email didn't appear on a real page, it got dropped.
+One dead end worth logging: the team tried embedding a 30-second demo video in the emails. `<video>` tags, GIF embeds, HTML overlays — all blocked by email client security policies. "If you can't fix it, just cut it." Replaced with a static screenshot linked to the demo. Email client security is a hard wall, not a configuration problem.
 
-Personalization wasn't template variable substitution. The pitch to a Yonsei University career office — framing preterview as a job prep tool for students navigating Korean corporate hiring — reads differently from one to a Stanford CS department where the framing shifts to developer job prep and portfolio review. Role context (career advisor vs. department coordinator), institution size, and student profile shaped the copy for each entry.
+## Paddle Rejected Preterview Twice
 
-Final output: `send_outreach.py` with a 30-emails-per-day throttle, ready to run as a cron job. Gmail MCP (`mcp__claude_ai_Gmail__create_draft`) generated 20 draft emails automatically. I review each before it goes out — the automation handles the drafting, a human stays on approval.
+Session 4 opened with a branch review: `feat/paddle-checkout`, 23 unmerged commits. Paddle as MoR for international payments was the architecture.
 
-Why 290 tool calls for one session? Bash (100), Edit (68), Read (47), Gmail MCP (20), Write (12). Not code generation on loop — the cycle was: scrape institution data → verify contacts → generate personalized drafts → get feedback → revise. Real data gathering at scale, not synthetic output.
+First obstacle: the existing Paddle account had been submitted under a previous project ("fortunelab") and rejected. KYC expired, re-submit blocked. New account from scratch:
 
-## The Email Video Problem (And Why Hitting the Wall Is Faster)
+```
+PADDLE_VENDOR_ID=...
+PADDLE_API_KEY=pdl_live_apikey_...
+PADDLE_WEBHOOK_SECRET=ntfset_...
+NEXT_PUBLIC_PADDLE_CLIENT_TOKEN=live_...
+```
 
-Early drafts included a "▶ 30-second demo — click to play" section. The idea: show preterview in action without requiring a click-through.
+`preterview.com` submitted for domain review. Rejected. The reason:
 
-We sent actual test emails. Neither Gmail nor Naver Mail played anything. Then the iteration cycle:
+> "we identified the following product categories on this domain: Other/Resume/CV Builders, Human Services/Consulting or Advisory Services"
 
-- `<video>` tag embed — blocked
-- Animated GIF embed — rendered, but no interactive play
-- Hosting video on `preterview.com` with an HTML overlay — broken elements
-- Base64 inline HTML — also blocked
+Paddle's automated review classified an AI mock interview platform as a resume builder or human consulting service — both outside Paddle's Acceptable Use Policy. The appeal went through Typeform with one core argument: "Fully AI-generated feedback. Zero human interviewers, coaches, or consultants."
 
-The conclusion: email clients block inline video playback as a near-universal security policy. This isn't a configuration issue. It's a stable constraint that every major client enforces the same way.
+By end of session, alternatives were being scoped: LemonSqueezy, TechOne, Korean PG providers. One additional finding: credit-pack billing (sell credits rather than subscriptions) isn't supported by some processors, which constrains the fallback options.
 
-"If you can't fix this, just cut it."
+Side output from this session: three legal pages (`app/[locale]/terms`, `privacy`, `refund`), admin payment refund dashboard, `lib/payments/packs.ts` for pricing pack definitions. Session 4 stats: 104 Bash calls, 27 Chrome MCP calls for Paddle dashboard automation, 24 Edit calls.
 
-Switched to a static screenshot with a link to the demo. Done in one change.
+## The Ad Strategy on ₩500k
 
-This segment consumed most of the middle portion of Session 2. The lesson: sometimes the fastest path through a constraint is running directly into it, confirming it's real rather than a misconfiguration, and pivoting. Engineering around a security policy that every client enforces identically has a known outcome.
+Session 6 opened with a direct question: "Is Instagram worth it? What does ₩500,000 go furthest on for this product?"
 
-## Merging 23 Commits of Paddle Checkout Without Dragging In PoC Code
+Four Dynamic Workflows ran in sequence:
+1. CPC/reach/CTR benchmarks across platforms
+2. Three execution-ready assets (Naver Power Links copy, Reddit creatives, pixel + landing checklist)
+3. Budget allocation with expected funnel output per channel
+4. Live keyword CPC queries for Naver Power Links
 
-`feat/paddle-checkout` was 23 commits ahead of `origin/main` and unmerged. Branch archaeology first: 14 commits of visual interview PoC work, then 4 Paddle payment commits stacked on top.
+Result: Naver Power Links. Keywords like "면접말버릇" (interview speech habits) and "면접습관교정" (interview habit correction) have low CPCs with clear purchase intent — tier S. Generic keywords like "AI 면접 연습" drew too much competition for the budget to be efficient. Google Search ran in parallel, producing Korean and English RSA copy.
 
-The two layers had no file overlap. Payment-specific files:
+Pixel installation on both platforms simultaneously:
 
-- `app/api/pay/paddle/*`
-- `components/pricing/PaddleBuy.tsx`
-- `lib/payments/paddle.ts`
+- **GA4**: `NEXT_PUBLIC_GA_ID=G-ES6SENFGM2` added to `.env.local`, injected via Next.js `Script` component in `layout.tsx`
+- **Naver conversion tracking**: Biz channel application approved, self-install conversion tracking filed, waiting on setup email
 
-Selectively merged these without pulling in the PoC. Clean merge, no experiment code in main.
+GEO/AEO got covered in the same session — a strategy report on getting Preterview cited in ChatGPT, Perplexity, Gemini, and Google AI Overviews for "mock interview" queries. Landing page CRO audit ran concurrently, confirming that `DEFAULT_SIGNUP_BONUS = 200` (200 free credits on signup) was the right hook.
 
-Live key configuration happened via Browser MCP (`mcp__claude-in-chrome__browser_batch`, 17 calls) — directly interacting with the Paddle dashboard, not walking through UI instructions. Three plan Price IDs, webhook secret, all organized into a single copy-paste `export` block.
+## The Other Sessions
 
-Domain approval is still pending, so the payment links aren't active. Code is fully configured on live keys. When approval clears, it activates without any additional changes.
+**Dongbaek UDental regular measurement** (Session 1, 2 tool calls): One `dental-clinic` subagent call automated the full pipeline — public data fetch, inbox read, logging, dashboard, digest. The "동백 임플란트" blog ranking had fallen outside the top 12 from competitor spam, then recovered to #3. Two tool calls from the main session.
 
-## 24 Agents, 880k Tokens, and Why First-Pass Numbers Can't Be Trusted
+**Grant research** (Session 2, 67 tool calls): Re-verified government and private grants across three tracks — dental marketing, AI mock interview, sole proprietor. Built on 42 verified programs from June 22, re-measured against June 24 deadlines. Immediate action items: Pangyo Hub Value-Up (6/24), K-Global Mentoring (6/30), NPU (6/29). Preterview IR deck also came out of this session.
 
-"Should I run Instagram or Naver ads? What does ₩500,000 (~$370) actually reach?"
-
-This triggered a Workflow: 24 agents, 880k tokens, 245 web searches.
-
-The adversarial verification pass corrected **13 of 17 key metrics**. The initial "2025 Instagram CPM $8" became "$5.5" after cross-validation. Initial Naver PowerLink CPC estimates for competitive terms got revised upward. The numbers from a single research pass are not reliable — sources use different methodologies, have different recency, and often cite each other circularly.
-
-The adversarial verify pattern: after the initial research agents produce estimates, a second set of agents is explicitly prompted to *refute* each finding — find contradicting sources, flag recency issues, surface methodological problems. What survives refutation is what gets used.
-
-For a ₩500,000 budget targeting Korean users interested in job prep:
-
-- **Naver PowerLink wins** on cost-efficiency for this audience
-- Keywords like "면접 말버릇" (interview speech habits) and "AI 면접 연습" (AI interview practice) have lower CPC than generic job-prep terms with meaningfully higher purchase intent
-- Instagram reach is wider but conversion intent is lower for this specific product category
-
-GA4 (`G-ES6SENFGM2`) and Naver conversion tracking are now wired into `components/marketing/analytics-scripts.tsx`. A consent banner covering both tracking systems is in `components/marketing/consent-banner.tsx`.
-
-The research session itself was 78 tool calls — not intensive, but deliberate. The 880k token count reflects the multi-agent Workflow overhead, not a single context ballooning.
-
-## The Session That Cost 2 Tool Calls
-
-Ongoing dental clinic SEO monitoring ran as a `dental-clinic` subagent. Total from the main session: one `Agent` call to spawn it, one `Bash` call to verify the output committed.
-
-The subagent handled everything else: reading `clinic.json`, `history.json`, and cached position data to restore its own context from the last session, running keyword rank checks across 6 monitored search terms (blog tab and integrated search positions in Naver), writing the session digest, committing it.
-
-One notable result: a target keyword had dropped out of the top 12 in the blog tab on the previous measurement. This session confirmed recovery to 3rd — turned out to be temporary displacement from competitor content spam, not an organic ranking decline.
-
-This is why the delegation architecture exists. The main session context doesn't get consumed by client monitoring work. The subagent restores its own context from files, executes the measurement, records the result, and commits — without the main session holding any of that state. Two tool calls in, fully autonomous execution out.
+**Award email filter** (Session 5, 5 tool calls): An invitation arrived for "2026 Korea Good Company Award — AI Mock Interview Service Category." Four web searches confirmed the pattern: paid award scheme, the award is the hook, the real invoice items are "coverage membership" and advertising. Declined.
 
 ## Session Breakdown
 
-| Session | Work | Elapsed | Tool Calls |
-|---------|------|---------|-----------|
-| 1 | Dental clinic SEO monitoring | 12 min | 2 |
-| 2 | Cold email infrastructure | 27h 53min | 290 |
-| 3 | Paddle payment integration | 4h 44min | 163 |
-| 4 | Ad strategy research | 27h 25min | 78 |
-| 5 | Grant research + IR prep | 2h 52min | 67 |
+| Session | Work | Tool Calls |
+|---------|------|-----------|
+| 1 | Dental clinic SEO monitoring | 2 |
+| 2 | Grant research + Preterview IR deck | 67 |
+| 3 | Cold email outreach (192 institutions) | 303 |
+| 4 | Paddle payment integration | 211 |
+| 5 | Award email filter | 5 |
+| 6 | Ad infrastructure + GA4 + Naver pixel | 162 |
 
-**Total: 600 tool calls. Model: `claude-opus-4-8` throughout.**
+**Total: 750+ tool calls across 6 sessions.**
 
-Tool distribution: Bash (256), Edit (105), Read (84), Browser MCP (27), Write (24), Gmail MCP (20), Workflow (13).
+## The Lesson Paddle Taught
 
-Sessions 2 and 4 show 27-hour elapsed times because those sessions stayed open overnight. Actual focused work time was a fraction — elapsed measures session lifetime, not active usage.
+AI services hit a specific classification problem with payment processors. The automated domain review sees interview questions, feedback text, user profiles — and maps them to the nearest known category: resume builder, coaching platform, consulting service.
 
-## Three Patterns This Week Reinforced
+None of those are accurate for a fully automated AI product. The classifier doesn't ask.
 
-**Workflow for anything needing parallel verified data.** The cold email infrastructure and ad research both hit the same wall in a single context: you either get unverified results fast or thorough results slowly. Multi-agent Workflow breaks that tradeoff — parallel scraping with a cross-validation layer is both faster and more reliable than sequential work at scale.
+The fix is front-loading the distinction at initial submission, not in an appeal after rejection:
 
-**Adversarial verify before trusting research output.** 13 of 17 metrics changed after verification. That's not failure — it's expected behavior when aggregating numbers across sources with different methodologies and recency. Building the verification pass into the Workflow means you never act on first-draft numbers.
+> "All feedback is generated entirely by AI models. No human interviewers, coaches, or consultants are involved at any point."
 
-**Some constraints only reveal themselves at runtime.** The video-in-email failure is knowable from documentation, but hitting the actual test confirmed it faster and more definitively than research would have. For infrastructure constraints that are unclear, the test is often cheaper than the research. The Paddle branch merge is the counterexample: five minutes of branch analysis before touching anything saved a much messier revert. Know which type of constraint you're dealing with.
+If that sentence isn't in the initial product description, the processor fills in the blank with the closest human-services category it recognizes — and that gets the application rejected. Appeals are slower and less reliable than getting the submission right the first time.
+
+Payment processing is the one unresolved piece. Everything else — outreach, ad copy, conversion pixels, legal pages — is ready.
 
 ---
 
