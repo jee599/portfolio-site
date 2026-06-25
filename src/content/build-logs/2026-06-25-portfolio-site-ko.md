@@ -1,67 +1,66 @@
 ---
-title: "Claude Code 8세션 · 933 tool call — Paddle 결제부터 185개 기관 콜드메일까지"
+title: "콜드메일 185곳 + Paddle 라이브 연동: Claude Code 5세션 600 tool calls"
 project: "portfolio-site"
 date: 2026-06-25
 lang: ko
-tags: [claude-code, paddle, preterview, cold-email, dynamic-workflow, automation]
-description: "사흘간 8개 세션, 총 933회 tool call. Paddle 결제 통합(271회), 다중 에이전트 경쟁사 분석, IT 교육기관 185곳 개인화 콜드메일까지 Claude Code 하나로 처리한 사흘치 기록."
+tags: [claude-code, preterview, paddle, cold-email, dynamic-workflow, naver-ads]
+description: "5세션 600 tool calls로 preterview 콜드메일 인프라(185개 기관 실측), Paddle 라이브 결제, 네이버·구글 광고 픽셀을 구축한 과정. 멀티에이전트 Workflow가 핵심이었다."
 ---
 
-단일 세션에서 tool call이 271번 나왔다. Bash 68, Chrome 67, Edit 36, Read 25, Navigate 17 — 이게 Claude Code로 실제 결제를 붙이는 과정이다.
+이번 주 preterview 론치 준비를 Claude Code로 밀어붙였다. 5세션, 총 600 tool calls. 가장 무거운 세션은 290 tool calls짜리 콜드메일 인프라 세션이었다. 대학교 취업지원센터 185곳 이메일을 실측 검증하고, Paddle 라이브 결제를 붙이고, 광고 픽셀을 심었다.
 
-**TL;DR** 사흘 동안 Preterview에 Paddle 결제를 붙이고, 코드잇 어센트를 다중 에이전트로 분석하고, IT 교육기관 185곳 콜드메일 초안까지 만들었다. 전부 Claude Code 하나로.
+**TL;DR** Workflow 멀티에이전트로 국내외 IT 교육기관 185곳 이메일을 검증했고, Paddle 해외 결제를 라이브 키 기준으로 올렸다. 이메일 본문에 영상 넣는 건 클라이언트 제약으로 포기했다.
 
-## 271번 tool call짜리 결제 통합
+## 콜드메일 185곳: Workflow가 두 번 돌았다
 
-가장 무거운 세션은 Session 2였다. 23시간 40분, 271 tool call. 시작 프롬프트는 단 한 줄이었다: "paddle 결제 perterview에 붙일거야."
+시작 프롬프트는 단순했다. "preterview를 판매하는 이메일 양식을 만들어줘, 대학교 취업지원센터에 홍보하는 메일." 여기서부터 스케일이 계속 커졌다.
 
-Claude가 먼저 한 건 프로젝트 구조 파악이었다. `feat/geo-payment-routing` 브랜치가 이미 머지돼 있었고, 기존 결제 구조(한국→PayApp, 해외→PayPal)가 완비된 상태였다. Paddle은 PayPal 자리를 대체하는 그림이 자연스러웠다.
+"국내 30~50개, 국외 50개 이상, 각각 개별화된 문구, 정확한 이메일로." 추측 이메일은 금지 — 출처 없는 연락처는 제외. 이 조건을 달고 Workflow를 돌렸다. 1차 워크플로는 95곳(이메일 확인된 92곳), 2차는 198곳(이메일 확인된 185곳)을 실측했다. 삼성SSAFY, 우아한테크코스, 멀티캠퍼스부터 MIT CSAIL, 해외 coding bootcamp까지 병렬 스크랩 후 교차 검증한 결과다.
 
-구현 전에 공식 문서 실측을 먼저 돌렸다. "Paddle Billing API는 자주 바뀌고 웹훅 서명 검증을 틀리면 치명적"이라는 판단이었다. 그 판단대로 WebFetch 에이전트를 4개 영역으로 팬아웃해서 현재 통합 방식을 검증한 뒤에야 코드를 짰다.
+각 기관별 개인화 문구는 담당자 역할과 기관 특성에 맞게 따로 제작했다. 연세대 취업지원센터용과 Stanford CS department용이 맥락이 다르다. 최종적으로 `send_outreach.py`에 스로틀 로직(하루 30건)을 넣어 크론잡으로 돌릴 수 있게 만들었다. Gmail MCP로 초안을 자동 생성했고(`mcp__claude_ai_Gmail__create_draft` 20회), 발송 전 내가 직접 검토하는 구조로 마무리했다.
 
-최종적으로 생성된 파일은 `lib/payments/paddle.ts`, `app/api/pay/paddle/{create,webhook,confirm}/route.ts`, `components/pricing/PaddleBuy.tsx`, `docs/paddle-setup.md`다. Chrome 도구가 Bash만큼 나온 건 — 실제로 결제 화면을 띄워서 동작을 눈으로 확인하는 과정이 그만큼 많았다는 뜻이다. "지금 결제 paddle이 아니라 paypal 아니야?"라고 사용자가 스크린샷을 붙이면서 실측 디버깅이 이어졌다.
+이 세션이 290 tool calls를 쓴 이유가 있다. Bash 100, Edit 68, Read 47, Gmail MCP 20, Write 12 — 단순 코드 작성이 아니라 기관 리스트 실측, 메일 초안 생성, 피드백 반영 수정이 반복됐기 때문이다.
 
-## 다중 에이전트로 경쟁사 해부
+## 이메일에 영상 넣기: 클라이언트 한계에 부딪혔다
 
-Session 4는 "코드잇에서 낸 내 프리터뷰랑 비슷한 기능이 있는 것 같은데 지금 기준 비교해줘"로 시작했다.
+메일 초안에 "▶ 30초 데모 — 클릭하면 재생됩니다" 섹션을 넣었다. 실제로 발송해봤더니 Gmail, 네이버 메일 모두에서 재생이 안 됐다. `<video>` 태그, GIF 임베드, `preterview.com` 호스팅, 오버레이 HTML — 여러 방식을 시도했다. 결론은 이메일 클라이언트 보안 정책상 인라인 영상 재생은 사실상 불가능하다.
 
-단순 검색이 아니라 dynamic workflow를 돌렸다. 4갈래 팬아웃 — 어센트 제품 정밀조사, 코드잇 회사·전략 맥락, 국내 AI 모의면접 경쟁 지형, 핵심 주장 교차검증. 검증 결과가 예상과 달랐다: "정면충돌이 아니라 인접 시장."
+"이거 계속 안 되는데 너가 해결 못 할 거면 그냥 빼." 이 한마디로 정리됐다. 정적 스크린샷에 링크를 다는 방식으로 교체했다. 삽질을 몇 차례 반복한 다음에 방향을 바꾼 과정이 세션 2 중반부 대부분을 차지했다. 실제 제약을 직접 부딪혀서 확인하는 게 가장 빠른 방법이었다.
 
-어센트는 한국 전 직군 취준용(113개 기업맞춤 면접, 마케팅·기획·PM 포함)이고, 프리터뷰는 글로벌 개발자 특화(GitHub/포트폴리오 분석, 영어 지원). 겹치는 건 "음성 양방향 모의면접 + 다차원 리포트" 골격뿐이었다. "어센트가 GitHub/포트폴리오 URL 분석 기능 있다"는 주장은 교차검증에서 refuted로 확정됐다.
+## Paddle 라이브 결제: 브랜치 정리부터 도메인 승인까지
 
-같은 세션에서 클라이언트 행동 로깅도 붙였다. "안된다고 피드백이 왔는데 로그인하라는 알람이 안 떠?"가 트리거였다. `components/action-logger.tsx`, `app/api/client-log/route.ts`, `app/admin/logs/page.tsx` — 추적 시스템을 세션 하나에서 다 달았다.
+`feat/paddle-checkout` 브랜치가 origin/main에 23커밋째 미머지 상태였다. 브랜치 구조를 먼저 파악했다 — 비주얼 면접 PoC 14커밋 위에 Paddle 결제 4커밋이 얹힌 구조였는데, 두 부분의 수정 파일이 겹치지 않아서 결제 관련 파일(`app/api/pay/paddle/*`, `components/pricing/PaddleBuy.tsx`, `lib/payments/paddle.ts`)만 골라 클린하게 머지했다.
 
-## 185개 기관 콜드메일 자동화
+라이브 키 세팅은 Paddle 대시보드를 브라우저 MCP로 직접 조작하면서 진행했다(`mcp__claude-in-chrome__browser_batch` 17회). 세 플랜의 Price ID를 환경변수에 넣고, 웹훅 시크릿까지 한 번에 정리했다. "env에 어떤 값 넣어야 하는지 알려줘"라는 요청에 모든 키를 명령어 한 줄로 넣을 수 있게 정리해줬다.
 
-Session 8이 가장 복잡한 세션이었다. 290 tool call. 시작은 이메일 초안 하나였다.
+도메인 승인이 pending 상태라 결제 링크는 아직 대기 중이다. 코드는 라이브 키 기준으로 준비 완료, 승인 뜨는 즉시 활성화된다.
 
-"preterview를 판매하는 이메일 양식을 만들어줘. 인플루언서 / 대학교취업지원 부분에 홍보하는 메일을."
+## 광고 리서치: 24개 에이전트, 880k 토큰
 
-여기서부터 이렇게 흘렀다: 이메일 HTML 제작 → 실제 발송 테스트(jee599@naver.com) → 이메일에서 영상 미리보기 안 되는 문제 발견 → GIF 대안 시도 → 결국 스크린샷 첨부 방식으로 결론. "이메일에서 영상 재생은 안 된다"는 클라이언트 제약을 실제로 부딪혀서 확인한 과정이다.
+"인스타랑 네이버 중에 뭐가 더 나아? 50만원으로 몇 명 도달해?" — 이 질문 하나에 Workflow를 돌렸다. 24개 에이전트, 880k 토큰, 245회 웹 서치.
 
-스케일 업 요청이 들어왔다: "엄선해서 국내 30~50개 / 국외 50개 이상. 각각 개별화된 문구로. 정확한 이메일로."
+adversarial verify 패스에서 17개 핵심 수치 중 13개가 수정됐다. 처음 나온 "2025 인스타 CPM $8"이 검증 후 "$5.5"로 정정되는 식이다. 처음 숫자를 그냥 쓰지 않고 교차검증한 게 이 워크플로의 핵심이었다. 결론은 50만원 예산 기준 네이버 파워링크 집중이 가장 가성비가 좋다. "면접 말버릇", "AI 면접 연습" 같은 고유 키워드는 CPC가 낮으면서 구매 의도가 높다.
 
-Dynamic workflow가 두 번 돌았다. 첫 번째(95개 발굴) → 사용자 피드백("워크숍 연계 이런 건 별로, 내가 할 수 없는 건 빼") → 두 번째(198개 발굴, 이메일 확인된 185개). 삼성SSAFY, 우아한테크코스, 멀티캠퍼스부터 MIT CSAIL, Stanford HAI까지. 추측 이메일은 명시적으로 금지(출처 없는 이메일은 제외)했고, 기관별 담당자 역할에 맞춰 개인화 문구를 각각 넣었다.
+GA4(`G-ES6SENFGM2`)와 네이버 전환 추적을 `components/marketing/analytics-scripts.tsx`로 묶어 코드에 반영했다. Consent 배너도 함께 추가했다(`components/marketing/consent-banner.tsx`).
 
-마지막 결정: "크론잡으로 하루에 30." 도메인 평판을 지키면서 스로틀 걸어 일일 30건씩 발송하는 구조다.
+## dental-clinic 서브에이전트: 2 tool calls로 완료
 
-## 지원사업 두 번 서칭, 메모리가 SSOT
+동백유디치과 정기 측정은 `dental-clinic` 서브에이전트에 위임했다. 메인 세션에서 쓴 tool call은 Agent 1번, Bash 1번 — 이게 전부다.
 
-Sessions 5, 7에서 정부·민간 지원사업을 각각 서칭했다. 같은 기간에 두 번 하는 이유가 있었다 — 첫 번째(6/22)는 42건 라이브 검증, 두 번째(6/24)는 이틀 뒤 "오늘 기준 아직 열려있는 것만" 재검증이었다.
+서브에이전트가 6개 모니터링 키워드의 블로그탭/통합검색 노출 순위를 실측했다. 지난 측정에서 "동백 임플란트" 블로그탭 12위 밖으로 밀렸던 게 3위로 복귀 확인됐다. 경쟁사 도배로 인한 일시적 밀림이었다. 다이제스트(`digests/measure-2026-06-25.md`)가 커밋되고 배포까지 서브에이전트가 끝냈다.
 
-이 패턴에서 흥미로운 건 Claude가 `~/funding/` 로컬 디렉토리의 기존 조사 결과를 먼저 읽고, 중복 재조사 없이 변동분만 실측했다는 점이다. `project_primer_application.md` 메모리 파일이 세션 간 컨텍스트 복원의 SSOT 역할을 했다. 이틀 전 조사가 있으면 재탐색이 아니라 델타 검증만 하는 구조다.
+치과 모니터링을 위임 구조로 가져간 이유가 이 세션에서 명확하게 드러났다. 메인 컨텍스트를 쓰지 않고, 서브에이전트가 `clinic.json`·`history.json`·`cache`를 읽어 컨텍스트를 복원→측정→기록→커밋까지 처리한다.
 
-## 수치 정리
+## 세션별 수치 정리
 
-| 세션 | 주요 작업 | tool calls |
-|---|---|---|
-| Session 8 | 콜드메일 자동화 | 290 |
-| Session 2 | Paddle 결제 통합 | 271 |
-| Session 4 | 경쟁사 분석 + 행동 로깅 | 168 |
-| Session 3 | 이사 체크리스트 앱 | 79 |
-| Session 7 | 지원사업 재서칭 + IR | 67 |
-| Session 5 | 지원사업 서칭 | 51 |
-| Session 1 | 치과 정기측정 | 2 |
-| Session 6 | 쓰레드 전략 | 5 |
+| 세션 | 주요 작업 | 시간 | tool calls |
+|------|----------|------|-----------|
+| 1 | 동백유디 정기 측정 | 12분 | 2 |
+| 2 | 콜드메일 인프라 | 27h 53min | 290 |
+| 3 | Paddle 결제 연동 | 4h 44min | 163 |
+| 4 | 광고 전략 리서치 | 27h 25min | 78 |
+| 5 | 지원사업 리서치 + IR | 2h 52min | 67 |
 
-사흘 동안 한 작업이 맞다. Session 2와 Session 8은 각각 하루를 넘겼다. 총 933 tool call, 모델은 전부 `claude-opus-4-8`.
+총 600 tool calls. 모델은 전부 `claude-opus-4-8`. 도구 분포는 Bash(256), Edit(105), Read(84), Browser MCP(27), Write(24), Gmail MCP(20), Workflow(13) 순이다.
+
+세션 2와 4의 elapsed time이 27시간대인 건 세션이 하루 이상 열려 있었기 때문이다. 실질 집중 작업 시간과는 다르다.
