@@ -1,26 +1,22 @@
 ---
-title: "Claude Code in Production: 10 Sessions, 740+ Tool Calls, 5 Parallel Projects"
+title: "Claude Code, 10 Sessions and 846 Tool Calls: Catching a Live Email Bug and Getting Rejected by Paddle Twice"
 project: "portfolio-site"
 date: 2026-06-26
 lang: en
 pair: "2026-06-26-portfolio-site-ko"
-tags: [claude-code, multi-agent, workflow, automation]
-description: "10 sessions, 740+ tool calls, 5 parallel projects in 3 days — agent delegation patterns, ultracode workflows, and where AI automation hits its limits."
+tags: [claude-code, local-commerce, preterview, paddle, ultracode, workflow]
+description: "10 sessions, 846 tool calls: fixing a live email send bug, two Paddle rejections, IR rebuild with multi-agent ultracode, and a full homepage redesign."
 ---
 
-17 emails went out to the wrong people. That's what surfaced during what I thought was a routine system audit — while simultaneously managing four other projects through Claude Code.
+17 real businesses received cold outreach emails from a system that was never supposed to send anything.
 
-Over 3 days: 10 sessions, 740+ tool calls, 5 projects running in parallel. Bash 200+, Edit 80+, Read 95+, Workflow 2. The projects: JDLab outreach automation, dental marketing SEO, an investor deck rebuild, a government grant database search, and a payment platform integration.
+**TL;DR** Across 10 Claude Code sessions and 846 tool calls: discovered and patched a live email send vulnerability in `local-commerce-agent`, got rejected by Paddle twice while integrating payments for preterview, rebuilt an investor IR deck using multi-agent ultracode mode (and caught a product inconsistency the IR author missed), and shipped a full redesign of jidonglab.com. Not a quiet day.
 
-**TL;DR:** Agent delegation actually works at scale. A single `dental-clinic` subagent handled an entire marketing project with 1 tool call from my main session. An ultracode Workflow compressed 3 days of research into ~2 hours. The real bottleneck: external platform reviews that require human approval loops.
+## The System That Wasn't Supposed to Send Anything — Sent 17 Emails
 
-## A Production Bug I Found by Reading Logs
+`local-commerce-agent` is an email outreach automation for local businesses. The repo's documented design principle is explicit: **fail-closed / no-send / no-cron**. No actual mail should ever leave the system without deliberate, multi-gate authorization.
 
-Sessions 1-2 kicked off with "audit the JDLab outreach system." Straightforward enough.
-
-Then I read the execution logs.
-
-The system's strategy document was explicit: `fail-closed / no-send / no-cron`. But the runtime logs told a different story:
+Session 1 (79 tool calls, 20 minutes) was a routine audit. The first thing the agent read was the recent run log:
 
 ```
 classification=live_send
@@ -28,143 +24,108 @@ sent_count=17
 dry_run=false
 ```
 
-Seventeen emails had already been delivered to real addresses. Not a test run.
+The sender was `jd@jidonglab.com` — the primary work account, not a test alias.
 
-After 79 tool calls tracing the execution path, the culprit surfaced: `jdlab_tryjdlab_live_send_launcher.sh`. Every safety gate was hardcoded open:
+Tracing the root cause took about ten minutes. The culprit was `jdlab_tryjdlab_live_send_launch.sh`, a launcher script that had all three safety gates hardcoded open:
 
 ```bash
 JDLAB_DRY_RUN=0
-DRAFT_CREATE_OK=approved
-LIVE_SEND_OK=approved
+JDLAB_DRAFT_CREATE_OK=approved
+JDLAB_LIVE_SEND_OK=approved
 ```
 
-There was a second, subtler issue. The sender address was `jd@tryjdlab.com` — an alias — but the actual authenticated account delivering email was `jd@jidonglab.com`. The forbidden-sender gate only checked the alias string, so it passed.
+That alone would have been containable if the banned-sender check had worked. It didn't. The check was validating against the `--expect-profile` string — which was set to `jd@tryjdlab.com` — but the actual authenticated sender (`jd@jidonglab.com`) was evaluated against a different field entirely. The check compared the right value to the wrong column. Both conditions that should have stopped the send independently failed to trigger.
 
-```bash
-# before: checks alias only
-if [[ "$EXPECT_PROFILE" == *"tryjdlab.com"* ]]; then
+This is the kind of bug that only surfaces when someone reads the logs carefully instead of trusting that a "no-send" system is actually not sending.
 
-# after: checks authenticated account
-if [[ "$AUTHENTICATED_EMAIL" == *"jidonglab.com"* ]]; then
-```
+Session 2 (89 tool calls, 31 minutes) was the hardening pass. Changes made:
 
-Three fixes shipped:
+- Added `webmaster` and `mailer_daemon` (including underscore variants like `mailer_daemon` and `mailerdaemon`) to the never-send pattern list
+- Added detection for placeholder and likely-typo email addresses
+- Fixed a confusing `done → external_status` mapping that made it hard to distinguish internal completion state from actual delivery confirmation
 
-1. Deactivate the live launcher (rename to `.disabled` — preserve the audit trail)
-2. Change sender validation from alias string to `profile_email` (the OAuth-authenticated address)
-3. Add regex patterns for webmaster and role-based email prefixes to the never-send blocklist
+Two sessions, 32 Edit calls, two new test files added: `jdlab_send_identity_guard.test.js` and `jdlab_goal_mode_hardening.test.js`. The tests explicitly cover the wrong-field check that caused the original bypass.
 
-Session 2 added hardening: a pre-flight checklist that must fully pass before any launcher runs, plus an audit log recording each gate decision with its input values. 89 tool calls total across both sessions.
+The broader lesson: a "fail-closed" design isn't a property of your architecture — it's a property of every individual execution path. A launcher script with hardcoded overrides is a separate execution path, and it inherits none of your safety guarantees unless you explicitly wire them in.
 
-Why can't tests catch this? Environment variables get overridden inside the launcher script, but unit tests invoke the code path directly — they never see the launcher's overrides. The only way to catch this class of bug is to read actual runtime logs. Code review misses it entirely.
+## Paddle Rejected the Submission. Twice.
 
-## What 1-Tool-Call Project Management Looks Like
+Session 8 ran 211 tool calls — the highest of any session in this batch. It was the Paddle payment integration for preterview, and it didn't go cleanly.
 
-Session 3: 1 tool call. Total.
+**First rejection: expired KYC on an old account.** The Paddle account had been created during an earlier project (`fortunelab`), and the KYC verification had lapsed in the meantime. The dashboard showed "Action required — verification process has expired." Attempting to recover the account was a dead end.
 
-That was the dental marketing session for Dongbaek UDDental clinic. The entire session: `Agent(dental-clinic)`. One invocation.
+**Second rejection: product category mismatch.** A new account was created with the `preterview.com` domain. Paddle reviewed the submission and responded:
 
-The `dental-clinic` subagent read `~/dental-promo/dongbaek-uddental/` — `clinic.json`, keyword cache, history — restored its prior state, ran keyword rank measurement, wrote results to the log, generated a weekly digest, and synced. No further input from me.
+> "We identified the following product categories: Other/Resume/CV Builders, Human Services/Consulting"
 
-Why a subagent instead of working directly in the main session?
+preterview is an AI mock interviewer — voice-based, with automated performance reports covering communication patterns, problem-solving approach, and domain expertise. It runs real-time coaching sessions. Paddle classified it as a Resume Builder and declined on Acceptable Use Policy grounds.
 
-At any point during these 3 days, the main context was already carrying:
-- Outreach system gate configs and email send logs
-- Investor deck slide content and VC positioning notes
-- Government grant program eligibility criteria
-- Payment platform policy docs and sandbox test results
+The clarification materials have been submitted. The core argument is that preterview is a performance coaching and assessment tool, not a document generation product. The distinction matters because the user outcome is behavioral change, not a PDF artifact. Whether Paddle's review process is granular enough to register that difference remains to be seen.
 
-Pulling the dental project into that same context would mean carrying clinic-specific keyword rankings alongside payment platform error codes. Context pollution makes every subsequent reasoning step noisier. Isolated subagents are a practical context management strategy, not just a theoretical architecture pattern.
+On the code side, the work is done regardless. The `feat/paddle-checkout` branch — 23 commits, 47 files, +4,960 lines — merged into main. New files:
 
-**Session 4** produced the measurable outcome. The day after publishing Post #2 (pediatric dentistry content), Naver ranking data showed:
+- `app/api/pay/paddle/`
+- `components/pricing/PaddleBuy.tsx`
+- `lib/payments/paddle.ts`
 
-- **#1** blog tab ranking for "동백 소아치과" (Dongbaek pediatric dentistry)
-- **#4** for "용인 소아치과" (Yongin pediatric dentistry) — first-ever ranking for this keyword
+The Korean payment alternative is still unresolved. payapp doesn't support credit-based product types, so the search continues.
 
-The placement traffic analysis surfaced another data point: procedure-keyword inbound traffic was **0%**. New patients were arriving through brand name search only — no one searching "dental implant Dongbaek" was finding the clinic. That 0% figure became the concrete justification for expanding blog volume to cover procedure keywords. Data-driven, not intuition-driven.
+## Multi-Agent Ultracode Caught What the IR Author Missed
 
-One implementation note: using `SendMessage` to continue the same agent instance between sessions rather than spawning new ones. A fresh agent pays full context restoration cost every time. The same instance retains its loaded state. For a project with an evolving keyword database and weekly ranking history, that compounding cost matters.
+Session 4 was a preterview investor IR upgrade. The approach: `ultracode` mode with the Workflow tool, four parallel lenses running concurrently — VC framing, competitive positioning, narrative structure, and design coherence. 92 tool calls, 46 minutes, with Bash 35 / Read 29 / Edit 24 as the primary distribution.
 
-## When Parallel Agents Compress Days Into Hours
+The most useful thing the multi-agent run produced wasn't improved copy. It was a factual inconsistency the IR author hadn't caught.
 
-Sessions 5-6 each ran an ultracode Workflow — multiple subagents fanning out on independent tasks in parallel, converging to a synthesized result.
+The IR document stated the product evaluates candidates on **three capability axes**. The actual product report UI, which the agents verified directly against the codebase, showed **five axes**: experience specificity, job expertise, problem-solving, communication, and fundamental skills. The product had been updated after the IR was written. The IR was still describing the old version.
 
-### Investor Deck Rebuild (Session 5)
+This is a real advantage of AI automation doing verification work rather than just generation work: agents read the actual code and UI definitions, not just what a human summary says about them. A human reviewer editing the IR in isolation would likely have taken the three-axis claim at face value.
 
-Starting point: a 12-slide HTML investor deck for Preterview. The problem: the deck said "3-axis capability model." The actual live product report screen showed 5 axes. A factual inconsistency in a pitch deck is a fixable problem — but you have to find it first.
+Session 6 was a second rebuild pass, this time grounded in an actual investor feedback document (`preterview_feedbacks_260626.pdf`). The gap between a theoretically well-structured IR and one that responds to real objections from real investors is significant — the second pass addressed specific concerns that couldn't have been anticipated from internal review alone.
 
-The Workflow ran three tracks concurrently:
+## Six Logo Directions, One Homepage Redesign, 143 Tool Calls
 
-**Track 1: Source verification** — Does the product have 3 axes or 5? Read the codebase, not the marketing copy. Check the data model, report schema, UI component definitions.
+Session 5 (143 tool calls, 65 minutes) combined two workstreams: a new logo for jidonglab and a full homepage redesign.
 
-**Track 2: Multi-lens critique** — Four parallel agents, each with a distinct reviewer identity: VC partner, marketing strategist, positioning consultant, visual designer. Each reads the full deck independently with no cross-contamination of results.
+For the logo, GPT Image (`gpt-image-2`) generated six directional explorations for a JL monogram. The selected direction was an indigo JL monogram with clean geometric construction, replacing the previous site logo.
 
-**Track 3: Rebuild spec synthesis** — Once tracks 1 and 2 complete, synthesize a per-slide rewrite spec with specific text changes, data replacements, and visual notes.
+The homepage redesign was more substantial. The new layout:
 
-Tool counts: Read 29, Bash 35, Edit 24. The output was actionable at the slide level — not "section 3 needs work" but "Slide 7, second bullet: replace '3-axis' with '5-axis capability model'; add screenshot of the Insight axis from the live report view." The factual error was confirmed: 5 axes, the deck was wrong.
+- Leads with preterview as the flagship product (above the fold)
+- Includes a dental ad agency dashboard section with real report screenshots — numbers and client names removed, but the actual UI structure intact, which communicates "this is running in production" more effectively than mockup screenshots
+- 21 files changed total
+- New components: `BrandMark.tsx`, `DentalShowcase.tsx`, `Flagship.tsx`
 
-### Government Grant Search (Session 6)
+The design principle here is that a portfolio should demonstrate actual work, not just describe it. Real dashboards with redacted data read as evidence; polished mockups read as aspirational.
 
-Background: an existing database of 42 government grant programs for Korean tech startups. Goal: find programs not already catalogued.
+## Everything Else That Happened in 846 Tool Calls
 
-8 parallel search angles, each running independently:
+A few other sessions worth noting:
 
-| Angle | Focus |
-|---|---|
-| Central government | MSIT, MOTIE programs |
-| NIPA / AI | AI-specific initiatives |
-| Gyeonggi / Pangyo | Regional tech zone grants |
-| Content / edtech | Category-specific programs |
-| Accelerators | Cohort-based programs |
-| Competitions | Grant competitions and awards |
-| Healthcare | Digital health funding |
-| Global | International / export programs |
+**Session 3** delegated the routine measurement for Dongbaek UDI dental clinic to the `dental-clinic` subagent — the same pattern used for recurring clinic work to preserve context across sessions. A pediatric dentistry post published the same day hit #1 on Naver's blog tab for "동백 소아치과" and #4 for "용인 소아치과" within 24 hours of publishing (verified against logNo 224326926066).
 
-Each agent did live web verification — confirming programs were actually open, checking deadlines, verifying eligibility criteria. No hallucinated programs that closed two years ago.
+**Session 7** was a grant search for Pangyo Valueup support follow-up. An 8-angle parallel workflow ran across different grant categories and eligibility criteria, surfacing 36 verified leads and 23 candidates worth pursuing. Output: `MORE-2026-06-25.md` and `SEOUL-STARTUP-HUB-2026-06-25.md`.
 
-Output: 23 verified program recommendations with application status, funding amount, and eligibility notes. Manual version: browser tabs, spreadsheets, 2-3 days. Workflow version: ~2 hours wall-clock.
+**Session 9** was a short one: four WebSearch calls to determine whether a Money Today "Good Company Award" email was legitimate press outreach or paid award solicitation. It was the latter — the "coverage support (membership eligibility)" line item was the tell, a standard pattern for magazine award ad sales.
 
-## The Part AI Can't Speed Up
+**Session 10** (162 tool calls) was preterview ad strategy: Naver PowerLink keyword selection, GA4 pixel insertion (`G-ES6SENFGM2`), and Google RSA copy. The keyword cluster around "면접 말버릇" (interview speech habits) and "면접 습관교정" (interview habit correction) showed the best cost-per-click ratio relative to intent quality — more specific than "interview prep" and less competitive than "mock interview."
 
-Session 7: Preterview payment integration. 26 hours, 211 tool calls. Bash 104, mcp__claude-in-chrome 27.
+## What 846 Tool Calls Actually Looks Like
 
-The code side moved quickly. The problem was Paddle.
+Tool distribution across all 10 sessions:
 
-Issues hit in sequence:
+| Tool | Count |
+|------|-------|
+| Bash | 268 |
+| Read | 151 |
+| Edit | 103 |
+| Write | 21 |
+| Other | ~303 |
 
-**Problem 1:** Original Paddle account's KYC had expired. Non-reactivatable. Start over.
+The Bash-heavy distribution reflects the audit and verification work — log inspection, test runs, file diffing. Read-heavy sessions (like the IR rebuild) skew differently, with more time spent on comprehension before generation.
 
-**Problem 2:** New Paddle account submitted for production review. Rejected — Preterview classified as "HR Service," a restricted category under Paddle's merchant policy.
+One pattern that's become consistent across multi-agent Claude Code work: the most valuable outputs aren't always the primary deliverable. The IR inconsistency, the email audit findings, the grant candidates — those came from agents checking assumptions against ground truth, not from instruction-following generation. The sessions where agents are given latitude to verify before they write consistently produce higher-quality corrections than sessions scoped purely to generation.
 
-**Problem 3:** The credit-based payment model (users pre-purchase interview credits) conflicts with Paddle's usage-based billing policy restrictions. Not a configuration issue — a product model question that requires a policy exception process.
-
-**Problem 4:** The `feat/paddle-checkout` branch had 23 commits built on assumptions about account setup that no longer held. The branch couldn't merge to main.
-
-That 27 `mcp__claude-in-chrome` count represents work that looks like debugging but is actually form-filling, policy-reading, and sandbox testing through a real browser. Browser automation helped where it could — but it can't approve a merchant application on behalf of a human reviewer at a payment platform.
-
-"Code is correct, but platform review is the blocker" is the hardest state to be in. Sandbox approval means nothing until production review clears. Every account configuration change restarts the review cycle. There's no automation path around it. Budget for the wait as a fixed cost, not an uncertainty.
-
-## By the Numbers
-
-| Metric | Value |
-|---|---|
-| Total sessions | 10 |
-| Total tool calls | 740+ |
-| Largest session | 211 calls (26 hrs, Preterview payments) |
-| Smallest session | 1 call (dental clinic delegation) |
-| Files changed | 30+ |
-
-The distribution matters more than the total. The 1-call session and the 211-call session represent opposite ends of the delegation spectrum — one where the agent owned the entire domain, one where external dependencies created unavoidable blocking work.
-
-## Patterns Worth Repeating
-
-**Domain-isolated subagents keep context clean.** A dedicated agent per project domain means the main session never carries domain-specific state. With 5 simultaneous projects, this is how you prevent context pollution between unrelated work streams. Dental keyword rankings don't belong in the same context window as Paddle policy docs.
-
-**Parallel Workflows for multi-source research.** Any task requiring coverage of N independent sources — grant programs, reviewer perspectives, competitive angles — runs faster as parallel agents than sequential tool calls in one session. 8 agents searching simultaneously also don't anchor on each other's results, which matters for research quality.
-
-**Read logs before reading code.** The outreach bug was invisible in static analysis. The runtime logs made it obvious. When debugging automation systems, start with execution logs and work backward to code — not the other way around.
-
-**External review cycles are a fixed cost.** Payment processing, app store reviews, ad platform approvals — wherever a human reviews your integration, that timeline is outside the system. The code can be perfect. Build the wait into the schedule.
+Session 8's 211 tool calls for a payment integration that got rejected twice is its own lesson. The code is correct. The product categorization problem was an organizational constraint that no amount of implementation work could have preempted. Sometimes the right next step is just submitting the clarification and waiting.
 
 ---
 

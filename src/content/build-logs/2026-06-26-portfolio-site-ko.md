@@ -1,72 +1,72 @@
 ---
-title: "Claude Code 10개 세션 740+ 도구 호출 — 5개 프로젝트 동시 진행 후기"
+title: "Claude Code 10세션 846 tool call — live 발송 버그 잡고 Paddle 두 번 반려받기까지"
 project: "portfolio-site"
 date: 2026-06-26
 lang: ko
-tags: [claude-code, multi-agent, dental-marketing, preterview, jdlab, workflow]
-description: "3일간 10개 세션, 740+ tool calls, 5개 프로젝트를 병렬로 처리했다. 버그 발굴부터 IR 고도화, 치과 마케팅, 결제 시스템 연동까지 — Claude Code 에이전트 위임 패턴의 실전 기록."
+tags: [claude-code, local-commerce, preterview, paddle, ultracode, workflow]
+description: "10세션 846 tool call — local-commerce 이메일 아웃리치 live 발송 버그 발견·수정, Paddle 결제 도메인 반려 2회, preterview IR ultracode 멀티에이전트 고도화, jidonglab 홈페이지 개편까지 정리한다."
 ---
 
-3일 동안 Claude Code 세션을 10개 돌렸다. Bash 200+, Edit 80+, Read 95+, Workflow 2회. 프로젝트는 다섯 개가 동시에 굴러갔다 — JDLab 아웃리치 시스템, 동백유디치과, Preterview, 지원사업 발굴, 머니투데이 수상 검증.
+이메일 아웃리치 시스템이 `dry_run=false` 상태로 실제 사업체 17곳에 발송했다. 발각된 건 감사 세션 도중이었다.
 
-**TL;DR** 에이전트 위임 패턴이 실제로 효과가 있다. dental-clinic 서브에이전트 하나가 치과 프로젝트 전체를 자율 처리했고, ultracode 모드 Workflow가 3일치 조사를 2시간 안에 끝냈다.
+**TL;DR** 10세션 846 tool call 동안 local-commerce-agent 보안 감사, preterview Paddle 결제 연동 두 번 반려, IR ultracode 리빌드, jidonglab 홈페이지 개편을 진행했다. 삽질이 많았다.
 
-## 17통의 이메일이 잘못 발송됐다
+## 17건 live 발송 — 시스템이 스스로 뻥 뚫렸다
 
-JDLab 세션(세션 1-2)의 시작은 평범한 "전체 시스템 감사"였다. 그런데 로그를 읽으면서 즉시 이상한 걸 발견했다.
+`local-commerce-agent`는 현지 소상공인 이메일 아웃리치 시스템이다. 문서상 이 레포는 "fail-closed / no-send / no-cron" — 실제 발송은 하지 않도록 설계돼 있었다.
 
-전략 문서에는 "fail-closed / no-send / no-cron"이라 적혀 있었다. 근데 최근 실행 로그에는 `classification=live_send`, `sent_count=17`, `dry_run=false`가 찍혀 있었다. 79번의 도구 호출 끝에 근본 원인이 나왔다.
+세션 1(79 tool calls, 20분)에서 감사 목적으로 최근 실행 로그를 열었더니 `classification=live_send`, `sent_count=17`, `dry_run=false`가 찍혀 있었다. 발송 주소는 `jd@jidonglab.com` — 1차 메일박스, 실제 업무 계정이었다.
 
-`jdlab_tryjdlab_live_send_launch.sh`가 모든 게이트를 하드코딩으로 열어놓고 있었다 — `JDLAB_DRY_RUN=0`, `DRAFT_CREATE_OK=approved`, `LIVE_SEND_OK=approved`. 더 심각한 건 발신자가 `jd@tryjdlab.com` 별칭이지만 실제 인증 계정은 `jd@jidonglab.com`(1차 주소)이었다. forbidden-sender 게이트는 별칭 문자열만 보고 통과시켰다.
-
-수정은 세 방향으로 갔다. 첫째, 라이브 런처를 비활성화. 둘째, 발신자 검증 로직을 `profile_email` 기준으로 변경. 셋째, never-send 정규식에 웹마스터·역할 이메일 패턴 추가. 세션 2에서 후속 강화까지 합쳐 89 tool calls를 썼다.
+원인은 `jdlab_tryjdlab_live_send_launch.sh`였다. 이 론처 스크립트가 모든 게이트를 강제로 열어놓고 있었다.
 
 ```bash
-# before: 별칭만 확인
-if [[ "$EXPECT_PROFILE" == *"tryjdlab.com"* ]]; then
-
-# after: 실제 인증 계정 확인
-if [[ "$AUTHENTICATED_EMAIL" == *"jidonglab.com"* ]]; then
+JDLAB_DRY_RUN=0
+JDLAB_DRAFT_CREATE_OK=approved
+JDLAB_LIVE_SEND_OK=approved
 ```
 
-이런 버그는 코드 리뷰로 잡기 어렵다. 환경 변수가 런처 스크립트에서 오버라이드되는데, 테스트는 코드 경로를 직접 실행하기 때문이다. 실제 로그 파일을 읽어야 보인다.
+금지 발신자 체크는 `--expect-profile` 문자열(`jd@tryjdlab.com`)만 보고 있어서, 실제 인증된 발신자(`jd@jidonglab.com`)는 통과시켜버렸다. 체크 대상이 잘못된 필드였다.
 
-## 치과 마케팅은 서브에이전트에게
+세션 2(89 tool calls, 31분)에서 후속 hardening을 진행했다. never-send 패턴에 `webmaster`, `mailer_daemon`(언더스코어 변형) 추가, placeholder/typo 이메일 감지 로직 삽입, 외부 상태를 오해하게 만드는 `done→external_status` 매핑 수정. 두 세션 합산 Edit 32번. 신규 테스트 파일 2개(`jdlab_send_identity_guard.test.js`, `jdlab_goal_mode_hardening.test.js`) 생성.
 
-동백유디치과 작업(세션 3-4)은 dental-clinic 서브에이전트에 완전 위임했다. 메인 세션이 직접 작업하면 치과 컨텍스트(clinic.json·캐시·히스토리)가 다른 프로젝트와 섞인다.
+## preterview Paddle — 두 번 반려
 
-세션 3은 tool call이 단 1개다 — `Agent(dental-clinic)` 한 번. 에이전트가 `~/dental-promo/dongbaek-uddental/`를 읽어 컨텍스트를 복원하고, 키워드 순위 측정→기록→다이제스트→sync까지 끝냈다.
+세션 8(211 tool calls)이 가장 많은 tool call을 소모했다. Paddle 결제 연동 작업이었는데, 삽질이 많았다.
 
-세션 4에서 실제 임팩트가 나왔다. 2편(소아 치과 글)을 발행한 다음 날, '동백 소아치과' 블로그탭 1위, '용인 소아치과' 4위 첫 진입을 기록했다. 플레이스 유입 데이터에서는 시술 키워드 유입이 0%라는 것도 확인했다 — 신환이 브랜드 검색으로만 들어오고 있었다. 이게 블로그 볼륨 확대의 근거가 됐다.
+첫 번째 문제: 기존 Paddle 계정이 예전 `fortunelab` 시절에 신청했다가 KYC가 만료된 상태였다. Verification status가 "Action required — verification process has expired"였고, 계정을 살리는 게 어려웠다.
 
-`SendMessage`로 같은 에이전트 인스턴스를 이어서 호출하는 방식이 핵심이다. 새 에이전트를 띄우면 컨텍스트 복원 비용이 든다. 같은 세션에서 이어받으면 에이전트가 직전 상태를 그대로 갖고 있다.
+두 번째 문제: 새 계정으로 `preterview.com` 도메인을 신청했더니 승인이 거절됐다.
 
-## ultracode Workflow가 어디까지 되나
+> "We identified the following product categories: Other/Resume/CV Builders, Human Services/Consulting"
 
-Preterview IR 고도화(세션 5)와 지원사업 발굴(세션 6)에서 ultracode 모드 Workflow를 두 번 돌렸다.
+AI 면접관이 음성으로 모의면접을 돌리고 실행 피드백 리포트를 자동 생성하는 SaaS인데, Paddle이 "Resume Builder"로 분류했다. Acceptable Use Policy 범위 밖이라는 이유였다. 설명 자료를 다시 제출하는 중이다.
 
-IR 작업은 이렇게 흘렀다. 기존 12슬라이드 HTML IR이 있었다. 근데 "역량 3축"이라 적혀 있는데 실제 제품 리포트 화면은 "역량 5축"이었다. Workflow가 코드베이스 검증 → 마케팅/VC/포지셔닝/디자인 4개 렌즈 비평 → 슬라이드별 리빌드 스펙 합성을 병렬로 돌렸다. Read 29번, Bash 35번, Edit 24번이 나왔다.
+코드 자체는 이미 머지됐다. `feat/paddle-checkout` 브랜치(23커밋, 47개 파일, +4,960 lines)가 main에 들어갔다. `app/api/pay/paddle/`, `components/pricing/PaddleBuy.tsx`, `lib/payments/paddle.ts`가 신규 추가됐다. 한국 결제는 payapp에서 크레딧 형 상품을 지원하지 않아 대안을 찾는 중이다.
 
-지원사업 발굴에서는 기존 42개 배치에 없는 새 프로그램을 8각도 병렬 서칭했다 — 중앙부처·NIPA/AI·경기/판교·콘텐츠/에듀테크·액셀러레이터·공모전·헬스케어·글로벌. 웹 실검증까지 포함해 검증된 추천 프로그램 23개가 나왔다.
+## IR ultracode 멀티에이전트 리빌드
 
-## 결제 연동은 생각보다 험하다
+세션 4는 preterview 투자자 IR 고도화였다. `ultracode` 모드로 Workflow 도구를 써서 4개 렌즈(VC·포지셔닝·내러티브·디자인) 병렬 검증을 돌렸다. Bash 35회, Read 29회, Edit 24회, 92 tool calls, 46분.
 
-Preterview 결제(세션 7)는 이번 세션에서 가장 긴 작업이었다. 26시간 세션, 211 tool calls.
+발견한 주요 불일치: IR에 "역량 3축"이라고 적혀 있었는데, 실제 제품 리포트 화면에서는 5축(경험구체성·직무전문성·문제해결력·커뮤니케이션·엔진기본기)이 나왔다. IR 작성 이후 제품이 바뀐 것이다. 워크플로 에이전트들이 코드베이스를 직접 검증해서 잡아냈다.
 
-Paddle 계정 문제가 연달아 터졌다. 구 계정은 KYC 만료, 신규 계정은 도메인 심사 반려("HR Service" 카테고리 해당), 크레딧 결제 모델이 Paddle 정책과 충돌. `feat/paddle-checkout` 브랜치 23커밋이 main에 머지되지 않은 채 남아있었다.
+세션 6에서는 실제 투자자 피드백 PDF(`preterview_feedbacks_260626.pdf`)를 기반으로 2차 리빌드 방향을 수립했다.
 
-Bash 104번 + mcp__claude-in-chrome 27번이 보여주듯, 브라우저 자동화가 절반을 차지했다. 코드 수정보다 외부 서비스 연동의 사람 손 작업 부분이 병목이었다. 결제 시스템은 "코드는 다 됐는데 플랫폼 심사가 문제"인 상황이 제일 어렵다.
+## jidonglab 로고 + 홈페이지 개편
 
-## 숫자로 보면
+세션 5(143 tool calls, 1시간 5분)에서 GPT Image(`gpt-image-2`)로 JL 로고 6가지 방향을 생성했다. 인디고 JL 모노그램 방향을 선정하고 사이트 로고로 교체했다.
 
-| 항목 | 수치 |
-|---|---|
-| 전체 세션 | 10개 |
-| 총 tool calls | 740+ |
-| 최대 세션 | 211 calls (26시간, Preterview 결제) |
-| 최소 세션 | 1 call (치과 측정 위임) |
-| 변경된 파일 | 30+ |
+동시에 `jidonglab.com` 홈페이지 전체 개편을 진행했다. preterview를 상단에 강조, 치과 광고대행 대시보드 느낌과 실제 보고서 화면(수치·이름 제거)을 섹션으로 구성했다. 변경된 파일만 21개. `BrandMark.tsx`, `DentalShowcase.tsx`, `Flagship.tsx`가 신규 생성됐다.
 
-가장 효율적인 세션은 dental-clinic 위임 1-call 세션이다. 가장 긴 세션은 외부 서비스(Paddle)가 낀 결제 연동이었다. 에이전트가 처리할 수 있는 건 위임하고, 외부 서비스 심사처럼 사람이 개입해야 하는 단계는 병목이 남는다.
+## 기타
 
-에이전트 위임 패턴은 세션 컨텍스트를 깨끗하게 유지해준다. 치과, 아웃리치, IR, 결제가 섞이면 모든 컨텍스트를 메인 세션이 들고 있어야 한다. 도메인별로 에이전트를 나누면 각각의 히스토리와 상태가 분리된다.
+세션 3에서 동백유디치과 정기 측정을 `dental-clinic` 서브에이전트에 위임했다. 소아치과 2편이 발행 하루 만에 '동백 소아치과' 블로그탭 1위, '용인 소아치과' 4위 첫 진입(logNo 224326926066 교차확인).
+
+세션 7에서 판교밸류업 지원 후속 작업과 신규 지원사업 서칭 — 8개 각도 병렬 워크플로로 36개 검증, 23개 추천 후보 도출. `MORE-2026-06-25.md`, `SEOUL-STARTUP-HUB-2026-06-25.md` 생성.
+
+세션 9는 머니투데이 "굿컴퍼니대상" 이메일이 유료 수상 권유인지 확인 작업이었다. WebSearch 4회로 결론냈다 — "취재 지원(멤버십 자격)" 항목이 실제 청구 대상인 광고 영업 패턴이었다.
+
+세션 10은 preterview 광고 전략 수립(162 tool calls). 네이버 파워링크 키워드 선정, GA4 픽셀(`G-ES6SENFGM2`) 코드 삽입, Google RSA 카피 작성. "면접 말버릇", "면접 습관교정" 계열 키워드가 가성비가 좋은 것으로 나왔다.
+
+---
+
+10세션, 846 tool calls. 도구 사용 분포: Bash 268회, Read 151회, Edit 103회, Write 21회, 나머지 기타.
