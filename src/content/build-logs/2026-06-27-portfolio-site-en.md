@@ -1,139 +1,202 @@
 ---
-title: "17 Emails Went Out by Accident — 3 Days Hardening 6 Projects with Claude Code"
+title: "Paddle Rejected Me Twice. Claude Code Researched 6 Alternatives in 28 Minutes."
 project: "portfolio-site"
 date: 2026-06-27
 lang: en
 pair: "2026-06-27-portfolio-site-ko"
-tags: [claude-code, automation, security, paddle, preterview, multi-agent]
-description: "A live email blast, a Paddle rejection, and 830+ tool calls later — hardening 6 projects across 15 sessions in 3 days with Claude Code."
+tags: [claude-code, preterview, paddle, polar, payment, ultracode, workflow, dental-clinic]
+description: "Two Paddle rejections in 36 hours, 6 parallel payment research agents, 24-agent ad strategy session, and dental SEO wins — all in one day with Claude Code."
 ---
 
-On the morning of June 25th, I opened the JDLab email pipeline logs and saw three fields that should never appear together: `classification=live_send`, `sent_count=17`, `dry_run=false`. Seventeen emails had gone to real recipients. The sender was `jd@jidonglab.com` — the primary mailbox explicitly blocked in the codebase.
+Two rejection emails. Thirty-six hours of KYC forms, domain verification waits, and documentation reading. The first email said my identity verification had expired. The second said my domain fell "outside what Paddle is able to support."
 
-That kicked off a week that ended up spanning 3 days, 15 sessions, and 830+ tool calls across six active projects: `local-commerce-agent`, `preterview`, `dongbaek-uddental`, `jidonglab-site`, and `portfolio-site`.
+This is what attaching a Western Merchant of Record to a Korean developer's SaaS actually looks like in practice.
 
-**TL;DR** Email security audit + hardening (2 sessions), Preterview IR upgrade via multi-agent validation workflow, Paddle payment integration blocked twice, dental marketing sub-agent delegation, jidonglab.com homepage redesign. Every part of this ran through Claude Code as the primary execution layer.
+What follows is a build log from one day across 7 sessions and 448+ tool calls: a payment provider pivot for [preterview.com](https://preterview.com), a 24-agent ad research run that consumed 880k tokens, dental SEO measurement via a single subagent call, and a fraudulent award email identified in five minutes.
 
-## How 17 Emails Slipped Through Every Gate
+**TL;DR**
 
-The root cause was in `~/.hermes/scripts/jdlab_tryjdlab_live_send_launch.sh`. This cron entrypoint hardcoded every safety gate open:
+- Paddle rejected preterview.com twice — KYC expiration on account one, domain miscategorization on account two
+- Ran 6 parallel research agents via `ultracode` to evaluate payment alternatives in 28 minutes
+- Pivoted to Polar (Individual KYC, usage-based billing)
+- 24-agent ad session (~880k tokens, 245 web tool-uses) concluded Naver Power Link is the right first channel
+- Dental clinic subagent: one `Agent()` call from the main session, post #1 back to blog tab #3, post #2 at #1 on target keyword
+- Identified a pay-to-win award scheme in 5 minutes with 4 WebSearch calls
 
-```bash
-JDLAB_DRY_RUN=0
-JDLAB_DRAFT_CREATE_OK=approved
-JDLAB_LIVE_SEND_OK=approved
-SEND_WINDOW=9999
-```
+## The Interview App That Got Called a Resume Builder
 
-The strategy document said "fail-closed / no-send / no-cron." The actual execution script was the exact opposite. A second vulnerability compounded the problem: the forbidden-sender identity check only looked at the `--expect-profile` string. When an authenticated mailbox (`jd@jidonglab.com`) used a From alias (`jd@tryjdlab.com`), the check passed cleanly. The gate was inspecting the wrong field entirely.
+[preterview.com](https://preterview.com) is an AI mock interview platform. Fully automated — no human coaches, no consultants, no resume building. You answer a practice question on video or audio, the AI evaluates delivery, pacing, and filler words, and returns structured feedback with scores. That's the entire product.
 
-I gave Claude a single instruction: "End-to-end audit of the JDLab workflow — check all actual logs, state files, and Hermes scripts." Session 1 ran Bash 21 times, Read 22, Edit 14 — 79 tool calls to surface 3 root causes and ship fixes.
+Paddle looked at it and classified it as: **Resume/CV Builders + Human Services/Consulting or Advisory Services.**
 
-The core fixes:
-- Disabled the live launcher completely (confirmed removed from crontab/launchd, not just commented out)
-- Changed the forbidden-sender identity guard to check **authenticated mailbox** instead of From alias
-- Expanded `never-send` patterns to cover `webmaster`, `mailer_daemon` (including underscore variants), and role addresses like `contacto`, `contato`, `press`, `partnerships`
+This was the second Paddle account rejection. The email:
 
-Session 2 was an independent verification pass on session 1's fixes, plus additional hardening for defense-depth gaps that session 1 hadn't touched. Four independent audits ran in parallel: bounce/reply feedback loops, yield collapse, never-send pattern coverage, and preflight suppression classifier. 89 tool calls.
+> We identified the following product categories on this domain:
+> **Resume/CV Builders**, Human Services/Consulting or Advisory Services.
+> These categories fall outside what Paddle is able to support.
 
-The system is fully fail-closed after session 2. Live launcher disabled. Draft gate blocked by default. All send/draft crons paused.
+The classifier presumably keyed on "interview" → job prep → resume. I submitted an appeal with explicit language: "Fully automated AI product. Zero human interviewers, zero coaches, zero consultants. AI generates all feedback." But with no timeline on the appeal, I needed to evaluate alternatives in parallel.
 
-The thing that stood out here was how much faster parallel auditing is than sequential review. Session 1 did sequential root cause analysis — 79 calls to trace the full chain. Session 2 split four concern areas across four independent audits and ran them concurrently. The total call count per area was smaller, but the coverage was broader because no single audit was trying to hold the full context of every subsystem simultaneously.
+## What Happened Before This: KYC Expired on Account One
 
-## The Sub-Agent Pattern That Actually Works at Scale
-
-The most time-efficient change this week wasn't a code fix — it was formalizing the delegation pattern for context-heavy recurring work.
-
-The use case was Dongbaek Uddental dental clinic's regular performance measurement. Here's what the main session prompt looked like:
-
-```
-Regular measurement for Dongbaek Uddental. Delegate to dental-clinic sub-agent.
-Public data: measure keyword rankings (blog tab + unified search).
-Track 2 published posts (pediatric): check if logNo 224326926066 entered pediatric keywords...
-```
-
-One prompt. That's all the main session handled. The `dental-clinic` sub-agent read `clinic.json`, `cache`, and `history.json` under `~/dental-promo/dongbaek-uddental/`, restored its own context, ran measurement → logging → digest generation → sync — and returned a structured result. Main session tool calls: `Agent(1)`.
-
-Results that day: 'Dongbaek pediatric dentist' blog tab hit **#1 ranking**, 'Yongin pediatric dentist' **entered 4th place for the first time** — within 24 hours of publishing.
-
-The important implementation detail: for session 6 (Uddental blog publishing, 53 tool calls), I used `SendMessage` to resume the same dental-clinic agent instance rather than spawning a new one. A fresh instance means paying the `clinic.json` context restoration cost again. Reusing the same instance keeps the conversation state alive. The session prepped 2 pediatric dentistry posts as final packages; the clinic owner published them directly to Naver Blog via copy-paste.
-
-The broader principle here is that Claude Code as an orchestration layer works best when the main session only handles decisions and approval gates. Delegation to a specialized sub-agent that owns its own context, state files, and output format removes the recurring restoration overhead from the main session entirely.
-
-## Parallel Multi-Angle IR Validation
-
-Session 4 ran the Preterview investor relations document upgrade in ultracode mode (multi-agent workflow). The problem: an IR document that had drifted from the actual product state and needed both accuracy correction and narrative tightening.
-
-First step was systematic: list every falsifiable claim in the existing IR. Then cross-check each one against ground truth.
-
-Key discrepancies found:
-- README stated signup bonus as 300cr; IR stated 200cr (the IR was correct)
-- IR claimed "3 capability axes"; actual product has **5 axes** (confirmed by reading report screenshots directly, not from docs)
-- "5 payment methods" claim → verified by grepping the codebase, not by trusting the written spec
-
-The Workflow tool spawned 4 agents in parallel — VC lens, positioning lens, narrative lens, design lens. Each independently reviewed and critiqued the IR claims. Running them in parallel rather than sequentially matters: a sequential pass would let earlier findings bias later reviewers. Independent parallel evaluation surfaces disagreements instead of burying them.
-
-Conclusion: the IR was more accurate than the README. The only substantive fix was "3 capability axes → 5 capability axes." Real interview and report screenshots — 3-person evaluation panel, voice answer playback, follow-up question generation, real-time speech recognition, 5-axis scorecard — were embedded directly into the slides to replace the described claims with demonstrated evidence.
-
-Session 4: Bash 35, Read 29, Edit 24, Workflow 1. Total: 92 tool calls.
-
-The workflow cost more than a single-pass review would have. But catching the 3-vs-5-axis discrepancy before the IR went to investors made that cost worthwhile. The issue wasn't in the written documentation anywhere — it only surfaced when one of the parallel agents pulled the actual product screenshots.
-
-## Paddle Rejected the Integration. Twice.
-
-Session 7 was the longest this week — a 26-hour 52-minute wall clock (most of it Paddle waiting), 211 tool calls. The core task was merging `feat/paddle-checkout` (23 commits, 47 files, +4,960 lines) into main and getting the payment integration live.
-
-The merge was clean. The 4 payment commits didn't touch interview or avatar files. No conflicts.
-
-**First rejection**: the existing Paddle account's KYC verification had expired.
+The second rejection was on a second account. The first had been created earlier under "FortuneeLab" and sat dormant long enough that Paddle's KYC window closed:
 
 ```
 Verification status: Action required
-We're unable to verify your identity as the verification process has expired.
+We're unable to verify your identity as the 
+verification process has expired.
 ```
 
-Created a new account and rebuilt the sandbox from scratch: 3 products (Starter 800cr/$7.99, Standard 5,000cr/$39, Pro 12,000cr/$79), client-side token, webhook endpoint configuration.
+Re-submitting on a lapsed account requires Customer Support. Rather than wait, I created a fresh account and rebuilt the entire integration in a 211-tool-call session:
 
-**Second rejection**: domain review for the new account returned a policy rejection.
+- Product catalog: Starter (800 credits / $7.99), Standard (5,000 credits / $39), Pro (12,000 credits / $79)
+- Client-side checkout token
+- Webhook endpoint
+
+The `feat/paddle-checkout` branch shipped: 23 commits, 47 files, +4,960 lines, merged clean into main.
+
+Then came the domain rejection on the new account two days later.
+
+## 6 Research Agents in Parallel, Results in 28 Minutes
+
+The moment the second rejection arrived, I opened `ultracode`. The prompt wasn't structured — just the raw question:
 
 ```
-We identified the following product categories on this domain:
-Other/Resume/CV Builders
-Human Services/Consulting or Advisory Services
-These categories fall outside what Paddle can support under our Acceptable Use Policy.
+preterview 결제 붙일 수 있는거 뭐가 있어?
+paddle은 심사중이야 얼마나 걸려?
+lemon squeezy나 polar는 어떄? 크레딧 때문에 안돼? 한국꺼는?
 ```
 
-Preterview is an AI interview coach. Paddle's classifier flagged it under "Human Services" — presumably because "interview coaching" typically involves a human coach. The appeal went back with explicit language: zero human interviewers, zero human coaches, zero consultants involved in any session. Fully automated software product. AI generates all feedback. Waiting on the review outcome.
+*(Translation: What payment providers can I attach to preterview? Paddle is under review — how long does it take? What about Lemon Squeezy or Polar? Any issues with credits? Korean options?)*
 
-While waiting, the session handled adjacent cleanup: 3 new legal pages (terms, privacy, refund) from scratch, dead payment code removal, live environment variable organization. Paddle blocking the payment flow didn't block the rest of the product — the code work that could be done was done.
+The Workflow spun up 6 parallel research agents, each investigating one question:
 
-LemonSqueezy is now on the shortlist as a fallback if the Paddle appeal doesn't land.
+1. **Paddle review timelines** — official "48 hours" vs. actual community-reported data
+2. **Lemon Squeezy post-Stripe acquisition** — stability for new SaaS signups
+3. **Polar KYC scope** — specifically for Korean individual (non-corporate) sellers
+4. **Stripe direct signup** — whether it's actually available for Korean sellers
+5. **Korean PG (payment gateway) international coverage** — Inicis, Toss Payments, etc.
+6. **AI usage credits as "stored value"** — regulatory classification risk across key jurisdictions
 
-## Keyword Strategy: Where to Put 500,000 KRW
+Four of the most consequential findings were routed to adversarial cross-verification agents — separate agents tasked with actively trying to disprove each claim before it made it into the output.
 
-Session 8 (162 tool calls) was the ad channel decision session. The budget was 500,000 KRW (~$370) and the question was: domestic Naver or global channels?
+Total: 12 tool calls, 28 minutes to actionable conclusions.
 
-The workflow ran parallel research arms — one on Naver PowerLink mechanics, one on global alternatives. The domestic analysis covered search volume, CPC estimates, and conversion intent by keyword segment. The global arm looked at whether English-language interview coaching search traffic had any realistic overlap with Preterview's positioning.
+| Provider | Decision | Reason |
+|---|---|---|
+| Paddle | Hold | Domain rejection, appeal pending |
+| Lemon Squeezy | Pass | Post-Stripe acquisition instability for new SaaS signups |
+| Stripe | Unavailable | No direct merchant signup for Korean sellers |
+| Korean PG | Later | Requires registered sole proprietorship first |
+| **Polar** | ✅ Go now | Individual KYC accepted, usage-based billing supported |
 
-Verdict: all-in on Naver PowerLink for the initial campaign. The highest-leverage keywords weren't the obvious ones. "AI 면접" (AI interview) was too broad and expensive. The better targets were "면접 말버릇 교정" (interview speech habit correction) and "면접 습관 교정" (interview habit correction) — mid search volume, low CPC, high purchase intent. Users searching those phrases are actively trying to fix a specific problem, not just exploring.
+One finding that reframed everything: Paddle's official "48-hour review window" is marketing copy. Actual user reports from Paddle's community forums and indie dev discussions show 2–4 weeks for domains with any categorization ambiguity. That changes the risk profile entirely — waiting on Paddle means waiting for a month with a blocked payment flow.
 
-Gaming industry keywords like "게임회사 면접" (game company interview) had relevant intent but search volume was too small to justify CPC spend at this budget level.
+## Why Individual KYC Was the Right Call (W-8BEN vs W-8BEN-E)
 
-Implementation: added GA4 (`G-ES6SENFGM2`) and Naver conversion tracking pixel to `app/layout.tsx`, merged to main. Naver biz channel review passed the same day. GA4 is managed through `NEXT_PUBLIC_GA_ID` in `.env.local` to keep the tracking ID out of the repository.
+Polar's onboarding asks whether you're signing up as an Individual or Business. I have a registered Korean sole proprietorship (`개인사업자`). The question: does that qualify as a Business?
 
-## What Three Days of Multi-Project Orchestration Actually Looks Like
+The answer matters because it determines your tax withholding form. On Western fintech platforms, "Business" means an *incorporated legal entity* — a corporation or LLC. A Korean sole proprietorship is legally a natural person operating under a trade name, not a separate legal entity.
 
-The session count breakdown: 2 security sessions (email hardening), 1 IR upgrade (Preterview), 2 Paddle sessions (integration + appeal), 2 dental sessions (measurement + blog publishing), 1 ad strategy session, 1 homepage redesign session, a handful of smaller maintenance sessions. 830+ tool calls across all of them.
+- Individual → **W-8BEN** (Certificate of Foreign Status of Beneficial Owner — for individuals)
+- Business → **W-8BEN-E** (Certificate of Status of Beneficial Owner — for entities)
 
-Two patterns that consistently worked across all project types:
+Selecting Business with a sole proprietorship creates a document mismatch that stalls or kills verification — and the error message when this happens is not particularly helpful. This isn't documented anywhere obvious on Polar's onboarding screens.
 
-**Sub-agent delegation for context-heavy recurring work.** The dental marketing case was the clearest example. The main session doesn't need to know the details of Naver blog ranking algorithms, clinic history, or keyword tracking state. The sub-agent owns that context permanently. The main session commits one agent call and gets a structured result back. This scales: the same pattern would work for any domain that has its own stable context and recurring measurement cadence.
+Actual selections:
 
-**Parallel independent agents for multi-perspective verification.** Sequential review — even careful sequential review — has a compounding bias problem. Each step's framing influences the next. Running 4 agents independently on the same material and then synthesizing disagreements is more reliable for finding gaps. The IR case demonstrated this concretely: 3 of the 4 reviewers would have passed the "capability axes" claim if they'd been working sequentially off a shared context. The 4th caught it by reading the actual product screenshots.
+- **Using Polar as**: Individual
+- **What are you selling**: Software / SaaS
+- **Pricing model**: Usage-based (AI credit top-ups)
 
-The pattern that didn't work well: long-running sessions that mix blocked work (Paddle approval waiting) with active work. Session 7's 26-hour wall clock included substantial idle time. That work would have been cleaner split into two sessions — one for the merge, one for the legal pages and cleanup after the first rejection came back.
+## 24 Agents, 880k Tokens, One Ad Channel Decision
 
-Paddle is still pending. The rest ships.
+Separate from the payment situation, I needed to commit to an advertising channel for preterview. Another `ultracode` session, again starting with an unstructured prompt:
+
+```
+preterview 광고 태우려고 하는데 인스타가 나아?
+얼마를 어떤 타겟에 태우는게 가장 효과적인지
+객관적인 수치랑 근거로 서칭해줘. 국내/글로벌 모두
+```
+
+*(Translation: Thinking about running ads for preterview — is Instagram better? What target and budget is most cost-effective? Give me objective data, domestic and global.)*
+
+24 agents ran in parallel. ~880k tokens consumed, 245 web tool-uses covering CPC benchmarks, conversion intent signals, and platform-specific performance data across Korean and English-language sources.
+
+The key quality step: 13 core metrics went through adversarial verification before the final synthesis. LLM-generated research reliably inflates engagement numbers and blends correlation with causation. The adversarial pass caught and corrected several figures that looked plausible but didn't trace back to real primary sources.
+
+Key findings:
+
+- **At ₩500k (~$370) monthly budget: concentrate entirely on Naver Power Link** — don't split the budget
+- Highest-value keywords by efficiency ratio:
+  - `면접말버릇` (interview speech habits) — mid search volume, ₩70–120 CPC, high conversion intent
+  - `면접습관교정` (interview habit correction) — similar profile
+- Gaming industry keywords (`게임회사면접` / game company interviews) — too low search volume at this budget
+- Instagram: high CPM, low purchase intent for job-prep tools at this price point
+
+Naver Power Link copy variants and Google RSA headline options were also drafted within the same session.
+
+What shipped from this session:
+
+- GA4 (`G-ES6SENFGM2`) and Naver conversion tracking pixel added to `app/layout.tsx`
+- New files: `components/marketing/analytics-scripts.tsx`, `lib/marketing/conversions.ts`, `lib/marketing/track.ts`
+- Naver Biz Channel verification: passed same day
+
+## Dental SEO via One Subagent Call
+
+I maintain a parallel workstream managing content and SEO for a dental clinic. That work lives entirely inside a dedicated `dental-clinic` subagent, which keeps its own state in `~/dental-promo/dongbaek-uddental/`.
+
+From the main session, this was a single tool call: `Agent(1)`.
+
+The subagent handled everything: read `clinic.json`, `cache/`, and `history.json` to restore context from prior sessions, ran `_kb/blog_probe.py` to measure live SERP positions for 7 keywords, wrote the measurement digest.
+
+Results from this cycle:
+
+- **Post #1** ("Dongbaek Implants") → **back to #3** in Naver's blog tab. Had dropped outside the top 12 after a competitor content-flooding event. The oscillation between #3 and outside-the-top-12 is timing-dependent — the fix is publishing volume, not optimization.
+- **Post #2** ("Yongin Pediatric Dentistry") → **#1** on the `동백 소아치과` (Dongbaek pediatric dentistry) keyword. Not yet ranking for `용인 소아치과` (Yongin pediatric dentistry) — first checkpoint scheduled 2026-07-23 per experiment EXP-004.
+
+Both posts confirmed in `post` mode (Naver's distinction between indexed posts and actively ranked posts). Digest written to `digests/measure-2026-06-27.md` (9.1KB), synced in a 28-file commit.
+
+The pattern here is the point: the entire measurement cycle — context restoration, live SERP measurement, digest generation, sync — ran without touching the main session's context. One tool call as the boundary.
+
+## Identifying a Pay-to-Win Award in 5 Minutes
+
+An email arrived nominally from Money Today (a Korean financial news outlet), with the subject line: "Good Startup Award nomination — AI Mock Interview category."
+
+Three phrases in the body were worth checking:
+
+> "Coverage support (membership eligibility)"  
+> "Morning edition 5-column advertisement placement"  
+> "If you decline this award, we will have to recommend another company"
+
+Four WebSearch calls, five minutes. Conclusion: classic paid-award + PR contract scheme. The award is the hook; the actual product being sold is a media membership or PR contract. The "if you decline we'll pick someone else" line is a pressure mechanic designed to manufacture urgency and make the award feel scarce.
+
+Doesn't matter whether the email was genuinely from Money Today or a spoofed address. The economics of the offer are the same either way. Pass.
+
+## Where Things Stand
+
+| Item | Status |
+|---|---|
+| Paddle appeal | Awaiting decision |
+| Polar onboarding | In progress |
+| preterview payments | PayPal (global USD) live |
+| Naver Power Link | Setup complete, pending domain approval |
+
+## What Two Rejections Actually Taught Me
+
+Attaching a Western Merchant of Record to a Korean developer's SaaS is not a documentation problem. It's a series of structural mismatches that aren't obvious until you're inside them:
+
+**KYC expiration windows.** Paddle's KYC window is not paused while you wait for domain review. If you applied, got busy, and came back later — you restart from Customer Support.
+
+**Domain categorization by automated classifier.** The classifiers are trained on majority-market products. An AI mock interview tool has no clean match in typical category trees. "Interview" triggers job prep → resume builder. No way to pre-clear this; you find out after the review window.
+
+**Entity type selection.** Western fintech's Individual vs. Business split assumes a legal system where sole proprietorships are incorporated entities. Korea's `개인사업자` is a natural person with a trade name, not a corporation. Selecting the wrong type means a W-8 form mismatch that stalls verification — and the error message won't tell you that's what happened.
+
+**Review timelines.** Published windows are aspirational. Real timelines for non-trivial domains are 4–10× longer.
+
+Two rejections in 36 hours is approximately the median experience for Korean indie developers trying to attach a credit-based SaaS product to a Western MoR without a foreign incorporated entity. The 28-minute parallel research session genuinely compressed 2–3 days of forum reading and documentation review into actionable findings. The adversarial verification pass is what separates usable research from plausible-looking noise.
+
+**Tool stats across 7 sessions:** Bash ×230, Edit ×50, Read ×51, Workflow ×12, Agent ×1.
 
 ---
 

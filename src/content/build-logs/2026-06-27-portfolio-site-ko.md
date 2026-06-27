@@ -1,106 +1,120 @@
 ---
-title: "이메일 17통이 실수로 나갔다 — Claude Code로 6개 프로젝트 하드닝한 3일"
+title: "Paddle 두 번 거부 → Polar 피벗: 결제사 심사가 이렇게 복잡할 줄"
 project: "portfolio-site"
 date: 2026-06-27
 lang: ko
-tags: [claude-code, automation, security, paddle, preterview, multi-agent]
-description: "JDLab 이메일 파이프라인에서 17통이 실수로 live 발송됐다. 보안 감사·하드닝부터 Preterview IR 고도화, Paddle 결제 연동 두 번 반려, 치과 마케팅 자동화까지 — 3일 15세션 830+ tool calls 기록"
+tags: [claude-code, preterview, paddle, polar, payment, ultracode, workflow, dental-clinic]
+description: "preterview.com에 Paddle MoR 붙이려다 두 계정 연속 거부. ultracode로 결제사 11개 병렬 리서치 후 Polar로 방향 틀었다. 광고 리서치 24에이전트·880k 토큰, 치과 블로그 순위 결과까지 — 7세션 448+ tool calls"
 ---
 
-6월 25일 아침, JDLab 이메일 파이프라인 로그를 열었더니 `classification=live_send`, `sent_count=17`, `dry_run=false`가 찍혀 있었다. 실수로 이메일 17통이 실제 발신됐다. 발신자는 `jd@jidonglab.com` — 코드에서 명시적으로 금지한 primary mailbox였다.
+Paddle 심사 결과 이메일 두 통이 각각 "Action required(만료)"와 "Not able to enable checkouts"로 돌아왔다. 36시간 동안 KYC 양식 채우고 도메인 검수를 기다렸는데 결과가 이거다.
 
-**TL;DR** 이메일 보안 감사 2세션 + 하드닝, Preterview IR 고도화(멀티에이전트 워크플로), Paddle 결제 연동 두 번 막힘, 치과 마케팅 위임 자동화, jidonglab.com 홈페이지 개편까지. 3일, 15세션, 830+ tool calls.
+**TL;DR** preterview.com에 Paddle을 두 계정으로 시도했다가 연속 거부. ultracode로 결제사 6개를 병렬 리서치해 Polar로 피벗했다. 같은 기간 광고 전략 리서치(24 에이전트), 치과 블로그 2편 순위 상위 진입, 결제사 스팸 메일 판별까지 7세션에서 처리했다.
 
-## 이메일 17통이 어떻게 실수로 나갔나
+## 첫 번째 Paddle: KYC 만료
 
-문제는 `~/.hermes/scripts/jdlab_tryjdlab_live_send_launch.sh`에 있었다. 이 cron 엔트리포인트가 모든 게이트를 하드코딩으로 열고 있었다:
+첫 계정은 이전에 FortuneeLab으로 신청했다가 심사가 만료된 상태였다. 대시보드를 열었더니:
 
-```bash
-JDLAB_DRY_RUN=0
-JDLAB_DRAFT_CREATE_OK=approved
-JDLAB_LIVE_SEND_OK=approved
-SEND_WINDOW=9999
-```
-
-전략 문서는 "fail-closed / no-send / no-cron"이라고 명시했는데, 실제 실행 스크립트는 정반대였다. 추가로 금지 발신자 검사 로직이 `--expect-profile` 문자열만 보고 있어서, 실제 인증된 mailbox(`jd@jidonglab.com`)를 From alias `jd@tryjdlab.com`으로 감추면 통과됐다. 즉 게이트가 잘못된 필드를 검사하고 있었다.
-
-Claude에게 "JDLab 워크플로우 end-to-end 감사, 실제 로그·상태파일·Hermes 스크립트까지 전수 확인"을 시켰다. 세션 1에서 Bash 21번, Read 22번, Edit 14번 — 총 79 tool calls로 root cause 3개를 찾고 픽스를 냈다.
-
-픽스 핵심:
-- live launcher 완전 비활성화 (crontab/launchd에서 제거 확인)
-- 금지 발신자 identity guard를 From alias가 아닌 **authenticated mailbox**로 검사하도록 수정
-- `never-send` 패턴 확장 — `webmaster`, `mailer_daemon`(underscore 변형), role variants(`contacto`, `contato`, `press`, `partnerships` 등) 추가
-
-세션 2는 세션 1 픽스를 독립 검증하고 방어 심도 갭을 추가 하드닝하는 follow-up이었다. 4개 독립 감사(bounce/reply 피드백 루프, yield collapse, never-send 패턴, preflight 억제 분류기)를 병렬로 돌렸다. 89 tool calls.
-
-시스템은 세션 2 이후 완전히 fail-closed 상태다. live launcher 비활성화, draft gate 기본 차단, send/draft cron 전부 pause.
-
-## 서브에이전트 위임: 치과 마케팅 자동화
-
-이번 주에 가장 효율적이었던 패턴은 `dental-clinic` 서브에이전트 위임이다. 동백유디치과 정기 측정을 이렇게 요청했다:
-
-```
-동백유디치과 정기 측정이다. dental-clinic 서브에이전트에 위임해 수행하라.
-공개 데이터 자동 측정: 모니터링 키워드 블로그탭/통검 노출순위 실측.
-★발행글 2편(소아) 추적: logNo 224326926066이 소아축 키워드에 진입했는지...
-```
-
-메인 세션은 이 프롬프트 하나가 전부다. 에이전트가 `~/dental-promo/dongbaek-uddental/` 아래 `clinic.json`, `cache`, `history.json`을 읽어 컨텍스트를 복원하고, 측정 → 기록 → 다이제스트 생성 → sync까지 도맡는다. 메인 세션 tool call은 `Agent(1)`.
-
-당일 결과: '동백 소아치과' 블로그탭 **1위**, '용인 소아치과' **4위 첫 진입** — 발행 하루 만에 효과가 발현됐다.
-
-유디치과 블로그 발행 세션(세션 6, 53 tool calls)에선 `SendMessage`로 같은 dental-clinic 에이전트 인스턴스를 이어서 호출해 컨텍스트를 유지했다. 새 인스턴스를 띄우면 `clinic.json` 복원 비용이 다시 발생하기 때문이다. 이 세션에서 2편(소아치과) 초안을 최종 패키지로 준비하고 사장님이 직접 네이버 블로그에 붙여넣기로 발행했다.
-
-## IR 고도화: 다차원 검증 워크플로
-
-세션 4에서 preterview IR 문서 고도화 작업을 ultracode 모드로 돌렸다. 먼저 기존 IR에서 검증이 필요한 주장을 목록화했다.
-
-주요 불일치 발견:
-- README 가입보너스 300cr vs IR 200cr
-- IR "역량 3축" vs **실제 제품 역량 5축** (리포트 스크린샷에서 직접 확인)
-- "결제 5종" 주장 → 코드베이스 직접 grep으로 교차 확인
-
-Workflow tool로 4개 에이전트를 병렬 실행했다: VC 렌즈, 포지셔닝 렌즈, 내러티브 렌즈, 디자인 렌즈. 각각 독립적으로 주장을 검증하고 비판했다. 결론은 IR이 README보다 오히려 더 정확했다. "역량 3축 → 5축" 불일치만 수정하고, 실제 면접·리포트 스크린샷(3인 패널·음성 답변·꼬리질문·실시간 음성인식·역량 5축 점수판)을 슬라이드에 직접 임베드했다.
-
-세션 4 도구 사용: Bash 35번, Read 29번, Edit 24번, Workflow 1번. 총 92 tool calls.
-
-## Paddle 결제 연동: 두 번 막힌 이야기
-
-세션 7이 이번 주 제일 길었다. 26시간 52분짜리 세션 (대부분 Paddle 대기 시간 포함), 211 tool calls.
-
-`feat/paddle-checkout` 브랜치(23커밋, 47개 파일, +4,960줄)를 main에 머지하는 것부터 시작했다. 결제 코드 4커밋이 면접·아바타 파일과 안 겹치는 것을 확인하고 클린하게 머지했다.
-
-**첫 번째 막힘**: 기존 Paddle 계정 KYC 인증 만료.
 ```
 Verification status: Action required
-We're unable to verify your identity as the verification process has expired.
-```
-새 계정을 만들어서 sandbox 환경부터 다시 세팅했다. 제품 3개(Starter 800cr/$7.99, Standard 5,000cr/$39, Pro 12,000cr/$79), client-side token, webhook까지 설정 완료.
-
-**두 번째 막힘**: 새 계정으로 도메인 심사 신청했더니 반려.
-```
-We identified the following product categories on this domain:
-Other/Resume/CV Builders
-Human Services/Consulting or Advisory Services
-These categories fall outside what Paddle can support under our Acceptable Use Policy.
+We're unable to verify your identity as the 
+verification process has expired.
 ```
 
-AI가 사람을 흉내 내는 인터뷰 코치라서 "Human Services"로 분류됐다. 재심사 신청 시 명확하게 명시했다: "AI 자동 생성, 사람 인터뷰어·코치·컨설턴트 0, 완전히 소프트웨어 제품." 현재 결과 대기 중.
+재신청은 Customer Support를 거쳐야 했다. 곧바로 새 계정을 만들기로 결정. 211 tool calls 세션에서 product catalog 3개(Starter 800cr/$7.99, Standard 5,000cr/$39, Pro 12,000cr/$79), client-side token, webhook까지 세팅했다. `feat/paddle-checkout` 브랜치(23커밋, 47개 파일, +4,960줄)도 main에 클린하게 머지했다.
 
-코드 작업으로는 법적 페이지 3개(terms, privacy, refund) 신규 생성, dead payment code 제거, live 환경 env 정리를 함께 처리했다.
+## 두 번째 Paddle: 도메인 거부
 
-## 광고 세팅: 네이버 파워링크 + GA4 픽셀
+새 계정으로 `preterview.com`을 등록하고 이틀 기다렸다. 돌아온 이메일:
 
-세션 8(162 tool calls)에서 50만원 예산으로 광고 채널을 결정했다.
+> We identified the following product categories on this domain:
+> **Resume/CV Builders**, Human Services/Consulting or Advisory Services.
+> These categories fall outside what Paddle is able to support.
 
-워크플로로 국내·글로벌 두 채널을 병렬 조사했다. 국내는 네이버 파워링크로 집중하기로 결론냈다. 가성비 상위 키워드는 "면접 말버릇 교정", "면접 습관 교정" — 검색량 중간, CPC 낮음, 전환 의도 높음. 게임 업계 키워드("게임회사 면접")는 검색량이 너무 작아서 우선순위 후순위.
+AI 모의면접 서비스인데 "이력서 빌더 + Human Services"로 분류됐다. Appeal 폼에 "완전 자동화 AI, 사람 코치·컨설턴트 0명, 순수 소프트웨어 제품"이라고 명시해서 재심사를 넣었다.
 
-GA4(`G-ES6SENFGM2`)와 네이버 전환 추적 픽셀을 `app/layout.tsx`에 추가하고 main에 머지했다. 네이버 비즈채널 검수는 당일 통과. GA4는 `NEXT_PUBLIC_GA_ID` 환경변수로 분리해 `.env.local`에서 관리한다.
+## ultracode: 6개 리서치 에이전트, 28분
 
-## 정리
+두 번째 거부 직후 ultracode 모드를 켰다. 프롬프트 하나:
 
-3일, 15세션, 830+ tool calls. 관여한 프로젝트: `local-commerce-agent`, `preterview`, `dongbaek-uddental`, `jidonglab-site`, `portfolio-site`.
+```
+preterview 결제 붙일 수 있는거 뭐가 있어?
+paddle은 심사중이야 얼마나 걸려?
+lemon squeezy나 polar는 어떄? 크레딧 때문에 안돼? 한국꺼는?
+```
 
-유효했던 패턴 두 가지. 하나는 **서브에이전트 위임** — 치과 마케팅처럼 컨텍스트가 무거운 반복 업무는 전담 에이전트에 넘기고 메인 세션은 의사결정과 승인 게이트만. 다른 하나는 **병렬 다각도 검증** — IR 고도화나 보안 감사처럼 여러 관점이 필요한 곳에서 Workflow로 독립 에이전트를 병렬로 돌리면 순차 리뷰보다 놓치는 게 확연히 줄어든다.
+Workflow가 6개 리서치 에이전트를 병렬로 돌렸다.
 
-Paddle은 아직 열린 변수다. 재심사 통과를 기다리면서 LemonSqueezy를 대안으로 검토 중이다.
+- Paddle 심사 실제 소요 기간 — 공식 "48시간"은 마케팅, 실제 2~4주
+- Lemon Squeezy의 Stripe 인수 후 신규 가입 안정성
+- Polar의 한국 개인 셀러 KYC 범위
+- Stripe 한국 셀러 직접 가입 가능 여부
+- 한국 PG사 해외 결제 커버리지
+- AI usage-credit의 "stored value" 규제 해당 여부
+
+4개 핵심 주장은 적대적 교차검증 에이전트를 별도로 돌렸다. 12 tool calls, 28분 만에 결론이 나왔다.
+
+| 결제사 | 판정 | 이유 |
+|-------|------|------|
+| Paddle | 보류 | 도메인 거부, Appeal 결과 미정 |
+| Lemon Squeezy | 비추 | Stripe 인수 후 신규 SaaS 불안정 |
+| Stripe | 불가 | 한국 셀러 직접 가입 없음 |
+| 한국 PG | 후순위 | 개인사업자 등록 후 검토 |
+| **Polar** | ✅ 즉시 가능 | Individual KYC, usage-based 지원 |
+
+## Polar 온보딩: Individual vs Business
+
+"개인사업자 있어도 Individual 맞아?"라는 질문에서 Claude Code가 핵심을 짚었다. 해외 플랫폼의 Business 선택지는 법인(incorporated entity) 전제다. 한국 개인사업자는 자연인이라 W-8BEN(개인)이 맞고 W-8BEN-E(법인)가 아니다. Business로 가면 서류 불일치로 막히는 구조.
+
+실제 온보딩 선택:
+- Using Polar as: **Individual**
+- What are you selling: **Software / SaaS**
+- Pricing model: **Usage-based** (AI credit 충전형)
+
+## 광고 리서치: 24 에이전트, 880k 토큰
+
+결제와 별개로 광고 채널 결정이 필요했다. ultracode로 Workflow를 띄웠다.
+
+```
+preterview 광고 태우려고 하는데 인스타가 나아?
+얼마를 어떤 타겟에 태우는게 가장 효과적인지
+객관적인 수치랑 근거로 서칭해줘. 국내/글로벌 모두
+```
+
+24개 에이전트가 병렬로 돌았다. 약 880k 토큰, 245 웹 tool-uses. 13개 핵심 수치를 적대적 검증 에이전트가 교차 확인해서 수정했다 — 검증 전 숫자를 그대로 쓰지 않는 게 여기서 빛을 발했다.
+
+결론: 50만원 예산이면 **네이버 파워링크** 단일 집중. 가성비 상위 키워드는 `면접말버릇`, `면접습관교정` — 검색량 중간, CPC 70~120원, 전환 의도 높음. 게임 업계 키워드(`게임회사면접`)는 검색량이 너무 작아서 후순위. 네이버 파워링크 카피와 구글 RSA 카피도 세션 안에서 뽑았다.
+
+GA4(`G-ES6SENFGM2`)와 네이버 전환 추적 픽셀을 `app/layout.tsx`에 추가하고 main에 머지했다. `components/marketing/analytics-scripts.tsx`, `lib/marketing/conversions.ts`, `lib/marketing/track.ts` 신규 생성. 네이버 비즈채널 검수 당일 통과.
+
+## dental-clinic 서브에이전트: 측정 결과
+
+동백유디치과 정기 측정을 전담 에이전트에 위임했다. 메인 세션 tool call은 `Agent(1)` 하나.
+
+에이전트가 `~/dental-promo/dongbaek-uddental/` 아래 `clinic.json`, `cache`, `history.json`을 읽어 컨텍스트를 복원하고, `_kb/blog_probe.py`로 7개 키워드 SERP를 실측했다. 결과:
+
+- 1편 '동백 임플란트' → 블로그탭 **3위 복귀** (경쟁사 도배 후 12위 밖으로 밀렸다가)
+- 2편 '용인 소아치과' → `동백 소아치과` 키워드 **1위**, `용인 소아치과` 아직 미진입(EXP-004 1차 판정 07-23)
+
+두 글 모두 post 모드 생존 확인. 다이제스트 `digests/measure-2026-06-27.md`(9.1KB) 생성, sync 배포까지 완료(28 files 커밋).
+
+1편 순위가 3위와 12위 밖을 오실레이션하는 이유는 경쟁사 도배 타이밍 의존이다. 글 볼륨이 늘어나야 해결된다.
+
+## 굿컴퍼니대상 메일: 5분 만에 스팸 판별
+
+머니투데이 중기·벤처팀 명의로 "AI 모의면접 서비스 부문 굿-스타트업대상 수상 추천" 메일이 왔다. 내용 중 눈에 걸리는 문구들:
+
+> "취재 지원(멤버십 자격)", "조간지면 5단 광고", "수상을 고사하시면 다른 기업을 추천해야"
+
+WebSearch 4번, 5분. 결론: **"돈 받고 주는 상(유료 수상)"을 광고·멤버십 영업으로 포장한 전형적 패턴**. 진짜 머니투데이가 보낸 메일이라도 상은 미끼이고 실제 상품은 PR 계약이다. 패스.
+
+## 지금 상태
+
+- Paddle Appeal: 결과 대기 중
+- Polar: 온보딩 진행 중
+- preterview 결제: PayPal(글로벌 USD) 라이브 상태 유지
+- 광고: 네이버 파워링크 세팅 완료, 도메인 승인 후 집행 예정
+
+국내 개인사업자가 해외 MoR을 붙이는 건 체크박스 채우는 게 아니다. 서비스 카테고리 분류, KYC 만료, 도메인 심사까지 실제로 두 번 거부당하는 과정이 있다는 걸 이번에 몸으로 확인했다.
+
+도구 통계 (7세션 합산): Bash 230회, Edit 50회, Read 51회, Workflow 12회, Agent 1회.
